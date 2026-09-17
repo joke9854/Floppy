@@ -32,10 +32,11 @@ jobs:
       - name: Configure test secret
         run: echo "SECRET=$(uv run --no-sync python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> "$GITHUB_ENV"
 
-      - name: Run CineTrack-targeted server tests
-        run: |
-          uv run --no-sync python src/manage.py test \
-            api.tests.test_cinetrack_connection \
-            api.tests.test_cinetrack_bootstrap_performance \
-            api.tests.test_fork_scope_enforcement.ScopeMapCoverageTests \
-            --exclude-tag network
+      - name: Connection and scoped-token tests
+        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_connection --exclude-tag network
+
+      - name: Bootstrap performance tests
+        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_bootstrap_performance --exclude-tag network
+
+      - name: Scope map coverage
+        run: uv run --no-sync python src/manage.py test api.tests.test_fork_scope_enforcement.ScopeMapCoverageTests --exclude-tag network
