@@ -994,7 +994,9 @@ def _get_media_entries_for_type(
     """Return (entries, total). `total` is None unless the SQL fast path ran."""
     tag_included_ids, tag_excluded_ids = tag_ids
     if media_type == MediaTypes.EPISODE.value:
-        queryset = Episode.objects.filter(related_season__user=user).select_related("item")
+        queryset = Episode.objects.filter(related_season__user=user).select_related(
+            "item", "related_season", "related_season__item",
+        )
         if filters.statuses:
             queryset = queryset.filter(related_season__status__in=filters.statuses)
         if filters.search:
@@ -1003,6 +1005,20 @@ def _get_media_entries_for_type(
             queryset = queryset.filter(item_id__in=tag_included_ids)
         if tag_excluded_ids is not None:
             queryset = queryset.exclude(item_id__in=tag_excluded_ids)
+        # Episode history can be very large. The API list endpoint supplies a
+        # limit/offset, so honour it before evaluating the QuerySet instead of
+        # materialising every play and letting the view slice a Python list.
+        if limit is not None:
+            total = queryset.count()
+            start = offset or 0
+            queryset = queryset.order_by(
+                "related_season__item__media_id",
+                "related_season__item__source",
+                "related_season__item__season_number",
+                "item__episode_number",
+                "id",
+            )[start:start + limit]
+            return [MediaListEntry(item=episode.item, media=episode) for episode in queryset], total
         return [MediaListEntry(item=episode.item, media=episode) for episode in queryset], None
 
     list_sql_filters = {
