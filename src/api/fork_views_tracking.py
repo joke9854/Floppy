@@ -3,8 +3,10 @@
 # lives in fork_urls.py.
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
+from uuid import UUID
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -12,7 +14,11 @@ from rest_framework import views as drf_views
 from rest_framework.response import Response
 
 from app import fork_services_history, history_cache_reader
-from app.fork_services_episode import drop_episode, resolve_or_create_season
+from app.fork_services_episode import (
+    create_episode_watch,
+    drop_episode,
+    resolve_or_create_season,
+)
 from app.fork_services_movie import resolve_or_create_movie
 from app.history_cache_utils import normalize_history_media_type_tokens
 from app.models import Episode, ItemTag, MediaTypes, Movie, Tag
@@ -779,3 +785,144 @@ class MediaEpisodeBulkView(drf_views.APIView):
             media_id,
         )
         return Response({"task_id": task.id}, status=HTTP.ACCEPTED)
+
+
+# /api/v1/media/tv/[source]/[media_id]/episodes/ensure/
+class MediaEpisodeEnsureView(drf_views.APIView):
+    """Idempotently ensure exact external episode-watch events exist.
+
+    This fork-only endpoint is intentionally separate from the historical
+    ``episodes/bulk`` add/replace API.  Each UUID is a durable client event
+    identity: a retry reuses it, while a distinct timestamp for the same
+    episode remains a legitimate rewatch.
+    """
+
+    max_events = 50
+
+    @extend_schema(parameters=[MEDIA_TYPE_TV_ONLY_PARAM])
+    def post(self, request, media_type, source, media_id):
+        error = _tv_route_error(media_type, source)
+        if error:
+            return error
+
+        events = request.data.get("events")
+        if not isinstance(events, list) or not events:
+            return Response({"detail": "events must be a non-empty list."}, status=HTTP.BAD_REQUEST)
+        if len(events) > self.max_events:
+            return Response(
+                {"detail": f"events must contain at most {self.max_events} entries."},
+                status=HTTP.BAD_REQUEST,
+            )
+
+        parsed = []
+        for index, event in enumerate(events):
+            if not isinstance(event, dict):
+                return Response({"detail": f"events[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
+            try:
+                season_number = int(event["season_number"])
+                episode_number = int(event["episode_number"])
+                client_event_id = UUID(str(event["client_event_id"]))
+                watched_at = try_parse_datetime_input(event["watched_at"])
+            except (KeyError, TypeError, ValueError):
+                return Response(
+                    {"detail": f"events[{index}] has invalid season_number, episode_number, watched_at, or client_event_id."},
+                    status=HTTP.BAD_REQUEST,
+                )
+            if season_number < 1 or episode_number < 1 or watched_at is None:
+                return Response({"detail": f"events[{index}] has invalid coordinates or watched_at."}, status=HTTP.BAD_REQUEST)
+            parsed.append((season_number, episode_number, watched_at, client_event_id))
+
+        # A repeated UUID inside one request is ambiguous even before touching
+        # storage; reject it rather than silently merging two event payloads.
+        if len({event[3] for event in parsed}) != len(parsed):
+            return Response({"detail": "client_event_id values must be unique per request."}, status=HTTP.BAD_REQUEST)
+
+        library_media_type = (request.data.get("library_media_type") or "").strip()
+        language = metadata_resolution.metadata_language_default(request.user)
+        # Validate every requested coordinate before creating a tracked season
+        # or a history row. A malformed later child must not leave earlier
+        # children committed from what the client sees as one request.
+        try:
+            for season_number, episode_number, _, _ in parsed:
+                _, coordinate_error = resolve_episode_coordinate_for_request(
+                    request.user,
+                    media_id,
+                    source,
+                    season_number,
+                    episode_number,
+                    library_media_type=library_media_type,
+                    language=language,
+                )
+                if coordinate_error:
+                    return coordinate_error
+        except Exception:
+            logger.exception("Failed to validate CineTrack episode ensure media_id=%s", media_id)
+            return Response({"detail": "Could not resolve episode events."}, status=HTTP.NOT_FOUND)
+
+        seasons = {}
+        try:
+            with transaction.atomic():
+                results = []
+                for season_number, episode_number, watched_at, client_event_id in parsed:
+                    related_season = seasons.get(season_number)
+                    if related_season is None:
+                        related_season = resolve_or_create_season(
+                            request.user,
+                            media_id,
+                            source,
+                            season_number,
+                            library_media_type=library_media_type,
+                        )
+                        seasons[season_number] = related_season
+
+                    claimed = Episode.objects.filter(
+                        watch_operation_id=client_event_id,
+                    ).select_related("related_season", "item").first()
+                    if claimed is not None:
+                        if (
+                            claimed.related_season_id != related_season.id
+                            or claimed.item.episode_number != episode_number
+                        ):
+                            return Response({"detail": "client_event_id belongs to another episode."}, status=HTTP.CONFLICT)
+                        results.append(_episode_ensure_result(client_event_id, season_number, episode_number, "already_satisfied"))
+                        continue
+
+                    # Adopt an exact legacy event when safe. Exact datetime
+                    # matching deliberately preserves a later rewatch of the
+                    # same coordinate as a separate history record.
+                    legacy = Episode.objects.filter(
+                        related_season=related_season,
+                        item__episode_number=episode_number,
+                        end_date=watched_at,
+                    ).order_by("id").first()
+                    if legacy is not None:
+                        if legacy.watch_operation_id is None:
+                            legacy.watch_operation_id = client_event_id
+                            legacy.save(update_fields=["watch_operation_id"])
+                        results.append(_episode_ensure_result(client_event_id, season_number, episode_number, "already_satisfied"))
+                        continue
+
+                    result = related_season.watch(
+                        episode_number,
+                        watched_at,
+                        watch_operation_id=client_event_id,
+                    )
+                    results.append(_episode_ensure_result(
+                        client_event_id,
+                        season_number,
+                        episode_number,
+                        "created" if result.created else "already_satisfied",
+                    ))
+        except Exception:
+            logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
+            return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
+        return Response({"results": results}, status=HTTP.OK)
+
+
+def _episode_ensure_result(client_event_id, season_number, episode_number, status):
+    return {
+        "client_event_id": str(client_event_id),
+        "season_number": season_number,
+        "episode_number": episode_number,
+        "status": status,
+    }
