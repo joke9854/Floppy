@@ -83,6 +83,12 @@ def create_episode_watch(
     every submitted operation id in one query. The unique constraint and
     IntegrityError replay path still protect a concurrent retry, so skipping the
     redundant initial lookup does not weaken idempotency.
+
+    Prechecked importers also already resolved authoritative episode metadata for
+    the complete request. In that mode the durable watch fact is inserted with
+    ``save_base`` so ``Episode.save`` cannot issue a second provider lookup for
+    every row. Library/show status is asserted by the bootstrap library batches;
+    this path is responsible only for preserving the exact watch event.
     """
     operation_id = normalize_watch_operation_id(watch_operation_id)
     identity = {
@@ -103,13 +109,39 @@ def create_episode_watch(
 
         try:
             with transaction.atomic():
-                episode = Episode.objects.create(
-                    related_season=related_season,
-                    item=item,
-                    end_date=end_date,
-                    watch_operation_id=operation_id,
-                    **episode_fields,
-                )
+                if operation_prechecked:
+                    # Preserve the episode-level rating semantics from the normal
+                    # save path without invoking its provider-backed completion
+                    # reconciliation. A bootstrap batch has already fetched and
+                    # validated the season metadata once for all events.
+                    score = episode_fields.pop("score", None)
+                    if score is None:
+                        score = (
+                            Episode.objects.filter(
+                                related_season_id=related_season.id,
+                                item_id=item.id,
+                            )
+                            .exclude(score__isnull=True)
+                            .values_list("score", flat=True)
+                            .first()
+                        )
+                    episode = Episode(
+                        related_season=related_season,
+                        item=item,
+                        end_date=end_date,
+                        watch_operation_id=operation_id,
+                        score=score,
+                        **episode_fields,
+                    )
+                    episode.save_base(raw=True, force_insert=True)
+                else:
+                    episode = Episode.objects.create(
+                        related_season=related_season,
+                        item=item,
+                        end_date=end_date,
+                        watch_operation_id=operation_id,
+                        **episode_fields,
+                    )
         except IntegrityError as error:
             if operation_id is None:
                 raise
