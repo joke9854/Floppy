@@ -39,6 +39,10 @@ class CineTrackConnectionView(drf_views.APIView):
             {
                 "authenticated": True,
                 "account_id": account_id,
+                # Temporary compatibility alias for Android clients that used
+                # the old preferences response solely to derive an account
+                # identity. This value is the same opaque HMAC, never a username.
+                "user": account_id,
                 "server_version": info.get("version"),
                 "api_extensions": dict(CINETRACK_API_EXTENSIONS),
             }
