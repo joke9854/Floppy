@@ -74,9 +74,16 @@ def create_episode_watch(
     end_date,
     *,
     watch_operation_id=None,
+    operation_prechecked=False,
     **episode_fields,
 ):
-    """Create one Episode watch, replaying a previously claimed private token."""
+    """Create one Episode watch, replaying a previously claimed private token.
+
+    ``operation_prechecked`` is for bounded batch importers that already loaded
+    every submitted operation id in one query. The unique constraint and
+    IntegrityError replay path still protect a concurrent retry, so skipping the
+    redundant initial lookup does not weaken idempotency.
+    """
     operation_id = normalize_watch_operation_id(watch_operation_id)
     identity = {
         "user_id": related_season.user_id,
@@ -85,7 +92,7 @@ def create_episode_watch(
     }
 
     def create_or_replay():
-        if operation_id is not None:
+        if operation_id is not None and not operation_prechecked:
             claimed = (
                 Episode.objects.filter(watch_operation_id=operation_id)
                 .select_related("related_season", "item")
