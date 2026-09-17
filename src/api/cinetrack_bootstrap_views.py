@@ -676,8 +676,23 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                         if legacy_candidates:
                             legacy = legacy_candidates.pop(0)
                             if legacy.watch_operation_id is None:
-                                legacy.watch_operation_id = client_event_id
-                                legacy.save(update_fields=["watch_operation_id"])
+                                # This is identity adoption for an already-existing
+                                # exact timestamp event. Keep it local: Episode.save()
+                                # performs provider-backed completion reconciliation,
+                                # which would turn one batch fetch into an N+1 path.
+                                updated = Episode.objects.filter(
+                                    pk=legacy.pk,
+                                    watch_operation_id__isnull=True,
+                                ).update(watch_operation_id=client_event_id)
+                                if updated:
+                                    legacy.watch_operation_id = client_event_id
+                                else:
+                                    claimed = Episode.objects.filter(pk=legacy.pk).only("watch_operation_id").first()
+                                    if claimed is None or claimed.watch_operation_id != client_event_id:
+                                        return Response(
+                                            {"detail": "client_event_id conflicts with an existing episode event."},
+                                            status=HTTP.CONFLICT,
+                                        )
                             outcomes[client_event_id] = "already_satisfied"
                             continue
 
