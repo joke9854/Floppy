@@ -3,6 +3,7 @@
 from django.urls import re_path
 
 from . import (
+    cinetrack_bootstrap_views,
     fork_views,
     fork_views_discover,
     fork_views_integrations,
@@ -22,12 +23,12 @@ from . import (
 urlpatterns = [
     re_path(
         r"^cinetrack/bootstrap/movies/ensure/?$",
-        fork_views_tracking.CineTrackBootstrapMoviesEnsureView.as_view(),
+        cinetrack_bootstrap_views.CineTrackBootstrapMoviesEnsureView.as_view(),
         name="api_cinetrack_bootstrap_movies_ensure",
     ),
     re_path(
         r"^cinetrack/bootstrap/shows/ensure/?$",
-        fork_views_tracking.CineTrackBootstrapShowsEnsureView.as_view(),
+        cinetrack_bootstrap_views.CineTrackBootstrapShowsEnsureView.as_view(),
         name="api_cinetrack_bootstrap_shows_ensure",
     ),
     re_path(
@@ -72,7 +73,7 @@ urlpatterns = [
     ),
     re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/episodes/ensure/?$",
-        fork_views_tracking.MediaEpisodeEnsureView.as_view(),
+        cinetrack_bootstrap_views.MediaEpisodeEnsureView.as_view(),
         name="api_media_episode_ensure",
     ),
     re_path(
