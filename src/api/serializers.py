@@ -808,6 +808,10 @@ class InfoSerializer(serializers.Serializer):
             "timezone": settings.TIME_ZONE,
             "admin_enabled": settings.ADMIN_ENABLED,
             "track_time": settings.TRACK_TIME,
+            "api_extensions": {
+                "cinetrack_episode_events_v1": True,
+                "episode_sql_pagination": True,
+            },
         }
 
 
