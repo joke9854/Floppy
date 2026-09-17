@@ -21,6 +21,16 @@ from . import (
 
 urlpatterns = [
     re_path(
+        r"^cinetrack/bootstrap/movies/ensure/?$",
+        fork_views_tracking.CineTrackBootstrapMoviesEnsureView.as_view(),
+        name="api_cinetrack_bootstrap_movies_ensure",
+    ),
+    re_path(
+        r"^cinetrack/bootstrap/shows/ensure/?$",
+        fork_views_tracking.CineTrackBootstrapShowsEnsureView.as_view(),
+        name="api_cinetrack_bootstrap_shows_ensure",
+    ),
+    re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/episodes/(?P<episode_number>\d+)/watch/?$",
         fork_views_tracking.MediaEpisodeWatchView.as_view(),
         name="api_media_episode_watch",

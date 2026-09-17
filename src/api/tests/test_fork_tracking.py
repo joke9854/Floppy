@@ -1247,3 +1247,33 @@ class EpisodeEnsureTests(FloppyApiTestCase):
         }
         response = self._ensure([event] * 51)
         self.assertEqual(response.status_code, HTTP.BAD_REQUEST)
+
+
+class CineTrackBootstrapV2Tests(FloppyApiTestCase):
+    """The V2 endpoints persist tracker facts without provider hydration."""
+
+    @patch("app.fork_services_movie.services.get_media_metadata")
+    def test_movie_batch_preserves_timestamp_and_is_idempotent(self, metadata):
+        payload = {"movies": [{
+            "source": "tmdb", "media_id": "99001", "title": "Imported movie", "status": 3,
+            "watch": {"watched_at": "2024-03-02T21:47:18Z", "client_event_id": "cinetrack:movie:99001"},
+        }]}
+        first = self.call_api("post", "api_cinetrack_bootstrap_movies_ensure", payload=payload, headers=self.auth_headers)
+        second = self.call_api("post", "api_cinetrack_bootstrap_movies_ensure", payload=payload, headers=self.auth_headers)
+        self.assertEqual(first.status_code, HTTP.OK)
+        self.assertEqual(second.status_code, HTTP.OK)
+        self.assertEqual(first.json()["results"][0]["status"], "created")
+        self.assertEqual(second.json()["results"][0]["status"], "already_satisfied")
+        self.assertTrue(Movie.objects.filter(plays__end_date="2024-03-02T21:47:18Z").exists())
+        metadata.assert_not_called()
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_show_batch_does_not_fabricate_episode_history(self, metadata):
+        response = self.call_api(
+            "post", "api_cinetrack_bootstrap_shows_ensure",
+            payload={"shows": [{"source": "tmdb", "media_id": "99002", "title": "Imported show", "status": 3}]},
+            headers=self.auth_headers,
+        )
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertFalse(Episode.objects.filter(related_season__item__media_id="99002").exists())
+        metadata.assert_not_called()

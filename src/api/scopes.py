@@ -159,6 +159,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_statistics.StatisticsRefreshView": {"POST": "statistics:write"},
     "api.fork_views_tracking.MediaEpisodeWatchView": {"POST": _W, "DELETE": _W},
     "api.fork_views_tracking.MediaMovieWatchView": {"POST": _W, "DELETE": _W},
+    "api.fork_views_tracking.CineTrackBootstrapMoviesEnsureView": {"POST": _W},
+    "api.fork_views_tracking.CineTrackBootstrapShowsEnsureView": {"POST": _W},
     "api.fork_views_tracking.MediaEpisodeDropView": {"POST": _W},
     "api.fork_views_tracking.MediaEpisodeBulkView": {"POST": _W},
     "api.fork_views_tracking.TagsView": {"GET": _R, "POST": _W},

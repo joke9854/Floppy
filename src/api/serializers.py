@@ -810,6 +810,7 @@ class InfoSerializer(serializers.Serializer):
             "track_time": settings.TRACK_TIME,
             "api_extensions": {
                 "cinetrack_episode_events_v1": True,
+                "cinetrack_bootstrap_v2": True,
                 "episode_sql_pagination": True,
             },
         }
