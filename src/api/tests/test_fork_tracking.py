@@ -1165,3 +1165,82 @@ class EpisodeBulkTests(FloppyApiTestCase):
             headers=self.auth_headers,
         )
         self.assertEqual(response.status_code, HTTP.BAD_REQUEST)
+
+
+class EpisodeEnsureTests(FloppyApiTestCase):
+    """The CineTrack event endpoint preserves exact, retry-safe plays."""
+
+    def _ensure(self, events):
+        return self.call_api(
+            "post",
+            "api_media_episode_ensure",
+            args=("tv", "tmdb", "1001"),
+            payload={"events": events},
+            headers=self.auth_headers,
+        )
+
+    @patch(
+        "app.models.providers.services.get_media_metadata",
+        side_effect=_season_metadata_side_effect,
+    )
+    def test_creates_exact_events_and_replays_same_identity(self, _mock):
+        """Different events preserve distinct instants; retry creates none."""
+        events = [
+            {
+                "season_number": 1,
+                "episode_number": 1,
+                "watched_at": "2024-01-03T21:13:00Z",
+                "client_event_id": "d5ac6fbf-8103-4cfe-9693-fb33e363a121",
+            },
+            {
+                "season_number": 1,
+                "episode_number": 3,
+                "watched_at": "2024-02-14T22:01:00Z",
+                "client_event_id": "e5ac6fbf-8103-4cfe-9693-fb33e363a122",
+            },
+        ]
+        first = self._ensure(events)
+        self.assertEqual(first.status_code, HTTP.OK)
+        self.assertEqual([row["status"] for row in first.json()["results"]], ["created", "created"])
+        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), 2)
+        self.assertFalse(Episode.objects.filter(item__episode_number=2).exists())
+        self.assertTrue(Episode.objects.filter(end_date="2024-01-03T21:13:00Z").exists())
+        second = self._ensure(events)
+        self.assertEqual(second.status_code, HTTP.OK)
+        self.assertEqual(
+            [row["status"] for row in second.json()["results"]],
+            ["already_satisfied", "already_satisfied"],
+        )
+        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), 2)
+
+    @patch(
+        "app.models.providers.services.get_media_metadata",
+        side_effect=_season_metadata_side_effect,
+    )
+    def test_rewatch_with_different_event_and_timestamp_is_preserved(self, _mock):
+        """An older equivalent legacy play is adopted, not a later rewatch."""
+        legacy = self.season_medias[0].watch(1, "2024-01-03T21:13:00Z").episode
+        same = self._ensure([{
+            "season_number": 1, "episode_number": 1,
+            "watched_at": "2024-01-03T21:13:00Z",
+            "client_event_id": "f5ac6fbf-8103-4cfe-9693-fb33e363a123",
+        }])
+        self.assertEqual(same.status_code, HTTP.OK)
+        legacy.refresh_from_db()
+        self.assertIsNotNone(legacy.watch_operation_id)
+        later = self._ensure([{
+            "season_number": 1, "episode_number": 1,
+            "watched_at": "2026-06-18T20:02:00Z",
+            "client_event_id": "a6ac6fbf-8103-4cfe-9693-fb33e363a124",
+        }])
+        self.assertEqual(later.status_code, HTTP.OK)
+        self.assertEqual(Episode.objects.filter(item__episode_number=1).count(), 2)
+
+    def test_rejects_oversized_event_request(self):
+        event = {
+            "season_number": 1, "episode_number": 1,
+            "watched_at": "2024-01-03T21:13:00Z",
+            "client_event_id": "b6ac6fbf-8103-4cfe-9693-fb33e363a125",
+        }
+        response = self._ensure([event] * 51)
+        self.assertEqual(response.status_code, HTTP.BAD_REQUEST)
