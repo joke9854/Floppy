@@ -1199,11 +1199,13 @@ class EpisodeEnsureTests(FloppyApiTestCase):
                 "client_event_id": "e5ac6fbf-8103-4cfe-9693-fb33e363a122",
             },
         ]
+        before = Episode.objects.filter(related_season=self.season_medias[0]).count()
+        episode_two_before = Episode.objects.filter(item__episode_number=2).count()
         first = self._ensure(events)
         self.assertEqual(first.status_code, HTTP.OK)
         self.assertEqual([row["status"] for row in first.json()["results"]], ["created", "created"])
-        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), 2)
-        self.assertFalse(Episode.objects.filter(item__episode_number=2).exists())
+        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), before + 2)
+        self.assertEqual(Episode.objects.filter(item__episode_number=2).count(), episode_two_before)
         self.assertTrue(Episode.objects.filter(end_date="2024-01-03T21:13:00Z").exists())
         second = self._ensure(events)
         self.assertEqual(second.status_code, HTTP.OK)
@@ -1211,7 +1213,7 @@ class EpisodeEnsureTests(FloppyApiTestCase):
             [row["status"] for row in second.json()["results"]],
             ["already_satisfied", "already_satisfied"],
         )
-        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), 2)
+        self.assertEqual(Episode.objects.filter(related_season=self.season_medias[0]).count(), before + 2)
 
     @patch(
         "app.models.providers.services.get_media_metadata",
@@ -1219,6 +1221,7 @@ class EpisodeEnsureTests(FloppyApiTestCase):
     )
     def test_rewatch_with_different_event_and_timestamp_is_preserved(self, _mock):
         """An older equivalent legacy play is adopted, not a later rewatch."""
+        before = Episode.objects.filter(item__episode_number=1).count()
         legacy = self.season_medias[0].watch(1, "2024-01-03T21:13:00Z").episode
         same = self._ensure([{
             "season_number": 1, "episode_number": 1,
@@ -1234,7 +1237,7 @@ class EpisodeEnsureTests(FloppyApiTestCase):
             "client_event_id": "a6ac6fbf-8103-4cfe-9693-fb33e363a124",
         }])
         self.assertEqual(later.status_code, HTTP.OK)
-        self.assertEqual(Episode.objects.filter(item__episode_number=1).count(), 2)
+        self.assertEqual(Episode.objects.filter(item__episode_number=1).count(), before + 2)
 
     def test_rejects_oversized_event_request(self):
         event = {
