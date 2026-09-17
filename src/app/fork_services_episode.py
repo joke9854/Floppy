@@ -7,6 +7,7 @@ from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from app import cache_utils
 from app.db_retry import run_retryable_db_operation
@@ -131,6 +132,9 @@ def create_episode_watch(
                         end_date=end_date,
                         watch_operation_id=operation_id,
                         score=score,
+                        # save_base(raw=True) deliberately bypasses Django's
+                        # auto_now_add handling, so materialize created_at here.
+                        created_at=timezone.now(),
                         **episode_fields,
                     )
                     episode.save_base(raw=True, force_insert=True)
