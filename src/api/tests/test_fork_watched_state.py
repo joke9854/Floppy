@@ -7,10 +7,12 @@ reason the endpoint exists separately from the playback and history routes.
 
 import datetime
 import logging
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from app.models import (
@@ -229,6 +231,24 @@ class SetStateTests(WatchedStateAPITestCase):
             data={"watched": True},
             content_type="application/json",
         )
+
+        self.assertTrue(response.json()["unchanged"])
+
+    def test_repeating_watched_a_second_later_is_still_unchanged(self):
+        """Re-sending the same state must not depend on the clock ticking over."""
+        clock = [timezone.now().replace(microsecond=0)]
+        with patch("django.utils.timezone.now", side_effect=lambda: clock[0]):
+            self.client.put(
+                self.url,
+                data={"watched": True},
+                content_type="application/json",
+            )
+            clock[0] += datetime.timedelta(seconds=2)
+            response = self.client.put(
+                self.url,
+                data={"watched": True},
+                content_type="application/json",
+            )
 
         self.assertTrue(response.json()["unchanged"])
 

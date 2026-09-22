@@ -480,13 +480,30 @@ class WatchedStateView(drf_views.APIView):
             "client_event_id",
         )
 
+        # Re-asserting "watched" keeps the time it was first marked, so a
+        # repeated request is recognised as unchanged instead of recording a
+        # new change whenever the clock has ticked into another second.
+        current = effective_state(request.user, item)
+        play_count = request.data.get("play_count")
+        already_watched = bool(
+            current
+            and current.watched
+            and (play_count is None or play_count == current.play_count),
+        )
         try:
             result = record_state_change(
                 request.user,
                 item,
                 watched=watched,
-                play_count=request.data.get("play_count"),
-                watched_at=watched_at if watched else None,
+                play_count=play_count,
+                # An explicit watched_at is the exact instant and is always kept;
+                # without one, re-asserting an already-watched state keeps the
+                # stored time so a retry is reported as unchanged.
+                watched_at=(
+                    watched_at
+                    if watched and (raw_watched_at is not None or not already_watched)
+                    else None
+                ),
                 origin_kind=WatchStateOrigin.LOCAL_API.value,
                 origin_key="api",
                 origin_event_id=idempotency_key,
