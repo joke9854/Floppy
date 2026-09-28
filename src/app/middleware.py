@@ -13,7 +13,7 @@ from django.shortcuts import redirect, resolve_url
 from django.urls import reverse
 from django.utils import translation
 
-from app.db_retry import is_retryable_error
+from app.db_retry import is_disk_io_error, is_retryable_error
 from app.discover import tab_cache as discover_tab_cache
 from app.error_views import format_exception_traceback, render_error_page
 from app.interactive_requests import (
@@ -193,6 +193,11 @@ class DatabaseRetryMiddleware:
     def __call__(self, request):
         """Process the request with retry logic for database errors."""
         max_retries = 5
+        # A lock error arrives only after SQLite's busy_timeout (30 s by
+        # default) ran out, so each retry of the whole view can wait that
+        # long again; five of them outlasted the gunicorn timeout. One retry
+        # still covers a writer that just finished.
+        max_lock_retries = 1
         base_delay = 0.1
         backoff = 2.0
         attempt = 0
@@ -201,8 +206,10 @@ class DatabaseRetryMiddleware:
             try:
                 return self.get_response(request)
             except OperationalError as error:
+                is_io_error = is_disk_io_error(error)
+                retry_cap = max_retries if is_io_error else max_lock_retries
                 # Only retry retryable errors while under the retry cap.
-                if not is_retryable_error(error) or attempt >= max_retries:
+                if not is_retryable_error(error) or attempt >= retry_cap:
                     raise
 
                 if request.method != "GET":
@@ -212,14 +219,14 @@ class DatabaseRetryMiddleware:
                     )
                     raise
 
-                error_type = "disk I/O" if "i/o" in str(error).lower() else "lock"
+                error_type = "disk I/O" if is_io_error else "lock"
                 sleep_for = base_delay * (backoff**attempt)
                 logger.warning(
                     "Retrying %s after %s error (attempt %s/%s, sleeping %.2fs)",
                     request.path,
                     error_type,
                     attempt + 1,
-                    max_retries,
+                    retry_cap,
                     sleep_for,
                 )
                 time.sleep(sleep_for)
