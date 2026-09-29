@@ -15,3 +15,27 @@ CLAUDE.md
 requests.http
 TODO.txt
 .codex
+
+# Agent worktrees carry a full copy of the repo each, including their own
+# .venv and database dumps -- 700+ MB of build context that can never be part
+# of the image.
+.claude
+# Database dumps live beside the repo for local restores, never in the image.
+*.sql.gz
+
+# Repository history can retain deleted database exports. The metadata stage
+# only needs the remote URL from config, never Git objects or reflogs.
+.git/**
+!.git/config
+.env.*
+# Runtime databases, backup directories and logs are never release inputs.
+src/db/
+db/
+src/logs/
+.v2c/
+.video_agent/
+reports/
+wiki/
+node_modules/
+.pytest_cache/
+.ruff_cache/

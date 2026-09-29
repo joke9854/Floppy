@@ -56,3 +56,10 @@ docs/superpowers/
 .worktrees/
 desktop/
 dump.rdb
+
+# Database exports can contain account credentials and private activity.
+*.sql.gz
+
+# Local agent session state; not part of the application or PR.
+.v2c/
+.video_agent/
