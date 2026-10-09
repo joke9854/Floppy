@@ -426,6 +426,92 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(response["Retry-After"], "30")
         self.assertEqual(Episode.objects.count(), before)
 
+    def _anime_metadata(self, *, anime=True):
+        season_two = {
+            **COMBINED_METADATA["season/1"],
+            "season_number": 2,
+            "season_title": "Season 2",
+            "details": {"episodes": 2},
+            "episodes": [
+                {"episode_number": n, "air_date": f"2023-07-0{n}", "image": "", "name": f"S2 {n}"}
+                for n in (1, 2)
+            ],
+        }
+        return {
+            **COMBINED_METADATA,
+            "genres": ["Animation", "Action & Adventure"] if anime else ["Comedy"],
+            "details": {"country": "Japan" if anime else "United States of America", "languages": ["Japanese"] if anime else ["English"]},
+            "related": {
+                "seasons": [
+                    {"season_number": 0, "episode_count": 4},
+                    {"season_number": 1, "episode_count": 3},
+                    {"season_number": 2, "episode_count": 2},
+                ],
+            },
+            "season/2": season_two,
+        }
+
+    def _absolute_payload(self, episode_number, event_id, watched_at):
+        return {
+            "events": [
+                {
+                    "season_number": 1,
+                    "episode_number": episode_number,
+                    "watched_at": watched_at.isoformat().replace("+00:00", "Z"),
+                    "client_event_id": str(event_id),
+                },
+            ],
+        }
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_s_anime_absolute_number_is_stored_at_its_tmdb_season(self, metadata):
+        metadata.return_value = self._anime_metadata()
+        watched_at = datetime(2025, 1, 5, 20, 0, tzinfo=UTC)
+
+        # Season 1 has 3 episodes, so absolute episode 4 is TMDB S02E01.
+        response = self._ensure_episode(self._absolute_payload(4, self.EPISODE_EVENT, watched_at))
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        result = response.json()["results"][0]
+        self.assertEqual(result["status"], "created")
+        self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (2, 1))
+        stored = Episode.objects.get(watch_operation_id=self.EPISODE_EVENT)
+        self.assertEqual((stored.related_season.item.season_number, stored.item.episode_number), (2, 1))
+        self.assertEqual(stored.end_date, watched_at)
+
+        retry = self._ensure_episode(self._absolute_payload(4, self.EPISODE_EVENT, watched_at))
+
+        self.assertEqual(retry.status_code, HTTP.OK)
+        retried = retry.json()["results"][0]
+        self.assertEqual(retried["status"], "already_satisfied")
+        self.assertEqual((retried["stored_season_number"], retried["stored_episode_number"]), (2, 1))
+        self.assertEqual(Episode.objects.filter(watch_operation_id=self.EPISODE_EVENT).count(), 1)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_t_non_anime_season_overflow_is_not_translated(self, metadata):
+        metadata.return_value = self._anime_metadata(anime=False)
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._absolute_payload(4, self.EPISODE_EVENT, datetime(2025, 2, 5, 20, 0, tzinfo=UTC)),
+        )
+
+        self.assertEqual(response.json()["results"][0]["status"], "not_found")
+        self.assertNotIn("stored_season_number", response.json()["results"][0])
+        self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_u_anime_number_beyond_all_seasons_is_not_found(self, metadata):
+        metadata.return_value = self._anime_metadata()
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._absolute_payload(9, self.EPISODE_EVENT, datetime(2025, 3, 5, 20, 0, tzinfo=UTC)),
+        )
+
+        self.assertEqual(response.json()["results"][0]["status"], "not_found")
+        self.assertEqual(Episode.objects.count(), before)
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {

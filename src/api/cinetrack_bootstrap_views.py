@@ -102,6 +102,10 @@ class CineTrackBootstrapResultSerializer(serializers.Serializer):
     client_event_id = serializers.CharField(required=False)
     season_number = serializers.IntegerField(required=False)
     episode_number = serializers.IntegerField(required=False)
+    # Present when an episode was stored at a different (TMDB) coordinate than
+    # submitted, e.g. a continuous anime number translated to its season.
+    stored_season_number = serializers.IntegerField(required=False)
+    stored_episode_number = serializers.IntegerField(required=False)
     # Episode events may also be not_found (the provider's season list lacks
     # that episode number) or metadata_unavailable (no authoritative list);
     # those events were not written and the rest of the batch was.
@@ -601,23 +605,32 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             ).select_related("related_season__item", "item")
         }
         outcomes = {}
+        # client_event_id -> (season, episode) actually stored, when it differs
+        # from the submitted coordinate (absolute anime numbering translated).
+        stored = {}
         unresolved = []
         for season_number, episode_number, watched_at, client_event_id in parsed:
             claimed = claimed_by_id.get(client_event_id)
             if claimed is None:
                 unresolved.append((season_number, episode_number, watched_at, client_event_id))
                 continue
+            claimed_coordinate = (claimed.related_season.item.season_number, claimed.item.episode_number)
+            same_coordinate = claimed_coordinate == (season_number, episode_number)
+            # A season-1 absolute number may have been stored at its translated
+            # TMDB coordinate on an earlier attempt of this same event.
+            translated_retry = season_number == 1 and not same_coordinate
             same_identity = (
                 claimed.related_season.user_id == request.user.id
                 and str(claimed.related_season.item.media_id) == str(media_id)
                 and claimed.related_season.item.source == source
-                and claimed.related_season.item.season_number == season_number
-                and claimed.item.episode_number == episode_number
                 and claimed.end_date == watched_at
+                and (same_coordinate or translated_retry)
             )
             if not same_identity:
                 return Response({"detail": "client_event_id belongs to another episode event."}, status=HTTP.CONFLICT)
             outcomes[client_event_id] = "already_satisfied"
+            if translated_retry:
+                stored[client_event_id] = claimed_coordinate
 
         # A play already stored at the exact same instant is the same watch,
         # whoever recorded it (live tracking, an import, an earlier CineTrack
@@ -684,6 +697,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             # batch is still applied. A sync import never deletes history.
             library_media_type = str(request.data.get("library_media_type") or "").strip()
             resolvable = []
+            absolute_candidates = []
             for event in unresolved:
                 season_number, episode_number, _, client_event_id = event
                 if season_number not in metadata_by_season:
@@ -698,12 +712,50 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                         season_metadata=metadata_by_season[season_number],
                     )
                 except InvalidEpisodeCoordinateError:
-                    outcomes[client_event_id] = "not_found"
+                    if season_number == 1:
+                        absolute_candidates.append(event)
+                    else:
+                        outcomes[client_event_id] = "not_found"
                     continue
                 except EpisodeMetadataUnavailableError:
                     outcomes[client_event_id] = "metadata_unavailable"
                     continue
                 resolvable.append(event)
+
+            # Anime trackers number a series continuously in one season, while
+            # TMDB splits it into seasons. Translate those numbers by walking
+            # TMDB's regular seasons, and keep only targets TMDB really lists.
+            targets = _absolute_targets(combined_metadata, metadata_by_season.get(1), absolute_candidates)
+            missing_seasons = sorted({season for season, _ in targets.values()} - set(metadata_by_season))
+            if missing_seasons:
+                try:
+                    extra_metadata = services.get_media_metadata("tv_with_seasons", media_id, source, missing_seasons)
+                except Exception:
+                    logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
+                    extra_metadata = {}
+                for season_number in missing_seasons:
+                    season_metadata = extra_metadata.get(f"season/{season_number}")
+                    if isinstance(season_metadata, dict):
+                        season_metadata.setdefault("_tvdb_episode_image_map", {})
+                        metadata_by_season[season_number] = season_metadata
+            for _season, _episode, watched_at, client_event_id in absolute_candidates:
+                target = targets.get(client_event_id)
+                if target is None or target[0] not in metadata_by_season:
+                    outcomes[client_event_id] = "not_found"
+                    continue
+                try:
+                    resolve_episode_coordinate(
+                        media_id,
+                        source,
+                        target[0],
+                        target[1],
+                        season_metadata=metadata_by_season[target[0]],
+                    )
+                except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
+                    outcomes[client_event_id] = "not_found"
+                    continue
+                resolvable.append((target[0], target[1], watched_at, client_event_id))
+                stored[client_event_id] = target
             unresolved = resolvable
             season_numbers = sorted({event[0] for event in unresolved})
 
@@ -801,16 +853,65 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 cache_utils.clear_time_left_cache_for_user(request.user.id)
                 cache_utils.clear_media_list_cache_for_user(request.user.id)
 
-        results = [
-            {
+        results = []
+        for season_number, episode_number, _watched_at, client_event_id in parsed:
+            result = {
                 "client_event_id": str(client_event_id),
                 "season_number": season_number,
                 "episode_number": episode_number,
                 "status": outcomes[client_event_id],
             }
-            for season_number, episode_number, _watched_at, client_event_id in parsed
-        ]
+            if client_event_id in stored and outcomes[client_event_id] in {"created", "already_satisfied"}:
+                result["stored_season_number"], result["stored_episode_number"] = stored[client_event_id]
+            results.append(result)
         return Response({"results": results}, status=HTTP.OK)
+
+
+def _uses_absolute_numbering(metadata):
+    """Japanese animation, which trackers number continuously across seasons."""
+    if not isinstance(metadata, dict):
+        return False
+    genres = metadata.get("genres") or []
+    details = metadata.get("details") or {}
+    languages = details.get("languages") or []
+    return "Animation" in genres and (details.get("country") == "Japan" or "Japanese" in languages)
+
+
+def _absolute_targets(metadata, season_one, events):
+    """Map season-1 absolute episode numbers onto TMDB's regular seasons.
+
+    Only for anime, only when TMDB's season-1 summary count matches its actual
+    season-1 episode list (so the counting basis is consistent), and only for
+    numbers that fall inside the regular seasons TMDB lists.
+    """
+    if not events or not _uses_absolute_numbering(metadata) or not isinstance(season_one, dict):
+        return {}
+    counts = []
+    for season in (metadata.get("related") or {}).get("seasons") or []:
+        if not isinstance(season, dict):
+            continue
+        try:
+            number = int(season.get("season_number"))
+            count = int(season.get("episode_count") or 0)
+        except (TypeError, ValueError):
+            continue
+        if number >= 1 and count > 0:
+            counts.append((number, count))
+    counts.sort()
+    season_one_episodes = season_one.get("episodes")
+    if not counts or counts[0][0] != 1 or not isinstance(season_one_episodes, list):
+        return {}
+    if counts[0][1] != len(season_one_episodes):
+        return {}
+    targets = {}
+    for _season, episode_number, _watched_at, client_event_id in events:
+        remaining = episode_number
+        for number, count in counts:
+            if remaining <= count:
+                targets[client_event_id] = (number, remaining)
+                break
+            remaining -= count
+    return targets
 
 
 # Scoped-token enforcement keys views by module.ClassName.  Preserve the
