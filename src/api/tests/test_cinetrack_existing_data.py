@@ -512,6 +512,157 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(response.json()["results"][0]["status"], "not_found")
         self.assertEqual(Episode.objects.count(), before)
 
+    # TMDB merges a two-parter that TVDB (and so Simkl) lists as two episodes:
+    # TVDB S02E02+E03 are TMDB S02E02, and TVDB S02E04 is TMDB S02E03.
+    TVDB_SEASON_TWO = [
+        {"season_number": 2, "episode_number": 1, "title": "Opener", "air_date": "2024-01-01"},
+        {"season_number": 2, "episode_number": 2, "title": "Two Parter (1)", "air_date": "2024-01-08"},
+        {"season_number": 2, "episode_number": 3, "title": "Two Parter (2)", "air_date": "2024-01-08"},
+        {"season_number": 2, "episode_number": 4, "title": "Finale", "air_date": "2024-01-15"},
+    ]
+
+    def _merged_metadata(self):
+        season_two = {
+            **COMBINED_METADATA["season/1"],
+            "season_number": 2,
+            "season_title": "Season 2",
+            "details": {"episodes": 3},
+            "episodes": [
+                {"episode_number": 1, "air_date": "2024-01-01", "image": "", "name": "Opener"},
+                {"episode_number": 2, "air_date": "2024-01-08", "image": "", "name": "Two Parter"},
+                {"episode_number": 3, "air_date": "2024-01-15", "image": "", "name": "Finale"},
+            ],
+        }
+        return {
+            **COMBINED_METADATA,
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "episode_count": 3},
+                    {"season_number": 2, "episode_count": 3},
+                ],
+            },
+            "season/2": season_two,
+        }
+
+    def _season_two_events(self, *events):
+        return {
+            "events": [
+                {
+                    "season_number": 2,
+                    "episode_number": number,
+                    "watched_at": watched_at.isoformat().replace("+00:00", "Z"),
+                    "client_event_id": str(event_id),
+                }
+                for number, watched_at, event_id in events
+            ],
+        }
+
+    def _stored_at(self, event_id):
+        episode = Episode.objects.get(watch_operation_id=event_id)
+        return episode.related_season.item.season_number, episode.item.episode_number
+
+    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_v_tvdb_numbered_two_parter_is_stored_at_its_tmdb_episodes(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.return_value = {"episodes": self.TVDB_SEASON_TWO}
+        second_half = UUID("abababab-abab-4bab-8bab-abababababab")
+        finale = UUID("cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd")
+        second_at = datetime(2025, 4, 1, 20, 0, tzinfo=UTC)
+        finale_at = datetime(2025, 4, 2, 20, 0, tzinfo=UTC)
+        payload = self._season_two_events((3, second_at, second_half), (4, finale_at, finale))
+
+        # TVDB S02E04 is unknown to TMDB, which proves season 2 is numbered
+        # differently, so S02E03 (which TMDB lists, as another episode) is
+        # re-matched by identity instead of being stored one slot off.
+        response = self._ensure_episode(payload)
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        results = {result["client_event_id"]: result for result in response.json()["results"]}
+        self.assertEqual(results[str(second_half)]["status"], "created")
+        self.assertEqual((results[str(second_half)]["stored_season_number"], results[str(second_half)]["stored_episode_number"]), (2, 2))
+        self.assertEqual(results[str(finale)]["status"], "created")
+        self.assertEqual((results[str(finale)]["stored_season_number"], results[str(finale)]["stored_episode_number"]), (2, 3))
+        self.assertEqual(self._stored_at(second_half), (2, 2))
+        self.assertEqual(self._stored_at(finale), (2, 3))
+        self.assertEqual(Episode.objects.get(watch_operation_id=finale).end_date, finale_at)
+
+        retry = self._ensure_episode(payload)
+
+        retried = {result["client_event_id"]: result for result in retry.json()["results"]}
+        self.assertEqual({result["status"] for result in retried.values()}, {"already_satisfied"})
+        self.assertEqual((retried[str(finale)]["stored_season_number"], retried[str(finale)]["stored_episode_number"]), (2, 3))
+        self.assertEqual(Episode.objects.filter(watch_operation_id__in=[second_half, finale]).count(), 2)
+
+    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_w_both_halves_at_one_instant_are_one_watch_and_rewatches_stay_distinct(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.return_value = {"episodes": self.TVDB_SEASON_TWO}
+        together = datetime(2025, 5, 1, 20, 0, tzinfo=UTC)
+        later = datetime(2025, 6, 1, 20, 0, tzinfo=UTC)
+        first_half = UUID("12121212-1212-4212-8212-121212121212")
+        second_half = UUID("34343434-3434-4434-8434-343434343434")
+        rewatch = UUID("56565656-5656-4656-8656-565656565656")
+        finale = UUID("78787878-7878-4878-8878-787878787878")
+
+        response = self._ensure_episode(
+            self._season_two_events(
+                (2, together, first_half), (3, together, second_half), (3, later, rewatch), (4, later, finale),
+            ),
+        )
+
+        statuses = {result["client_event_id"]: result["status"] for result in response.json()["results"]}
+        self.assertEqual(statuses[str(first_half)], "created")
+        self.assertEqual(statuses[str(second_half)], "already_satisfied")
+        self.assertEqual(statuses[str(rewatch)], "created")
+        plays = Episode.objects.filter(
+            related_season__item__media_id="1001",
+            related_season__item__season_number=2,
+            item__episode_number=2,
+        )
+        self.assertEqual(sorted(plays.values_list("end_date", flat=True)), [together, later])
+
+    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order", side_effect=RuntimeError("TVDB down"))
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_x_failed_tvdb_lookup_is_retryable_and_writes_nothing(self, metadata, _enabled, _tvdb_id, _catalogue):
+        metadata.return_value = self._merged_metadata()
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._season_two_events((4, datetime(2025, 7, 1, 20, 0, tzinfo=UTC), self.EPISODE_EVENT)),
+        )
+
+        self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
+        self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_y_episode_without_a_unique_tmdb_match_is_not_found(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.return_value = {
+            "episodes": [
+                *self.TVDB_SEASON_TWO,
+                {"season_number": 2, "episode_number": 5, "title": "Unaired Cut", "air_date": "2024-03-30"},
+            ],
+        }
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._season_two_events((5, datetime(2025, 8, 1, 20, 0, tzinfo=UTC), self.EPISODE_EVENT)),
+        )
+
+        self.assertEqual(response.json()["results"][0]["status"], "not_found")
+        self.assertEqual(Episode.objects.count(), before)
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {

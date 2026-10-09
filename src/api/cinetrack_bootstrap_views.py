@@ -6,8 +6,10 @@ upstream-compatible tracking views so the fork remains easy to rebase.
 """
 
 import logging
+import re
 import time
 from collections import defaultdict
+from datetime import date
 from http import HTTPStatus as HTTP  # noqa: N814
 from uuid import UUID
 
@@ -21,7 +23,7 @@ from rest_framework.response import Response
 from app import cache_utils
 from app.fork_services_episode import create_episode_watch
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Season, Status
-from app.providers import services
+from app.providers import episode_orders, services, tmdb, tvdb
 from app.services import metadata_resolution
 from app.services.episode_coordinates import (
     EpisodeMetadataUnavailableError,
@@ -616,9 +618,9 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 continue
             claimed_coordinate = (claimed.related_season.item.season_number, claimed.item.episode_number)
             same_coordinate = claimed_coordinate == (season_number, episode_number)
-            # A season-1 absolute number may have been stored at its translated
-            # TMDB coordinate on an earlier attempt of this same event.
-            translated_retry = season_number == 1 and not same_coordinate
+            # An earlier attempt of this same event may have stored it at its
+            # translated TMDB coordinate (absolute anime number, TVDB identity).
+            translated_retry = not same_coordinate
             same_identity = (
                 claimed.related_season.user_id == request.user.id
                 and str(claimed.related_season.item.media_id) == str(media_id)
@@ -698,6 +700,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             library_media_type = str(request.data.get("library_media_type") or "").strip()
             resolvable = []
             absolute_candidates = []
+            identity_candidates = []
             for event in unresolved:
                 season_number, episode_number, _, client_event_id = event
                 if season_number not in metadata_by_season:
@@ -715,7 +718,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     if season_number == 1:
                         absolute_candidates.append(event)
                     else:
-                        outcomes[client_event_id] = "not_found"
+                        identity_candidates.append(event)
                     continue
                 except EpisodeMetadataUnavailableError:
                     outcomes[client_event_id] = "metadata_unavailable"
@@ -738,10 +741,11 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     if isinstance(season_metadata, dict):
                         season_metadata.setdefault("_tvdb_episode_image_map", {})
                         metadata_by_season[season_number] = season_metadata
-            for _season, _episode, watched_at, client_event_id in absolute_candidates:
+            for event in absolute_candidates:
+                _season, _episode, watched_at, client_event_id = event
                 target = targets.get(client_event_id)
                 if target is None or target[0] not in metadata_by_season:
-                    outcomes[client_event_id] = "not_found"
+                    identity_candidates.append(event)
                     continue
                 try:
                     resolve_episode_coordinate(
@@ -752,10 +756,45 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                         season_metadata=metadata_by_season[target[0]],
                     )
                 except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
-                    outcomes[client_event_id] = "not_found"
+                    identity_candidates.append(event)
                     continue
                 resolvable.append((target[0], target[1], watched_at, client_event_id))
                 stored[client_event_id] = target
+
+            # Trackers that follow TVDB numbering disagree with TMDB on merged
+            # two-part episodes, specials and split seasons. Match those by
+            # identity instead: TVDB's record of the submitted number gives an
+            # air date and title, which pick the TMDB episode. A season with an
+            # unknown number is proven to be numbered differently, so its other
+            # events are re-matched too rather than stored one slot off.
+            if identity_candidates:
+                differing_seasons = {event[0] for event in identity_candidates}
+                rematch = [
+                    event for event in resolvable
+                    if event[0] in differing_seasons and event[3] not in stored
+                ]
+                matched, unavailable = _identity_targets(
+                    request.user,
+                    media_id,
+                    source,
+                    combined_metadata,
+                    metadata_by_season,
+                    identity_candidates + rematch,
+                )
+                for _season, _episode, _watched_at, client_event_id in identity_candidates:
+                    if client_event_id in unavailable:
+                        outcomes[client_event_id] = "metadata_unavailable"
+                    elif client_event_id not in matched:
+                        outcomes[client_event_id] = "not_found"
+                resolved_ids = {event[3] for event in rematch if event[3] in matched}
+                resolvable = [event for event in resolvable if event[3] not in resolved_ids]
+                for season_number, episode_number, watched_at, client_event_id in identity_candidates + rematch:
+                    target = matched.get(client_event_id)
+                    if target is None:
+                        continue
+                    resolvable.append((target[0], target[1], watched_at, client_event_id))
+                    if target != (season_number, episode_number):
+                        stored[client_event_id] = target
             unresolved = resolvable
             season_numbers = sorted({event[0] for event in unresolved})
 
@@ -792,9 +831,17 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                                 legacy.end_date,
                             )].append(legacy)
 
+                        written = set()
                         for season_number, episode_number, watched_at, client_event_id in unresolved:
                             season = seasons[season_number]
                             legacy_key = (season.id, episode_number, watched_at)
+                            # Both halves of a merged two-parter can land on one
+                            # TMDB episode at the same instant: that is one watch,
+                            # exactly as a later batch would see it.
+                            if legacy_key in written:
+                                outcomes[client_event_id] = "already_satisfied"
+                                continue
+                            written.add(legacy_key)
                             legacy_candidates = legacy_by_key.get(legacy_key, [])
                             if legacy_candidates:
                                 legacy = legacy_candidates.pop(0)
@@ -912,6 +959,139 @@ def _absolute_targets(metadata, season_one, events):
                 break
             remaining -= count
     return targets
+
+
+_PART_MARKER = re.compile(r"\(\s*(?:part\s*)?\d+\s*\)|\b(?:part|pt)\.?\s*(?:\d+|one|two|three|i{1,3})\b")
+_GENERIC_TITLE = re.compile(r"^(?:episode|ep)\s*\d+$")
+
+
+def _normalized_title(value):
+    title = _PART_MARKER.sub(" ", str(value or "").lower())
+    return " ".join(re.sub(r"[^\w]+", " ", title).split())
+
+
+def _titles_match(left, right):
+    if not left or not right:
+        return False
+    if left == right:
+        return True
+    shorter, longer = sorted((left, right), key=len)
+    return len(shorter) >= 4 and longer.startswith(shorter)  # noqa: PLR2004
+
+
+def _parse_air_date(value):
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _match_tmdb_episode(tvdb_episode, tmdb_episodes):
+    """Pick the one TMDB episode that is the same broadcast, or None.
+
+    Same air date decides alone when it is unique (a merged two-parter's
+    halves air together); otherwise the title must also agree. A unique,
+    non-generic exact title is the last resort (specials with sloppy dates).
+    """
+    title = _normalized_title(tvdb_episode.get("title"))
+
+    def titled(rows):
+        return [row for row in rows if _titles_match(title, row["title"])]
+
+    aired = _parse_air_date(tvdb_episode.get("air_date"))
+    if aired is not None:
+        same_day = [row for row in tmdb_episodes if row["air_date"] == aired]
+        if len(same_day) == 1:
+            return same_day[0]
+        if len(titled(same_day)) == 1:
+            return titled(same_day)[0]
+        if not same_day:
+            near = [
+                row for row in tmdb_episodes
+                if row["air_date"] is not None and abs((row["air_date"] - aired).days) <= 1
+            ]
+            if len(titled(near)) == 1:
+                return titled(near)[0]
+    if title and not _GENERIC_TITLE.match(title):
+        exact = [row for row in tmdb_episodes if row["title"] == title]
+        if len(exact) == 1:
+            return exact[0]
+    return None
+
+
+def _identity_targets(user, media_id, source, metadata, metadata_by_season, events):
+    """Map events TMDB numbers differently onto TMDB episodes via TVDB.
+
+    Returns (targets, unavailable): targets maps client_event_id to a TMDB
+    (season, episode) that Floppy can store; unavailable holds events whose
+    lookup failed transiently and should be retried later. Seasons fetched
+    here are added to ``metadata_by_season``.
+    """
+    if not events or source != "tmdb" or not tvdb.enabled(user):
+        return {}, set()
+    event_ids = {event[3] for event in events}
+    try:
+        tvdb_id = tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=metadata)
+        if not tvdb_id:
+            return {}, set()
+        catalogue = episode_orders.fetch_order("tvdb", tvdb_id, "default", user=user)["episodes"]
+        season_numbers = set()
+        for season in (metadata.get("related") or {}).get("seasons") or []:
+            if isinstance(season, dict) and str(season.get("season_number", "")).isdigit():
+                season_numbers.add(int(season["season_number"]))
+        missing = sorted(season_numbers - set(metadata_by_season))
+        if missing:
+            extra = services.get_media_metadata("tv_with_seasons", media_id, source, missing)
+            for season_number in missing:
+                season_metadata = extra.get(f"season/{season_number}")
+                if isinstance(season_metadata, dict):
+                    season_metadata.setdefault("_tvdb_episode_image_map", {})
+                    metadata_by_season[season_number] = season_metadata
+    except ValueError:
+        # No usable TVDB catalogue for this show: nothing to match against.
+        return {}, set()
+    except Exception as error:
+        logger.warning(
+            "CineTrack TVDB episode lookup failed media_id=%s error=%s",
+            media_id,
+            type(error).__name__,
+        )
+        return {}, event_ids
+
+    by_coordinate = {(row["season_number"], row["episode_number"]): row for row in catalogue}
+    tmdb_episodes = []
+    for season_number, season_metadata in metadata_by_season.items():
+        for row in season_metadata.get("episodes") or []:
+            if not isinstance(row, dict) or row.get("episode_number") is None:
+                continue
+            tmdb_episodes.append({
+                "season_number": season_number,
+                "episode_number": int(row["episode_number"]),
+                "air_date": _parse_air_date(row.get("air_date")),
+                "title": _normalized_title(row.get("name") or row.get("title")),
+            })
+
+    targets = {}
+    for season_number, episode_number, _watched_at, client_event_id in events:
+        tvdb_episode = by_coordinate.get((season_number, episode_number))
+        if tvdb_episode is None:
+            continue
+        match = _match_tmdb_episode(tvdb_episode, tmdb_episodes)
+        if match is None:
+            continue
+        target = (match["season_number"], match["episode_number"])
+        try:
+            resolve_episode_coordinate(
+                media_id,
+                source,
+                target[0],
+                target[1],
+                season_metadata=metadata_by_season[target[0]],
+            )
+        except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
+            continue
+        targets[client_event_id] = target
+    return targets, set()
 
 
 # Scoped-token enforcement keys views by module.ClassName.  Preserve the
