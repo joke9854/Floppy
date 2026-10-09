@@ -320,6 +320,59 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(Episode.objects.get(pk=episode.pk).watch_operation_id, old_id)
         metadata.assert_not_called()
 
+    @patch(
+        "api.cinetrack_bootstrap_views.services.get_media_metadata",
+        return_value=COMBINED_METADATA,
+    )
+    def test_o_unknown_episode_is_reported_without_deleting_or_blocking_the_batch(self, metadata):
+        episode = self.episode_medias[0]
+        kept_at = datetime(2023, 9, 9, 20, 0, tzinfo=UTC)
+        Episode.objects.filter(pk=episode.pk).update(end_date=kept_at, watch_operation_id=None)
+        before = Episode.objects.count()
+        valid_id = UUID("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee")
+        unknown_id = UUID("ffffffff-ffff-4fff-8fff-ffffffffffff")
+        payload = {
+            "events": [
+                {
+                    "season_number": 1,
+                    "episode_number": 2,
+                    "watched_at": "2024-09-09T20:00:00Z",
+                    "client_event_id": str(valid_id),
+                },
+                {
+                    # The fixture season lists episodes 1-3 only.
+                    "season_number": 1,
+                    "episode_number": 99,
+                    "watched_at": "2024-09-10T20:00:00Z",
+                    "client_event_id": str(unknown_id),
+                },
+            ],
+        }
+
+        response = self._ensure_episode(payload)
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        statuses = {result["client_event_id"]: result["status"] for result in response.json()["results"]}
+        self.assertEqual(statuses, {str(valid_id): "created", str(unknown_id): "not_found"})
+        self.assertTrue(Episode.objects.filter(watch_operation_id=valid_id).exists())
+        self.assertFalse(Episode.objects.filter(watch_operation_id=unknown_id).exists())
+        # Nothing pre-existing was deleted.
+        self.assertEqual(Episode.objects.count(), before + 1)
+        self.assertEqual(Episode.objects.get(pk=episode.pk).end_date, kept_at)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_p_season_without_episode_list_is_reported_per_event(self, metadata):
+        metadata.return_value = {key: value for key, value in COMBINED_METADATA.items() if key != "season/1"}
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._episode_payload(datetime(2024, 10, 10, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
+        self.assertEqual(Episode.objects.count(), before)
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {

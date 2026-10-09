@@ -25,7 +25,6 @@ from app.services import metadata_resolution
 from app.services.episode_coordinates import (
     EpisodeMetadataUnavailableError,
     InvalidEpisodeCoordinateError,
-    cleanup_episode_history_for_route,
     resolve_episode_coordinate,
 )
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
@@ -98,19 +97,25 @@ class CineTrackBootstrapResultSerializer(serializers.Serializer):
     client_event_id = serializers.CharField(required=False)
     season_number = serializers.IntegerField(required=False)
     episode_number = serializers.IntegerField(required=False)
-    status = serializers.ChoiceField(choices=("created", "already_satisfied"))
+    # Episode events may also be not_found (the provider's season list lacks
+    # that episode number) or metadata_unavailable (no authoritative list);
+    # those events were not written and the rest of the batch was.
+    status = serializers.ChoiceField(
+        choices=("created", "already_satisfied", "not_found", "metadata_unavailable"),
+    )
 
 
 class CineTrackBootstrapResponseSerializer(serializers.Serializer):
     results = CineTrackBootstrapResultSerializer(many=True)
 
 
-# A 200 always confirms every submitted entry; any failure is a whole-request
-# error, so clients acknowledge all or nothing per request.
+# A 200 reports one result per submitted entry: created/already_satisfied are
+# written, not_found/metadata_unavailable (episodes only) were not. Any other
+# failure is a whole-request error and nothing is acknowledged.
 BOOTSTRAP_RESPONSES = {
     200: CineTrackBootstrapResponseSerializer,
     400: OpenApiResponse(DetailErrorSerializer, description="Malformed or oversized batch; nothing was written."),
-    404: OpenApiResponse(DetailErrorSerializer, description="Unknown episode or unavailable season metadata."),
+    404: OpenApiResponse(DetailErrorSerializer, description="Episode metadata could not be fetched; nothing was written."),
     409: OpenApiResponse(DetailErrorSerializer, description="client_event_id already belongs to another event."),
     500: OpenApiResponse(DetailErrorSerializer, description="The batch could not be written; retry is safe."),
 }
@@ -661,15 +666,23 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 if not isinstance(season_metadata, dict) and len(season_numbers) == 1 and isinstance(combined_metadata.get("episodes"), list):
                     season_metadata = combined_metadata
                 if not isinstance(season_metadata, dict):
-                    return Response({"detail": f"Season {season_number} metadata is unavailable."}, status=HTTP.NOT_FOUND)
+                    continue
                 # Avoid a secondary TVDB artwork lookup in the bootstrap request;
                 # the authoritative episode list is already present and rich
                 # metadata can be hydrated asynchronously later.
                 season_metadata.setdefault("_tvdb_episode_image_map", {})
                 metadata_by_season[season_number] = season_metadata
 
+            # Events the provider does not know (different episode numbering,
+            # missing season list) are reported per event; the rest of the
+            # batch is still applied. A sync import never deletes history.
             library_media_type = str(request.data.get("library_media_type") or "").strip()
-            for season_number, episode_number, _, _ in unresolved:
+            resolvable = []
+            for event in unresolved:
+                season_number, episode_number, _, client_event_id = event
+                if season_number not in metadata_by_season:
+                    outcomes[client_event_id] = "metadata_unavailable"
+                    continue
                 try:
                     resolve_episode_coordinate(
                         media_id,
@@ -679,17 +692,14 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                         season_metadata=metadata_by_season[season_number],
                     )
                 except InvalidEpisodeCoordinateError:
-                    cleanup_episode_history_for_route(
-                        request.user,
-                        media_id,
-                        source,
-                        season_number,
-                        episode_number,
-                        library_media_type=library_media_type or None,
-                    )
-                    return Response({"detail": "Episode not found."}, status=HTTP.NOT_FOUND)
+                    outcomes[client_event_id] = "not_found"
+                    continue
                 except EpisodeMetadataUnavailableError:
-                    return Response({"detail": "Episode metadata is unavailable."}, status=HTTP.NOT_FOUND)
+                    outcomes[client_event_id] = "metadata_unavailable"
+                    continue
+                resolvable.append(event)
+            unresolved = resolvable
+            season_numbers = sorted({event[0] for event in unresolved})
 
             created_any = False
             try:
