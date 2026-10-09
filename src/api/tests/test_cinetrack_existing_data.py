@@ -5,10 +5,19 @@ from http import HTTPStatus as HTTP  # noqa: N814
 from unittest.mock import patch
 from uuid import UUID
 
-from app.models import Episode, Item, MediaTypes, Movie, MoviePlay, Status, TV
+from django.db import OperationalError
+
+from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Status
 
 from .base import FloppyApiTestCase
 from .test_cinetrack_bootstrap_performance import COMBINED_METADATA
+
+
+def create_episode_watch_ref():
+    """The real writer, captured before a test patches the view's reference."""
+    from app.fork_services_episode import create_episode_watch
+
+    return create_episode_watch
 
 
 class CineTrackExistingDataTests(FloppyApiTestCase):
@@ -371,6 +380,50 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
 
         self.assertEqual(response.status_code, HTTP.OK)
         self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
+        self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.time.sleep")
+    @patch(
+        "api.cinetrack_bootstrap_views.services.get_media_metadata",
+        return_value=COMBINED_METADATA,
+    )
+    def test_q_locked_database_write_is_retried(self, metadata, sleep):
+        real_create = create_episode_watch_ref()
+        calls = {"count": 0}
+
+        def locked_once(*args, **kwargs):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise OperationalError("database is locked")
+            return real_create(*args, **kwargs)
+
+        with patch("api.cinetrack_bootstrap_views.create_episode_watch", side_effect=locked_once):
+            response = self._ensure_episode(
+                self._episode_payload(datetime(2024, 11, 11, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
+            )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.json()["results"][0]["status"], "created")
+        self.assertEqual(Episode.objects.filter(watch_operation_id=self.EPISODE_EVENT).count(), 1)
+        sleep.assert_called_once()
+
+    @patch("api.cinetrack_bootstrap_views.time.sleep")
+    @patch(
+        "api.cinetrack_bootstrap_views.services.get_media_metadata",
+        return_value=COMBINED_METADATA,
+    )
+    def test_r_persistently_locked_database_answers_busy_and_writes_nothing(self, metadata, sleep):
+        before = Episode.objects.count()
+        with patch(
+            "api.cinetrack_bootstrap_views.create_episode_watch",
+            side_effect=OperationalError("database is locked"),
+        ):
+            response = self._ensure_episode(
+                self._episode_payload(datetime(2024, 12, 12, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
+            )
+
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response["Retry-After"], "30")
         self.assertEqual(Episode.objects.count(), before)
 
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")

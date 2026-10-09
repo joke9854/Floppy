@@ -6,11 +6,12 @@ upstream-compatible tracking views so the fork remains easy to rebase.
 """
 
 import logging
+import time
 from collections import defaultdict
 from http import HTTPStatus as HTTP  # noqa: N814
 from uuid import UUID
 
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers
@@ -34,6 +35,10 @@ from .helpers import check_source_type, try_parse_datetime_input
 from .schema import MEDIA_TYPE_TV_ONLY_PARAM
 
 logger = logging.getLogger(__name__)
+# SQLite allows one writer; on "database is locked" the episode write retries
+# after these pauses, then answers 503 so the client retries the request later.
+DB_LOCK_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
+DB_BUSY_RETRY_AFTER_SECONDS = 30
 MAX_BOOTSTRAP_ITEMS = 50
 MAX_EPISODE_EVENTS = 50
 _STATUS_BY_CODE = {
@@ -118,6 +123,7 @@ BOOTSTRAP_RESPONSES = {
     404: OpenApiResponse(DetailErrorSerializer, description="Episode metadata could not be fetched; nothing was written."),
     409: OpenApiResponse(DetailErrorSerializer, description="client_event_id already belongs to another event."),
     500: OpenApiResponse(DetailErrorSerializer, description="The batch could not be written; retry is safe."),
+    503: OpenApiResponse(DetailErrorSerializer, description="Database busy; nothing was written. Retry after Retry-After seconds."),
 }
 
 
@@ -701,79 +707,95 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             unresolved = resolvable
             season_numbers = sorted({event[0] for event in unresolved})
 
-            created_any = False
-            try:
-                with transaction.atomic():
-                    seasons = {}
-                    for season_number in season_numbers:
-                        seasons[season_number] = _ensure_season_from_metadata(
-                            request.user,
-                            media_id,
-                            source,
-                            season_number,
-                            combined_metadata=combined_metadata,
-                            season_metadata=metadata_by_season[season_number],
-                            library_media_type=library_media_type,
-                        )
+            # Background jobs (credits, statistics, hydration) also write to SQLite;
+            # a locked write is rolled back whole, so retrying it is safe.
+            for attempt in range(len(DB_LOCK_BACKOFF_SECONDS) + 1):
+                created_any = False
+                try:
+                    with transaction.atomic():
+                        seasons = {}
+                        for season_number in season_numbers:
+                            seasons[season_number] = _ensure_season_from_metadata(
+                                request.user,
+                                media_id,
+                                source,
+                                season_number,
+                                combined_metadata=combined_metadata,
+                                season_metadata=metadata_by_season[season_number],
+                                library_media_type=library_media_type,
+                            )
 
-                    season_ids = [season.id for season in seasons.values()]
-                    episode_numbers = {event[1] for event in unresolved}
-                    watched_dates = {event[2] for event in unresolved}
-                    legacy_by_key = defaultdict(list)
-                    for legacy in Episode.objects.filter(
-                        related_season_id__in=season_ids,
-                        item__episode_number__in=episode_numbers,
-                        end_date__in=watched_dates,
-                    ).select_related("item").order_by("id"):
-                        legacy_by_key[(
-                            legacy.related_season_id,
-                            legacy.item.episode_number,
-                            legacy.end_date,
-                        )].append(legacy)
+                        season_ids = [season.id for season in seasons.values()]
+                        episode_numbers = {event[1] for event in unresolved}
+                        watched_dates = {event[2] for event in unresolved}
+                        legacy_by_key = defaultdict(list)
+                        for legacy in Episode.objects.filter(
+                            related_season_id__in=season_ids,
+                            item__episode_number__in=episode_numbers,
+                            end_date__in=watched_dates,
+                        ).select_related("item").order_by("id"):
+                            legacy_by_key[(
+                                legacy.related_season_id,
+                                legacy.item.episode_number,
+                                legacy.end_date,
+                            )].append(legacy)
 
-                    for season_number, episode_number, watched_at, client_event_id in unresolved:
-                        season = seasons[season_number]
-                        legacy_key = (season.id, episode_number, watched_at)
-                        legacy_candidates = legacy_by_key.get(legacy_key, [])
-                        if legacy_candidates:
-                            legacy = legacy_candidates.pop(0)
-                            if legacy.watch_operation_id is None:
-                                # This is identity adoption for an already-existing
-                                # exact timestamp event. Keep it local: Episode.save()
-                                # performs provider-backed completion reconciliation,
-                                # which would turn one batch fetch into an N+1 path.
-                                updated = Episode.objects.filter(
-                                    pk=legacy.pk,
-                                    watch_operation_id__isnull=True,
-                                ).update(watch_operation_id=client_event_id)
-                                if updated:
-                                    legacy.watch_operation_id = client_event_id
-                                else:
-                                    claimed = Episode.objects.filter(pk=legacy.pk).only("watch_operation_id").first()
-                                    if claimed is None or claimed.watch_operation_id != client_event_id:
-                                        return Response(
-                                            {"detail": "client_event_id conflicts with an existing episode event."},
-                                            status=HTTP.CONFLICT,
-                                        )
-                            outcomes[client_event_id] = "already_satisfied"
-                            continue
+                        for season_number, episode_number, watched_at, client_event_id in unresolved:
+                            season = seasons[season_number]
+                            legacy_key = (season.id, episode_number, watched_at)
+                            legacy_candidates = legacy_by_key.get(legacy_key, [])
+                            if legacy_candidates:
+                                legacy = legacy_candidates.pop(0)
+                                if legacy.watch_operation_id is None:
+                                    # This is identity adoption for an already-existing
+                                    # exact timestamp event. Keep it local: Episode.save()
+                                    # performs provider-backed completion reconciliation,
+                                    # which would turn one batch fetch into an N+1 path.
+                                    updated = Episode.objects.filter(
+                                        pk=legacy.pk,
+                                        watch_operation_id__isnull=True,
+                                    ).update(watch_operation_id=client_event_id)
+                                    if updated:
+                                        legacy.watch_operation_id = client_event_id
+                                    else:
+                                        claimed = Episode.objects.filter(pk=legacy.pk).only("watch_operation_id").first()
+                                        if claimed is None or claimed.watch_operation_id != client_event_id:
+                                            return Response(
+                                                {"detail": "client_event_id conflicts with an existing episode event."},
+                                                status=HTTP.CONFLICT,
+                                            )
+                                outcomes[client_event_id] = "already_satisfied"
+                                continue
 
-                        episode_item = season.get_episode_item(
-                            episode_number,
-                            season_metadata=metadata_by_season[season_number],
+                            episode_item = season.get_episode_item(
+                                episode_number,
+                                season_metadata=metadata_by_season[season_number],
+                            )
+                            result = create_episode_watch(
+                                season,
+                                episode_item,
+                                watched_at,
+                                watch_operation_id=client_event_id,
+                                operation_prechecked=True,
+                            )
+                            outcomes[client_event_id] = "created" if result.created else "already_satisfied"
+                            created_any = created_any or result.created
+                    break
+                except OperationalError as error:
+                    if "locked" not in str(error).lower():
+                        logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
+                        return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
+                    if attempt == len(DB_LOCK_BACKOFF_SECONDS):
+                        logger.warning("CineTrack episode ensure: database busy media_id=%s", media_id)
+                        return Response(
+                            {"detail": "Floppy database is busy; retry shortly."},
+                            status=HTTP.SERVICE_UNAVAILABLE,
+                            headers={"Retry-After": str(DB_BUSY_RETRY_AFTER_SECONDS)},
                         )
-                        result = create_episode_watch(
-                            season,
-                            episode_item,
-                            watched_at,
-                            watch_operation_id=client_event_id,
-                            operation_prechecked=True,
-                        )
-                        outcomes[client_event_id] = "created" if result.created else "already_satisfied"
-                        created_any = created_any or result.created
-            except Exception:
-                logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
-                return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
+                    time.sleep(DB_LOCK_BACKOFF_SECONDS[attempt])
+                except Exception:
+                    logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
+                    return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
 
             if created_any:
                 cache_utils.clear_time_left_cache_for_user(request.user.id)

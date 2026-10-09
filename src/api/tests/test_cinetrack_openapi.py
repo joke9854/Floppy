@@ -48,7 +48,8 @@ class CineTrackOpenApiTests(FloppyApiTestCase):
                 operation = self._schema()["paths"][path]["post"]
                 self.assertIn("requestBody", operation)
                 self.assertEqual(
-                    {"200", "400", "404", "409", "500"}, set(operation["responses"])
+                    {"200", "400", "404", "409", "500", "503"},
+                    set(operation["responses"]),
                 )
                 error = operation["responses"]["400"]["content"]["application/json"][
                     "schema"
