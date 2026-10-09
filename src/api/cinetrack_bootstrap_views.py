@@ -13,13 +13,14 @@ from uuid import UUID
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, views as drf_views
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import serializers
+from rest_framework import views as drf_views
 from rest_framework.response import Response
 
 from app import cache_utils
 from app.fork_services_episode import create_episode_watch
-from app.models import Episode, Item, MediaTypes, Movie, MoviePlay, Season, Status, TV
+from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Season, Status
 from app.providers import services
 from app.services import metadata_resolution
 from app.services.episode_coordinates import (
@@ -30,6 +31,7 @@ from app.services.episode_coordinates import (
 )
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
+from .contract_serializers import DetailErrorSerializer
 from .helpers import check_source_type, try_parse_datetime_input
 from .schema import MEDIA_TYPE_TV_ONLY_PARAM
 
@@ -102,6 +104,17 @@ class CineTrackBootstrapResultSerializer(serializers.Serializer):
 
 class CineTrackBootstrapResponseSerializer(serializers.Serializer):
     results = CineTrackBootstrapResultSerializer(many=True)
+
+
+# A 200 always confirms every submitted entry; any failure is a whole-request
+# error, so clients acknowledge all or nothing per request.
+BOOTSTRAP_RESPONSES = {
+    200: CineTrackBootstrapResponseSerializer,
+    400: OpenApiResponse(DetailErrorSerializer, description="Malformed or oversized batch; nothing was written."),
+    404: OpenApiResponse(DetailErrorSerializer, description="Unknown episode or unavailable season metadata."),
+    409: OpenApiResponse(DetailErrorSerializer, description="client_event_id already belongs to another event."),
+    500: OpenApiResponse(DetailErrorSerializer, description="The batch could not be written; retry is safe."),
+}
 
 
 def _parse_status(raw_value, *, default=Status.IN_PROGRESS.value):
@@ -253,7 +266,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
 
     @extend_schema(
         request=CineTrackMoviesEnsureRequestSerializer,
-        responses={200: CineTrackBootstrapResponseSerializer},
+        responses=BOOTSTRAP_RESPONSES,
     )
     def post(self, request):
         raw_entries = request.data.get("movies")
@@ -428,7 +441,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
 
     @extend_schema(
         request=CineTrackShowsEnsureRequestSerializer,
-        responses={200: CineTrackBootstrapResponseSerializer},
+        responses=BOOTSTRAP_RESPONSES,
     )
     def post(self, request):
         raw_entries = request.data.get("shows")
@@ -532,7 +545,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
     @extend_schema(
         parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
         request=CineTrackEpisodeEnsureRequestSerializer,
-        responses={200: CineTrackBootstrapResponseSerializer},
+        responses=BOOTSTRAP_RESPONSES,
     )
     def post(self, request, media_type, source, media_id):
         if media_type != MediaTypes.TV.value:
