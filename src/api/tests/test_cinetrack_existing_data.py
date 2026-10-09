@@ -59,11 +59,11 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
             headers=self.auth_headers,
         )
 
-    def _episode_payload(self, watched_at, event_id, *, episode_number=1):
+    def _episode_payload(self, watched_at, event_id, *, episode_number=1, season_number=1):
         return {
             "events": [
                 {
-                    "season_number": 1,
+                    "season_number": season_number,
                     "episode_number": episode_number,
                     "watched_at": watched_at.isoformat().replace("+00:00", "Z"),
                     "client_event_id": str(event_id),
@@ -247,7 +247,8 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         adopted = Episode.objects.get(pk=episode.pk)
         self.assertEqual(adopted.end_date, watched_at)
         self.assertEqual(adopted.watch_operation_id, self.EPISODE_EVENT)
-        self.assertEqual(metadata.call_count, 1)
+        # Exact-instant matches are resolved before any provider lookup.
+        metadata.assert_not_called()
 
     @patch(
         "api.cinetrack_bootstrap_views.services.get_media_metadata",
@@ -279,3 +280,64 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual([watch.end_date for watch in watches], [first, second])
         self.assertEqual({watch.watch_operation_id for watch in watches}, {first_id, second_id})
         self.assertEqual(metadata.call_count, 1)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_l_movie_play_from_an_earlier_connection_is_not_duplicated(self, metadata):
+        movie = self.movie_medias[0]
+        watched_at = datetime(2024, 6, 6, 20, 30, 15, tzinfo=UTC)
+        earlier = MoviePlay.objects.create(
+            movie=movie,
+            end_date=watched_at,
+            external_id="cinetrack:old-connection:movie:701:watched:1",
+        )
+
+        response = self._ensure_movie(
+            self._movie_payload(watched_at=watched_at, event_id="cinetrack:new-connection:movie:701:watched:9"),
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.json()["results"][0]["status"], "already_satisfied")
+        self.assertEqual(MoviePlay.objects.filter(movie=movie).count(), 1)
+        earlier.refresh_from_db()
+        self.assertEqual(earlier.external_id, "cinetrack:old-connection:movie:701:watched:1")
+        metadata.assert_not_called()
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_m_episode_from_an_earlier_connection_needs_no_metadata_or_duplicate(self, metadata):
+        episode = self.episode_medias[0]
+        old_id = UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
+        watched_at = datetime(2024, 7, 7, 21, 0, 30, tzinfo=UTC)
+        Episode.objects.filter(pk=episode.pk).update(end_date=watched_at, watch_operation_id=old_id)
+
+        response = self._ensure_episode(self._episode_payload(watched_at, self.EPISODE_EVENT))
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.json()["results"][0]["status"], "already_satisfied")
+        self.assertEqual(
+            Episode.objects.filter(related_season=episode.related_season, item=episode.item).count(),
+            1,
+        )
+        self.assertEqual(Episode.objects.get(pk=episode.pk).watch_operation_id, old_id)
+        metadata.assert_not_called()
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_n_specials_season_zero_is_accepted(self, metadata):
+        specials = {
+            **COMBINED_METADATA["season/1"],
+            "season_number": 0,
+            "season_title": "Specials",
+            "details": {"episodes": 1},
+            "episodes": [{"episode_number": 1, "air_date": "2023-01-01", "image": "", "name": "Special"}],
+        }
+        metadata.return_value = {**COMBINED_METADATA, "season/0": specials}
+        watched_at = datetime(2024, 8, 8, 20, 0, tzinfo=UTC)
+
+        response = self._ensure_episode(
+            self._episode_payload(watched_at, self.EPISODE_EVENT, season_number=0),
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.json()["results"][0]["status"], "created")
+        special = Episode.objects.get(watch_operation_id=self.EPISODE_EVENT)
+        self.assertEqual(special.related_season.item.season_number, 0)
+        self.assertEqual(special.end_date, watched_at)

@@ -11,7 +11,6 @@ from http import HTTPStatus as HTTP  # noqa: N814
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers
@@ -82,7 +81,7 @@ class CineTrackShowsEnsureRequestSerializer(serializers.Serializer):
 
 
 class CineTrackEpisodeEventInputSerializer(serializers.Serializer):
-    season_number = serializers.IntegerField(min_value=1)
+    season_number = serializers.IntegerField(min_value=0)
     episode_number = serializers.IntegerField(min_value=1)
     watched_at = serializers.DateTimeField()
     client_event_id = serializers.UUIDField()
@@ -369,12 +368,15 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                 )
             }
             watch_dates = {e["watched_at"] for e in parsed if e["watched_at"] is not None}
+            # A play stored at the exact same instant is the same watch whatever
+            # external id it carries (none, an importer's, or one from an
+            # earlier CineTrack connection), matching the episode endpoint.
             legacy_plays = defaultdict(list)
             if watch_dates:
                 for play in MoviePlay.objects.filter(
                     movie_id__in=[movie.id for movie in movies.values()],
                     end_date__in=watch_dates,
-                ).filter(Q(external_id__isnull=True) | Q(external_id="")).order_by("id"):
+                ).order_by("id"):
                     legacy_plays[(play.movie_id, play.end_date)].append(play)
 
             dirty_movies = {}
@@ -395,8 +397,10 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                         legacy_candidates = legacy_plays.get((movie.id, watched_at), [])
                         if legacy_candidates:
                             play = legacy_candidates.pop(0)
-                            play.external_id = external_id
-                            play.save(update_fields=["external_id"])
+                            if not play.external_id:
+                                # Identity adoption only; never overwrite another id.
+                                play.external_id = external_id
+                                play.save(update_fields=["external_id"])
                             existing_plays[(movie.id, external_id)] = play
                             outcome = "already_satisfied"
                         elif movie.end_date == watched_at and not movie.plays.exists():
@@ -570,7 +574,8 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 watched_at = try_parse_datetime_input(event["watched_at"])
             except (KeyError, TypeError, ValueError):
                 return Response({"detail": f"events[{index}] has invalid season_number, episode_number, watched_at, or client_event_id."}, status=HTTP.BAD_REQUEST)
-            if season_number < 1 or episode_number < 1 or watched_at is None:
+            # Season 0 holds a show's specials, which Floppy tracks like any season.
+            if season_number < 0 or episode_number < 1 or watched_at is None:
                 return Response({"detail": f"events[{index}] has invalid coordinates or watched_at."}, status=HTTP.BAD_REQUEST)
             parsed.append((season_number, episode_number, watched_at, client_event_id))
 
@@ -602,6 +607,40 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             if not same_identity:
                 return Response({"detail": "client_event_id belongs to another episode event."}, status=HTTP.CONFLICT)
             outcomes[client_event_id] = "already_satisfied"
+
+        # A play already stored at the exact same instant is the same watch,
+        # whoever recorded it (live tracking, an import, an earlier CineTrack
+        # connection). Resolve those before any provider metadata is fetched,
+        # so re-sending already-synced history costs no provider call.
+        if unresolved:
+            existing = defaultdict(list)
+            for row in (
+                Episode.objects.filter(
+                    related_season__user=request.user,
+                    related_season__item__media_id=str(media_id),
+                    related_season__item__source=source,
+                    related_season__item__season_number__in={event[0] for event in unresolved},
+                    item__episode_number__in={event[1] for event in unresolved},
+                    end_date__in={event[2] for event in unresolved},
+                )
+                .select_related("related_season__item", "item")
+                .order_by("id")
+            ):
+                existing[(row.related_season.item.season_number, row.item.episode_number, row.end_date)].append(row)
+            still_unresolved = []
+            for season_number, episode_number, watched_at, client_event_id in unresolved:
+                candidates = existing.get((season_number, episode_number, watched_at), [])
+                if not candidates:
+                    still_unresolved.append((season_number, episode_number, watched_at, client_event_id))
+                    continue
+                row = candidates.pop(0)
+                if row.watch_operation_id is None:
+                    # Identity adoption only; never overwrite another event's id.
+                    Episode.objects.filter(pk=row.pk, watch_operation_id__isnull=True).update(
+                        watch_operation_id=client_event_id,
+                    )
+                outcomes[client_event_id] = "already_satisfied"
+            unresolved = still_unresolved
 
         if unresolved:
             season_numbers = sorted({event[0] for event in unresolved})
