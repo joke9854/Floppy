@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from app import cache_utils
 from app.fork_services_episode import create_episode_watch
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Season, Status
-from app.providers import episode_orders, services, tmdb, tvdb
+from app.providers import credentials, episode_orders, services, tmdb, tvdb
 from app.services import metadata_resolution
 from app.services.episode_coordinates import (
     EpisodeMetadataUnavailableError,
@@ -44,6 +44,7 @@ DB_LOCK_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 DB_BUSY_RETRY_AFTER_SECONDS = 30
 MAX_BOOTSTRAP_ITEMS = 50
 MAX_EPISODE_EVENTS = 50
+SLOW_EPISODE_ENSURE_MS = 20_000
 _STATUS_BY_CODE = {
     0: Status.PLANNING.value,
     1: Status.IN_PROGRESS.value,
@@ -573,6 +574,15 @@ class MediaEpisodeEnsureView(drf_views.APIView):
         responses=BOOTSTRAP_RESPONSES,
     )
     def post(self, request, media_type, source, media_id):
+        # Token-authenticated API requests are authenticated after the
+        # middleware that scopes provider credentials, so personal keys
+        # (for example a user's own TVDB key) are bound here.
+        with credentials.current_user_scope(request.user):
+            return self._ensure(request, media_type, source, media_id)
+
+    def _ensure(self, request, media_type, source, media_id):
+        started = time.monotonic()
+        timings = {}
         if media_type != MediaTypes.TV.value:
             return Response({"detail": "Episodes are supported only for 'tv' media type."}, status=HTTP.BAD_REQUEST)
         if not check_source_type(media_type, source):
@@ -676,6 +686,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
 
         if unresolved:
             season_numbers = sorted({event[0] for event in unresolved})
+            stage_started = time.monotonic()
             try:
                 combined_metadata = services.get_media_metadata(
                     "tv_with_seasons",
@@ -683,6 +694,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     source,
                     season_numbers,
                 )
+                timings["metadata_ms"] = int((time.monotonic() - stage_started) * 1000)
             except Exception:
                 logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
                 return Response({"detail": "Could not resolve episode events."}, status=HTTP.NOT_FOUND)
@@ -787,6 +799,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     event for event in resolvable
                     if event[0] in differing_seasons and event[3] not in stored
                 ]
+                stage_started = time.monotonic()
                 matched, unavailable, why = _identity_targets(
                     request.user,
                     media_id,
@@ -795,6 +808,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     metadata_by_season,
                     identity_candidates + rematch,
                 )
+                timings["tvdb_ms"] = int((time.monotonic() - stage_started) * 1000)
                 for _season, _episode, _watched_at, client_event_id in identity_candidates:
                     if client_event_id in unavailable:
                         outcomes[client_event_id] = "metadata_unavailable"
@@ -929,6 +943,15 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             if outcomes[client_event_id] in {"not_found", "metadata_unavailable"}:
                 result["reason"] = reasons.get(client_event_id, "no_tmdb_episode")
             results.append(result)
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
+            logger.warning(
+                "CineTrack episode ensure slow media_id=%s events=%d total_ms=%d %s",
+                media_id,
+                len(parsed),
+                elapsed_ms,
+                " ".join(f"{stage}={ms}" for stage, ms in timings.items()),
+            )
         return Response({"results": results}, status=HTTP.OK)
 
 
@@ -1110,7 +1133,11 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
     if not tvdb.enabled(user):
         return {}, set(), dict.fromkeys(event_ids, "tvdb_not_configured")
     try:
-        tvdb_id = tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=metadata)
+        external_ids = metadata.get("provider_external_ids") or {}
+        tvdb_id = (
+            str(metadata.get("tvdb_id") or external_ids.get("tvdb_id") or "").strip()
+            or tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=metadata)
+        )
         if not tvdb_id:
             return {}, set(), dict.fromkeys(event_ids, "tvdb_id_unknown")
         catalogue = _tvdb_catalogue(tvdb_id, "default", user)

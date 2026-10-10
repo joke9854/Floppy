@@ -733,6 +733,35 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(results[str(unknown)]["status"], "not_found")
         self.assertEqual(results[str(unknown)]["reason"], "not_in_tvdb")
 
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", side_effect=AssertionError("search not needed"))
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z4_tvdb_id_from_tmdb_metadata_and_personal_keys_apply(self, metadata, _enabled, _resolve, catalogue):
+        from app.providers import credentials
+
+        seen_users = []
+
+        def fetch(*_args, **_kwargs):
+            # Provider calls made for this request must see the caller, so a
+            # personal key (the user's own TVDB key) is used.
+            seen_users.append(credentials._resolve_user(None))
+            return {**self._merged_metadata(), "tvdb_id": "778"}
+
+        metadata.side_effect = fetch
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
+
+        response = self._ensure_episode(
+            self._season_two_events((4, datetime(2025, 9, 5, 20, 0, tzinfo=UTC), self.EPISODE_EVENT)),
+        )
+
+        result = response.json()["results"][0]
+        self.assertEqual(result["status"], "created")
+        self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (2, 3))
+        self.assertTrue(seen_users)
+        self.assertTrue(all(user is not None and user.pk == self.user1.pk for user in seen_users))
+        self.assertTrue(catalogue.call_args.args[0].startswith("series/778/"))
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {
