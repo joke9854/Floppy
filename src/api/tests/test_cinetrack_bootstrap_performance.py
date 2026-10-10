@@ -3,10 +3,12 @@
 from http import HTTPStatus as HTTP  # noqa: N814
 from unittest.mock import patch
 
-from app.models import Episode, MediaTypes, Movie, MoviePlay, Status, TV
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
+from app.models import TV, Episode, MediaTypes, Movie, MoviePlay, Status
 
 from .base import FloppyApiTestCase
-
 
 SEASON_METADATA = {
     "media_id": "1001",
@@ -226,3 +228,109 @@ class CineTrackBootstrapV2PerformanceTests(FloppyApiTestCase):
             cinetrack_bootstrap_views.MediaEpisodeEnsureView.__module__,
             "api.fork_views_tracking",
         )
+
+
+class CineTrackBootstrapQueryGrowthTests(FloppyApiTestCase):
+    """Database queries per request must not grow with already-synced rows.
+
+    Re-sending synced history (Retry, resume, reconnect) costs a constant
+    number of queries whatever the batch size. New rows cost a bounded number
+    each; most of it is Floppy's watch-state upkeep, which runs per saved row
+    by design and is deliberately not bypassed.
+    """
+
+    # Measured per new row on CineTrack-API 395d7266 (movies 22, shows 5,
+    # episode events 8.4), with headroom for unrelated model changes.
+    NEW_MOVIE_QUERIES = 24
+    NEW_SHOW_QUERIES = 6
+    NEW_EPISODE_QUERIES = 10
+
+    def _queries(self, name, payload, args=()):
+        with CaptureQueriesContext(connection) as context:
+            response = self.call_api("post", name, args=args, payload=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, HTTP.OK)
+        return len(context.captured_queries)
+
+    @staticmethod
+    def _movies(first_id, count):
+        return {
+            "movies": [
+                {
+                    "source": "tmdb",
+                    "media_id": str(first_id + index),
+                    "title": f"Movie {first_id + index}",
+                    "status": 3,
+                    "watch": {
+                        "watched_at": f"2024-03-01T{index % 24:02d}:{index // 24:02d}:00Z",
+                        "client_event_id": f"cinetrack:growth:{first_id + index}",
+                    },
+                }
+                for index in range(count)
+            ],
+        }
+
+    @staticmethod
+    def _shows(first_id, count):
+        return {
+            "shows": [
+                {"source": "tmdb", "media_id": str(first_id + index), "title": f"Show {index}", "status": 1}
+                for index in range(count)
+            ],
+        }
+
+    @staticmethod
+    def _episode_events(month, count):
+        # Rewatches of the fixture's three episodes at distinct instants.
+        return {
+            "events": [
+                {
+                    "season_number": 1,
+                    "episode_number": index % 3 + 1,
+                    "watched_at": f"2024-{month:02d}-01T{index % 24:02d}:{index // 24:02d}:00Z",
+                    "client_event_id": f"{month:02d}{index:06d}-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                }
+                for index in range(count)
+            ],
+        }
+
+    def _assert_growth(self, name, small, large, per_new_row, args=()):
+        new_small = self._queries(name, small, args)
+        new_large = self._queries(name, large, args)
+        self.assertLessEqual(new_large - new_small, 15 * per_new_row)
+        # The same batches again: everything is already on Floppy.
+        self.assertEqual(self._queries(name, large, args), self._queries(name, small, args))
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_movie_queries_are_flat_on_resend_and_bounded_per_new_movie(self, metadata):
+        self._assert_growth(
+            "api_cinetrack_bootstrap_movies_ensure",
+            self._movies(510000, 5),
+            self._movies(520000, 20),
+            self.NEW_MOVIE_QUERIES,
+        )
+        metadata.assert_not_called()
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_show_queries_are_flat_on_resend_and_bounded_per_new_show(self, metadata):
+        self._assert_growth(
+            "api_cinetrack_bootstrap_shows_ensure",
+            self._shows(530000, 5),
+            self._shows(540000, 20),
+            self.NEW_SHOW_QUERIES,
+        )
+        metadata.assert_not_called()
+
+    @patch(
+        "api.cinetrack_bootstrap_views.services.get_media_metadata",
+        return_value=COMBINED_METADATA,
+    )
+    def test_episode_queries_are_flat_on_resend_and_bounded_per_new_event(self, metadata):
+        self._assert_growth(
+            "api_media_episode_ensure",
+            self._episode_events(3, 5),
+            self._episode_events(4, 20),
+            self.NEW_EPISODE_QUERIES,
+            args=("tv", "tmdb", "1001"),
+        )
+        # One metadata fetch per new batch; resends need none.
+        self.assertEqual(metadata.call_count, 2)
