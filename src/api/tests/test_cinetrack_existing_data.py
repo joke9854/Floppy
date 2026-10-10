@@ -802,6 +802,94 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         )
         self.assertEqual((results[str(second)]["stored_season_number"], results[str(second)]["stored_episode_number"]), (2, 2))
 
+    def _absolutely_numbered_metadata(self):
+        # Like One Piece on TMDB: season 2 keeps the absolute numbers 4-6.
+        season_two = {
+            **COMBINED_METADATA["season/1"],
+            "season_number": 2,
+            "season_title": "Season 2",
+            "details": {"episodes": 3},
+            "episodes": [
+                {"episode_number": 4, "air_date": "2023-07-01", "image": "", "name": "Quattro"},
+                {"episode_number": 5, "air_date": "2023-07-08", "image": "", "name": "Cinque"},
+                {"episode_number": 6, "air_date": "2023-07-08", "image": "", "name": "Sei"},
+            ],
+        }
+        return {
+            **COMBINED_METADATA,
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "episode_count": 3},
+                    {"season_number": 2, "episode_count": 3},
+                ],
+            },
+            "season/2": season_two,
+        }
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="560")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z6_absolutely_numbered_season_is_matched_by_number_not_air_date(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._absolutely_numbered_metadata()
+        # TVDB disagrees on dates: it puts 4 on the day TMDB airs 5 (the Naruto
+        # Shippuden 459/460 case) and 5 a week earlier (One Piece 176).
+        catalogue.side_effect = self._tvdb(
+            default=[{"seasonNumber": 1, "number": n, "name": "", "aired": f"2023-06-0{n}"} for n in (1, 2, 3)],
+            absolute=[
+                {"seasonNumber": 1, "number": 4, "absoluteNumber": 4, "name": "", "aired": "2023-07-08"},
+                {"seasonNumber": 1, "number": 5, "absoluteNumber": 5, "name": "", "aired": "2023-07-01"},
+            ],
+        )
+        fifth = UUID("7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c")
+        payload = {
+            "events": [
+                {"season_number": 1, "episode_number": 4, "watched_at": "2025-09-07T20:00:00Z", "client_event_id": str(self.EPISODE_EVENT)},
+                {"season_number": 1, "episode_number": 5, "watched_at": "2025-09-07T21:00:00Z", "client_event_id": str(fifth)},
+                {"season_number": 1, "episode_number": 2, "watched_at": "2025-09-07T19:00:00Z", "client_event_id": "6d6d6d6d-6d6d-4d6d-8d6d-6d6d6d6d6d6d"},
+            ],
+        }
+
+        response = self._ensure_episode(payload)
+
+        results = {result["client_event_id"]: result for result in response.json()["results"]}
+        self.assertEqual((results[str(self.EPISODE_EVENT)]["stored_season_number"], results[str(self.EPISODE_EVENT)]["stored_episode_number"]), (2, 4))
+        self.assertEqual((results[str(fifth)]["stored_season_number"], results[str(fifth)]["stored_episode_number"]), (2, 5))
+        # Season 1 itself is numbered exactly like the tracker: never re-matched.
+        self.assertEqual(results["6d6d6d6d-6d6d-4d6d-8d6d-6d6d6d6d6d6d"]["status"], "created")
+        self.assertNotIn("stored_season_number", results["6d6d6d6d-6d6d-4d6d-8d6d-6d6d6d6d6d6d"])
+        self.assertEqual(self._stored_at(self.EPISODE_EVENT), (2, 4))
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="561")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z7_special_title_inside_tmdbs_longer_title_is_matched(self, metadata, _enabled, _tvdb_id, catalogue):
+        specials = {
+            **COMBINED_METADATA["season/1"],
+            "season_number": 0,
+            "season_title": "Specials",
+            "details": {"episodes": 2},
+            "episodes": [
+                {"episode_number": 249, "air_date": "2019-05-26", "image": "", "name": "Deleted Scenes from Season 8"},
+                {"episode_number": 314, "air_date": "2019-05-26", "image": "", "name": "Game of Thrones: The Last Watch"},
+            ],
+        }
+        metadata.return_value = {
+            **COMBINED_METADATA,
+            "related": {"seasons": [{"season_number": 0, "episode_count": 2}, {"season_number": 1, "episode_count": 3}]},
+            "season/0": specials,
+        }
+        catalogue.side_effect = self._tvdb([{"seasonNumber": 0, "number": 55, "name": "The Last Watch", "aired": "2019-05-26"}])
+
+        response = self._ensure_episode(
+            self._episode_payload(datetime(2025, 9, 8, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, season_number=0, episode_number=55),
+        )
+
+        result = response.json()["results"][0]
+        self.assertEqual(result["status"], "created")
+        self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (0, 314))
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {

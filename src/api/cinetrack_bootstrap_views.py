@@ -751,6 +751,34 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     continue
                 resolvable.append(event)
 
+            # Exact identity first: some TMDB shows keep the absolute episode
+            # numbers inside their seasons (One Piece S06 lists 144-195,
+            # Naruto Shippuden S20 lists 459-...). The absolute number the
+            # tracker sent then names the episode itself; no counting and no
+            # air dates, which TMDB and TVDB often disagree on by days.
+            absolutely_numbered = False
+            if absolute_candidates:
+                try:
+                    _load_listed_seasons(media_id, source, combined_metadata, metadata_by_season)
+                except Exception as error:
+                    logger.warning(
+                        "CineTrack season metadata for absolute numbers failed media_id=%s error=%s",
+                        media_id,
+                        type(error).__name__,
+                    )
+                else:
+                    absolutely_numbered = bool(_absolutely_numbered_seasons(metadata_by_season))
+                    numbered = _absolute_number_targets(media_id, source, metadata_by_season, absolute_candidates)
+                    remaining = []
+                    for event in absolute_candidates:
+                        target = numbered.get(event[3])
+                        if target is None:
+                            remaining.append(event)
+                            continue
+                        resolvable.append((target[0], target[1], event[2], event[3]))
+                        stored[event[3]] = target
+                    absolute_candidates = remaining
+
             # Anime trackers number a series continuously in one season, while
             # TMDB splits it into seasons. Translate those numbers by walking
             # TMDB's regular seasons, and keep only targets TMDB really lists.
@@ -795,9 +823,12 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             # events are re-matched too rather than stored one slot off.
             if identity_candidates:
                 differing_seasons = {event[0] for event in identity_candidates}
+                # Season 1 of an absolutely numbered show matches TMDB exactly;
+                # its unknown numbers are continuous numbering, not a shift.
                 rematch = [
                     event for event in resolvable
                     if event[0] in differing_seasons and event[3] not in stored
+                    and not (event[0] == 1 and absolutely_numbered)
                 ]
                 stage_started = time.monotonic()
                 matched, unavailable, why = _identity_targets(
@@ -1017,7 +1048,11 @@ def _titles_match(left, right):
     if left == right:
         return True
     shorter, longer = sorted((left, right), key=len)
-    return len(shorter) >= 4 and longer.startswith(shorter)  # noqa: PLR2004
+    if len(shorter) >= 4 and longer.startswith(shorter):  # noqa: PLR2004
+        return True
+    # A title inside a longer one as whole words, e.g. TMDB's "Game of
+    # Thrones: The Last Watch" for TVDB's "The Last Watch".
+    return len(shorter) >= 8 and f" {shorter} " in f" {longer} "  # noqa: PLR2004
 
 
 def _parse_air_date(value):
@@ -1069,6 +1104,61 @@ def _match_tmdb_episode(tvdb_episode, tmdb_episodes, day_rank=None):
 
 
 TVDB_CATALOGUE_CACHE_SECONDS = 60 * 60
+
+
+def _load_listed_seasons(media_id, source, metadata, metadata_by_season):
+    """Add every season TMDB lists for the show to ``metadata_by_season``."""
+    missing = sorted(_listed_season_numbers(metadata) - set(metadata_by_season))
+    if not missing:
+        return
+    extra = services.get_media_metadata("tv_with_seasons", media_id, source, missing)
+    for season_number in missing:
+        season_metadata = extra.get(f"season/{season_number}")
+        if isinstance(season_metadata, dict):
+            season_metadata.setdefault("_tvdb_episode_image_map", {})
+            metadata_by_season[season_number] = season_metadata
+
+
+def _absolutely_numbered_seasons(metadata_by_season):
+    """Return {season: episode numbers} for seasons that keep absolute numbers.
+
+    Only regular seasons after the first whose numbering does not restart at 1.
+    """
+    seasons = {}
+    for season_number, season_metadata in metadata_by_season.items():
+        if season_number < 2:  # noqa: PLR2004
+            continue
+        numbers = {
+            int(row["episode_number"])
+            for row in season_metadata.get("episodes") or []
+            if isinstance(row, dict) and row.get("episode_number") is not None
+        }
+        if numbers and min(numbers) > 1:
+            seasons[season_number] = numbers
+    return seasons
+
+
+def _absolute_number_targets(media_id, source, metadata_by_season, events):
+    """Map absolute numbers to the one absolutely numbered season listing them."""
+    seasons = _absolutely_numbered_seasons(metadata_by_season)
+    targets = {}
+    for _season, episode_number, _watched_at, client_event_id in events:
+        holders = [season for season, numbers in seasons.items() if episode_number in numbers]
+        if len(holders) != 1:
+            continue
+        target = (holders[0], episode_number)
+        try:
+            resolve_episode_coordinate(
+                media_id,
+                source,
+                target[0],
+                target[1],
+                season_metadata=metadata_by_season[target[0]],
+            )
+        except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
+            continue
+        targets[client_event_id] = target
+    return targets
 
 
 def _day_rank(catalogue, tvdb_episode):
@@ -1168,14 +1258,7 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
             absolute = _tvdb_catalogue(tvdb_id, "absolute", user)
         else:
             absolute = {}
-        missing = sorted(_listed_season_numbers(metadata) - set(metadata_by_season))
-        if missing:
-            extra = services.get_media_metadata("tv_with_seasons", media_id, source, missing)
-            for season_number in missing:
-                season_metadata = extra.get(f"season/{season_number}")
-                if isinstance(season_metadata, dict):
-                    season_metadata.setdefault("_tvdb_episode_image_map", {})
-                    metadata_by_season[season_number] = season_metadata
+        _load_listed_seasons(media_id, source, metadata, metadata_by_season)
     except Exception as error:
         logger.warning(
             "CineTrack TVDB episode lookup failed media_id=%s error=%s",

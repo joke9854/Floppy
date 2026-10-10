@@ -49,3 +49,6 @@ jobs:
 
       - name: Duplicate-play report and cleanup
         run: uv run --no-sync python src/manage.py test app.tests.test_report_cinetrack_duplicate_plays app.tests.test_dedupe_cinetrack_movie_plays --exclude-tag network
+
+      - name: Misplaced absolute-numbered episode repair
+        run: uv run --no-sync python src/manage.py test api.tests.test_repair_cinetrack_absolute_episode_plays --exclude-tag network
