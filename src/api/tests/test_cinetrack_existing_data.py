@@ -5,6 +5,7 @@ from http import HTTPStatus as HTTP  # noqa: N814
 from unittest.mock import patch
 from uuid import UUID
 
+from django.core.cache import cache
 from django.db import OperationalError
 
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Status
@@ -515,11 +516,21 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
     # TMDB merges a two-parter that TVDB (and so Simkl) lists as two episodes:
     # TVDB S02E02+E03 are TMDB S02E02, and TVDB S02E04 is TMDB S02E03.
     TVDB_SEASON_TWO = [
-        {"season_number": 2, "episode_number": 1, "title": "Opener", "air_date": "2024-01-01"},
-        {"season_number": 2, "episode_number": 2, "title": "Two Parter (1)", "air_date": "2024-01-08"},
-        {"season_number": 2, "episode_number": 3, "title": "Two Parter (2)", "air_date": "2024-01-08"},
-        {"season_number": 2, "episode_number": 4, "title": "Finale", "air_date": "2024-01-15"},
+        {"seasonNumber": 2, "number": 1, "name": "Opener", "aired": "2024-01-01"},
+        {"seasonNumber": 2, "number": 2, "name": "Two Parter (1)", "aired": "2024-01-08"},
+        {"seasonNumber": 2, "number": 3, "name": "Two Parter (2)", "aired": "2024-01-08"},
+        {"seasonNumber": 2, "number": 4, "name": "Finale", "aired": "2024-01-15"},
     ]
+
+    def _tvdb(self, default, absolute=()):
+        """Fake TVDB episode pages for the default and absolute orders."""
+        cache.clear()
+
+        def respond(path, params=None, user=None):
+            rows = absolute if "/absolute/" in path else default
+            return {"data": {"episodes": list(rows)}, "links": {"next": None}}
+
+        return respond
 
     def _merged_metadata(self):
         season_two = {
@@ -561,13 +572,13 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         episode = Episode.objects.get(watch_operation_id=event_id)
         return episode.related_season.item.season_number, episode.item.episode_number
 
-    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
     @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
     @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_v_tvdb_numbered_two_parter_is_stored_at_its_tmdb_episodes(self, metadata, _enabled, _tvdb_id, catalogue):
         metadata.return_value = self._merged_metadata()
-        catalogue.return_value = {"episodes": self.TVDB_SEASON_TWO}
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
         second_half = UUID("abababab-abab-4bab-8bab-abababababab")
         finale = UUID("cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd")
         second_at = datetime(2025, 4, 1, 20, 0, tzinfo=UTC)
@@ -596,13 +607,13 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual((retried[str(finale)]["stored_season_number"], retried[str(finale)]["stored_episode_number"]), (2, 3))
         self.assertEqual(Episode.objects.filter(watch_operation_id__in=[second_half, finale]).count(), 2)
 
-    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
     @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
     @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_w_both_halves_at_one_instant_are_one_watch_and_rewatches_stay_distinct(self, metadata, _enabled, _tvdb_id, catalogue):
         metadata.return_value = self._merged_metadata()
-        catalogue.return_value = {"episodes": self.TVDB_SEASON_TWO}
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
         together = datetime(2025, 5, 1, 20, 0, tzinfo=UTC)
         later = datetime(2025, 6, 1, 20, 0, tzinfo=UTC)
         first_half = UUID("12121212-1212-4212-8212-121212121212")
@@ -627,11 +638,12 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         )
         self.assertEqual(sorted(plays.values_list("end_date", flat=True)), [together, later])
 
-    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order", side_effect=RuntimeError("TVDB down"))
+    @patch("api.cinetrack_bootstrap_views.tvdb._request", side_effect=RuntimeError("TVDB down"))
     @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
     @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_x_failed_tvdb_lookup_is_retryable_and_writes_nothing(self, metadata, _enabled, _tvdb_id, _catalogue):
+        cache.clear()
         metadata.return_value = self._merged_metadata()
         before = Episode.objects.count()
 
@@ -640,20 +652,18 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         )
 
         self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
+        self.assertEqual(response.json()["results"][0]["reason"], "tvdb_unavailable")
         self.assertEqual(Episode.objects.count(), before)
 
-    @patch("api.cinetrack_bootstrap_views.episode_orders.fetch_order")
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
     @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
     @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_y_episode_without_a_unique_tmdb_match_is_not_found(self, metadata, _enabled, _tvdb_id, catalogue):
         metadata.return_value = self._merged_metadata()
-        catalogue.return_value = {
-            "episodes": [
-                *self.TVDB_SEASON_TWO,
-                {"season_number": 2, "episode_number": 5, "title": "Unaired Cut", "air_date": "2024-03-30"},
-            ],
-        }
+        catalogue.side_effect = self._tvdb(
+            [*self.TVDB_SEASON_TWO, {"seasonNumber": 2, "number": 5, "name": "Unaired Cut", "aired": "2024-03-30"}],
+        )
         before = Episode.objects.count()
 
         response = self._ensure_episode(
@@ -661,7 +671,67 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         )
 
         self.assertEqual(response.json()["results"][0]["status"], "not_found")
+        self.assertEqual(response.json()["results"][0]["reason"], "no_unique_tmdb_match")
         self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z1_anime_is_detected_with_localized_genre_names(self, metadata):
+        # A server with TMDB_LANG=it gets "Animazione" and "Giappone"; spoken
+        # languages stay English names.
+        localized = self._anime_metadata()
+        localized["genres"] = ["Animazione", "Azione & Avventura"]
+        localized["details"] = {"country": "Giappone", "languages": ["Japanese"]}
+        metadata.return_value = localized
+
+        response = self._ensure_episode(self._absolute_payload(4, self.EPISODE_EVENT, datetime(2025, 9, 1, 20, 0, tzinfo=UTC)))
+
+        result = response.json()["results"][0]
+        self.assertEqual(result["status"], "created")
+        self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (2, 1))
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="556")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z2_absolute_number_is_matched_through_tvdb_absolute_order(self, metadata, _enabled, _tvdb_id, catalogue):
+        # Not recognised as anime, so only TVDB's absolute order can place it.
+        metadata.return_value = self._anime_metadata(anime=False)
+        catalogue.side_effect = self._tvdb(
+            default=[{"seasonNumber": 1, "number": n, "name": f"Episode {n}", "aired": f"2023-06-0{n}"} for n in (1, 2, 3)],
+            absolute=[{"seasonNumber": 1, "number": 4, "absoluteNumber": 4, "name": "S2 1", "aired": "2023-07-01"}],
+        )
+
+        response = self._ensure_episode(self._absolute_payload(4, self.EPISODE_EVENT, datetime(2025, 9, 2, 20, 0, tzinfo=UTC)))
+
+        result = response.json()["results"][0]
+        self.assertEqual(result["status"], "created")
+        self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (2, 1))
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="557")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z3_season_tmdb_does_not_list_is_matched_not_metadata_unavailable(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.side_effect = self._tvdb([{"seasonNumber": 0, "number": 1, "name": "Finale", "aired": "2024-01-15"}])
+        unknown = UUID("9a9a9a9a-9a9a-4a9a-8a9a-9a9a9a9a9a9a")
+        payload = {
+            "events": [
+                {"season_number": 0, "episode_number": 1, "watched_at": "2025-09-03T20:00:00Z", "client_event_id": str(self.EPISODE_EVENT)},
+                {"season_number": 0, "episode_number": 2, "watched_at": "2025-09-04T20:00:00Z", "client_event_id": str(unknown)},
+            ],
+        }
+
+        response = self._ensure_episode(payload)
+
+        results = {result["client_event_id"]: result for result in response.json()["results"]}
+        matched = results[str(self.EPISODE_EVENT)]
+        self.assertEqual(matched["status"], "created")
+        self.assertEqual((matched["stored_season_number"], matched["stored_episode_number"]), (2, 3))
+        # A season TMDB never had is a definitive "no counterpart", not a
+        # temporary metadata gap that would block the sync forever.
+        self.assertEqual(results[str(unknown)]["status"], "not_found")
+        self.assertEqual(results[str(unknown)]["reason"], "not_in_tvdb")
 
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
