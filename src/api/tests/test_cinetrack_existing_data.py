@@ -892,6 +892,63 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(result["status"], "created")
         self.assertEqual((result["stored_season_number"], result["stored_episode_number"]), (0, 314))
 
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="562")
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z8_repair_resend_moves_a_two_parter_play_stored_one_off(self, metadata, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
+        second_half_at = datetime(2025, 9, 9, 20, 0, tzinfo=UTC)
+        finale_at = datetime(2025, 9, 10, 20, 0, tzinfo=UTC)
+        old_id = UUID("01010101-0101-4101-8101-010101010101")
+        # An older version (no TVDB matching) stored TVDB S02E03 (the second
+        # half of the merged two-parter) directly on TMDB S02E03.
+        with patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=False):
+            self._ensure_episode(self._season_two_events((3, second_half_at, old_id)))
+        self.assertEqual(self._stored_at(old_id), (2, 3))
+
+        # The repair re-send uses new event ids, as CineTrack's full re-send does.
+        payload = self._season_two_events(
+            (3, second_half_at, UUID("02020202-0202-4202-8202-020202020202")),
+            (4, finale_at, UUID("03030303-0303-4303-8303-030303030303")),
+        )
+        payload["repair_coordinates"] = True
+        with patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True):
+            response = self._ensure_episode(payload)
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        # Moved to the merged TMDB episode, keeping its exact time and id.
+        moved = Episode.objects.get(watch_operation_id=old_id)
+        self.assertEqual((moved.related_season.item.season_number, moved.item.episode_number), (2, 2))
+        self.assertEqual(moved.end_date, second_half_at)
+        self.assertEqual(self._stored_at(UUID("03030303-0303-4303-8303-030303030303")), (2, 3))
+        season_two = Episode.objects.filter(related_season__item__media_id="1001", related_season__item__season_number=2)
+        self.assertEqual(season_two.count(), 2)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z9_repair_never_moves_plays_sharing_an_instant(self, metadata):
+        metadata.return_value = COMBINED_METADATA
+        together = datetime(2025, 9, 11, 20, 0, tzinfo=UTC)
+        first = UUID("04040404-0404-4404-8404-040404040404")
+        second = UUID("05050505-0505-4505-8505-050505050505")
+        self._ensure_episode({"events": [
+            {"season_number": 1, "episode_number": 1, "watched_at": "2025-09-11T20:00:00Z", "client_event_id": str(first)},
+            {"season_number": 1, "episode_number": 2, "watched_at": "2025-09-11T20:00:00Z", "client_event_id": str(second)},
+        ]})
+
+        payload = {
+            "events": [
+                {"season_number": 1, "episode_number": 3, "watched_at": "2025-09-11T20:00:00Z", "client_event_id": "06060606-0606-4606-8606-060606060606"},
+            ],
+            "repair_coordinates": True,
+        }
+        self._ensure_episode(payload)
+
+        # Bulk-marked plays at one instant are never treated as misplaced.
+        self.assertEqual(self._stored_at(first), (1, 1))
+        self.assertEqual(self._stored_at(second), (1, 2))
+        self.assertEqual(Episode.objects.filter(end_date=together).count(), 3)
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {

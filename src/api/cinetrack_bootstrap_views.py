@@ -8,7 +8,7 @@ upstream-compatible tracking views so the fork remains easy to rebase.
 import logging
 import re
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from http import HTTPStatus as HTTP  # noqa: N814
 from uuid import UUID
@@ -614,6 +614,12 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 return Response({"detail": f"events[{index}] has invalid coordinates or watched_at."}, status=HTTP.BAD_REQUEST)
             parsed.append((season_number, episode_number, watched_at, client_event_id))
 
+        # One-time repair re-send: place every event by the current rules and
+        # move its own play there when an older version stored it elsewhere.
+        repair = request.data.get("repair_coordinates") is True
+        instant_counts = Counter(event[2] for event in parsed)
+        relocated = 0
+
         if len({event[3] for event in parsed}) != len(parsed):
             return Response({"detail": "client_event_id values must be unique per request."}, status=HTTP.BAD_REQUEST)
 
@@ -659,8 +665,10 @@ class MediaEpisodeEnsureView(drf_views.APIView):
         # A play already stored at the exact same instant is the same watch,
         # whoever recorded it (live tracking, an import, an earlier CineTrack
         # connection). Resolve those before any provider metadata is fetched,
-        # so re-sending already-synced history costs no provider call.
-        if unresolved:
+        # so re-sending already-synced history costs no provider call. A repair
+        # re-send skips this shortcut: the play found there may be the one an
+        # older version stored on the wrong episode.
+        if unresolved and not repair:
             existing = defaultdict(list)
             for row in (
                 Episode.objects.filter(
@@ -912,6 +920,23 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                                 continue
                             written.add(legacy_key)
                             legacy_candidates = legacy_by_key.get(legacy_key, [])
+                            if (
+                                repair
+                                and not legacy_candidates
+                                and instant_counts[watched_at] == 1
+                                and _relocate_own_play(
+                                    request.user,
+                                    media_id,
+                                    source,
+                                    season,
+                                    episode_number,
+                                    watched_at,
+                                    metadata_by_season[season_number],
+                                )
+                            ):
+                                relocated += 1
+                                outcomes[client_event_id] = "already_satisfied"
+                                continue
                             if legacy_candidates:
                                 legacy = legacy_candidates.pop(0)
                                 if legacy.watch_operation_id is None:
@@ -984,6 +1009,8 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 if client_event_id in titles:
                     result["title"] = titles[client_event_id]
             results.append(result)
+        if relocated:
+            logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
             logger.warning(
@@ -994,6 +1021,36 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 " ".join(f"{stage}={ms}" for stage, ms in timings.items()),
             )
         return Response({"results": results}, status=HTTP.OK)
+
+
+def _relocate_own_play(user, media_id, source, season, episode_number, watched_at, season_metadata):
+    """Move this event's own play onto (season, episode_number) if it is elsewhere.
+
+    The play is this event's only when it is the show's single play at that
+    exact instant and CineTrack wrote it (it carries an operation id). Plays
+    sharing an instant (bulk-marked seasons) are never moved. Returns whether
+    a play was moved; its time and operation id are kept.
+    """
+    plays = list(
+        Episode.objects.filter(
+            related_season__user=user,
+            related_season__item__media_id=str(media_id),
+            related_season__item__source=source,
+            end_date=watched_at,
+        ).select_related("related_season__item", "item")[:2],
+    )
+    if len(plays) != 1:
+        return False
+    play = plays[0]
+    if not play.watch_operation_id:
+        return False
+    if play.related_season_id == season.id and play.item.episode_number == episode_number:
+        return False
+    operation_id = play.watch_operation_id
+    target_item = season.get_episode_item(episode_number, season_metadata=season_metadata)
+    play.delete()
+    create_episode_watch(season, target_item, watched_at, watch_operation_id=operation_id, operation_prechecked=True)
+    return True
 
 
 def _uses_absolute_numbering(metadata):
