@@ -1027,12 +1027,17 @@ def _parse_air_date(value):
         return None
 
 
-def _match_tmdb_episode(tvdb_episode, tmdb_episodes):
+def _match_tmdb_episode(tvdb_episode, tmdb_episodes, day_rank=None):
     """Pick the one TMDB episode that is the same broadcast, or None.
 
     Same air date decides alone when it is unique (a merged two-parter's
-    halves air together); otherwise the title must also agree. A unique,
-    non-generic exact title is the last resort (specials with sloppy dates).
+    halves air together); otherwise the title must also agree. When titles
+    cannot tell apart several episodes aired the same day (anime double
+    episodes, titles in different languages) and TVDB lists exactly as many
+    that day, their order within the day pairs them up; ``day_rank`` is
+    (position, count) of this episode among TVDB's episodes of that day. A
+    unique, non-generic exact title is the last resort (specials with sloppy
+    dates).
     """
     title = _normalized_title(tvdb_episode.get("title"))
 
@@ -1046,6 +1051,9 @@ def _match_tmdb_episode(tvdb_episode, tmdb_episodes):
             return same_day[0]
         if len(titled(same_day)) == 1:
             return titled(same_day)[0]
+        if day_rank is not None and len(same_day) == day_rank[1] > 1:
+            ordered = sorted(same_day, key=lambda row: (row["season_number"], row["episode_number"]))
+            return ordered[day_rank[0]]
         if not same_day:
             near = [
                 row for row in tmdb_episodes
@@ -1061,6 +1069,19 @@ def _match_tmdb_episode(tvdb_episode, tmdb_episodes):
 
 
 TVDB_CATALOGUE_CACHE_SECONDS = 60 * 60
+
+
+def _day_rank(catalogue, tvdb_episode):
+    """(position, count) of an episode among the catalogue's episodes that aired the same day."""
+    aired = tvdb_episode.get("air_date")
+    if not aired:
+        return None
+    same_day = sorted(coordinate for coordinate, row in catalogue.items() if row.get("air_date") == aired)
+    position = next(
+        (index for index, coordinate in enumerate(same_day) if catalogue[coordinate] is tvdb_episode),
+        None,
+    )
+    return None if position is None else (position, len(same_day))
 
 
 def _listed_season_numbers(metadata):
@@ -1184,7 +1205,8 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
         if tvdb_episode is None:
             reasons[client_event_id] = "not_in_tvdb"
             continue
-        match = _match_tmdb_episode(tvdb_episode, tmdb_episodes)
+        source_catalogue = catalogue if tvdb_episode is catalogue.get((season_number, episode_number)) else absolute
+        match = _match_tmdb_episode(tvdb_episode, tmdb_episodes, _day_rank(source_catalogue, tvdb_episode))
         if match is None:
             reasons[client_event_id] = "no_unique_tmdb_match"
             continue

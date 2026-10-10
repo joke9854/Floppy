@@ -762,6 +762,46 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertTrue(all(user is not None and user.pk == self.user1.pk for user in seen_users))
         self.assertTrue(catalogue.call_args.args[0].startswith("series/778/"))
 
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="559")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_z5_double_episode_day_is_paired_by_order_within_the_day(self, metadata, _enabled, _tvdb_id, catalogue):
+        # Two episodes aired the same day; TMDB titles are Italian, TVDB's
+        # English, so only their order within the day can pair them.
+        double_day = self._anime_metadata(anime=False)
+        double_day["season/2"] = {
+            **double_day["season/2"],
+            "episodes": [
+                {"episode_number": 1, "air_date": "2023-07-01", "image": "", "name": "Il primo"},
+                {"episode_number": 2, "air_date": "2023-07-01", "image": "", "name": "Il secondo"},
+            ],
+        }
+        metadata.return_value = double_day
+        catalogue.side_effect = self._tvdb(
+            default=[{"seasonNumber": 1, "number": n, "name": f"Episode {n}", "aired": f"2023-06-0{n}"} for n in (1, 2, 3)],
+            absolute=[
+                {"seasonNumber": 1, "number": 4, "absoluteNumber": 4, "name": "The First", "aired": "2023-07-01"},
+                {"seasonNumber": 1, "number": 5, "absoluteNumber": 5, "name": "The Second", "aired": "2023-07-01"},
+            ],
+        )
+        second = UUID("8b8b8b8b-8b8b-4b8b-8b8b-8b8b8b8b8b8b")
+        payload = {
+            "events": [
+                {"season_number": 1, "episode_number": 5, "watched_at": "2025-09-06T21:00:00Z", "client_event_id": str(second)},
+                {"season_number": 1, "episode_number": 4, "watched_at": "2025-09-06T20:00:00Z", "client_event_id": str(self.EPISODE_EVENT)},
+            ],
+        }
+
+        response = self._ensure_episode(payload)
+
+        results = {result["client_event_id"]: result for result in response.json()["results"]}
+        self.assertEqual(
+            (results[str(self.EPISODE_EVENT)]["stored_season_number"], results[str(self.EPISODE_EVENT)]["stored_episode_number"]),
+            (2, 1),
+        )
+        self.assertEqual((results[str(second)]["stored_season_number"], results[str(second)]["stored_episode_number"]), (2, 2))
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_n_specials_season_zero_is_accepted(self, metadata):
         specials = {
