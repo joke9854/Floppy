@@ -119,6 +119,10 @@ class CineTrackBootstrapResultSerializer(serializers.Serializer):
     # Short machine-readable cause for not_found/metadata_unavailable, so the
     # client can log why an episode could not be placed.
     reason = serializers.CharField(required=False)
+    # The episode's title as TVDB knows it, for an event that could not be
+    # placed, so the client can point the user to it (e.g. a special TMDB
+    # files as a movie).
+    title = serializers.CharField(required=False)
 
 
 class CineTrackBootstrapResponseSerializer(serializers.Serializer):
@@ -626,6 +630,8 @@ class MediaEpisodeEnsureView(drf_views.APIView):
         stored = {}
         # client_event_id -> why an event could not be placed (not_found etc.).
         reasons = {}
+        # client_event_id -> TVDB episode title of an event not placed.
+        titles = {}
         unresolved = []
         for season_number, episode_number, watched_at, client_event_id in parsed:
             claimed = claimed_by_id.get(client_event_id)
@@ -831,7 +837,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                     and not (event[0] == 1 and absolutely_numbered)
                 ]
                 stage_started = time.monotonic()
-                matched, unavailable, why = _identity_targets(
+                matched, unavailable, why, names = _identity_targets(
                     request.user,
                     media_id,
                     source,
@@ -847,6 +853,8 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                         outcomes[client_event_id] = "not_found"
                     if client_event_id in why and client_event_id not in matched:
                         reasons[client_event_id] = why[client_event_id]
+                        if names.get(client_event_id):
+                            titles[client_event_id] = names[client_event_id]
                 resolved_ids = {event[3] for event in rematch if event[3] in matched}
                 resolvable = [event for event in resolvable if event[3] not in resolved_ids]
                 for season_number, episode_number, watched_at, client_event_id in identity_candidates + rematch:
@@ -973,6 +981,8 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 result["stored_season_number"], result["stored_episode_number"] = stored[client_event_id]
             if outcomes[client_event_id] in {"not_found", "metadata_unavailable"}:
                 result["reason"] = reasons.get(client_event_id, "no_tmdb_episode")
+                if client_event_id in titles:
+                    result["title"] = titles[client_event_id]
             results.append(result)
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
@@ -1232,17 +1242,18 @@ def _tvdb_catalogue(tvdb_id, order, user):
 def _identity_targets(user, media_id, source, metadata, metadata_by_season, events):
     """Map events TMDB numbers differently onto TMDB episodes via TVDB.
 
-    Returns (targets, unavailable, reasons): targets maps client_event_id to a
-    TMDB (season, episode) that Floppy can store; unavailable holds events
-    whose lookup failed transiently and should be retried later; reasons says
-    why each other event could not be placed. Seasons fetched here are added
-    to ``metadata_by_season``.
+    Returns (targets, unavailable, reasons, titles): targets maps
+    client_event_id to a TMDB (season, episode) that Floppy can store;
+    unavailable holds events whose lookup failed transiently and should be
+    retried later; reasons says why each other event could not be placed and
+    titles gives TVDB's title for those TVDB knows. Seasons fetched here are
+    added to ``metadata_by_season``.
     """
     event_ids = {event[3] for event in events}
     if not events or source != "tmdb":
-        return {}, set(), {}
+        return {}, set(), {}, {}
     if not tvdb.enabled(user):
-        return {}, set(), dict.fromkeys(event_ids, "tvdb_not_configured")
+        return {}, set(), dict.fromkeys(event_ids, "tvdb_not_configured"), {}
     try:
         external_ids = metadata.get("provider_external_ids") or {}
         tvdb_id = (
@@ -1250,7 +1261,7 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
             or tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=metadata)
         )
         if not tvdb_id:
-            return {}, set(), dict.fromkeys(event_ids, "tvdb_id_unknown")
+            return {}, set(), dict.fromkeys(event_ids, "tvdb_id_unknown"), {}
         catalogue = _tvdb_catalogue(tvdb_id, "default", user)
         # Trackers number anime continuously in one season; TVDB's absolute
         # order holds exactly that numbering.
@@ -1265,7 +1276,7 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
             media_id,
             type(error).__name__,
         )
-        return {}, event_ids, dict.fromkeys(event_ids, "tvdb_unavailable")
+        return {}, event_ids, dict.fromkeys(event_ids, "tvdb_unavailable"), {}
 
     tmdb_episodes = []
     for season_number, season_metadata in metadata_by_season.items():
@@ -1281,6 +1292,7 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
 
     targets = {}
     reasons = {}
+    titles = {}
     for season_number, episode_number, _watched_at, client_event_id in events:
         tvdb_episode = catalogue.get((season_number, episode_number))
         if tvdb_episode is None and season_number == 1:
@@ -1292,6 +1304,7 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
         match = _match_tmdb_episode(tvdb_episode, tmdb_episodes, _day_rank(source_catalogue, tvdb_episode))
         if match is None:
             reasons[client_event_id] = "no_unique_tmdb_match"
+            titles[client_event_id] = str(tvdb_episode.get("title") or "")[:200]
             continue
         target = (match["season_number"], match["episode_number"])
         try:
@@ -1304,9 +1317,10 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
             )
         except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
             reasons[client_event_id] = "no_unique_tmdb_match"
+            titles[client_event_id] = str(tvdb_episode.get("title") or "")[:200]
             continue
         targets[client_event_id] = target
-    return targets, set(), reasons
+    return targets, set(), reasons, titles
 
 
 # Scoped-token enforcement keys views by module.ClassName.  Preserve the

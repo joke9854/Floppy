@@ -672,6 +672,8 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
 
         self.assertEqual(response.json()["results"][0]["status"], "not_found")
         self.assertEqual(response.json()["results"][0]["reason"], "no_unique_tmdb_match")
+        # TVDB's title lets the client point the user at it to mark by hand.
+        self.assertEqual(response.json()["results"][0]["title"], "Unaired Cut")
         self.assertEqual(Episode.objects.count(), before)
 
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
