@@ -77,10 +77,10 @@
     <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6">
       <div class="flex items-center mb-3">
         {% include "app/icons/padlock.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
-        <h3 class="text-base font-medium">{% translate "API Token" %}</h3>
+        <h3 class="text-base font-medium">{% translate "Legacy API key" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">
-        {% translate "This token authenticates webhook requests from your media servers. It has full access to your account, so for apps and API clients create an app token below instead — those can be limited and revoked one at a time." %}
+        {% translate "This is a legacy key. It authenticates webhook requests from your media servers and older apps, and over the API it is limited to tracking permissions (scrobbling, progress, saved items, catalog and sync reads). For apps, sign in with your Floppy account, or create a scoped app token below. Those can be limited and revoked one at a time." %}
       </p>
       <div class="bg-[var(--color-surface-dim)] p-3 rounded-md mb-4">
         <div class="flex items-center gap-2">
@@ -99,7 +99,7 @@
       <div class="flex justify-between items-center">
         <div class="flex items-center text-[var(--color-warning-text)] text-sm">
           {% include "app/icons/error.svg" with classes="w-4 h-4 mr-2 shrink-0" %}
-          <p>{% translate "Regenerating will invalidate the previous token" %}</p>
+          <p>{% translate "Regenerating will invalidate the previous key" %}</p>
         </div>
         <div class="flex space-x-3">
           <form method="post" action="{% url 'regenerate_token' %}">

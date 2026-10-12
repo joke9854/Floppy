@@ -5,8 +5,9 @@ view's ``module.ClassName`` so a new endpoint is invisible to scoped tokens unti
 it is named here; ``api.tests.test_fork_scope_enforcement`` fails the build when a
 routed view is missing, so the omission cannot ship silently.
 
-Legacy ``User.token`` credentials and session logins are unaffected: they carry no
-token object and keep full access.
+Session logins keep full access. Legacy ``User.token`` credentials are limited to
+``LEGACY_TOKEN_SCOPES``; OAuth access tokens (``api.oauth``) are limited to the
+scopes granted at sign-in.
 """
 
 # Any authenticated credential may reach the endpoint. Used for endpoints that
@@ -62,6 +63,27 @@ TRACKING_PRESET = (
     "catalog:read",
     "sync:read",
 )
+
+# What the legacy per-user API key (``User.token``) may reach through the REST
+# API. It is a long-lived, unscoped secret that also builds webhook and calendar
+# URLs, so it gets the tracking preset only. Apps should sign in (OAuth) or use a
+# scoped ``IntegrationToken``. Session logins are unaffected, and the webhook,
+# Stremio and ListenBrainz-by-URL lookups that read ``User.token`` directly
+# outside DRF do not go through this limit.
+LEGACY_TOKEN_SCOPES = TRACKING_PRESET
+
+# OpenID Connect identity scope: the ID token names the Floppy account.
+OPENID_SCOPE = "openid"
+
+# Every scope an OAuth app can be shown, with its consent-page description.
+OAUTH_SCOPES = {
+    OPENID_SCOPE: "Confirm which Floppy account you signed in with.",
+    **SCOPE_DESCRIPTIONS,
+}
+
+# What a signed-in app (``api.oauth``) may request: identity plus the tracking
+# preset. Broader access stays with named IntegrationTokens.
+APP_SCOPES = (OPENID_SCOPE, *TRACKING_PRESET)
 
 _R = "watchlist:read"
 _W = "watchlist:write"

@@ -1,0 +1,30 @@
+{% extends "oauth2_provider/base.html" %}
+{% load i18n %}
+
+{% block content_title %}
+  {% blocktranslate with name=application.name %}{{ name }} wants to use your Floppy account{% endblocktranslate %}
+{% endblock content_title %}
+
+{% block content %}
+  <p class="text-sm mb-3">
+    {% blocktranslate with name=application.name username=request.user.username %}Signed in as <strong>{{ username }}</strong>. {{ name }} will be able to:{% endblocktranslate %}
+  </p>
+  <ul class="list-disc pl-5 mb-6 text-sm space-y-1">
+    {% for scope in scopes_descriptions %}<li>{{ scope }}</li>{% endfor %}
+  </ul>
+  <form method="post" class="flex gap-3">
+    {% csrf_token %}
+    <button type="submit"
+            name="action"
+            value="deny"
+            class="w-full py-3 px-4 cursor-pointer border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-dim)] transition-colors">
+      {% translate "Deny" %}
+    </button>
+    <button type="submit"
+            name="action"
+            value="accept"
+            class="w-full py-3 px-4 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors">
+      {% translate "Allow" %}
+    </button>
+  </form>
+{% endblock content %}

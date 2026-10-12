@@ -1,0 +1,14 @@
+{% extends "oauth2_provider/base.html" %}
+{% load i18n %}
+
+{% block content_title %}{% translate "Sign in on your TV" %}{% endblock content_title %}
+
+{% block content %}
+  {% if object.status == "authorized" %}
+    <p class="text-sm">{% translate "Done. Your device is signed in and will continue on its own." %}</p>
+  {% elif object.status == "denied" %}
+    <p class="text-sm">{% translate "Access denied. Your device was not signed in." %}</p>
+  {% else %}
+    <p class="text-sm">{{ object.get_status_display }}</p>
+  {% endif %}
+{% endblock content %}

@@ -178,12 +178,14 @@ class TokenRegenerateTests(FloppyApiTestCase):
     def test_regenerate_rotates_token(self):
         """The new token is returned and the old credential stops working."""
         old_token = self.user1.token
+        # Rotation is a session-only act: no external credential may do it.
+        self.client.force_authenticate(user=self.user1)
         response = self.call_api(
             "post",
             "api_user_token_regenerate",
             payload={},
-            headers=self.auth_headers,
         )
+        self.client.force_authenticate(user=None)
         self.assertEqual(response.status_code, HTTP.OK)
         new_token = response.json()["token"]
         self.assertNotEqual(new_token, old_token)
@@ -195,9 +197,11 @@ class TokenRegenerateTests(FloppyApiTestCase):
         )
         self.assertEqual(stale.status_code, HTTP.FORBIDDEN)
 
+        # The legacy key is limited to the tracking preset, so check it on a
+        # route inside that preset (user:read would be 403 for any legacy key).
         fresh = self.call_api(
             "get",
-            "api_user_preferences",
+            "api_collection",
             headers={"HTTP_X_API_KEY": new_token},
         )
         self.assertEqual(fresh.status_code, HTTP.OK)

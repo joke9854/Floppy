@@ -26,6 +26,7 @@ from app.models import (
 from app.services.watch_state import effective_state
 from integrations.models import (
     CAPABILITY_WATCHED_READ,
+    IntegrationToken,
     StateConflict,
     StateConflictReason,
     StateConflictStatus,
@@ -52,8 +53,13 @@ def _dt(day):
 class WatchedStateAPITestCase(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="owner")
-        # The API authenticates on a token header, not a session.
-        self.client.credentials(HTTP_X_API_KEY=self.user.token)
+        # The API authenticates on a token header, not a session. The legacy
+        # User.token is limited to the tracking preset (no sync:write), so use a
+        # full-scope token.
+        _, raw_token = IntegrationToken.generate(
+            user=self.user, name="watched-state tests", scopes=["*"]
+        )
+        self.client.credentials(HTTP_X_API_KEY=raw_token)
         self.item, _ = Item.objects.get_or_create(
             media_id="603",
             source=Sources.TMDB.value,
@@ -384,7 +390,11 @@ class ConflictTests(WatchedStateAPITestCase):
     def test_another_users_conflict_is_not_resolvable(self):
         conflict = self._conflict()
         other = get_user_model().objects.create_user(username="other")
-        self.client.credentials(HTTP_X_API_KEY=other.token)
+        # sync:write is outside the legacy key's limit; use a full-scope token.
+        _, other_raw = IntegrationToken.generate(
+            user=other, name="other user", scopes=["*"]
+        )
+        self.client.credentials(HTTP_X_API_KEY=other_raw)
 
         response = self.client.post(
             reverse(

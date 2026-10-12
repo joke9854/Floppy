@@ -820,6 +820,7 @@ class InfoSerializer(serializers.Serializer):
                 "sync_ratings_v1": True,
                 "sync_status_v1": True,
                 "watched_state_exact_time_v1": True,
+                "oauth_v1": True,
             },
         }
 

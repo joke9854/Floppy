@@ -26,6 +26,7 @@ from api.contract_views import (
     jsonld_context,
     openapi_contract,
 )
+from api.oauth import oauth_urlpatterns
 from api.schema import LiveSchemaView
 from app.media_list_entry_grouping_views import (
     media_list as media_list_with_entry_grouping,
@@ -47,6 +48,10 @@ urlpatterns = [
         name="javascript-catalog",
     ),
     path("api/v1/", include("api.urls")),
+    # App sign-in (OAuth 2.0 / OpenID Connect provider, see api.oauth):
+    # /o/authorize/, /o/token/, /o/revoke_token/, /o/device-authorization/,
+    # /o/device/, /o/.well-known/openid-configuration, ...
+    path("o/", include((oauth_urlpatterns, "oauth2_provider"))),
     # ListenBrainz-compatible ingest lives at the root path clients expect.
     path("apis/listenbrainz/1/", include("api.listenbrainz_urls")),
     path("api/schema/", LiveSchemaView.as_view(), name="schema"),

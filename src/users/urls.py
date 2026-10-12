@@ -209,6 +209,11 @@ urlpatterns = [
         views.revoke_integration_token,
         name="revoke_integration_token",
     ),
+    path(
+        "settings/integrations/connected-apps/<str:client_id>/revoke",
+        views.revoke_connected_app,
+        name="revoke_connected_app",
+    ),
     path("clear_search_cache", views.clear_search_cache, name="clear_search_cache"),
     path(
         "clear_history_cache",

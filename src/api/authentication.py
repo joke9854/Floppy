@@ -8,7 +8,12 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission
 
-from api.scopes import ANY_SCOPE, NEVER, resolve_required_scope
+from api.scopes import (
+    ANY_SCOPE,
+    LEGACY_TOKEN_SCOPES,
+    NEVER,
+    resolve_required_scope,
+)
 from integrations.models import IntegrationToken
 from users.models import User
 
@@ -28,8 +33,66 @@ def _touch_last_used(token: IntegrationToken) -> None:
     token.last_used_at = now
 
 
+class _ScopedCredential:
+    """Scope holder for credentials that are not an ``IntegrationToken``.
+
+    Mirrors the ``IntegrationToken`` interface that ``HasScope`` and
+    ``CanWriteBoundList`` use. No list binding exists, so ``lists:write`` (when
+    held) applies to every list the user may write, and never to smart lists.
+    """
+
+    scopes: tuple = ()
+
+    def has_scope(self, scope: str) -> bool:
+        """Return whether this credential holds the scope."""
+        return "*" in self.scopes or scope in self.scopes
+
+    def may_write_list(self, list_id) -> bool:
+        """Return True: there is no per-list binding."""
+        return True
+
+
+class LegacyKeyCredential(_ScopedCredential):
+    """The per-user legacy API key (``User.token``), limited to tracking scopes."""
+
+    scopes = tuple(LEGACY_TOKEN_SCOPES)
+
+
+class OAuthAccessCredential(_ScopedCredential):
+    """An access token issued to a signed-in app (``api.oauth``)."""
+
+    def __init__(self, token):
+        """Keep the toolkit token row and the scopes it was granted."""
+        self.token = token
+        self.scopes = tuple(token.scope.split())
+
+
+def _authenticate_oauth_access_token(raw_token: str):
+    """Return ``(user, credential)`` for a live app access token, else None.
+
+    Tokens are stored as SHA-256 checksums only, so the lookup hashes the
+    presented value.
+    """
+    from oauth2_provider.models import AccessToken
+
+    checksum = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    token = (
+        AccessToken.objects.select_related("user")
+        .filter(token_checksum=checksum)
+        .first()
+    )
+    if (
+        token is None
+        or token.is_expired()
+        or token.user is None
+        or not token.user.is_active
+    ):
+        return None
+    return (token.user, OAuthAccessCredential(token))
+
+
 def authenticate_token(raw_token: str):
-    """Authenticate raw token against IntegrationToken or fallback to User.token."""
+    """Authenticate a raw token: IntegrationToken, app access token, legacy key."""
     if not raw_token:
         msg = "Invalid token"
         raise AuthenticationFailed(msg)
@@ -48,12 +111,16 @@ def authenticate_token(raw_token: str):
         _touch_last_used(integration_token)
         return (integration_token.user, integration_token)
 
+    oauth = _authenticate_oauth_access_token(raw_token)
+    if oauth is not None:
+        return oauth
+
     try:
         user = User.objects.get(token=raw_token)
     except User.DoesNotExist:
         msg = "Invalid token"
         raise AuthenticationFailed(msg) from None
-    return (user, None)
+    return (user, LegacyKeyCredential())
 
 
 class BearerAuthentication(BaseAuthentication):
@@ -117,10 +184,12 @@ class APIKeyAuthentication(BaseAuthentication):
 class HasScope(BasePermission):
     """Enforce the scope map against the credential the request authenticated with.
 
-    Session logins and legacy ``User.token`` credentials carry no token object
-    (``request.auth is None``) and keep full access. A scoped ``IntegrationToken``
-    must hold the scope ``api.scopes`` maps to this view and method; an unmapped
-    endpoint is denied, so a new route cannot silently become reachable.
+    Session logins carry no token object (``request.auth is None``) and keep full
+    access. Every token credential must hold the scope ``api.scopes`` maps to this
+    view and method: a scoped ``IntegrationToken``, an access token issued to a
+    signed-in app (``api.oauth``), and the legacy ``User.token`` key (limited to
+    ``LEGACY_TOKEN_SCOPES``). An unmapped endpoint is denied, so a new route
+    cannot silently become reachable.
     """
 
     required_scope = None

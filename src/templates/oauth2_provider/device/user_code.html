@@ -1,0 +1,25 @@
+{% extends "oauth2_provider/base.html" %}
+{% load i18n %}
+
+{% block content_title %}{% translate "Sign in on your TV" %}{% endblock content_title %}
+
+{% block content %}
+  <form method="post">
+    {% csrf_token %}
+    <label for="id_user_code" class="block text-sm mb-2">{% translate "Enter the code shown on your device" %}</label>
+    <input id="id_user_code"
+           name="user_code"
+           value="{{ form.user_code.value|default:'' }}"
+           autocomplete="off"
+           autocapitalize="characters"
+           required
+           class="w-full mb-2 px-3 py-2 rounded-md bg-[var(--color-surface-dim)] border border-[var(--color-border)] font-mono tracking-widest">
+    {% for error in form.user_code.errors %}
+      <p class="text-sm text-[var(--color-warning-text)] mb-2">{{ error }}</p>
+    {% endfor %}
+    <button type="submit"
+            class="w-full mt-4 py-3 px-4 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors">
+      {% translate "Continue" %}
+    </button>
+  </form>
+{% endblock content %}

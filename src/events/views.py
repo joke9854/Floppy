@@ -225,8 +225,7 @@ def download_calendar(request, token: str):
         user = User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Calendar request: Invalid token: %s",
-            token,
+            "Could not process Calendar request: Invalid token",
         )
         return HttpResponse(status=401)
 

@@ -1,0 +1,44 @@
+{% extends "oauth2_provider/base.html" %}
+{% load i18n %}
+
+{% block content_title %}
+  {% if not error %}
+    {% blocktranslate with name=application.name %}{{ name }} wants to use your Floppy account{% endblocktranslate %}
+  {% endif %}
+{% endblock content_title %}
+
+{% block content %}
+  {% if not error %}
+    <form id="authorizationForm" method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        {% if field.is_hidden %}{{ field }}{% endif %}
+      {% endfor %}
+      <p class="text-sm mb-3">
+        {% blocktranslate with name=application.name username=request.user.username %}Signed in as <strong>{{ username }}</strong>. {{ name }} will be able to:{% endblocktranslate %}
+      </p>
+      <ul class="list-disc pl-5 mb-4 text-sm space-y-1">
+        {% for scope in scopes_descriptions %}<li>{{ scope }}</li>{% endfor %}
+      </ul>
+      <p class="text-[var(--color-text-muted)] text-xs mb-6">
+        {% translate "You can disconnect it at any time from Settings, Integrations, Connected apps." %}
+      </p>
+      {{ form.non_field_errors }}
+      <div class="flex gap-3">
+        <button type="submit"
+                class="w-full py-3 px-4 cursor-pointer border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-dim)] transition-colors">
+          {% translate "Cancel" %}
+        </button>
+        <button type="submit"
+                name="allow"
+                value="Authorize"
+                class="w-full py-3 px-4 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors">
+          {% translate "Allow" %}
+        </button>
+      </div>
+    </form>
+  {% else %}
+    <h2 class="text-lg font-medium mb-2">{% translate "This sign-in request can't be completed" %}</h2>
+    <p class="text-sm text-[var(--color-text-muted)]">{{ error.description }}</p>
+  {% endif %}
+{% endblock content %}

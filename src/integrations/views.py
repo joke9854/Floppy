@@ -4160,8 +4160,7 @@ def jellyfin_webhook(request, token):
         user = users.models.User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Jellyfin webhook: Invalid token: %s",
-            token,
+            "Could not process Jellyfin webhook: Invalid token",
         )
         return HttpResponse(status=401)
 
@@ -4184,8 +4183,7 @@ def plex_webhook(request, token):
         user = users.models.User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Plex webhook: Invalid token: %s",
-            token,
+            "Could not process Plex webhook: Invalid token",
         )
         return HttpResponse(status=401)
 
@@ -4238,8 +4236,7 @@ def emby_webhook(request, token):
         user = users.models.User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Emby webhook: Invalid token: %s",
-            token,
+            "Could not process Emby webhook: Invalid token",
         )
         return HttpResponse(status=401)
 
@@ -4266,8 +4263,7 @@ def jellyseerr_webhook(request, token):
         user = users.models.User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Seerr webhook: Invalid token: %s",
-            token,
+            "Could not process Seerr webhook: Invalid token",
         )
         return HttpResponse(status=401)
 
@@ -4355,8 +4351,7 @@ def kodi_webhook(request, token):
         user = users.models.User.objects.get(token=token)
     except ObjectDoesNotExist:
         logger.warning(
-            "Could not process Kodi webhook: Invalid token: %s",
-            token,
+            "Could not process Kodi webhook: Invalid token",
         )
         return HttpResponse(status=401)
 

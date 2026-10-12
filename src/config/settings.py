@@ -26,6 +26,8 @@ from django.core.cache import CacheKeyWarning
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.signals import connection_created
 
+from api.scopes import APP_SCOPES, OAUTH_SCOPES
+from config.oidc_key import generate_private_key_pem, load_or_create_private_key
 from config.runtime_profile import (
     PROFILE as RESOURCE_PROFILE,
 )
@@ -291,6 +293,7 @@ else:
         "allauth",
         "allauth.account",
         "allauth.socialaccount",
+        "oauth2_provider",
         "django.contrib.humanize",
         "rest_framework",
         "api",
@@ -706,6 +709,14 @@ LOGGING = {
         },
         "urllib3": {
             "level": "DEBUG" if DEBUG else "WARNING",
+        },
+        # App sign-in: debug output includes request bodies with authorization
+        # codes and tokens, so these never log below INFO, even in DEBUG.
+        "oauthlib": {
+            "level": "INFO",
+        },
+        "oauth2_provider": {
+            "level": "INFO",
         },
     },
     "formatters": {
@@ -2000,6 +2011,56 @@ if BASE_URL:
     # Cookie paths must match FORCE_SCRIPT_NAME exactly to ensure browsers
     # send session cookies with all requests under the base URL prefix
     SESSION_COOKIE_PATH = BASE_URL
+
+# App sign-in: Floppy is an OAuth 2.0 / OpenID Connect provider
+# (django-oauth-toolkit, see api.oauth) for the trusted apps seeded by
+# integrations migration 0049_builtin_oauth_apps. Accounts stay with allauth.
+OAUTH_OIDC_PRIVATE_KEY = config("OAUTH_OIDC_PRIVATE_KEY", default="").replace(
+    "\\n", "\n"
+)
+if not OAUTH_OIDC_PRIVATE_KEY:
+    if "test" in sys.argv or "pytest" in sys.argv[0]:
+        # Tests never touch the data directory.
+        OAUTH_OIDC_PRIVATE_KEY = generate_private_key_pem()
+    else:
+        OAUTH_OIDC_PRIVATE_KEY = load_or_create_private_key(
+            FLOPPY_DATA_DIR / "oauth_oidc_private_key.pem"
+        )
+
+OAUTH2_PROVIDER = {
+    "SCOPES": OAUTH_SCOPES,
+    "DEFAULT_SCOPES": list(APP_SCOPES),
+    "SCOPES_BACKEND_CLASS": "api.oauth.AppScopes",
+    # Same lifetimes as Simkl: 7-day access tokens, refresh tokens that last
+    # 180 days from their last use. The toolkit counts the refresh lifetime from
+    # the paired access token's expiry (last use + 7 days), hence 180 - 7.
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 7 * 24 * 60 * 60,
+    "REFRESH_TOKEN_EXPIRE_SECONDS": (180 - 7) * 24 * 60 * 60,
+    # Each refresh issues a new refresh token. Presenting a spent one revokes
+    # the whole sign-in, since only a stolen copy would still be in use. No
+    # grace period: it would need plaintext tokens at rest.
+    "ROTATE_REFRESH_TOKEN": True,
+    "REFRESH_TOKEN_REUSE_PROTECTION": True,
+    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 0,
+    # Public apps have no secret, so PKCE is mandatory and S256 only.
+    "PKCE_REQUIRED": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_REQUIRED": True,
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": True,
+    "COMPLIANT_BCP_RFC9700_REFRESH_TOKEN": True,
+    # The authorization response names the issuer so an app can reject a
+    # response from another server (mix-up attacks).
+    "COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS": True,
+    # Only SHA-256 checksums of access and refresh tokens are stored.
+    "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": True,
+    # App schemes for the built-in apps; http is for loopback redirects.
+    "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http", "cinetrack", "nuvio"],
+    "REQUEST_APPROVAL_PROMPT": "force",
+    "OIDC_ENABLED": True,
+    "OIDC_RSA_PRIVATE_KEY": OAUTH_OIDC_PRIVATE_KEY,
+}
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 

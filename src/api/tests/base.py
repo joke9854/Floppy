@@ -23,6 +23,7 @@ from app.models import (
     Status,
 )
 from events.models import Event
+from integrations.models import IntegrationToken
 from lists.models import CustomList, CustomListItem
 
 
@@ -37,8 +38,17 @@ class FloppyApiTestCase(APITestCase):
         self.user2 = get_user_model().objects.create_user(
             username="api-test-user2",
         )
-        self.auth_headers = {"HTTP_X_API_KEY": self.user1.token}
-        self.auth_headers2 = {"HTTP_X_API_KEY": self.user2.token}
+        # The legacy User.token is limited to the tracking preset, so these
+        # shared fixtures use full-scope tokens. Tests of the legacy key itself
+        # send ``user.token`` directly (see test_legacy_key_limits).
+        _, raw_token1 = IntegrationToken.generate(
+            user=self.user1, name="api-test full access", scopes=["*"]
+        )
+        _, raw_token2 = IntegrationToken.generate(
+            user=self.user2, name="api-test full access", scopes=["*"]
+        )
+        self.auth_headers = {"HTTP_X_API_KEY": raw_token1}
+        self.auth_headers2 = {"HTTP_X_API_KEY": raw_token2}
         self.invalid_auth_headers = {"HTTP_X_API_KEY": "invalid-token"}
 
         # Disable external side effects while creating many media fixtures.

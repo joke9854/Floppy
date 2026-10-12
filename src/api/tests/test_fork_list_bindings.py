@@ -101,7 +101,9 @@ class ListWriteBindingTests(FloppyApiTestCase):
 
     def test_the_session_user_is_unaffected(self):
         """Bindings constrain external tokens, not the person using the app."""
-        response = self.rename(self.smart_list.id, self.auth_headers)
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.rename(self.smart_list.id, {})
 
         self.assertNotEqual(response.status_code, HTTP.FORBIDDEN)
 

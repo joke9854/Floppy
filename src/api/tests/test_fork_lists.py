@@ -19,6 +19,10 @@ class SmartRulesTests(FloppyApiTestCase):
     def setUp(self):
         """Create a smart list matching the user's movies."""
         super().setUp()
+        # Smart-list writes are refused to every external token, so these run as
+        # the signed-in user (no token object), as the legacy key once did.
+        self.client.force_authenticate(user=self.user1)
+        self.auth_headers = {}
         self.smart_list = CustomList.objects.create(
             name="Smart Movies",
             owner=self.user1,

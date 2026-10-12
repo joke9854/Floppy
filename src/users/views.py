@@ -18,7 +18,7 @@ from django.contrib.auth.decorators import login_not_required, login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -2553,9 +2553,62 @@ def delete_export_schedule(request):
     return redirect("export_data")
 
 
+def connected_apps_for(user):
+    """Return the apps the user has signed in to, one entry per OAuth app.
+
+    An app counts as connected while it holds a refresh token it can still
+    redeem (unrevoked, paired with an access token, within the refresh
+    lifetime) or an unexpired access token.
+    """
+    from oauth2_provider.models import (
+        AccessToken,
+        RefreshToken,
+        refresh_token_expire_timedelta,
+    )
+
+    now = timezone.now()
+    refresh_tokens = RefreshToken.objects.filter(
+        user=user,
+        revoked__isnull=True,
+        access_token__isnull=False,
+    )
+    lifetime = refresh_token_expire_timedelta()
+    if lifetime:
+        refresh_tokens = refresh_tokens.filter(access_token__expires__gt=now - lifetime)
+    tokens = [
+        *refresh_tokens.select_related("application", "access_token").order_by(
+            "created",
+        ),
+        *AccessToken.objects.filter(user=user, expires__gt=now)
+        .select_related("application")
+        .order_by("created"),
+    ]
+    apps = {}
+    for token in sorted(tokens, key=lambda token: token.created):
+        if token.application is None:
+            continue
+        app = apps.setdefault(
+            token.application.client_id,
+            {
+                "client_id": token.application.client_id,
+                "name": token.application.name,
+                "scopes": [],
+                "connected_at": token.created,
+            },
+        )
+        scope = getattr(token, "scope", None)
+        if scope is None:
+            scope = token.access_token.scope if token.access_token else ""
+        for name in scope.split():
+            if name not in app["scopes"]:
+                app["scopes"].append(name)
+    return sorted(apps.values(), key=lambda app: app["connected_at"], reverse=True)
+
+
 def integration_token_context(user):
     """Return the named-token context for the integrations page."""
     return {
+        "connected_apps": connected_apps_for(user),
         "integration_tokens": list(
             IntegrationToken.objects.filter(user=user, revoked_at__isnull=True)
             .order_by("-created_at"),
@@ -2667,6 +2720,38 @@ def revoke_integration_token(request, token_id):
     token.revoked_at = timezone.now()
     token.save(update_fields=["revoked_at"])
     messages.success(request, f"Revoked token '{token.name}'.")
+    return redirect("integrations")
+
+
+@require_POST
+def revoke_connected_app(request, client_id):
+    """Revoke every OAuth token and grant the user has issued to one app."""
+    from oauth2_provider.models import (
+        AccessToken,
+        DeviceGrant,
+        Grant,
+        IDToken,
+        RefreshToken,
+    )
+
+    app = next(
+        (
+            app
+            for app in connected_apps_for(request.user)
+            if app["client_id"] == client_id
+        ),
+        None,
+    )
+    if app is None:
+        raise Http404
+    mine = {"user": request.user, "application__client_id": client_id}
+    with transaction.atomic():
+        RefreshToken.objects.filter(**mine).delete()
+        AccessToken.objects.filter(**mine).delete()
+        IDToken.objects.filter(**mine).delete()
+        Grant.objects.filter(**mine).delete()
+        DeviceGrant.objects.filter(user=request.user, client_id=client_id).delete()
+    messages.success(request, f"Disconnected '{app['name']}'.")
     return redirect("integrations")
 
 

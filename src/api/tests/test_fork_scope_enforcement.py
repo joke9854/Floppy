@@ -191,18 +191,25 @@ class ScopeEnforcementTests(FloppyApiTestCase):
         )
         self.assertEqual(response.status_code, HTTP.FORBIDDEN)
 
-    def test_token_rotation_still_works_for_the_legacy_token(self):
-        """The account token keeps full access, including rotation."""
+    def test_token_rotation_is_denied_to_the_legacy_token(self):
+        """The legacy key is limited to the tracking preset, so it cannot rotate."""
         response = self.client.post(
             "/api/v1/user/token/regenerate/",
-            **self.auth_headers,
+            HTTP_X_API_KEY=self.user1.token,
         )
-        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(response.status_code, HTTP.FORBIDDEN)
 
-    def test_legacy_token_keeps_full_access(self):
-        """Legacy User.token requests carry no scopes and are not restricted."""
-        response = self.client.get("/api/v1/collection/", **self.auth_headers)
-        self.assertEqual(response.status_code, HTTP.OK)
+    def test_legacy_token_is_limited_to_the_tracking_preset(self):
+        """Legacy User.token requests hold LEGACY_TOKEN_SCOPES, not full access."""
+        legacy = {"HTTP_X_API_KEY": self.user1.token}
+        self.assertEqual(
+            self.client.get("/api/v1/collection/", **legacy).status_code,
+            HTTP.OK,
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/user/preferences/", **legacy).status_code,
+            HTTP.FORBIDDEN,
+        )
 
     def test_default_preset_covers_the_tracking_flows(self):
         """A default-preset token can scrobble, resume, and change saved state."""
