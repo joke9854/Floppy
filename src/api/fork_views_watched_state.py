@@ -44,11 +44,17 @@ from integrations.state.identity import (
 )
 
 from .contract_serializers import DetailErrorSerializer
-from .helpers import check_source_type, check_valid_type, resolve_item_queryset
+from .helpers import (
+    check_source_type,
+    check_valid_type,
+    resolve_item_queryset,
+    try_parse_datetime_input,
+)
 
 logger = logging.getLogger(__name__)
 
 MAX_CHANGE_PAGE = 200
+WATCHED_AT_FUTURE_TOLERANCE = datetime.timedelta(minutes=5)
 
 
 def _serialize_state(state, item):
@@ -168,6 +174,26 @@ class WatchedStateView(drf_views.APIView):
                 status=HTTP.BAD_REQUEST,
             )
 
+        watched_at = timezone.now()
+        raw_watched_at = request.data.get("watched_at")
+        if watched and raw_watched_at is not None:
+            # Exact instant of the watch; the default stays "now".
+            invalid = Response(
+                {"detail": "`watched_at` must be an ISO-8601 datetime."},
+                status=HTTP.BAD_REQUEST,
+            )
+            if not isinstance(raw_watched_at, str):
+                return invalid
+            try:
+                watched_at = try_parse_datetime_input(raw_watched_at)
+            except (TypeError, ValueError):
+                return invalid
+            if watched_at > timezone.now() + WATCHED_AT_FUTURE_TOLERANCE:
+                return Response(
+                    {"detail": "`watched_at` cannot be in the future."},
+                    status=HTTP.BAD_REQUEST,
+                )
+
         expected_revision = request.headers.get("If-Match")
         if expected_revision is not None:
             try:
@@ -188,7 +214,7 @@ class WatchedStateView(drf_views.APIView):
                 item,
                 watched=watched,
                 play_count=request.data.get("play_count"),
-                watched_at=timezone.now() if watched else None,
+                watched_at=watched_at if watched else None,
                 origin_kind=WatchStateOrigin.LOCAL_API.value,
                 origin_key="api",
                 origin_event_id=idempotency_key,

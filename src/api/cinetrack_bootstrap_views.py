@@ -11,6 +11,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import date
 from http import HTTPStatus as HTTP  # noqa: N814
+from typing import NamedTuple
 from uuid import UUID
 
 from django.core.cache import cache
@@ -46,6 +47,11 @@ DB_BUSY_RETRY_AFTER_SECONDS = 30
 MAX_BOOTSTRAP_ITEMS = 50
 MAX_EPISODE_EVENTS = 50
 SLOW_EPISODE_ENSURE_MS = 20_000
+MSG_EVENT_CONFLICT = "client_event_id belongs to another episode event."
+MSG_EVENT_RACE = "client_event_id conflicts with an existing episode event."
+MSG_RESOLVE_FAILED = "Could not resolve episode events."
+MSG_ENSURE_FAILED = "Could not ensure episode events."
+MSG_DB_BUSY = "Floppy database is busy; retry shortly."
 _STATUS_BY_CODE = {
     0: Status.PLANNING.value,
     1: Status.IN_PROGRESS.value,
@@ -287,6 +293,750 @@ def _ensure_season_from_metadata(
     return season
 
 
+class MovieEnsureOutcome(NamedTuple):
+    """What one movie entry did: its outcome label and what changed."""
+
+    outcome: str
+    created: bool
+    changed: bool
+
+
+def _conflicted_movie_entries(user, parsed):
+    """Indexes of entries whose external id is bound to another movie or instant."""
+    external_ids = {e["external_id"] for e in parsed if e["external_id"]}
+    if not external_ids:
+        return set()
+    bound_plays = defaultdict(list)
+    for play in MoviePlay.objects.filter(
+        movie__user=user,
+        external_id__in=external_ids,
+    ).select_related("movie__item"):
+        bound_plays[play.external_id].append(play)
+    conflicted = set()
+    for index, entry in enumerate(parsed):
+        bound = bound_plays.get(entry["external_id"])
+        if not bound or entry["watched_at"] is None:
+            continue
+        if not any(
+            (str(play.movie.item.media_id), play.movie.item.source, play.end_date)
+            == (entry["media_id"], entry["source"], entry["watched_at"])
+            for play in bound
+        ):
+            conflicted.add(index)
+    return conflicted
+
+
+def ensure_movie_entries(user, parsed, *, detect_conflicts=False, complete_on_advance=False):
+    """Ensure movie rows (and exact plays) for parsed entries, one outcome each.
+
+    ``parsed`` holds dicts with source, media_id, title, image, status (None
+    keeps the stored status), watched_at and external_id. With
+    ``detect_conflicts`` an external id already bound to a different movie or
+    instant yields ``conflict`` for that entry only, and nothing is created for
+    it. With ``complete_on_advance`` a play that advances the movie's last watch
+    marks it completed, like ``Movie.watch``; it also reports play-level
+    outcomes for retried plays.
+    """
+    conflicted = _conflicted_movie_entries(user, parsed) if detect_conflicts else set()
+    work = [entry for index, entry in enumerate(parsed) if index not in conflicted]
+    rows = iter(
+        _ensure_movie_rows(
+            user,
+            work,
+            play_level_outcomes=detect_conflicts,
+            complete_on_advance=complete_on_advance,
+        )
+        if work
+        else [],
+    )
+    return [
+        MovieEnsureOutcome("conflict", False, False) if index in conflicted else next(rows)
+        for index in range(len(parsed))
+    ]
+
+
+def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance):
+    outcomes = []
+    with transaction.atomic():
+        sources = {entry["source"] for entry in parsed}
+        media_ids = {entry["media_id"] for entry in parsed}
+        items = {
+            _item_key(item.source, item.media_id): item
+            for item in Item.objects.filter(
+                media_type=MediaTypes.MOVIE.value,
+                source__in=sources,
+                media_id__in=media_ids,
+            )
+        }
+        hydration_ids = []
+        for entry in parsed:
+            key = _item_key(entry["source"], entry["media_id"])
+            if key not in items:
+                items[key] = _minimal_item(
+                    source=entry["source"],
+                    media_id=entry["media_id"],
+                    media_type=MediaTypes.MOVIE.value,
+                    title=entry["title"],
+                    image=entry["image"],
+                )
+                hydration_ids.append(items[key].id)
+
+        item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
+        movies = {
+            movie.item_id: movie
+            for movie in Movie.objects.filter(user=user, item_id__in=item_ids)
+        }
+        created_movie_ids = set()
+        for item_id in item_ids:
+            if item_id in movies:
+                continue
+            movie = Movie(
+                user=user,
+                item_id=item_id,
+                status=Status.IN_PROGRESS.value,
+                score=None,
+                notes="",
+                created_at=timezone.now(),
+            )
+            movie.save_base(raw=True, force_insert=True)
+            movies[item_id] = movie
+            created_movie_ids.add(movie.id)
+
+        external_ids = {e["external_id"] for e in parsed if e["external_id"]}
+        existing_plays = {
+            (play.movie_id, play.external_id): play
+            for play in MoviePlay.objects.filter(
+                movie_id__in=[movie.id for movie in movies.values()],
+                external_id__in=external_ids,
+            )
+        }
+        watch_dates = {e["watched_at"] for e in parsed if e["watched_at"] is not None}
+        # A play stored at the exact same instant is the same watch whatever
+        # external id it carries (none, an importer's, or one from an
+        # earlier CineTrack connection), matching the episode endpoint.
+        legacy_plays = defaultdict(list)
+        if watch_dates:
+            for play in MoviePlay.objects.filter(
+                movie_id__in=[movie.id for movie in movies.values()],
+                end_date__in=watch_dates,
+            ).order_by("id"):
+                legacy_plays[(play.movie_id, play.end_date)].append(play)
+
+        dirty_movies = {}
+        for entry in parsed:
+            item = items[_item_key(entry["source"], entry["media_id"])]
+            movie = movies[item.id]
+            watched_at = entry["watched_at"]
+            external_id = entry["external_id"]
+            changed = movie.id in created_movie_ids
+            if entry["status"] is not None and movie.status != entry["status"]:
+                movie.status = entry["status"]
+                changed = True
+
+            outcome = "created" if movie.id in created_movie_ids else "already_satisfied"
+            if watched_at is not None:
+                play = existing_plays.get((movie.id, external_id))
+                if play is None:
+                    legacy_candidates = legacy_plays.get((movie.id, watched_at), [])
+                    if legacy_candidates:
+                        play = legacy_candidates.pop(0)
+                        if not play.external_id:
+                            # Identity adoption only; never overwrite another id.
+                            play.external_id = external_id
+                            play.save(update_fields=["external_id"])
+                        existing_plays[(movie.id, external_id)] = play
+                        outcome = "already_satisfied"
+                    elif movie.end_date == watched_at and not movie.plays.exists():
+                        play, _ = MoviePlay.objects.get_or_create(
+                            movie=movie,
+                            external_id=external_id,
+                            defaults={"end_date": watched_at},
+                        )
+                        existing_plays[(movie.id, external_id)] = play
+                        outcome = "already_satisfied"
+                    else:
+                        play, created = MoviePlay.objects.get_or_create(
+                            movie=movie,
+                            external_id=external_id,
+                            defaults={"end_date": watched_at},
+                        )
+                        existing_plays[(movie.id, external_id)] = play
+                        outcome = "created" if created else "already_satisfied"
+                elif play_level_outcomes:
+                    outcome = "already_satisfied"
+                if movie.end_date is None or watched_at > movie.end_date:
+                    movie.end_date = watched_at
+                    if complete_on_advance:
+                        movie.status = Status.COMPLETED.value
+                    changed = True
+            if changed:
+                dirty_movies[movie.id] = movie
+            outcomes.append(
+                MovieEnsureOutcome(outcome, movie.id in created_movie_ids, changed),
+            )
+
+        if dirty_movies:
+            Movie.objects.bulk_update(
+                list(dirty_movies.values()),
+                fields=["status", "end_date"],
+            )
+            touch_activity(user, "library")
+        queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
+    return outcomes
+
+
+class ShowEnsureOutcome(NamedTuple):
+    """What one show entry did: whether its row was created or its status changed."""
+
+    created: bool
+    changed: bool
+
+
+def ensure_show_entries(user, parsed):
+    """Ensure show rows and statuses without manufacturing episode history.
+
+    ``parsed`` holds dicts with source, media_id, title, image and status.
+    Never creates Episode rows, whatever the status (completed included).
+    """
+    outcomes = []
+    with transaction.atomic():
+        sources = {entry["source"] for entry in parsed}
+        media_ids = {entry["media_id"] for entry in parsed}
+        items = {
+            _item_key(item.source, item.media_id): item
+            for item in Item.objects.filter(
+                media_type=MediaTypes.TV.value,
+                source__in=sources,
+                media_id__in=media_ids,
+                season_number__isnull=True,
+            ).exclude(library_media_type=MediaTypes.ANIME.value)
+        }
+        hydration_ids = []
+        for entry in parsed:
+            key = _item_key(entry["source"], entry["media_id"])
+            if key not in items:
+                items[key] = _minimal_item(
+                    source=entry["source"],
+                    media_id=entry["media_id"],
+                    media_type=MediaTypes.TV.value,
+                    title=entry["title"],
+                    image=entry["image"],
+                )
+                hydration_ids.append(items[key].id)
+
+        item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
+        tv_rows = {
+            tv.item_id: tv
+            for tv in TV.objects.filter(user=user, item_id__in=item_ids)
+        }
+        dirty = []
+        created_ids = set()
+        for item_id in item_ids:
+            if item_id in tv_rows:
+                continue
+            tv = TV(
+                user=user,
+                item_id=item_id,
+                status=Status.IN_PROGRESS.value,
+                score=None,
+                notes="",
+                created_at=timezone.now(),
+            )
+            tv.save_base(raw=True, force_insert=True)
+            tv_rows[item_id] = tv
+            created_ids.add(tv.id)
+
+        for entry in parsed:
+            item = items[_item_key(entry["source"], entry["media_id"])]
+            tv = tv_rows[item.id]
+            changed = tv.id in created_ids
+            if tv.status != entry["status"]:
+                tv.status = entry["status"]
+                changed = True
+            if changed:
+                dirty.append(tv)
+            outcomes.append(ShowEnsureOutcome(tv.id in created_ids, changed))
+
+        if dirty:
+            TV.objects.bulk_update(dirty, fields=["status"])
+            touch_activity(user, "library")
+        queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
+    return outcomes
+
+
+class EpisodeEnsureError(Exception):
+    """A request-level failure of :func:`ensure_episode_events`.
+
+    ``kind`` is one of conflict (a client_event_id belongs to another event),
+    metadata (the provider's episode list could not be fetched), busy (the
+    database stayed locked) or error (any other write failure).
+    """
+
+    def __init__(self, detail, status, *, headers=None, kind="error", partial=None):
+        """Carry the response detail, HTTP status, headers, kind and partial outcomes."""
+        super().__init__(detail)
+        self.detail = detail
+        self.status = status
+        self.headers = headers
+        self.kind = kind
+        # Outcomes settled before the failure (claimed or already-stored
+        # events); the events still missing from it were not written.
+        self.partial = partial
+
+
+class EpisodeEnsureResult(NamedTuple):
+    """Per-event results of :func:`ensure_episode_events`, keyed by event id."""
+
+    outcomes: dict
+    stored: dict
+    reasons: dict
+    titles: dict
+
+
+def ensure_episode_events(
+    user,
+    source,
+    media_id,
+    parsed,
+    *,
+    repair=False,
+    library_media_type="",
+    conflicts="raise",
+):
+    """Place exact episode-watch events of one show, with one metadata fetch.
+
+    ``parsed`` is a list of ``(season_number, episode_number, watched_at,
+    client_event_id)`` tuples with unique UUID ids. Must run inside
+    ``credentials.current_user_scope``. Returns an :class:`EpisodeEnsureResult`
+    with an outcome for every event. A client_event_id already bound to a
+    different event raises :class:`EpisodeEnsureError` (``conflicts="raise"``)
+    or yields the per-event outcome ``conflict`` (``conflicts="item"``). Other
+    request-level failures always raise :class:`EpisodeEnsureError`.
+    """
+    started = time.monotonic()
+    timings = {}
+    # One-time repair re-send: place every event by the current rules and
+    # move its own play there when an older version stored it elsewhere.
+    instant_counts = Counter(event[2] for event in parsed)
+    relocated = 0
+
+    client_ids = [event[3] for event in parsed]
+    claimed_by_id = {
+        episode.watch_operation_id: episode
+        for episode in Episode.objects.filter(
+            watch_operation_id__in=client_ids,
+        ).select_related("related_season__item", "item")
+    }
+    outcomes = {}
+    # client_event_id -> (season, episode) actually stored, when it differs
+    # from the submitted coordinate (absolute anime numbering translated).
+    stored = {}
+    # client_event_id -> why an event could not be placed (not_found etc.).
+    reasons = {}
+    # client_event_id -> TVDB episode title of an event not placed.
+    titles = {}
+    unresolved = []
+    for season_number, episode_number, watched_at, client_event_id in parsed:
+        claimed = claimed_by_id.get(client_event_id)
+        if claimed is None:
+            unresolved.append((season_number, episode_number, watched_at, client_event_id))
+            continue
+        claimed_coordinate = (claimed.related_season.item.season_number, claimed.item.episode_number)
+        same_coordinate = claimed_coordinate == (season_number, episode_number)
+        # An earlier attempt of this same event may have stored it at its
+        # translated TMDB coordinate (absolute anime number, TVDB identity).
+        translated_retry = not same_coordinate
+        same_identity = (
+            claimed.related_season.user_id == user.id
+            and str(claimed.related_season.item.media_id) == str(media_id)
+            and claimed.related_season.item.source == source
+            and claimed.end_date == watched_at
+            and (same_coordinate or translated_retry)
+        )
+        if not same_identity:
+            if conflicts == "item":
+                outcomes[client_event_id] = "conflict"
+                continue
+            raise EpisodeEnsureError(
+                MSG_EVENT_CONFLICT,
+                HTTP.CONFLICT,
+                kind="conflict",
+            )
+        outcomes[client_event_id] = "already_satisfied"
+        if translated_retry:
+            stored[client_event_id] = claimed_coordinate
+
+    # A play already stored at the exact same instant is the same watch,
+    # whoever recorded it (live tracking, an import, an earlier CineTrack
+    # connection). Resolve those before any provider metadata is fetched,
+    # so re-sending already-synced history costs no provider call. A repair
+    # re-send skips this shortcut: the play found there may be the one an
+    # older version stored on the wrong episode.
+    if unresolved and not repair:
+        existing = defaultdict(list)
+        for row in (
+            Episode.objects.filter(
+                related_season__user=user,
+                related_season__item__media_id=str(media_id),
+                related_season__item__source=source,
+                related_season__item__season_number__in={event[0] for event in unresolved},
+                item__episode_number__in={event[1] for event in unresolved},
+                end_date__in={event[2] for event in unresolved},
+            )
+            .select_related("related_season__item", "item")
+            .order_by("id")
+        ):
+            existing[(row.related_season.item.season_number, row.item.episode_number, row.end_date)].append(row)
+        still_unresolved = []
+        for season_number, episode_number, watched_at, client_event_id in unresolved:
+            candidates = existing.get((season_number, episode_number, watched_at), [])
+            if not candidates:
+                still_unresolved.append((season_number, episode_number, watched_at, client_event_id))
+                continue
+            row = candidates.pop(0)
+            if row.watch_operation_id is None:
+                # Identity adoption only; never overwrite another event's id.
+                Episode.objects.filter(pk=row.pk, watch_operation_id__isnull=True).update(
+                    watch_operation_id=client_event_id,
+                )
+            outcomes[client_event_id] = "already_satisfied"
+        unresolved = still_unresolved
+
+    if unresolved:
+        season_numbers = sorted({event[0] for event in unresolved})
+        stage_started = time.monotonic()
+        try:
+            combined_metadata = services.get_media_metadata(
+                "tv_with_seasons",
+                media_id,
+                source,
+                season_numbers,
+            )
+            timings["metadata_ms"] = int((time.monotonic() - stage_started) * 1000)
+        except Exception:
+            logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
+            raise EpisodeEnsureError(
+                MSG_RESOLVE_FAILED,
+                HTTP.NOT_FOUND,
+                kind="metadata",
+                partial=EpisodeEnsureResult(dict(outcomes), dict(stored), dict(reasons), dict(titles)),
+            ) from None
+
+        metadata_by_season = {}
+        for season_number in season_numbers:
+            season_metadata = combined_metadata.get(f"season/{season_number}")
+            if not isinstance(season_metadata, dict) and len(season_numbers) == 1 and isinstance(combined_metadata.get("episodes"), list):
+                season_metadata = combined_metadata
+            if not isinstance(season_metadata, dict):
+                continue
+            # Avoid a secondary TVDB artwork lookup in the bootstrap request;
+            # the authoritative episode list is already present and rich
+            # metadata can be hydrated asynchronously later.
+            season_metadata.setdefault("_tvdb_episode_image_map", {})
+            metadata_by_season[season_number] = season_metadata
+
+        # Events the provider does not know (different episode numbering,
+        # missing season list) are reported per event; the rest of the
+        # batch is still applied. A sync import never deletes history.
+        resolvable = []
+        absolute_candidates = []
+        identity_candidates = []
+        listed_seasons = _listed_season_numbers(combined_metadata)
+        for event in unresolved:
+            season_number, episode_number, _, client_event_id = event
+            if season_number not in metadata_by_season:
+                # A season TMDB does not have at all is a numbering
+                # difference, not a temporary metadata gap.
+                if listed_seasons and season_number not in listed_seasons:
+                    identity_candidates.append(event)
+                else:
+                    outcomes[client_event_id] = "metadata_unavailable"
+                    reasons[client_event_id] = "season_metadata_missing"
+                continue
+            try:
+                resolve_episode_coordinate(
+                    media_id,
+                    source,
+                    season_number,
+                    episode_number,
+                    season_metadata=metadata_by_season[season_number],
+                )
+            except InvalidEpisodeCoordinateError:
+                if season_number == 1:
+                    absolute_candidates.append(event)
+                else:
+                    identity_candidates.append(event)
+                continue
+            except EpisodeMetadataUnavailableError:
+                outcomes[client_event_id] = "metadata_unavailable"
+                reasons[client_event_id] = "season_metadata_missing"
+                continue
+            resolvable.append(event)
+
+        # Exact identity first: some TMDB shows keep the absolute episode
+        # numbers inside their seasons (One Piece S06 lists 144-195,
+        # Naruto Shippuden S20 lists 459-...). The absolute number the
+        # tracker sent then names the episode itself; no counting and no
+        # air dates, which TMDB and TVDB often disagree on by days.
+        absolutely_numbered = False
+        if absolute_candidates:
+            try:
+                _load_listed_seasons(media_id, source, combined_metadata, metadata_by_season)
+            except Exception as error:
+                logger.warning(
+                    "CineTrack season metadata for absolute numbers failed media_id=%s error=%s",
+                    media_id,
+                    type(error).__name__,
+                )
+            else:
+                absolutely_numbered = bool(_absolutely_numbered_seasons(metadata_by_season))
+                numbered = _absolute_number_targets(media_id, source, metadata_by_season, absolute_candidates)
+                remaining = []
+                for event in absolute_candidates:
+                    target = numbered.get(event[3])
+                    if target is None:
+                        remaining.append(event)
+                        continue
+                    resolvable.append((target[0], target[1], event[2], event[3]))
+                    stored[event[3]] = target
+                absolute_candidates = remaining
+
+        # Anime trackers number a series continuously in one season, while
+        # TMDB splits it into seasons. Translate those numbers by walking
+        # TMDB's regular seasons, and keep only targets TMDB really lists.
+        targets = _absolute_targets(combined_metadata, metadata_by_season.get(1), absolute_candidates)
+        missing_seasons = sorted({season for season, _ in targets.values()} - set(metadata_by_season))
+        if missing_seasons:
+            try:
+                extra_metadata = services.get_media_metadata("tv_with_seasons", media_id, source, missing_seasons)
+            except Exception:
+                logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
+                extra_metadata = {}
+            for season_number in missing_seasons:
+                season_metadata = extra_metadata.get(f"season/{season_number}")
+                if isinstance(season_metadata, dict):
+                    season_metadata.setdefault("_tvdb_episode_image_map", {})
+                    metadata_by_season[season_number] = season_metadata
+        for event in absolute_candidates:
+            _season, _episode, watched_at, client_event_id = event
+            target = targets.get(client_event_id)
+            if target is None or target[0] not in metadata_by_season:
+                identity_candidates.append(event)
+                continue
+            try:
+                resolve_episode_coordinate(
+                    media_id,
+                    source,
+                    target[0],
+                    target[1],
+                    season_metadata=metadata_by_season[target[0]],
+                )
+            except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
+                identity_candidates.append(event)
+                continue
+            resolvable.append((target[0], target[1], watched_at, client_event_id))
+            stored[client_event_id] = target
+
+        # Trackers that follow TVDB numbering disagree with TMDB on merged
+        # two-part episodes, specials and split seasons. Match those by
+        # identity instead: TVDB's record of the submitted number gives an
+        # air date and title, which pick the TMDB episode. A season with an
+        # unknown number is proven to be numbered differently, so its other
+        # events are re-matched too rather than stored one slot off.
+        if identity_candidates:
+            differing_seasons = {event[0] for event in identity_candidates}
+            # Season 1 of an absolutely numbered show matches TMDB exactly;
+            # its unknown numbers are continuous numbering, not a shift.
+            rematch = [
+                event for event in resolvable
+                if event[0] in differing_seasons and event[3] not in stored
+                and not (event[0] == 1 and absolutely_numbered)
+            ]
+            stage_started = time.monotonic()
+            matched, unavailable, why, names = _identity_targets(
+                user,
+                media_id,
+                source,
+                combined_metadata,
+                metadata_by_season,
+                identity_candidates + rematch,
+            )
+            timings["tvdb_ms"] = int((time.monotonic() - stage_started) * 1000)
+            for _season, _episode, _watched_at, client_event_id in identity_candidates:
+                if client_event_id in unavailable:
+                    outcomes[client_event_id] = "metadata_unavailable"
+                elif client_event_id not in matched:
+                    outcomes[client_event_id] = "not_found"
+                if client_event_id in why and client_event_id not in matched:
+                    reasons[client_event_id] = why[client_event_id]
+                    if names.get(client_event_id):
+                        titles[client_event_id] = names[client_event_id]
+            resolved_ids = {event[3] for event in rematch if event[3] in matched}
+            resolvable = [event for event in resolvable if event[3] not in resolved_ids]
+            for season_number, episode_number, watched_at, client_event_id in identity_candidates + rematch:
+                target = matched.get(client_event_id)
+                if target is None:
+                    continue
+                resolvable.append((target[0], target[1], watched_at, client_event_id))
+                if target != (season_number, episode_number):
+                    stored[client_event_id] = target
+        unresolved = resolvable
+        season_numbers = sorted({event[0] for event in unresolved})
+
+        # Background jobs (credits, statistics, hydration) also write to SQLite;
+        # a locked write is rolled back whole, so retrying it is safe.
+        late_conflict = False
+        settled = EpisodeEnsureResult(dict(outcomes), dict(stored), dict(reasons), dict(titles))
+        for attempt in range(len(DB_LOCK_BACKOFF_SECONDS) + 1):
+            created_any = False
+            try:
+                with transaction.atomic():
+                    seasons = {}
+                    for season_number in season_numbers:
+                        seasons[season_number] = _ensure_season_from_metadata(
+                            user,
+                            media_id,
+                            source,
+                            season_number,
+                            combined_metadata=combined_metadata,
+                            season_metadata=metadata_by_season[season_number],
+                            library_media_type=library_media_type,
+                        )
+
+                    season_ids = [season.id for season in seasons.values()]
+                    episode_numbers = {event[1] for event in unresolved}
+                    watched_dates = {event[2] for event in unresolved}
+                    legacy_by_key = defaultdict(list)
+                    for legacy in Episode.objects.filter(
+                        related_season_id__in=season_ids,
+                        item__episode_number__in=episode_numbers,
+                        end_date__in=watched_dates,
+                    ).select_related("item").order_by("id"):
+                        legacy_by_key[(
+                            legacy.related_season_id,
+                            legacy.item.episode_number,
+                            legacy.end_date,
+                        )].append(legacy)
+
+                    written = set()
+                    for season_number, episode_number, watched_at, client_event_id in unresolved:
+                        season = seasons[season_number]
+                        legacy_key = (season.id, episode_number, watched_at)
+                        # Both halves of a merged two-parter can land on one
+                        # TMDB episode at the same instant: that is one watch,
+                        # exactly as a later batch would see it.
+                        if legacy_key in written:
+                            outcomes[client_event_id] = "already_satisfied"
+                            continue
+                        written.add(legacy_key)
+                        legacy_candidates = legacy_by_key.get(legacy_key, [])
+                        if (
+                            repair
+                            and not legacy_candidates
+                            and instant_counts[watched_at] == 1
+                            and _relocate_own_play(
+                                user,
+                                media_id,
+                                source,
+                                season,
+                                episode_number,
+                                watched_at,
+                                metadata_by_season[season_number],
+                            )
+                        ):
+                            relocated += 1
+                            outcomes[client_event_id] = "already_satisfied"
+                            continue
+                        if legacy_candidates:
+                            legacy = legacy_candidates.pop(0)
+                            if legacy.watch_operation_id is None:
+                                # This is identity adoption for an already-existing
+                                # exact timestamp event. Keep it local: Episode.save()
+                                # performs provider-backed completion reconciliation,
+                                # which would turn one batch fetch into an N+1 path.
+                                updated = Episode.objects.filter(
+                                    pk=legacy.pk,
+                                    watch_operation_id__isnull=True,
+                                ).update(watch_operation_id=client_event_id)
+                                if updated:
+                                    legacy.watch_operation_id = client_event_id
+                                else:
+                                    claimed = Episode.objects.filter(pk=legacy.pk).only("watch_operation_id").first()
+                                    if claimed is None or claimed.watch_operation_id != client_event_id:
+                                        if conflicts == "item":
+                                            outcomes[client_event_id] = "conflict"
+                                            continue
+                                        late_conflict = True
+                                        break
+                            outcomes[client_event_id] = "already_satisfied"
+                            continue
+
+                        episode_item = season.get_episode_item(
+                            episode_number,
+                            season_metadata=metadata_by_season[season_number],
+                        )
+                        result = create_episode_watch(
+                            season,
+                            episode_item,
+                            watched_at,
+                            watch_operation_id=client_event_id,
+                            operation_prechecked=True,
+                        )
+                        outcomes[client_event_id] = "created" if result.created else "already_satisfied"
+                        created_any = created_any or result.created
+                break
+            except OperationalError as error:
+                if "locked" not in str(error).lower():
+                    logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
+                    raise EpisodeEnsureError(
+                        MSG_ENSURE_FAILED,
+                        HTTP.INTERNAL_SERVER_ERROR,
+                        kind="error",
+                        partial=settled,
+                    ) from None
+                if attempt == len(DB_LOCK_BACKOFF_SECONDS):
+                    logger.warning("CineTrack episode ensure: database busy media_id=%s", media_id)
+                    raise EpisodeEnsureError(
+                        MSG_DB_BUSY,
+                        HTTP.SERVICE_UNAVAILABLE,
+                        headers={"Retry-After": str(DB_BUSY_RETRY_AFTER_SECONDS)},
+                        kind="busy",
+                        partial=settled,
+                    ) from None
+                time.sleep(DB_LOCK_BACKOFF_SECONDS[attempt])
+            except Exception:
+                logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
+                raise EpisodeEnsureError(
+                    MSG_ENSURE_FAILED,
+                    HTTP.INTERNAL_SERVER_ERROR,
+                    kind="error",
+                    partial=settled,
+                ) from None
+
+        if late_conflict:
+            raise EpisodeEnsureError(
+                MSG_EVENT_RACE,
+                HTTP.CONFLICT,
+                kind="conflict",
+            )
+        if created_any:
+            cache_utils.clear_time_left_cache_for_user(user.id)
+            cache_utils.clear_media_list_cache_for_user(user.id)
+
+    if relocated:
+        logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
+        logger.warning(
+            "CineTrack episode ensure slow media_id=%s events=%d total_ms=%d %s",
+            media_id,
+            len(parsed),
+            elapsed_ms,
+            " ".join(f"{stage}={ms}" for stage, ms in timings.items()),
+        )
+    return EpisodeEnsureResult(outcomes, stored, reasons, titles)
+
+
 class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
     """Ensure a bounded batch of movie state without provider I/O per item."""
 
@@ -342,129 +1092,13 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
             })
 
         results = []
-        with transaction.atomic():
-            sources = {entry["source"] for entry in parsed}
-            media_ids = {entry["media_id"] for entry in parsed}
-            items = {
-                _item_key(item.source, item.media_id): item
-                for item in Item.objects.filter(
-                    media_type=MediaTypes.MOVIE.value,
-                    source__in=sources,
-                    media_id__in=media_ids,
-                )
-            }
-            hydration_ids = []
-            for entry in parsed:
-                key = _item_key(entry["source"], entry["media_id"])
-                if key not in items:
-                    items[key] = _minimal_item(
-                        source=entry["source"],
-                        media_id=entry["media_id"],
-                        media_type=MediaTypes.MOVIE.value,
-                        title=entry["title"],
-                        image=entry["image"],
-                    )
-                    hydration_ids.append(items[key].id)
-
-            item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
-            movies = {
-                movie.item_id: movie
-                for movie in Movie.objects.filter(user=request.user, item_id__in=item_ids)
-            }
-            created_movie_ids = set()
-            for item_id in item_ids:
-                if item_id in movies:
-                    continue
-                movie = Movie(
-                    user=request.user,
-                    item_id=item_id,
-                    status=Status.IN_PROGRESS.value,
-                    score=None,
-                    notes="",
-                    created_at=timezone.now(),
-                )
-                movie.save_base(raw=True, force_insert=True)
-                movies[item_id] = movie
-                created_movie_ids.add(movie.id)
-
-            external_ids = {e["external_id"] for e in parsed if e["external_id"]}
-            existing_plays = {
-                (play.movie_id, play.external_id): play
-                for play in MoviePlay.objects.filter(
-                    movie_id__in=[movie.id for movie in movies.values()],
-                    external_id__in=external_ids,
-                )
-            }
-            watch_dates = {e["watched_at"] for e in parsed if e["watched_at"] is not None}
-            # A play stored at the exact same instant is the same watch whatever
-            # external id it carries (none, an importer's, or one from an
-            # earlier CineTrack connection), matching the episode endpoint.
-            legacy_plays = defaultdict(list)
-            if watch_dates:
-                for play in MoviePlay.objects.filter(
-                    movie_id__in=[movie.id for movie in movies.values()],
-                    end_date__in=watch_dates,
-                ).order_by("id"):
-                    legacy_plays[(play.movie_id, play.end_date)].append(play)
-
-            dirty_movies = {}
-            for entry in parsed:
-                item = items[_item_key(entry["source"], entry["media_id"])]
-                movie = movies[item.id]
-                changed = movie.id in created_movie_ids
-                if movie.status != entry["status"]:
-                    movie.status = entry["status"]
-                    changed = True
-
-                outcome = "created" if movie.id in created_movie_ids else "already_satisfied"
-                watched_at = entry["watched_at"]
-                external_id = entry["external_id"]
-                if watched_at is not None:
-                    play = existing_plays.get((movie.id, external_id))
-                    if play is None:
-                        legacy_candidates = legacy_plays.get((movie.id, watched_at), [])
-                        if legacy_candidates:
-                            play = legacy_candidates.pop(0)
-                            if not play.external_id:
-                                # Identity adoption only; never overwrite another id.
-                                play.external_id = external_id
-                                play.save(update_fields=["external_id"])
-                            existing_plays[(movie.id, external_id)] = play
-                            outcome = "already_satisfied"
-                        elif movie.end_date == watched_at and not movie.plays.exists():
-                            play, _ = MoviePlay.objects.get_or_create(
-                                movie=movie,
-                                external_id=external_id,
-                                defaults={"end_date": watched_at},
-                            )
-                            existing_plays[(movie.id, external_id)] = play
-                            outcome = "already_satisfied"
-                        else:
-                            play, created = MoviePlay.objects.get_or_create(
-                                movie=movie,
-                                external_id=external_id,
-                                defaults={"end_date": watched_at},
-                            )
-                            existing_plays[(movie.id, external_id)] = play
-                            outcome = "created" if created else "already_satisfied"
-                    if movie.end_date is None or watched_at > movie.end_date:
-                        movie.end_date = watched_at
-                        changed = True
-                if changed:
-                    dirty_movies[movie.id] = movie
-                results.append({
-                    "source": entry["source"],
-                    "media_id": entry["media_id"],
-                    "status": outcome,
-                })
-
-            if dirty_movies:
-                Movie.objects.bulk_update(
-                    list(dirty_movies.values()),
-                    fields=["status", "end_date"],
-                )
-                touch_activity(request.user, "library")
-            queue_cinetrack_bootstrap_hydration(hydration_ids, request.user.id)
+        outcomes = ensure_movie_entries(request.user, parsed)
+        for entry, outcome in zip(parsed, outcomes, strict=True):
+            results.append({
+                "source": entry["source"],
+                "media_id": entry["media_id"],
+                "status": outcome.outcome,
+            })
 
         return Response({"results": results}, status=HTTP.OK)
 
@@ -504,72 +1138,13 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
             })
 
         results = []
-        with transaction.atomic():
-            sources = {entry["source"] for entry in parsed}
-            media_ids = {entry["media_id"] for entry in parsed}
-            items = {
-                _item_key(item.source, item.media_id): item
-                for item in Item.objects.filter(
-                    media_type=MediaTypes.TV.value,
-                    source__in=sources,
-                    media_id__in=media_ids,
-                    season_number__isnull=True,
-                ).exclude(library_media_type=MediaTypes.ANIME.value)
-            }
-            hydration_ids = []
-            for entry in parsed:
-                key = _item_key(entry["source"], entry["media_id"])
-                if key not in items:
-                    items[key] = _minimal_item(
-                        source=entry["source"],
-                        media_id=entry["media_id"],
-                        media_type=MediaTypes.TV.value,
-                        title=entry["title"],
-                        image=entry["image"],
-                    )
-                    hydration_ids.append(items[key].id)
-
-            item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
-            tv_rows = {
-                tv.item_id: tv
-                for tv in TV.objects.filter(user=request.user, item_id__in=item_ids)
-            }
-            dirty = []
-            created_ids = set()
-            for item_id in item_ids:
-                if item_id in tv_rows:
-                    continue
-                tv = TV(
-                    user=request.user,
-                    item_id=item_id,
-                    status=Status.IN_PROGRESS.value,
-                    score=None,
-                    notes="",
-                    created_at=timezone.now(),
-                )
-                tv.save_base(raw=True, force_insert=True)
-                tv_rows[item_id] = tv
-                created_ids.add(tv.id)
-
-            for entry in parsed:
-                item = items[_item_key(entry["source"], entry["media_id"])]
-                tv = tv_rows[item.id]
-                changed = tv.id in created_ids
-                if tv.status != entry["status"]:
-                    tv.status = entry["status"]
-                    changed = True
-                if changed:
-                    dirty.append(tv)
-                results.append({
-                    "source": entry["source"],
-                    "media_id": entry["media_id"],
-                    "status": "created" if changed else "already_satisfied",
-                })
-
-            if dirty:
-                TV.objects.bulk_update(dirty, fields=["status"])
-                touch_activity(request.user, "library")
-            queue_cinetrack_bootstrap_hydration(hydration_ids, request.user.id)
+        outcomes = ensure_show_entries(request.user, parsed)
+        for entry, outcome in zip(parsed, outcomes, strict=True):
+            results.append({
+                "source": entry["source"],
+                "media_id": entry["media_id"],
+                "status": "created" if outcome.changed else "already_satisfied",
+            })
 
         return Response({"results": results}, status=HTTP.OK)
 
@@ -590,8 +1165,6 @@ class MediaEpisodeEnsureView(drf_views.APIView):
             return self._ensure(request, media_type, source, media_id)
 
     def _ensure(self, request, media_type, source, media_id):
-        started = time.monotonic()
-        timings = {}
         if media_type != MediaTypes.TV.value:
             return Response({"detail": "Episodes are supported only for 'tv' media type."}, status=HTTP.BAD_REQUEST)
         if not check_source_type(media_type, source):
@@ -619,385 +1192,21 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 return Response({"detail": f"events[{index}] has invalid coordinates or watched_at."}, status=HTTP.BAD_REQUEST)
             parsed.append((season_number, episode_number, watched_at, client_event_id))
 
-        # One-time repair re-send: place every event by the current rules and
-        # move its own play there when an older version stored it elsewhere.
-        repair = request.data.get("repair_coordinates") is True
-        instant_counts = Counter(event[2] for event in parsed)
-        relocated = 0
-
         if len({event[3] for event in parsed}) != len(parsed):
             return Response({"detail": "client_event_id values must be unique per request."}, status=HTTP.BAD_REQUEST)
 
-        client_ids = [event[3] for event in parsed]
-        claimed_by_id = {
-            episode.watch_operation_id: episode
-            for episode in Episode.objects.filter(
-                watch_operation_id__in=client_ids,
-            ).select_related("related_season__item", "item")
-        }
-        outcomes = {}
-        # client_event_id -> (season, episode) actually stored, when it differs
-        # from the submitted coordinate (absolute anime numbering translated).
-        stored = {}
-        # client_event_id -> why an event could not be placed (not_found etc.).
-        reasons = {}
-        # client_event_id -> TVDB episode title of an event not placed.
-        titles = {}
-        unresolved = []
-        for season_number, episode_number, watched_at, client_event_id in parsed:
-            claimed = claimed_by_id.get(client_event_id)
-            if claimed is None:
-                unresolved.append((season_number, episode_number, watched_at, client_event_id))
-                continue
-            claimed_coordinate = (claimed.related_season.item.season_number, claimed.item.episode_number)
-            same_coordinate = claimed_coordinate == (season_number, episode_number)
-            # An earlier attempt of this same event may have stored it at its
-            # translated TMDB coordinate (absolute anime number, TVDB identity).
-            translated_retry = not same_coordinate
-            same_identity = (
-                claimed.related_season.user_id == request.user.id
-                and str(claimed.related_season.item.media_id) == str(media_id)
-                and claimed.related_season.item.source == source
-                and claimed.end_date == watched_at
-                and (same_coordinate or translated_retry)
+        try:
+            ensured = ensure_episode_events(
+                request.user,
+                source,
+                media_id,
+                parsed,
+                repair=request.data.get("repair_coordinates") is True,
+                library_media_type=str(request.data.get("library_media_type") or "").strip(),
             )
-            if not same_identity:
-                return Response({"detail": "client_event_id belongs to another episode event."}, status=HTTP.CONFLICT)
-            outcomes[client_event_id] = "already_satisfied"
-            if translated_retry:
-                stored[client_event_id] = claimed_coordinate
-
-        # A play already stored at the exact same instant is the same watch,
-        # whoever recorded it (live tracking, an import, an earlier CineTrack
-        # connection). Resolve those before any provider metadata is fetched,
-        # so re-sending already-synced history costs no provider call. A repair
-        # re-send skips this shortcut: the play found there may be the one an
-        # older version stored on the wrong episode.
-        if unresolved and not repair:
-            existing = defaultdict(list)
-            for row in (
-                Episode.objects.filter(
-                    related_season__user=request.user,
-                    related_season__item__media_id=str(media_id),
-                    related_season__item__source=source,
-                    related_season__item__season_number__in={event[0] for event in unresolved},
-                    item__episode_number__in={event[1] for event in unresolved},
-                    end_date__in={event[2] for event in unresolved},
-                )
-                .select_related("related_season__item", "item")
-                .order_by("id")
-            ):
-                existing[(row.related_season.item.season_number, row.item.episode_number, row.end_date)].append(row)
-            still_unresolved = []
-            for season_number, episode_number, watched_at, client_event_id in unresolved:
-                candidates = existing.get((season_number, episode_number, watched_at), [])
-                if not candidates:
-                    still_unresolved.append((season_number, episode_number, watched_at, client_event_id))
-                    continue
-                row = candidates.pop(0)
-                if row.watch_operation_id is None:
-                    # Identity adoption only; never overwrite another event's id.
-                    Episode.objects.filter(pk=row.pk, watch_operation_id__isnull=True).update(
-                        watch_operation_id=client_event_id,
-                    )
-                outcomes[client_event_id] = "already_satisfied"
-            unresolved = still_unresolved
-
-        if unresolved:
-            season_numbers = sorted({event[0] for event in unresolved})
-            stage_started = time.monotonic()
-            try:
-                combined_metadata = services.get_media_metadata(
-                    "tv_with_seasons",
-                    media_id,
-                    source,
-                    season_numbers,
-                )
-                timings["metadata_ms"] = int((time.monotonic() - stage_started) * 1000)
-            except Exception:
-                logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
-                return Response({"detail": "Could not resolve episode events."}, status=HTTP.NOT_FOUND)
-
-            metadata_by_season = {}
-            for season_number in season_numbers:
-                season_metadata = combined_metadata.get(f"season/{season_number}")
-                if not isinstance(season_metadata, dict) and len(season_numbers) == 1 and isinstance(combined_metadata.get("episodes"), list):
-                    season_metadata = combined_metadata
-                if not isinstance(season_metadata, dict):
-                    continue
-                # Avoid a secondary TVDB artwork lookup in the bootstrap request;
-                # the authoritative episode list is already present and rich
-                # metadata can be hydrated asynchronously later.
-                season_metadata.setdefault("_tvdb_episode_image_map", {})
-                metadata_by_season[season_number] = season_metadata
-
-            # Events the provider does not know (different episode numbering,
-            # missing season list) are reported per event; the rest of the
-            # batch is still applied. A sync import never deletes history.
-            library_media_type = str(request.data.get("library_media_type") or "").strip()
-            resolvable = []
-            absolute_candidates = []
-            identity_candidates = []
-            listed_seasons = _listed_season_numbers(combined_metadata)
-            for event in unresolved:
-                season_number, episode_number, _, client_event_id = event
-                if season_number not in metadata_by_season:
-                    # A season TMDB does not have at all is a numbering
-                    # difference, not a temporary metadata gap.
-                    if listed_seasons and season_number not in listed_seasons:
-                        identity_candidates.append(event)
-                    else:
-                        outcomes[client_event_id] = "metadata_unavailable"
-                        reasons[client_event_id] = "season_metadata_missing"
-                    continue
-                try:
-                    resolve_episode_coordinate(
-                        media_id,
-                        source,
-                        season_number,
-                        episode_number,
-                        season_metadata=metadata_by_season[season_number],
-                    )
-                except InvalidEpisodeCoordinateError:
-                    if season_number == 1:
-                        absolute_candidates.append(event)
-                    else:
-                        identity_candidates.append(event)
-                    continue
-                except EpisodeMetadataUnavailableError:
-                    outcomes[client_event_id] = "metadata_unavailable"
-                    reasons[client_event_id] = "season_metadata_missing"
-                    continue
-                resolvable.append(event)
-
-            # Exact identity first: some TMDB shows keep the absolute episode
-            # numbers inside their seasons (One Piece S06 lists 144-195,
-            # Naruto Shippuden S20 lists 459-...). The absolute number the
-            # tracker sent then names the episode itself; no counting and no
-            # air dates, which TMDB and TVDB often disagree on by days.
-            absolutely_numbered = False
-            if absolute_candidates:
-                try:
-                    _load_listed_seasons(media_id, source, combined_metadata, metadata_by_season)
-                except Exception as error:
-                    logger.warning(
-                        "CineTrack season metadata for absolute numbers failed media_id=%s error=%s",
-                        media_id,
-                        type(error).__name__,
-                    )
-                else:
-                    absolutely_numbered = bool(_absolutely_numbered_seasons(metadata_by_season))
-                    numbered = _absolute_number_targets(media_id, source, metadata_by_season, absolute_candidates)
-                    remaining = []
-                    for event in absolute_candidates:
-                        target = numbered.get(event[3])
-                        if target is None:
-                            remaining.append(event)
-                            continue
-                        resolvable.append((target[0], target[1], event[2], event[3]))
-                        stored[event[3]] = target
-                    absolute_candidates = remaining
-
-            # Anime trackers number a series continuously in one season, while
-            # TMDB splits it into seasons. Translate those numbers by walking
-            # TMDB's regular seasons, and keep only targets TMDB really lists.
-            targets = _absolute_targets(combined_metadata, metadata_by_season.get(1), absolute_candidates)
-            missing_seasons = sorted({season for season, _ in targets.values()} - set(metadata_by_season))
-            if missing_seasons:
-                try:
-                    extra_metadata = services.get_media_metadata("tv_with_seasons", media_id, source, missing_seasons)
-                except Exception:
-                    logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
-                    extra_metadata = {}
-                for season_number in missing_seasons:
-                    season_metadata = extra_metadata.get(f"season/{season_number}")
-                    if isinstance(season_metadata, dict):
-                        season_metadata.setdefault("_tvdb_episode_image_map", {})
-                        metadata_by_season[season_number] = season_metadata
-            for event in absolute_candidates:
-                _season, _episode, watched_at, client_event_id = event
-                target = targets.get(client_event_id)
-                if target is None or target[0] not in metadata_by_season:
-                    identity_candidates.append(event)
-                    continue
-                try:
-                    resolve_episode_coordinate(
-                        media_id,
-                        source,
-                        target[0],
-                        target[1],
-                        season_metadata=metadata_by_season[target[0]],
-                    )
-                except (InvalidEpisodeCoordinateError, EpisodeMetadataUnavailableError):
-                    identity_candidates.append(event)
-                    continue
-                resolvable.append((target[0], target[1], watched_at, client_event_id))
-                stored[client_event_id] = target
-
-            # Trackers that follow TVDB numbering disagree with TMDB on merged
-            # two-part episodes, specials and split seasons. Match those by
-            # identity instead: TVDB's record of the submitted number gives an
-            # air date and title, which pick the TMDB episode. A season with an
-            # unknown number is proven to be numbered differently, so its other
-            # events are re-matched too rather than stored one slot off.
-            if identity_candidates:
-                differing_seasons = {event[0] for event in identity_candidates}
-                # Season 1 of an absolutely numbered show matches TMDB exactly;
-                # its unknown numbers are continuous numbering, not a shift.
-                rematch = [
-                    event for event in resolvable
-                    if event[0] in differing_seasons and event[3] not in stored
-                    and not (event[0] == 1 and absolutely_numbered)
-                ]
-                stage_started = time.monotonic()
-                matched, unavailable, why, names = _identity_targets(
-                    request.user,
-                    media_id,
-                    source,
-                    combined_metadata,
-                    metadata_by_season,
-                    identity_candidates + rematch,
-                )
-                timings["tvdb_ms"] = int((time.monotonic() - stage_started) * 1000)
-                for _season, _episode, _watched_at, client_event_id in identity_candidates:
-                    if client_event_id in unavailable:
-                        outcomes[client_event_id] = "metadata_unavailable"
-                    elif client_event_id not in matched:
-                        outcomes[client_event_id] = "not_found"
-                    if client_event_id in why and client_event_id not in matched:
-                        reasons[client_event_id] = why[client_event_id]
-                        if names.get(client_event_id):
-                            titles[client_event_id] = names[client_event_id]
-                resolved_ids = {event[3] for event in rematch if event[3] in matched}
-                resolvable = [event for event in resolvable if event[3] not in resolved_ids]
-                for season_number, episode_number, watched_at, client_event_id in identity_candidates + rematch:
-                    target = matched.get(client_event_id)
-                    if target is None:
-                        continue
-                    resolvable.append((target[0], target[1], watched_at, client_event_id))
-                    if target != (season_number, episode_number):
-                        stored[client_event_id] = target
-            unresolved = resolvable
-            season_numbers = sorted({event[0] for event in unresolved})
-
-            # Background jobs (credits, statistics, hydration) also write to SQLite;
-            # a locked write is rolled back whole, so retrying it is safe.
-            for attempt in range(len(DB_LOCK_BACKOFF_SECONDS) + 1):
-                created_any = False
-                try:
-                    with transaction.atomic():
-                        seasons = {}
-                        for season_number in season_numbers:
-                            seasons[season_number] = _ensure_season_from_metadata(
-                                request.user,
-                                media_id,
-                                source,
-                                season_number,
-                                combined_metadata=combined_metadata,
-                                season_metadata=metadata_by_season[season_number],
-                                library_media_type=library_media_type,
-                            )
-
-                        season_ids = [season.id for season in seasons.values()]
-                        episode_numbers = {event[1] for event in unresolved}
-                        watched_dates = {event[2] for event in unresolved}
-                        legacy_by_key = defaultdict(list)
-                        for legacy in Episode.objects.filter(
-                            related_season_id__in=season_ids,
-                            item__episode_number__in=episode_numbers,
-                            end_date__in=watched_dates,
-                        ).select_related("item").order_by("id"):
-                            legacy_by_key[(
-                                legacy.related_season_id,
-                                legacy.item.episode_number,
-                                legacy.end_date,
-                            )].append(legacy)
-
-                        written = set()
-                        for season_number, episode_number, watched_at, client_event_id in unresolved:
-                            season = seasons[season_number]
-                            legacy_key = (season.id, episode_number, watched_at)
-                            # Both halves of a merged two-parter can land on one
-                            # TMDB episode at the same instant: that is one watch,
-                            # exactly as a later batch would see it.
-                            if legacy_key in written:
-                                outcomes[client_event_id] = "already_satisfied"
-                                continue
-                            written.add(legacy_key)
-                            legacy_candidates = legacy_by_key.get(legacy_key, [])
-                            if (
-                                repair
-                                and not legacy_candidates
-                                and instant_counts[watched_at] == 1
-                                and _relocate_own_play(
-                                    request.user,
-                                    media_id,
-                                    source,
-                                    season,
-                                    episode_number,
-                                    watched_at,
-                                    metadata_by_season[season_number],
-                                )
-                            ):
-                                relocated += 1
-                                outcomes[client_event_id] = "already_satisfied"
-                                continue
-                            if legacy_candidates:
-                                legacy = legacy_candidates.pop(0)
-                                if legacy.watch_operation_id is None:
-                                    # This is identity adoption for an already-existing
-                                    # exact timestamp event. Keep it local: Episode.save()
-                                    # performs provider-backed completion reconciliation,
-                                    # which would turn one batch fetch into an N+1 path.
-                                    updated = Episode.objects.filter(
-                                        pk=legacy.pk,
-                                        watch_operation_id__isnull=True,
-                                    ).update(watch_operation_id=client_event_id)
-                                    if updated:
-                                        legacy.watch_operation_id = client_event_id
-                                    else:
-                                        claimed = Episode.objects.filter(pk=legacy.pk).only("watch_operation_id").first()
-                                        if claimed is None or claimed.watch_operation_id != client_event_id:
-                                            return Response(
-                                                {"detail": "client_event_id conflicts with an existing episode event."},
-                                                status=HTTP.CONFLICT,
-                                            )
-                                outcomes[client_event_id] = "already_satisfied"
-                                continue
-
-                            episode_item = season.get_episode_item(
-                                episode_number,
-                                season_metadata=metadata_by_season[season_number],
-                            )
-                            result = create_episode_watch(
-                                season,
-                                episode_item,
-                                watched_at,
-                                watch_operation_id=client_event_id,
-                                operation_prechecked=True,
-                            )
-                            outcomes[client_event_id] = "created" if result.created else "already_satisfied"
-                            created_any = created_any or result.created
-                    break
-                except OperationalError as error:
-                    if "locked" not in str(error).lower():
-                        logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
-                        return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
-                    if attempt == len(DB_LOCK_BACKOFF_SECONDS):
-                        logger.warning("CineTrack episode ensure: database busy media_id=%s", media_id)
-                        return Response(
-                            {"detail": "Floppy database is busy; retry shortly."},
-                            status=HTTP.SERVICE_UNAVAILABLE,
-                            headers={"Retry-After": str(DB_BUSY_RETRY_AFTER_SECONDS)},
-                        )
-                    time.sleep(DB_LOCK_BACKOFF_SECONDS[attempt])
-                except Exception:
-                    logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
-                    return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
-
-            if created_any:
-                cache_utils.clear_time_left_cache_for_user(request.user.id)
-                cache_utils.clear_media_list_cache_for_user(request.user.id)
+        except EpisodeEnsureError as error:
+            return Response({"detail": error.detail}, status=error.status, headers=error.headers)
+        outcomes, stored, reasons, titles = ensured
 
         results = []
         for season_number, episode_number, _watched_at, client_event_id in parsed:
@@ -1014,17 +1223,6 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 if client_event_id in titles:
                     result["title"] = titles[client_event_id]
             results.append(result)
-        if relocated:
-            logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
-            logger.warning(
-                "CineTrack episode ensure slow media_id=%s events=%d total_ms=%d %s",
-                media_id,
-                len(parsed),
-                elapsed_ms,
-                " ".join(f"{stage}={ms}" for stage, ms in timings.items()),
-            )
         return Response({"results": results}, status=HTTP.OK)
 
 

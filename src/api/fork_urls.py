@@ -15,12 +15,33 @@ from . import (
     fork_views_progress_changes,
     fork_views_scrobble,
     fork_views_statistics,
+    fork_views_sync_writes,
     fork_views_tracking,
     fork_views_users,
     fork_views_watched_state,
 )
 
 urlpatterns = [
+    re_path(
+        r"^sync/history/remove/?$",
+        fork_views_sync_writes.SyncHistoryRemoveView.as_view(),
+        name="api_sync_history_remove",
+    ),
+    re_path(
+        r"^sync/history/?$",
+        fork_views_sync_writes.SyncHistoryView.as_view(),
+        name="api_sync_history",
+    ),
+    re_path(
+        r"^sync/ratings/?$",
+        fork_views_sync_writes.SyncRatingsView.as_view(),
+        name="api_sync_ratings",
+    ),
+    re_path(
+        r"^sync/status/?$",
+        fork_views_sync_writes.SyncStatusView.as_view(),
+        name="api_sync_status",
+    ),
     re_path(
         r"^cinetrack/bootstrap/movies/ensure/?$",
         cinetrack_bootstrap_views.CineTrackBootstrapMoviesEnsureView.as_view(),

@@ -815,6 +815,11 @@ class InfoSerializer(serializers.Serializer):
                 "sync_app_connections_v1": True,
                 "sync_changes_coordinates_v1": True,
                 "sync_activities_v1": True,
+                "sync_history_v1": True,
+                "sync_history_remove_v1": True,
+                "sync_ratings_v1": True,
+                "sync_status_v1": True,
+                "watched_state_exact_time_v1": True,
             },
         }
 
