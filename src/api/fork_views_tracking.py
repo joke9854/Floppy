@@ -23,6 +23,7 @@ from app.fork_services_movie import resolve_or_create_movie
 from app.history_cache_utils import normalize_history_media_type_tokens
 from app.models import Episode, Item, ItemTag, MediaTypes, Movie, MoviePlay, Status, TV, Tag
 from app.services import metadata_resolution
+from app.services.sync_activity import touch_activity
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
@@ -416,6 +417,8 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                         Movie.objects.filter(pk=movie.pk).update(end_date=watched_at, status=Status.COMPLETED.value)
                     outcome = "created" if created else "already_satisfied"
                 results.append({"source": source, "media_id": media_id, "status": outcome})
+        # Queryset updates above fire no signals.
+        touch_activity(request.user, "library")
         return Response({"results": results}, status=HTTP.OK)
 
 
@@ -456,6 +459,8 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
                 # imported explicitly by CineTrack's event endpoint.
                 TV.objects.filter(pk=tv.pk).exclude(status=desired_status).update(status=desired_status)
                 results.append({"source": source, "media_id": media_id, "status": "already_satisfied"})
+        # Queryset updates above fire no signals.
+        touch_activity(request.user, "library")
         return Response({"results": results}, status=HTTP.OK)
 
 

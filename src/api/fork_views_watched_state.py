@@ -1,18 +1,22 @@
 # FORK: canonical watched-state endpoints for external synchronizing clients.
 # Deliberately separate from the playback and history endpoints: setting
 # unwatched is not deleting history, and the two must not share a route.
+import datetime
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
-from app.models import WatchStateOrigin
+from app.models import WatchStateOrigin, WatchStateSequence
 from app.services.progress_changes import (
     PROGRESS_RESOURCE,
     retained_progress_range,
 )
+from app.services.sync_activity import activity_snapshot
 from app.services.watch_state import (
     RevisionConflictError,
     changes_since,
@@ -26,12 +30,20 @@ from integrations.models import (
     StateConflictStatus,
     SyncBinding,
     SyncCheckpoint,
+    SyncClientKind,
+    SyncDirection,
 )
 from integrations.state.checkpoints import (
     WATCHED_STATE_RESOURCE,
     record_applied_position,
 )
+from integrations.state.identity import (
+    activate_binding,
+    deactivate_binding,
+    get_or_create_binding,
+)
 
+from .contract_serializers import DetailErrorSerializer
 from .helpers import check_source_type, check_valid_type, resolve_item_queryset
 
 logger = logging.getLogger(__name__)
@@ -265,6 +277,10 @@ class WatchedStateChangeFeedView(drf_views.APIView):
                 "media_id": change.item.media_id if change.item else None,
                 "source": change.item.source if change.item else None,
                 "media_type": change.item.media_type if change.item else None,
+                # Episode coordinates, so a client can place an episode change
+                # without a second lookup. Null for anything that is not one.
+                "season_number": change.item.season_number if change.item else None,
+                "episode_number": (change.item.episode_number if change.item else None),
                 "origin_kind": change.origin_kind,
                 "correlation_id": str(change.correlation_id),
             }
@@ -299,9 +315,119 @@ class WatchedStateChangeFeedView(drf_views.APIView):
         ).first()
 
 
+class AppConnectionRequestSerializer(serializers.Serializer):
+    """Body for registering an app as a pull client."""
+
+    client = serializers.RegexField(
+        r"^[a-z0-9_-]{1,32}$",
+        help_text="Short client slug, for example `cinetrack`.",
+    )
+    instance_key = serializers.CharField(
+        min_length=1,
+        max_length=128,
+        help_text="Stable per-install identifier, chosen by the client.",
+    )
+    label = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text="Display name; defaults to the client slug.",
+    )
+
+
+class AppConnectionSerializer(serializers.Serializer):
+    """A registered app connection and where its cursor should start."""
+
+    connection = serializers.CharField(
+        help_text="Pass as `connection` when pulling the change feeds.",
+    )
+    client = serializers.CharField()
+    instance_key = serializers.CharField()
+    oldest_sequence = serializers.IntegerField(allow_null=True)
+    newest_sequence = serializers.IntegerField(
+        help_text="Start the cursor here after taking a full snapshot.",
+    )
+
+
+def _app_instance_key(client, instance_key):
+    """Return the stored instance key for an app connection.
+
+    The slug is folded in so the same install id under two client slugs stays
+    two connections.
+    """
+    return f"{client}:{instance_key}"
+
+
 # /api/v1/sync/connections/
 class SyncConnectionsView(drf_views.APIView):
     """Report what each connection is actually allowed and able to do."""
+
+    @extend_schema(
+        request=AppConnectionRequestSerializer,
+        responses={
+            200: AppConnectionSerializer,
+            201: AppConnectionSerializer,
+            400: OpenApiResponse(DetailErrorSerializer, description="Invalid body."),
+            403: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Connection stopped by an administrator.",
+            ),
+        },
+    )
+    def post(self, request):
+        """Register this app as a pull client of the change feeds.
+
+        Turns the user's change log on, because changes are only recorded while
+        a connection is operational. The binding is pull-only: it is approved
+        for the Floppy-to-client direction and for no capability, so the
+        outbound delivery engine has nothing to write to it.
+        """
+        body = AppConnectionRequestSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        client = body.validated_data["client"]
+        instance_key = body.validated_data["instance_key"]
+        requested_label = body.validated_data.get("label")
+
+        binding, _created = get_or_create_binding(
+            request.user,
+            SyncClientKind.APP.value,
+            instance_key=_app_instance_key(client, instance_key),
+            label=requested_label or client,
+        )
+        if binding.kill_switch:
+            return Response(
+                {"detail": "This connection was stopped by an administrator."},
+                status=HTTP.FORBIDDEN,
+            )
+
+        already_active = binding.is_operational()
+        if not already_active:
+            activate_binding(
+                binding,
+                capabilities=[],
+                directions=[SyncDirection.OUTBOUND.value],
+            )
+        if requested_label and binding.label != requested_label:
+            binding.label = requested_label
+            binding.save(update_fields=["label", "updated_at"])
+
+        oldest, newest = retained_change_range(request.user)
+        if newest is None:
+            # Nothing retained is not "nothing ever happened": a compacted log
+            # still has an allocator position the cursor must not fall behind.
+            sequence = WatchStateSequence.objects.filter(user=request.user).first()
+            newest = sequence.last_sequence if sequence else 0
+
+        return Response(
+            {
+                "connection": binding.origin_key,
+                "client": client,
+                "instance_key": instance_key,
+                "oldest_sequence": oldest,
+                "newest_sequence": newest,
+            },
+            status=HTTP.OK if already_active else HTTP.CREATED,
+        )
 
     def get(self, request):
         """Return connections, their directions, and unavailable capabilities."""
@@ -384,6 +510,74 @@ class SyncConnectionsView(drf_views.APIView):
                 },
             )
         return rows
+
+
+# /api/v1/sync/connections/[connection]/
+class SyncConnectionDetailView(drf_views.APIView):
+    """Remove one app connection."""
+
+    @extend_schema(
+        responses={
+            204: OpenApiResponse(description="Connection removed."),
+            404: OpenApiResponse(
+                DetailErrorSerializer,
+                description="No such app connection for this account.",
+            ),
+        },
+    )
+    def delete(self, request, connection):
+        """Stop recording changes for an app connection.
+
+        Only the caller's own app connections are addressable; provider
+        bindings are managed in the web UI and answer 404 here, as does
+        another user's connection.
+        """
+        binding = SyncBinding.objects.filter(
+            user=request.user,
+            origin_key=connection,
+            client_kind=SyncClientKind.APP.value,
+        ).first()
+        if binding is None:
+            return Response(
+                {"detail": "No such connection."},
+                status=HTTP.NOT_FOUND,
+            )
+
+        deactivate_binding(binding)
+        return Response(status=HTTP.NO_CONTENT)
+
+
+class SyncActivitiesSerializer(serializers.Serializer):
+    """When each area of the account last changed."""
+
+    all = serializers.DateTimeField(allow_null=True)
+    watched = serializers.DateTimeField(allow_null=True)
+    playback = serializers.DateTimeField(allow_null=True)
+    library = serializers.DateTimeField(allow_null=True)
+    lists = serializers.DateTimeField(allow_null=True)
+    collection = serializers.DateTimeField(allow_null=True)
+    removed = serializers.DateTimeField(allow_null=True)
+
+
+# /api/v1/sync/activities/
+class SyncActivitiesView(drf_views.APIView):
+    """Tell a pull client which areas changed since it last looked."""
+
+    @extend_schema(responses={200: SyncActivitiesSerializer})
+    def get(self, request):
+        """Return the last-changed time per area, ISO-8601 UTC, or null."""
+        snapshot = activity_snapshot(request.user)
+        return Response(
+            {
+                key: (
+                    value.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
+                    if value is not None
+                    else None
+                )
+                for key, value in snapshot.items()
+            },
+            status=HTTP.OK,
+        )
 
 
 # /api/v1/sync/conflicts/

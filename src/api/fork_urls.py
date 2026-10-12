@@ -378,6 +378,16 @@ urlpatterns = [
         name="api_sync_connections",
     ),
     re_path(
+        r"^sync/connections/(?P<connection>[^/]+)/?$",
+        fork_views_watched_state.SyncConnectionDetailView.as_view(),
+        name="api_sync_connection_detail",
+    ),
+    re_path(
+        r"^sync/activities/?$",
+        fork_views_watched_state.SyncActivitiesView.as_view(),
+        name="api_sync_activities",
+    ),
+    re_path(
         r"^sync/conflicts/?$",
         fork_views_watched_state.SyncConflictsView.as_view(),
         name="api_sync_conflicts",

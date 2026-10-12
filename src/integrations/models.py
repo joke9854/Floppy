@@ -1529,6 +1529,9 @@ class SyncClientKind(models.TextChoices):
     STREMIO = "stremio", "Stremio"
     AUDIOBOOKSHELF = "audiobookshelf", "Audiobookshelf"
     GENERIC = "generic", "Generic client"
+    # A first-party pull client (a mobile app) registered over the API. It has no
+    # adapter: it reads Floppy's change feeds and nothing is ever pushed to it.
+    APP = "app", "App"
 
 
 class SyncDirection(models.TextChoices):

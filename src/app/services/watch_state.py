@@ -30,6 +30,7 @@ from app.models.watch_state import (
     WatchStateSequence,
     calculate_state_digest,
 )
+from app.services.sync_activity import touch_activity
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +283,10 @@ def project_watch_state(
             "origin_key": origin_key,
         },
     )
-    if created or state.state_digest == digest:
+    if created:
+        touch_activity(user, "watched")
+        return state
+    if state.state_digest == digest:
         return state
 
     state.watched = derived.watched
@@ -305,6 +309,7 @@ def project_watch_state(
             "updated_at",
         ],
     )
+    touch_activity(user, "watched")
     return state
 
 
@@ -459,6 +464,7 @@ def record_state_change(
             "updated_at",
         ],
     )
+    touch_activity(user, "watched")
 
     return RecordedChange(state=state, change=change)
 
@@ -466,9 +472,9 @@ def record_state_change(
 def changes_since(user, sequence, *, limit=100):
     """Return this user's changes after ``sequence``, in server order."""
     return list(
-        WatchStateChange.objects.filter(user=user, sequence__gt=sequence).order_by(
-            "sequence",
-        )[:limit],
+        WatchStateChange.objects.filter(user=user, sequence__gt=sequence)
+        .select_related("item")
+        .order_by("sequence")[:limit],
     )
 
 

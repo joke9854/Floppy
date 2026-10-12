@@ -13,7 +13,6 @@ from django.utils.functional import cached_property
 from model_utils import FieldTracker
 from requests import RequestException
 from simple_history.models import HistoricalRecords
-from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 import events
 from app import cache_utils, providers
@@ -21,6 +20,10 @@ from app.models.choices import MediaTypes, Sources, Status
 from app.models.item import Item
 from app.models.manager import MediaManager
 from app.models.media import Media
+from app.services.bulk_tracking import (
+    bulk_create_with_history,
+    bulk_update_with_history,
+)
 
 logger = logging.getLogger(__name__)
 

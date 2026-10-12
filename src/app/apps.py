@@ -70,6 +70,7 @@ class AppConfig(AppConfig):
         """Import signals when the app is ready."""
         import_module("app.signals")
         import_module("app.signals_watch_state")
+        import_module("app.signals_sync_activity")
         # Task-boundary memory sampling. Connected from ready() rather than
         # at module import so the handlers exist exactly once per process,
         # before any task can run, and are skipped entirely when the

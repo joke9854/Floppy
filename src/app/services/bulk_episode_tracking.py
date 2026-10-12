@@ -11,7 +11,6 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
-from simple_history.utils import bulk_create_with_history
 
 import events
 from app import cache_utils, history_cache
@@ -32,6 +31,7 @@ from app.models import (
     Status,
 )
 from app.providers import services
+from app.services.bulk_tracking import bulk_create_with_history
 from app.services.completion import normalize_completed_entry
 from app.services.episode_coordinates import (
     InvalidEpisodeCoordinateError,

@@ -92,6 +92,8 @@ from app.models.tv import (
     Season,
 )
 from app.models.watch_state import (
+    SyncActivity,
+    SyncActivityCategory,
     WatchState,
     WatchStateChange,
     WatchStateChangeKind,
@@ -172,6 +174,8 @@ __all__ = [
     "Sources",
     "Status",
     "Studio",
+    "SyncActivity",
+    "SyncActivityCategory",
     "Tag",
     "Track",
     "UserProviderCredential",

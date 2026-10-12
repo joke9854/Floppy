@@ -263,3 +263,45 @@ class WatchStateSequence(models.Model):
     def __str__(self):
         """Return the user and the last allocated sequence."""
         return f"{self.user} @ {self.last_sequence}"
+
+
+class SyncActivityCategory(models.TextChoices):
+    """The coarse areas a pull client can ask "did anything change?" about."""
+
+    WATCHED = "watched", "Watched state"
+    PLAYBACK = "playback", "Playback positions"
+    LIBRARY = "library", "Library"
+    LISTS = "lists", "Lists"
+    COLLECTION = "collection", "Collection"
+    REMOVED = "removed", "Removals"
+
+
+class SyncActivity(models.Model):
+    """When one area of a user's data last changed.
+
+    A pull client compares these against the values it saw last time and only
+    fetches the areas that moved, instead of paging every feed on every sync.
+    One row per (user, category), updated in place.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sync_activities",
+    )
+    category = models.CharField(max_length=16, choices=SyncActivityCategory)
+    changed_at = models.DateTimeField()
+
+    class Meta:
+        """Meta options for the model."""
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "category"],
+                name="app_syncactivity_unique_user_category",
+            ),
+        ]
+
+    def __str__(self):
+        """Return the user, area and time."""
+        return f"{self.user_id}:{self.category}@{self.changed_at}"

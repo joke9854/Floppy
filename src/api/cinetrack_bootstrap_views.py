@@ -31,6 +31,7 @@ from app.services.episode_coordinates import (
     InvalidEpisodeCoordinateError,
     resolve_episode_coordinate,
 )
+from app.services.sync_activity import batched_activity, touch_activity
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
 from .contract_serializers import DetailErrorSerializer
@@ -293,6 +294,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
         request=CineTrackMoviesEnsureRequestSerializer,
         responses=BOOTSTRAP_RESPONSES,
     )
+    @batched_activity()
     def post(self, request):
         raw_entries = request.data.get("movies")
         if not isinstance(raw_entries, list) or not raw_entries:
@@ -461,6 +463,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                     list(dirty_movies.values()),
                     fields=["status", "end_date"],
                 )
+                touch_activity(request.user, "library")
             queue_cinetrack_bootstrap_hydration(hydration_ids, request.user.id)
 
         return Response({"results": results}, status=HTTP.OK)
@@ -473,6 +476,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
         request=CineTrackShowsEnsureRequestSerializer,
         responses=BOOTSTRAP_RESPONSES,
     )
+    @batched_activity()
     def post(self, request):
         raw_entries = request.data.get("shows")
         if not isinstance(raw_entries, list) or not raw_entries:
@@ -564,6 +568,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
 
             if dirty:
                 TV.objects.bulk_update(dirty, fields=["status"])
+                touch_activity(request.user, "library")
             queue_cinetrack_bootstrap_hydration(hydration_ids, request.user.id)
 
         return Response({"results": results}, status=HTTP.OK)
