@@ -19,6 +19,8 @@ from collections import defaultdict
 
 from django.apps import apps
 from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
 from app.helpers import build_provider_ids
 from app.models.choices import MediaTypes, Status
@@ -200,13 +202,15 @@ def _digest(state):
     ).hexdigest()
 
 
-def _allocate_sequence(user):
+def _allocate_sequences(user, count):
+    """Reserve ``count`` consecutive sequences; return the first one."""
+    # One UPDATE both increments and row-locks the counter until commit.
     sequence_model = _model("SyncItemSequence")
-    row, _ = sequence_model.objects.get_or_create(user=user)
-    row = sequence_model.objects.select_for_update().get(pk=row.pk)
-    row.last_sequence += 1
-    row.save(update_fields=["last_sequence"])
-    return row.last_sequence
+    rows = sequence_model.objects.filter(user=user)
+    if not rows.update(last_sequence=F("last_sequence") + count):
+        sequence_model.objects.get_or_create(user=user)
+        rows.update(last_sequence=F("last_sequence") + count)
+    return rows.values_list("last_sequence", flat=True).get() - count + 1
 
 
 def head_sequence(user):
@@ -223,31 +227,78 @@ def refresh_sync_item(user, item):
     last play and library entry is re-sequenced with ``in_library: false``: that
     is how an app learns about a removal.
     """
-    if user is None or item is None or item.media_type not in SYNCED_MEDIA_TYPES:
+    if item is None:
         return
-    if not is_enabled(user):
+    refresh_sync_items(user, [item])
+
+
+_REFRESH_CHUNK = 200
+
+
+def refresh_sync_items(user, items):
+    """Re-index many items with a fixed number of queries per chunk.
+
+    Bulk writes (bootstrap batches, ``bulk_update``) fire no signals; they call
+    this once with everything they touched instead of once per row.
+    """
+    if user is None or not is_enabled(user):
         return
-    state = describe_items(user, [item])[item.pk]
-    digest = _digest(state)
+    unique = {}
+    for item in items:
+        if item is not None and item.media_type in SYNCED_MEDIA_TYPES:
+            unique.setdefault(item.pk, item)
+    pending = list(unique.values())
+    for start in range(0, len(pending), _REFRESH_CHUNK):
+        _refresh_chunk(user, pending[start : start + _REFRESH_CHUNK])
+
+
+def _refresh_chunk(user, items):
+    states = describe_items(user, items)
+    digests = {pk: _digest(state) for pk, state in states.items()}
     state_model = _model("SyncItemState")
-    with transaction.atomic():
-        row = state_model.objects.filter(user=user, item=item).first()
-        if row is not None and row.digest == digest:
-            return
-        if row is None and not state["in_library"]:
-            return
-        sequence = _allocate_sequence(user)
-        if row is None:
-            state_model.objects.create(
-                user=user,
-                item=item,
-                sequence=sequence,
-                digest=digest,
+    # No savepoint: a failed index write must fail the caller's write too.
+    with transaction.atomic(savepoint=False):
+        existing = {
+            row.item_id: row
+            for row in state_model.objects.filter(user=user, item_id__in=list(states))
+        }
+        changed = [
+            item
+            for item in items
+            if (
+                existing[item.pk].digest != digests[item.pk]
+                if item.pk in existing
+                else states[item.pk]["in_library"]
             )
-        else:
-            row.sequence = sequence
-            row.digest = digest
-            row.save(update_fields=["sequence", "digest", "updated_at"])
+        ]
+        if not changed:
+            return
+        sequence = _allocate_sequences(user, len(changed))
+        created, updated = [], []
+        now = timezone.now()
+        for offset, item in enumerate(changed):
+            row = existing.get(item.pk)
+            if row is None:
+                created.append(
+                    state_model(
+                        user=user,
+                        item=item,
+                        sequence=sequence + offset,
+                        digest=digests[item.pk],
+                    ),
+                )
+            else:
+                row.sequence = sequence + offset
+                row.digest = digests[item.pk]
+                row.updated_at = now  # bulk_update skips auto_now
+                updated.append(row)
+        if created:
+            state_model.objects.bulk_create(created)
+        if updated:
+            state_model.objects.bulk_update(
+                updated,
+                fields=["sequence", "digest", "updated_at"],
+            )
 
 
 def library_item_ids(user):

@@ -278,6 +278,40 @@ class ChangesTests(SyncItemsBase):
             [play["watched_at"] for play in movie["plays"]],
         )
 
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_bootstrap_batches_are_indexed_with_distinct_sequences(self, _metadata):
+        """Bulk writes fire no signals; the batched refresh still lists each item."""
+        response = self.post(
+            "api_cinetrack_bootstrap_movies_ensure",
+            {
+                "movies": [
+                    {
+                        "source": "tmdb",
+                        "media_id": media_id,
+                        "title": f"Movie {media_id}",
+                        "status": 3,
+                        "watch": {
+                            "watched_at": "2024-03-01T21:47:18.123456Z",
+                            "client_event_id": f"cinetrack:items:{media_id}",
+                        },
+                    }
+                    for media_id in ("703", "704", "705")
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, HTTP.OK, response.content)
+
+        results = self.changes(0)["results"]
+
+        movies = {item["media_id"]: item for item in results if item["type"] == "movie"}
+        self.assertEqual(sorted(movies), ["703", "704", "705"])
+        self.assertEqual(
+            movies["703"]["plays"][0]["watched_at"],
+            "2024-03-01T21:47:18.123456+00:00",
+        )
+        sequences = [item["sequence"] for item in results]
+        self.assertEqual(len(sequences), len(set(sequences)))
+
     def test_paging_with_has_more(self):
         """A limit splits the feed; the cursor continues it."""
         self.history(

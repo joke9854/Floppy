@@ -25,7 +25,7 @@ from app.history_cache_utils import normalize_history_media_type_tokens
 from app.models import Episode, Item, ItemTag, MediaTypes, Movie, MoviePlay, Status, TV, Tag
 from app.services import metadata_resolution
 from app.services.sync_activity import touch_activity
-from app.services.sync_items import refresh_sync_item
+from app.services.sync_items import refresh_sync_items
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
@@ -423,8 +423,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                 touched_items.append(item)
         # Queryset updates above fire no signals.
         touch_activity(request.user, "library")
-        for item in touched_items:
-            refresh_sync_item(request.user, item)
+        refresh_sync_items(request.user, touched_items)
         return Response({"results": results}, status=HTTP.OK)
 
 
@@ -469,8 +468,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
                 touched_items.append(item)
         # Queryset updates above fire no signals.
         touch_activity(request.user, "library")
-        for item in touched_items:
-            refresh_sync_item(request.user, item)
+        refresh_sync_items(request.user, touched_items)
         return Response({"results": results}, status=HTTP.OK)
 
 

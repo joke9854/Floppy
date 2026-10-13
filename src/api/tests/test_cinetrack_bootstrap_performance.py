@@ -6,7 +6,15 @@ from unittest.mock import patch
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
-from app.models import TV, Episode, MediaTypes, Movie, MoviePlay, Status
+from app.models import (
+    TV,
+    Episode,
+    MediaTypes,
+    Movie,
+    MoviePlay,
+    Status,
+    WatchStateSequence,
+)
 
 from .base import FloppyApiTestCase
 
@@ -334,3 +342,24 @@ class CineTrackBootstrapQueryGrowthTests(FloppyApiTestCase):
         )
         # One metadata fetch per new batch; resends need none.
         self.assertEqual(metadata.call_count, 2)
+
+
+class CineTrackBootstrapQueryGrowthWithSyncIndexTests(CineTrackBootstrapQueryGrowthTests):
+    """The same checks while an app syncs: the change log and item index run.
+
+    Re-sends stay flat (the index refreshes in batches, not per row). Measured
+    per new row on CineTrack-API with the index on and cold caches: movies
+    50.6, shows 10.6, episode events 21.8 (mostly the watched-state change
+    log, which runs per saved row by design).
+    """
+
+    NEW_MOVIE_QUERIES = 56
+    NEW_SHOW_QUERIES = 12
+    NEW_EPISODE_QUERIES = 24
+
+    def setUp(self):
+        super().setUp()
+        WatchStateSequence.objects.update_or_create(
+            user=self.user1,
+            defaults={"emit_changes": True},
+        )
