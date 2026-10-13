@@ -367,7 +367,11 @@ class PodcastLookupTests(PodcastApiTestCase):
 
         payload = self._lookup().json()
 
-        self.assertEqual(payload, {"detail": "Pocket Casts lookup failed."})
+        # Only fixed strings: the detail and the code its status maps to.
+        self.assertEqual(
+            payload,
+            {"detail": "Pocket Casts lookup failed.", "code": "server_error"},
+        )
 
     @staticmethod
     def _provider_error(status_code):

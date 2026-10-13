@@ -255,7 +255,10 @@ class EpisodeWatchTests(FloppyApiTestCase):
         )
 
         self.assertEqual(response.status_code, HTTP.NOT_FOUND)
-        self.assertEqual(response.json(), {"detail": "Could not resolve season."})
+        self.assertEqual(
+            response.json(),
+            {"detail": "Could not resolve season.", "code": "not_found"},
+        )
         self.assertFalse(Episode.objects.filter(item__media_id="999999").exists())
 
     @patch(
@@ -330,7 +333,10 @@ class EpisodeWatchTests(FloppyApiTestCase):
         )
 
         self.assertEqual(response.status_code, HTTP.NOT_FOUND)
-        self.assertEqual(response.json(), {"detail": "Could not resolve season."})
+        self.assertEqual(
+            response.json(),
+            {"detail": "Could not resolve season.", "code": "not_found"},
+        )
         self.assertFalse(Episode.objects.filter(item__media_id="999999").exists())
 
 

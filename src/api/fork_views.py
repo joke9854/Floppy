@@ -6,15 +6,18 @@ from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.db.models import prefetch_related_objects
 from django_celery_results.models import TaskResult
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
 from app.forms import CollectionEntryForm
 from app.models import BasicMedia, CollectionEntry, Item, MediaTypes
 
+from .contract_serializers import DetailErrorSerializer, PaginationSerializer
 from .fork_serializers import CollectionEntrySerializer
 from .helpers import paginate_data, parse_limit_offset
-from .serializers import serialize_data
+from .serializers import ItemSerializer, serialize_data
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +90,109 @@ class MediaProgressView(drf_views.APIView):
         return Response(serialize_data(media), status=HTTP.OK)
 
 
+class CollectionItemSerializer(ItemSerializer):
+    """Item embedded in a collection entry, with typed computed fields."""
+
+    media_id = serializers.CharField(allow_null=True)
+    url = serializers.CharField(allow_null=True, help_text="Floppy detail URL.")
+    ids = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="Resolved external provider ids keyed by provider name.",
+    )
+
+
+class CollectionEntryResponseSerializer(serializers.Serializer):
+    """An owned copy of an item, with optional A/V metadata."""
+
+    id = serializers.IntegerField()
+    item = CollectionItemSerializer()
+    media_type = serializers.CharField(help_text="Physical or digital source.")
+    resolution = serializers.CharField(allow_blank=True)
+    hdr = serializers.CharField(allow_blank=True)
+    is_3d = serializers.BooleanField()
+    audio_codec = serializers.CharField(allow_blank=True)
+    audio_channels = serializers.CharField(allow_blank=True)
+    bitrate = serializers.IntegerField(allow_null=True, help_text="Audio kbps.")
+    collected_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class CollectionListResponseSerializer(serializers.Serializer):
+    """A page of collection entries."""
+
+    pagination = PaginationSerializer()
+    results = CollectionEntryResponseSerializer(many=True)
+
+
+class CollectionEntryUpdateRequestSerializer(serializers.Serializer):
+    """Editable collection entry fields; all optional."""
+
+    media_type = serializers.CharField(required=False, allow_blank=True)
+    resolution = serializers.CharField(required=False, allow_blank=True)
+    hdr = serializers.CharField(required=False, allow_blank=True)
+    is_3d = serializers.BooleanField(required=False)
+    audio_codec = serializers.CharField(required=False, allow_blank=True)
+    audio_channels = serializers.CharField(required=False, allow_blank=True)
+    bitrate = serializers.IntegerField(required=False, allow_null=True)
+    purchase_price = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    purchase_location = serializers.CharField(required=False, allow_blank=True)
+
+
+class CollectionEntryCreateRequestSerializer(CollectionEntryUpdateRequestSerializer):
+    """Body for adding an owned copy to the collection."""
+
+    item_id = serializers.IntegerField(help_text="Floppy item id to collect.")
+
+
+class CollectionFormErrorSerializer(serializers.Serializer):
+    """Body of a 400 caused by a missing `item_id` or invalid fields."""
+
+    detail = serializers.CharField()
+    errors = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField()),
+        required=False,
+        help_text="Validation messages keyed by field name.",
+    )
+
+
 # /api/v1/collection/
 class CollectionView(drf_views.APIView):
     """List collection entries or add an owned copy to the collection."""
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Page size.",
+            ),
+            OpenApiParameter(
+                name="offset",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Zero-based offset.",
+            ),
+            OpenApiParameter(
+                name="item_media_type",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Only entries whose item has this media type.",
+            ),
+        ],
+        responses={
+            200: CollectionListResponseSerializer,
+            400: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Invalid pagination parameter.",
+            ),
+        },
+    )
     def get(self, request):
         """List the user's collection entries."""
         limit, offset, error_response = parse_limit_offset(request)
@@ -121,6 +223,20 @@ class CollectionView(drf_views.APIView):
         )
         return Response(paginated, status=HTTP.OK)
 
+    @extend_schema(
+        request=CollectionEntryCreateRequestSerializer,
+        responses={
+            201: CollectionEntryResponseSerializer,
+            400: OpenApiResponse(
+                CollectionFormErrorSerializer,
+                description=(
+                    "`item_id` missing (body has only `detail`) or invalid "
+                    "collection data (body also has `errors`)."
+                ),
+            ),
+            404: OpenApiResponse(DetailErrorSerializer, description="Item not found."),
+        },
+    )
     def post(self, request):
         """Add an item to the collection (mirrors collection_add)."""
         item_id = request.data.get("item_id")
@@ -174,6 +290,15 @@ class CollectionEntryView(drf_views.APIView):
         except CollectionEntry.DoesNotExist:
             return None
 
+    @extend_schema(
+        responses={
+            200: CollectionEntryResponseSerializer,
+            404: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Collection entry not found.",
+            ),
+        },
+    )
     def get(self, request, entry_id):
         """Return a single collection entry."""
         entry = self._get_entry(request, entry_id)
@@ -187,6 +312,20 @@ class CollectionEntryView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=CollectionEntryUpdateRequestSerializer,
+        responses={
+            200: CollectionEntryResponseSerializer,
+            400: OpenApiResponse(
+                CollectionFormErrorSerializer,
+                description="Invalid collection data.",
+            ),
+            404: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Collection entry not found.",
+            ),
+        },
+    )
     def patch(self, request, entry_id):
         """Update collection entry metadata (mirrors collection_update)."""
         entry = self._get_entry(request, entry_id)

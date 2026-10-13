@@ -20,6 +20,7 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from health_check.mixins import CheckMixin
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -309,6 +310,26 @@ class HealthView(CheckMixin, drf_views.APIView):
         return Response(response_data, status=status_code)
 
 
+class InfoApiResponseSerializer(serializers.Serializer):
+    """Public server info, including the capability flags clients probe."""
+
+    version = serializers.CharField()
+    debug = serializers.BooleanField()
+    frontend_url = serializers.CharField()
+    language = serializers.CharField()
+    timezone = serializers.CharField()
+    admin_enabled = serializers.BooleanField()
+    track_time = serializers.BooleanField()
+    api_extensions = serializers.DictField(
+        child=serializers.BooleanField(),
+        help_text=(
+            "Capability flags keyed by extension name, for example "
+            "`sync_app_connections_v1`. Discover capabilities from these "
+            "flags, never from `version`. A missing key means unsupported."
+        ),
+    )
+
+
 # /api/v1/info/
 class InfoView(drf_views.APIView):
     """Info endpoint."""
@@ -316,6 +337,7 @@ class InfoView(drf_views.APIView):
     authentication_classes = []
     permission_classes = []
 
+    @extend_schema(responses={200: InfoApiResponseSerializer})
     def get(self, request):
         """Get application information."""
         info_data = {}

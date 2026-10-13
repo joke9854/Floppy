@@ -6,7 +6,7 @@ import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
@@ -143,10 +143,249 @@ def _resolve_item(request, media_type, source, media_id):
     return matches[0], None
 
 
+class WatchedStateProvenanceSerializer(serializers.Serializer):
+    """Who last changed a watched state, and when."""
+
+    origin_kind = serializers.CharField(
+        help_text="Explicit and inferred changes stay distinguishable.",
+    )
+    origin_key = serializers.CharField(allow_blank=True)
+    updated_at = serializers.DateTimeField()
+
+
+class WatchedStateResponseSerializer(serializers.Serializer):
+    """Canonical watched state of one item."""
+
+    media_id = serializers.CharField()
+    source = serializers.CharField()
+    media_type = serializers.CharField()
+    watched = serializers.BooleanField()
+    play_count = serializers.IntegerField()
+    first_watched_at = serializers.DateTimeField(allow_null=True)
+    last_watched_at = serializers.DateTimeField(allow_null=True)
+    revision = serializers.IntegerField(
+        help_text="Monotonic per-item revision; usable as `If-Match` on PUT.",
+    )
+    conflicted = serializers.BooleanField()
+    provenance = WatchedStateProvenanceSerializer(
+        allow_null=True,
+        help_text="Null when the item has never had a recorded state.",
+    )
+
+
+class WatchedStateWriteResponseSerializer(WatchedStateResponseSerializer):
+    """Watched state after an explicit assertion."""
+
+    replayed = serializers.BooleanField(
+        help_text="True when the idempotency key matched an earlier change.",
+    )
+    unchanged = serializers.BooleanField(
+        help_text="True when the assertion matched the existing state.",
+    )
+
+
+class WatchedStateRequestSerializer(serializers.Serializer):
+    """Body for asserting a watched state."""
+
+    watched = serializers.BooleanField(help_text="Must be a JSON boolean.")
+    watched_at = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        help_text=(
+            "Exact ISO-8601 instant of the watch; only read when `watched` is "
+            "true. Defaults to the server's current time and may not be in the "
+            "future."
+        ),
+    )
+    play_count = serializers.IntegerField(required=False, allow_null=True)
+    client_event_id = serializers.CharField(
+        required=False,
+        help_text="Idempotency key; the `Idempotency-Key` header takes precedence.",
+    )
+
+
+class WatchedStateRevisionConflictSerializer(serializers.Serializer):
+    """Body of a 409 when `If-Match` does not match the current revision."""
+
+    detail = serializers.CharField()
+    revision = serializers.IntegerField(help_text="The current revision.")
+
+
+class WatchedStateChangeSerializer(serializers.Serializer):
+    """One entry in the watched-state change feed."""
+
+    sequence = serializers.IntegerField()
+    revision = serializers.IntegerField()
+    previous_revision = serializers.IntegerField(allow_null=True)
+    kind = serializers.CharField()
+    watched = serializers.BooleanField(allow_null=True)
+    play_count = serializers.IntegerField(allow_null=True)
+    watched_at = serializers.DateTimeField(allow_null=True)
+    media_id = serializers.CharField(allow_null=True)
+    source = serializers.CharField(allow_null=True)
+    media_type = serializers.CharField(allow_null=True)
+    season_number = serializers.IntegerField(
+        allow_null=True,
+        help_text="Null for anything that is not an episode.",
+    )
+    episode_number = serializers.IntegerField(allow_null=True)
+    origin_kind = serializers.CharField()
+    correlation_id = serializers.CharField()
+
+
+class ChangeFeedResponseSerializer(serializers.Serializer):
+    """A page of an ordered change feed."""
+
+    results = WatchedStateChangeSerializer(many=True)
+    next_cursor = serializers.IntegerField(
+        help_text="Pass as `cursor` to fetch the next page.",
+    )
+    has_more = serializers.BooleanField()
+    oldest_sequence = serializers.IntegerField(allow_null=True)
+    newest_sequence = serializers.IntegerField(allow_null=True)
+
+
+class CursorExpiredSerializer(serializers.Serializer):
+    """Body of a 409 when the client's cursor was compacted away."""
+
+    code = serializers.CharField(help_text="Always `cursor_expired`.")
+    detail = serializers.CharField()
+    oldest_sequence = serializers.IntegerField()
+    newest_sequence = serializers.IntegerField(allow_null=True)
+
+
+class SyncCheckpointSerializer(serializers.Serializer):
+    """Where one connection has got to for one resource and direction."""
+
+    resource = serializers.CharField()
+    direction = serializers.CharField()
+    last_sequence = serializers.IntegerField()
+    behind_by = serializers.IntegerField(allow_null=True)
+    updated_at = serializers.DateTimeField()
+
+
+class SyncConnectionStatusSerializer(serializers.Serializer):
+    """Health and capabilities of one connection."""
+
+    id = serializers.IntegerField()
+    client_kind = serializers.CharField()
+    label = serializers.CharField()
+    status = serializers.CharField()
+    directions = serializers.ListField(child=serializers.CharField())
+    capabilities = serializers.ListField(child=serializers.CharField())
+    unavailable_capabilities = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Approved capabilities the adapter cannot provide.",
+    )
+    origin_key = serializers.CharField(
+        help_text="Pass as `connection` when pulling a change feed.",
+    )
+    last_reconciled_at = serializers.DateTimeField(allow_null=True)
+    last_error_message = serializers.CharField(allow_blank=True, allow_null=True)
+    pending_deliveries = serializers.IntegerField()
+    failed_deliveries = serializers.IntegerField()
+    open_conflicts = serializers.IntegerField()
+    unresolved_references = serializers.IntegerField()
+    checkpoints = SyncCheckpointSerializer(many=True)
+
+
+class SyncConnectionListResponseSerializer(serializers.Serializer):
+    """All connections of the caller."""
+
+    results = SyncConnectionStatusSerializer(many=True)
+
+
+class SyncConflictSerializer(serializers.Serializer):
+    """One open disagreement waiting for a person."""
+
+    id = serializers.IntegerField()
+    reason = serializers.CharField()
+    media_id = serializers.CharField()
+    source = serializers.CharField()
+    media_type = serializers.CharField()
+    client_kind = serializers.CharField()
+    local = serializers.JSONField(help_text="Snapshot of Floppy's state.")
+    remote = serializers.JSONField(help_text="Snapshot of the connection's state.")
+    base = serializers.JSONField(help_text="Snapshot both sides last agreed on.")
+    occurrence_count = serializers.IntegerField()
+    updated_at = serializers.DateTimeField()
+
+
+class SyncConflictListResponseSerializer(serializers.Serializer):
+    """Open conflicts."""
+
+    results = SyncConflictSerializer(many=True)
+
+
+class SyncConflictResolveRequestSerializer(serializers.Serializer):
+    """Body for resolving a conflict."""
+
+    watched = serializers.BooleanField(help_text="Must be a JSON boolean.")
+    play_count = serializers.IntegerField(required=False, allow_null=True)
+
+
+_WATCHED_STATE_ITEM_PARAMS = [
+    OpenApiParameter(
+        name="season_number",
+        type=int,
+        location=OpenApiParameter.QUERY,
+        description="Season of the addressed episode.",
+    ),
+    OpenApiParameter(
+        name="episode_number",
+        type=int,
+        location=OpenApiParameter.QUERY,
+        description="Episode number of the addressed episode.",
+    ),
+    OpenApiParameter(
+        name="library_media_type",
+        type=str,
+        location=OpenApiParameter.QUERY,
+        description="Disambiguates an item that exists in several library buckets.",
+    ),
+]
+
+_CHANGE_FEED_PARAMS = [
+    OpenApiParameter(
+        name="cursor",
+        type=int,
+        location=OpenApiParameter.QUERY,
+        description="Return changes after this sequence; defaults to 0.",
+    ),
+    OpenApiParameter(
+        name="limit",
+        type=int,
+        location=OpenApiParameter.QUERY,
+        description="Maximum changes per page; defaults to 100, maximum 500.",
+    ),
+    OpenApiParameter(
+        name="connection",
+        type=str,
+        location=OpenApiParameter.QUERY,
+        description=(
+            "`connection` value from `POST /sync/connections/`. Naming it "
+            "records the cursor as this connection's applied position."
+        ),
+    ),
+]
+
+
 # /api/v1/media/[media_type]/[source]/[media_id]/watched-state/
 class WatchedStateView(drf_views.APIView):
     """Read or set the canonical watched state for one item."""
 
+    @extend_schema(
+        parameters=_WATCHED_STATE_ITEM_PARAMS,
+        responses={
+            200: WatchedStateResponseSerializer,
+            400: OpenApiResponse(DetailErrorSerializer, description="Invalid address."),
+            404: OpenApiResponse(DetailErrorSerializer, description="No matching item."),
+            409: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Ambiguous item; pass `library_media_type`.",
+            ),
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Return effective state and its provenance."""
         item, error = _resolve_item(request, media_type, source, media_id)
@@ -156,6 +395,39 @@ class WatchedStateView(drf_views.APIView):
         state = effective_state(request.user, item)
         return Response(_serialize_state(state, item), status=HTTP.OK)
 
+    @extend_schema(
+        parameters=[
+            *_WATCHED_STATE_ITEM_PARAMS,
+            OpenApiParameter(
+                name="If-Match",
+                type=int,
+                location=OpenApiParameter.HEADER,
+                description="Expected current revision; a mismatch answers 409.",
+            ),
+            OpenApiParameter(
+                name="Idempotency-Key",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                description="Replays with the same key return the first result.",
+            ),
+        ],
+        request=WatchedStateRequestSerializer,
+        responses={
+            200: WatchedStateWriteResponseSerializer,
+            400: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Invalid address or body.",
+            ),
+            404: OpenApiResponse(DetailErrorSerializer, description="No matching item."),
+            409: OpenApiResponse(
+                WatchedStateRevisionConflictSerializer,
+                description=(
+                    "Revision conflict (body has `revision`), or an ambiguous "
+                    "item (body has only `detail`)."
+                ),
+            ),
+        },
+    )
     def put(self, request, media_type, source, media_id):
         """Set watched state explicitly.
 
@@ -242,6 +514,20 @@ class WatchedStateView(drf_views.APIView):
 class WatchedStateChangeFeedView(drf_views.APIView):
     """Serve the ordered change feed for a synchronizing client."""
 
+    @extend_schema(
+        parameters=_CHANGE_FEED_PARAMS,
+        responses={
+            200: ChangeFeedResponseSerializer,
+            400: OpenApiResponse(
+                DetailErrorSerializer,
+                description="`cursor` or `limit` is not an integer.",
+            ),
+            409: OpenApiResponse(
+                CursorExpiredSerializer,
+                description="The cursor was compacted away; take a fresh snapshot.",
+            ),
+        },
+    )
     def get(self, request):
         """Return changes after a cursor, in server order.
 
@@ -455,6 +741,7 @@ class SyncConnectionsView(drf_views.APIView):
             status=HTTP.OK if already_active else HTTP.CREATED,
         )
 
+    @extend_schema(responses={200: SyncConnectionListResponseSerializer})
     def get(self, request):
         """Return connections, their directions, and unavailable capabilities."""
         from integrations.state.outbound import get_adapter
@@ -610,6 +897,7 @@ class SyncActivitiesView(drf_views.APIView):
 class SyncConflictsView(drf_views.APIView):
     """List disagreements waiting for a person."""
 
+    @extend_schema(responses={200: SyncConflictListResponseSerializer})
     def get(self, request):
         """Return open conflicts."""
         conflicts = StateConflict.objects.filter(
@@ -644,6 +932,17 @@ class SyncConflictsView(drf_views.APIView):
 class SyncConflictResolveView(drf_views.APIView):
     """Settle one disagreement with the state a person chose."""
 
+    @extend_schema(
+        request=SyncConflictResolveRequestSerializer,
+        responses={
+            200: WatchedStateResponseSerializer,
+            400: OpenApiResponse(DetailErrorSerializer, description="Invalid body."),
+            404: OpenApiResponse(
+                DetailErrorSerializer,
+                description="No open conflict with that id.",
+            ),
+        },
+    )
     def post(self, request, conflict_id):
         """Resolve a conflict, creating a new revision."""
         from integrations.state.apply import resolve_conflict

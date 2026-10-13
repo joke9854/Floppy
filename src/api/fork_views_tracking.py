@@ -9,7 +9,8 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -27,7 +28,7 @@ from app.services.sync_activity import touch_activity
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
-from .contract_serializers import DetailErrorSerializer
+from .contract_serializers import DetailErrorSerializer, PaginationSerializer
 from .helpers import (
     MEDIA_TYPE_MODEL_MAP,
     apply_episode_score,
@@ -698,6 +699,37 @@ def _entry_url(entry):
         return None
 
 
+class HistoryDaySerializer(serializers.Serializer):
+    """One day of the history timeline."""
+
+    date = serializers.DateField(allow_null=True, help_text="Null for undated entries.")
+    weekday = serializers.CharField()
+    date_display = serializers.CharField(required=False)
+    entries = serializers.ListField(
+        child=serializers.DictField(),
+        help_text=(
+            "History entries of the day, newest first. Each carries at least "
+            "`media_type`, `item`, `title` and `poster`; the remaining keys "
+            "depend on the media type."
+        ),
+    )
+    total_minutes = serializers.IntegerField(required=False)
+    total_runtime_display = serializers.CharField(required=False)
+
+
+class HistoryResponseSerializer(serializers.Serializer):
+    """A page of history days."""
+
+    pagination = PaginationSerializer()
+    results = HistoryDaySerializer(
+        many=True,
+        help_text=(
+            "Days, newest first. With `flat=1` this is instead a list of "
+            "entry objects, each with an added `url`."
+        ),
+    )
+
+
 # /api/v1/history/
 class HistoryView(drf_views.APIView):
     """Day-by-day consumption timeline (mirrors the web history page).
@@ -710,6 +742,13 @@ class HistoryView(drf_views.APIView):
     @extend_schema(
         parameters=HISTORY_LIST_PARAMS,
         operation_id="listHistory",
+        responses={
+            200: HistoryResponseSerializer,
+            400: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Invalid pagination or filter parameter.",
+            ),
+        },
     )
     def get(self, request):
         """Return the user's history grouped by day, newest first."""

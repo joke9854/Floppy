@@ -3,6 +3,8 @@
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -10,6 +12,8 @@ from app import history_cache, statistics_cache
 from app.models import Item
 from users.forms import NotificationSettingsForm
 from users.views import SIDEBAR_MEDIA_TYPES
+
+from .contract_serializers import DetailErrorSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +70,81 @@ def _serialize_preferences(user):
     return payload
 
 
+class UserPreferencesValuesSerializer(serializers.Serializer):
+    """Current value of every exposed preference."""
+
+    date_format = serializers.CharField()
+    time_format = serializers.CharField()
+    week_start_day = serializers.CharField()
+    activity_history_view = serializers.CharField()
+    duration_format = serializers.CharField()
+    game_logging_style = serializers.CharField()
+    mobile_grid_layout = serializers.CharField()
+    media_card_subtitle_display = serializers.CharField()
+    title_display_preference = serializers.CharField()
+    top_talent_sort_by = serializers.CharField()
+    rating_scale = serializers.CharField()
+    show_planned_on_home = serializers.CharField()
+    anime_library_mode = serializers.CharField()
+    quick_season_update_mobile = serializers.CharField()
+    session_duration = serializers.IntegerField()
+    scrobble_watched_percent = serializers.IntegerField()
+    hide_completed_recommendations = serializers.BooleanField()
+    hide_zero_rating = serializers.BooleanField()
+    progress_bar = serializers.BooleanField()
+    book_comic_manga_progress_percentage = serializers.BooleanField()
+    auto_pause_in_progress_enabled = serializers.BooleanField()
+    obfuscate_episodes = serializers.BooleanField()
+    clickable_media_cards = serializers.BooleanField()
+    home_show_media_type_headers = serializers.BooleanField()
+
+
+class UserPreferencesResponseSerializer(serializers.Serializer):
+    """Preference values plus the valid choices for the choice fields."""
+
+    preferences = UserPreferencesValuesSerializer()
+    choices = serializers.DictField(
+        child=serializers.ListField(child=serializers.JSONField()),
+        help_text="Valid values keyed by choice-preference field name.",
+    )
+
+
+class UserPreferencesUpdateRequestSerializer(UserPreferencesValuesSerializer):
+    """Body for changing preferences; send only the fields to change."""
+
+    def __init__(self, *args, **kwargs):
+        """Make every field optional."""
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.required = False
+
+
+class UserPreferencesUpdateResponseSerializer(serializers.Serializer):
+    """Preferences after a partial update."""
+
+    preferences = UserPreferencesValuesSerializer()
+    updated_fields = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Sorted names of the fields whose stored value changed.",
+    )
+
+
+class UserPreferencesInvalidChoiceSerializer(serializers.Serializer):
+    """Body of a 400 for an invalid preference value."""
+
+    detail = serializers.CharField()
+    choices = serializers.ListField(
+        child=serializers.JSONField(),
+        required=False,
+        help_text="Valid values; present for invalid choice fields only.",
+    )
+
+
 # /api/v1/user/preferences/
 class UserPreferencesView(drf_views.APIView):
     """Read or update user preferences (mirrors the web preferences page)."""
 
+    @extend_schema(responses={200: UserPreferencesResponseSerializer})
     def get(self, request):
         """Return the current preference values and valid choices."""
         choices = {
@@ -81,6 +156,20 @@ class UserPreferencesView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=UserPreferencesUpdateRequestSerializer,
+        responses={
+            200: UserPreferencesUpdateResponseSerializer,
+            400: OpenApiResponse(
+                UserPreferencesInvalidChoiceSerializer,
+                description="Invalid choice or non-boolean value.",
+            ),
+            403: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Demo accounts are view-only.",
+            ),
+        },
+    )
     def patch(self, request):
         """Update only the preference fields present in the request body.
 

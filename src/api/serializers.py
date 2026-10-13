@@ -824,6 +824,9 @@ class InfoSerializer(serializers.Serializer):
                 "scrobble_v2": True,
                 "search_id_v1": True,
                 "sync_ids_v1": True,
+                "rate_limits_v1": True,
+                "error_codes_v1": True,
+                "paging_headers_v1": True,
             },
         }
 

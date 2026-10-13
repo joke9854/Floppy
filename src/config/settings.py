@@ -300,7 +300,28 @@ else:
         "drf_spectacular",
     ]
 
+def _api_rate(name, default):
+    """Read an API rate like "1200/min"; "off", "none" or "0" disables it."""
+    value = config(name, default=default).strip()
+    if value.lower() in {"", "off", "none", "0"}:
+        return None
+    return value
+
+
+# Request budgets for /api/v1/ (api.throttling). The account budget is shared
+# by every app and key of one account; a full CineTrack sync stays well below
+# it. Tests run without limits unless a test sets them.
+_TESTING = "test" in sys.argv or "pytest" in sys.argv[0]
+API_RATE_LIMIT = None if _TESTING else _api_rate("API_RATE_LIMIT", "1200/min")
+API_ANON_RATE_LIMIT = (
+    None if _TESTING else _api_rate("API_ANON_RATE_LIMIT", "120/min")
+)
+
 REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_CLASSES": [
+        "api.throttling.AccountRateThrottle",
+        "api.throttling.AnonymousRateThrottle",
+    ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
         # Enforced globally on purpose: a per-view opt-in is a control that gets
@@ -330,6 +351,8 @@ SPECTACULAR_SETTINGS = {
         "url": "https://www.gnu.org/licenses/agpl-3.0.html",
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    # Item.media_type and Item.library_media_type share one choice set.
+    "ENUM_NAME_OVERRIDES": {"MediaTypeEnum": "app.models.choices.MediaTypes"},
 }
 
 if ENABLE_DEBUG_TOOLBAR:
