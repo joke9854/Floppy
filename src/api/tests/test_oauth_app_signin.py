@@ -221,6 +221,22 @@ class AuthorizationCodeFlowTests(SignInTestCase):
         )
         self.assertEqual(write.status_code, HTTP.FORBIDDEN)
 
+    def test_cinetrack_without_a_scope_gets_the_app_preset(self):
+        """CineTrack asks for no scope and gets identity plus the tracking preset."""
+        body = self.sign_in(scope=None)
+
+        granted = set(body["scope"].split())
+        self.assertEqual(granted, {"openid", *scopes.TRACKING_PRESET})
+        probe = self.client.get(reverse("api_cinetrack_connection"), **bearer(body["access_token"]))
+        self.assertEqual(probe.status_code, HTTP.OK, probe.content)
+        write = self.client.post(
+            COLLECTION,
+            {"media_type": "movie", "source": "tmdb", "media_id": "701"},
+            format="json",
+            **bearer(body["access_token"]),
+        )
+        self.assertNotEqual(write.status_code, HTTP.FORBIDDEN, write.content)
+
     def test_tokens_are_stored_as_checksums_only(self):
         """Neither the access nor the refresh token is kept in plaintext."""
         body = self.sign_in()
