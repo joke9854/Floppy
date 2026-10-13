@@ -47,7 +47,7 @@ DB_LOCK_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 DB_BUSY_RETRY_AFTER_SECONDS = 30
 MAX_BOOTSTRAP_ITEMS = 50
 MAX_EPISODE_EVENTS = 50
-SLOW_EPISODE_ENSURE_MS = 20_000
+SLOW_EPISODE_ENSURE_MS = 5_000
 MSG_EVENT_CONFLICT = "client_event_id belongs to another episode event."
 MSG_EVENT_RACE = "client_event_id conflicts with an existing episode event."
 MSG_RESOLVE_FAILED = "Could not resolve episode events."
@@ -610,6 +610,7 @@ def ensure_episode_events(
     repair=False,
     library_media_type="",
     conflicts="raise",
+    timings=None,
 ):
     """Place exact episode-watch events of one show, with one metadata fetch.
 
@@ -622,7 +623,8 @@ def ensure_episode_events(
     request-level failures always raise :class:`EpisodeEnsureError`.
     """
     started = time.monotonic()
-    timings = {}
+    # A caller may pass a dict to read the stage timings (the profiler does).
+    timings = {} if timings is None else timings
     # One-time repair re-send: place every event by the current rules and
     # move its own play there when an older version stored it elsewhere.
     instant_counts = Counter(event[2] for event in parsed)
@@ -681,6 +683,7 @@ def ensure_episode_events(
     # re-send skips this shortcut: the play found there may be the one an
     # older version stored on the wrong episode.
     if unresolved and not repair:
+        stage_started = time.monotonic()
         existing = defaultdict(list)
         for row in (
             Episode.objects.filter(
@@ -709,6 +712,8 @@ def ensure_episode_events(
                 )
             outcomes[client_event_id] = "already_satisfied"
         unresolved = still_unresolved
+        timings["match_ms"] = int((time.monotonic() - stage_started) * 1000)
+    timings["unresolved"] = len(unresolved)
 
     if unresolved:
         season_numbers = sorted({event[0] for event in unresolved})
