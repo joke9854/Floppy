@@ -517,6 +517,18 @@ def ensure_show_entries(user, parsed):
                 season_number__isnull=True,
             ).exclude(library_media_type=MediaTypes.ANIME.value)
         }
+        # The user's own show row wins, also when it is filed as anime:
+        # otherwise a status change would start a second copy of the show.
+        own = {}
+        for tv in TV.objects.filter(
+            user=user,
+            item__media_type=MediaTypes.TV.value,
+            item__source__in=sources,
+            item__media_id__in=media_ids,
+            item__season_number__isnull=True,
+        ).select_related("item").order_by("id"):
+            own.setdefault(_item_key(tv.item.source, tv.item.media_id), tv.item)
+        items.update(own)
         hydration_ids = []
         for entry in parsed:
             key = _item_key(entry["source"], entry["media_id"])

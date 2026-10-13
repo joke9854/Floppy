@@ -207,6 +207,22 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         metadata.assert_not_called()
 
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_g2_show_filed_as_anime_is_updated_not_copied(self, metadata):
+        tv = self.tv_medias[1]
+        Item.objects.filter(pk=tv.item_id).update(library_media_type=MediaTypes.ANIME.value)
+        items_before = Item.objects.count()
+        episodes_before = Episode.objects.count()
+
+        response = self._ensure_show(self._show_payload(status=Status.COMPLETED.value))
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(Item.objects.count(), items_before)
+        self.assertEqual(list(TV.objects.filter(user=self.user1, item__media_id="1002").values_list("pk", "status")), [(tv.pk, Status.COMPLETED.value)])
+        # Completed through this route never marks episodes as watched.
+        self.assertEqual(Episode.objects.count(), episodes_before)
+        metadata.assert_not_called()
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_h_existing_tv_with_desired_status_is_already_satisfied(self, metadata):
         tv = self.tv_medias[1]
         TV.objects.filter(pk=tv.pk).update(status=Status.PAUSED.value)
