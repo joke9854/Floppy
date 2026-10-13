@@ -31,6 +31,7 @@ _CHOICE_PREFERENCE_FIELDS = (
     "anime_library_mode",
     "quick_season_update_mobile",
     "session_duration",
+    "scrobble_watched_percent",
 )
 
 _BOOLEAN_PREFERENCE_FIELDS = (

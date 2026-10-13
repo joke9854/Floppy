@@ -93,6 +93,7 @@ from users.models import (
     MobileGridLayoutChoices,
     PlannedHomeDisplayChoices,
     RatingScaleChoices,
+    ScrobbleWatchedPercentChoices,
     SessionDurationChoices,
     ThemeChoices,
     TimeFormatChoices,
@@ -1297,6 +1298,20 @@ def preferences(request):
                 request.user.session_duration = session_duration_int
                 fields_to_update.append("session_duration")
 
+        scrobble_watched_percent = request.POST.get("scrobble_watched_percent")
+        if scrobble_watched_percent is not None:
+            try:
+                scrobble_watched_percent_int = int(scrobble_watched_percent)
+            except (ValueError, TypeError):
+                scrobble_watched_percent_int = None
+            if (
+                scrobble_watched_percent_int in ScrobbleWatchedPercentChoices.values
+                and request.user.scrobble_watched_percent
+                != scrobble_watched_percent_int
+            ):
+                request.user.scrobble_watched_percent = scrobble_watched_percent_int
+                fields_to_update.append("scrobble_watched_percent")
+
         if fields_to_update:
             request.user.save(update_fields=fields_to_update)
             request.user.refresh_from_db()
@@ -1335,6 +1350,7 @@ def preferences(request):
         "metadata_language_choices": metadata_language_choices,
         "ui_language_choices": UiLanguageChoices.choices,
         "session_duration_choices": SessionDurationChoices.choices,
+        "scrobble_watched_percent_choices": ScrobbleWatchedPercentChoices.choices,
         "week_start_day_choices": WeekStartDayChoices.choices,
     }
 

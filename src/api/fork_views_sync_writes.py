@@ -47,6 +47,7 @@ from .cinetrack_bootstrap_views import (
 )
 from .contract_serializers import DetailErrorSerializer
 from .helpers import apply_episode_score, check_source_type
+from .sync_ids import has_resolved_entries, resolve_entry_ids, splice_unresolved
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +71,24 @@ _STATUS_BY_NAME = {
 _WRITTEN = {"created", "already_satisfied"}
 
 
+class ExternalIdsSerializer(serializers.Serializer):
+    """External ids that name an item instead of source + media_id."""
+
+    tmdb = serializers.CharField(required=False)
+    imdb = serializers.CharField(required=False)
+    tvdb = serializers.CharField(required=False)
+
+
 class SyncHistoryMovieSerializer(serializers.Serializer):
     """Request or response shape for the sync write endpoints."""
 
-    source = serializers.CharField()
-    media_id = serializers.CharField()
+    source = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    media_id = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    ids = ExternalIdsSerializer(required=False)
     watched_at = serializers.DateTimeField()
     client_event_id = serializers.CharField(
         min_length=1, max_length=MAX_CLIENT_EVENT_ID_LENGTH
@@ -85,8 +99,13 @@ class SyncHistoryMovieSerializer(serializers.Serializer):
 class SyncHistoryEpisodeSerializer(serializers.Serializer):
     """Request or response shape for the sync write endpoints."""
 
-    source = serializers.CharField()
-    media_id = serializers.CharField()
+    source = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    media_id = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    ids = ExternalIdsSerializer(required=False)
     season_number = serializers.IntegerField(min_value=0)
     episode_number = serializers.IntegerField(min_value=1)
     watched_at = serializers.DateTimeField()
@@ -121,6 +140,9 @@ class SyncHistoryResultSerializer(serializers.Serializer):
     stored_episode_number = serializers.IntegerField(required=False)
     reason = serializers.CharField(required=False)
     title = serializers.CharField(required=False)
+    ids = ExternalIdsSerializer(
+        required=False, help_text="The ids of an entry they did not match."
+    )
 
 
 class SyncHistoryResponseSerializer(serializers.Serializer):
@@ -133,8 +155,13 @@ class SyncHistoryResponseSerializer(serializers.Serializer):
 class SyncRemoveMovieSerializer(serializers.Serializer):
     """Request or response shape for the sync write endpoints."""
 
-    source = serializers.CharField()
-    media_id = serializers.CharField()
+    source = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    media_id = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    ids = ExternalIdsSerializer(required=False)
     client_event_id = serializers.CharField(
         required=False, max_length=MAX_CLIENT_EVENT_ID_LENGTH
     )
@@ -168,6 +195,9 @@ class SyncItemResultSerializer(serializers.Serializer):
     outcome = serializers.CharField()
     removed_count = serializers.IntegerField(required=False)
     reason = serializers.CharField(required=False)
+    ids = ExternalIdsSerializer(
+        required=False, help_text="The ids of an entry they did not match."
+    )
 
 
 class SyncItemsResponseSerializer(serializers.Serializer):
@@ -180,8 +210,13 @@ class SyncItemsResponseSerializer(serializers.Serializer):
 class SyncRatingMediaSerializer(serializers.Serializer):
     """Request or response shape for the sync write endpoints."""
 
-    source = serializers.CharField()
-    media_id = serializers.CharField()
+    source = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    media_id = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    ids = ExternalIdsSerializer(required=False)
     score = serializers.DecimalField(max_digits=3, decimal_places=1, allow_null=True)
 
 
@@ -203,8 +238,13 @@ class SyncRatingsRequestSerializer(serializers.Serializer):
 class SyncStatusItemSerializer(serializers.Serializer):
     """Request or response shape for the sync write endpoints."""
 
-    source = serializers.CharField()
-    media_id = serializers.CharField()
+    source = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    media_id = serializers.CharField(
+        required=False, help_text="Required unless ids is given."
+    )
+    ids = ExternalIdsSerializer(required=False)
     status = serializers.ChoiceField(choices=tuple(_STATUS_BY_NAME))
     title = serializers.CharField(required=False, allow_blank=True)
 
@@ -328,8 +368,13 @@ class SyncHistoryView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Store a mixed batch of plays; every input gets one result."""
+        data, id_plan = resolve_entry_ids(
+            request.data, ("movies", "episodes"), MAX_SYNC_EVENTS
+        )
+        if id_plan is not None and not has_resolved_entries(data, id_plan):
+            return _respond(splice_unresolved([], id_plan, "history"))
         try:
-            movies, episodes = self._parse(request.data)
+            movies, episodes = self._parse(data)
         except SyncRequestError as error:
             return Response({"detail": str(error)}, status=HTTP.BAD_REQUEST)
 
@@ -337,6 +382,8 @@ class SyncHistoryView(drf_views.APIView):
         with credentials.current_user_scope(request.user):
             self._apply_movies(request.user, movies, results)
             self._apply_episodes(request.user, episodes, results, offset=len(movies))
+        if id_plan is not None:
+            results = splice_unresolved(results, id_plan, "history")
         return _respond(results)
 
     def _parse(self, data):
@@ -535,8 +582,13 @@ class SyncHistoryRemoveView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Remove the plays each item selects; every input gets one result."""
+        data, id_plan = resolve_entry_ids(
+            request.data, ("movies", "episodes"), MAX_SYNC_REMOVALS
+        )
+        if id_plan is not None and not has_resolved_entries(data, id_plan):
+            return _respond(splice_unresolved([], id_plan, "items"))
         try:
-            movies, episodes = self._parse(request.data)
+            movies, episodes = self._parse(data)
         except SyncRequestError as error:
             return Response({"detail": str(error)}, status=HTTP.BAD_REQUEST)
 
@@ -550,6 +602,8 @@ class SyncHistoryRemoveView(drf_views.APIView):
         ]
         for season in touched_seasons.values():
             self._refresh_season(season)
+        if id_plan is not None:
+            results = splice_unresolved(results, id_plan, "items")
         return _respond(results)
 
     def _parse(self, data):
@@ -786,8 +840,13 @@ class SyncRatingsView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Apply each score; every input gets one result."""
+        data, id_plan = resolve_entry_ids(
+            request.data, ("movies", "shows", "episodes"), MAX_SYNC_RATINGS
+        )
+        if id_plan is not None and not has_resolved_entries(data, id_plan):
+            return _respond(splice_unresolved([], id_plan, "items"))
         try:
-            items = self._parse(request.data)
+            items = self._parse(data)
         except SyncRequestError as error:
             return Response({"detail": str(error)}, status=HTTP.BAD_REQUEST)
 
@@ -813,6 +872,8 @@ class SyncRatingsView(drf_views.APIView):
                 )
                 result.update(outcome="failed", reason=_failure_reason(error))
             results.append(result)
+        if id_plan is not None:
+            results = splice_unresolved(results, id_plan, "items")
         return _respond(results)
 
     def _parse(self, data):
@@ -906,8 +967,13 @@ class SyncStatusView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Create or update each item's status; every input gets one result."""
+        data, id_plan = resolve_entry_ids(
+            request.data, ("movies", "shows"), MAX_SYNC_STATUS_ITEMS
+        )
+        if id_plan is not None and not has_resolved_entries(data, id_plan):
+            return _respond(splice_unresolved([], id_plan, "items"))
         try:
-            items = self._parse(request.data)
+            items = self._parse(data)
         except SyncRequestError as error:
             return Response({"detail": str(error)}, status=HTTP.BAD_REQUEST)
 
@@ -931,6 +997,8 @@ class SyncStatusView(drf_views.APIView):
                 ]
                 if subset:
                     self._apply(request.user, subset, results, ensure)
+        if id_plan is not None:
+            results = splice_unresolved(results, id_plan, "items")
         return _respond(results)
 
     def _parse(self, data):

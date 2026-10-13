@@ -821,6 +821,9 @@ class InfoSerializer(serializers.Serializer):
                 "sync_status_v1": True,
                 "watched_state_exact_time_v1": True,
                 "oauth_v1": True,
+                "scrobble_v2": True,
+                "search_id_v1": True,
+                "sync_ids_v1": True,
             },
         }
 

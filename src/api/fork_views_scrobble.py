@@ -5,6 +5,7 @@
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import views as drf_views
 from rest_framework.response import Response
@@ -14,6 +15,7 @@ from app import live_playback
 from app.models import MediaTypes, Sources
 from integrations.delivery import get_or_record_receipt
 from integrations.models import IntegrationToken
+from integrations.webhooks.base import PLAY_DUPLICATE
 from integrations.webhooks.generic_scrobble import GenericScrobbleProcessor, is_played
 
 from . import fork_views_playback
@@ -81,12 +83,81 @@ def _scrobble_request_error(data):
                 status=HTTP.BAD_REQUEST,
             )
 
+    if data.get("progress") is not None:
+        progress = data.get("progress")
+        if (
+            isinstance(progress, bool)
+            or not isinstance(progress, (int, float))
+            or not 0 <= progress <= 100  # noqa: PLR2004
+        ):
+            return Response(
+                {"detail": "'progress' must be a number from 0 to 100."},
+                status=HTTP.BAD_REQUEST,
+            )
+
     if "score" in data:
         _, score_error = validate_episode_score(data.get("score"))
         if score_error:
             return score_error
 
     return None
+
+
+def _progress_percent(data):
+    """Return how far playback got, 0-100, or None when it cannot be told.
+
+    An explicit ``progress`` wins; otherwise it is derived from the position
+    and duration.
+    """
+    if data.get("progress") is not None:
+        return float(data["progress"])
+    position = data.get("position_seconds")
+    duration = data.get("duration_seconds")
+    if position is None or not duration:
+        return None
+    return min(100.0, max(0.0, position * 100 / duration))
+
+
+def _position_seconds(data, percent):
+    """Return the resume position, derived from ``progress`` when not sent."""
+    position = data.get("position_seconds")
+    if position is not None:
+        return position
+    duration = data.get("duration_seconds")
+    if percent is None or not duration:
+        return None
+    return int(duration * percent / 100)
+
+
+def _is_watched(user, data, percent):
+    """Decide whether a stop counts as watched.
+
+    ``completed`` from the client wins. Otherwise the progress is compared
+    with the user's threshold (``scrobble_watched_percent``, 80% by default).
+    Without a duration, the shared fallback rule (a long enough position)
+    applies.
+    """
+    if data.get("completed") is not None:
+        return bool(data["completed"])
+    if percent is not None:
+        return percent >= user.scrobble_watched_percent
+    return is_played(data)
+
+
+def _scrobble_response(action, percent, *, watched=False, duplicate=None):
+    """Describe what the server did with the event."""
+    return Response(
+        {
+            "detail": "accepted",
+            # Trakt-style: a stop that counts as watched is a "scrobble"; one
+            # that does not is kept as a "pause" (resume position only).
+            "action": action,
+            "progress": round(percent, 2) if percent is not None else None,
+            "watched": watched,
+            "duplicate": duplicate,
+        },
+        status=HTTP.OK,
+    )
 
 
 def _resolve_live_playback_media_id(media_type, ids):
@@ -126,9 +197,11 @@ class ScrobbleView(drf_views.APIView):
     """Generic start/pause/stop scrobble events for third-party clients.
 
     Authenticated the same way as the rest of the API (Bearer/API-Key
-    token). "start"/"pause" only update the home page's Now Playing card;
-    "stop" additionally persists a durable progress/status update via the
-    same shared logic the Plex/Jellyfin/Emby webhooks use internally.
+    token). "start" only updates the home page's Now Playing card; "pause"
+    also saves the resume position; "stop" additionally persists a durable
+    progress/status update via the same shared logic the Plex/Jellyfin/Emby
+    webhooks use internally. A stop counts as watched at the user's
+    threshold (80% by default).
     """
 
     @extend_schema(
@@ -137,8 +210,13 @@ class ScrobbleView(drf_views.APIView):
             "client. Movies are identified by tmdb/imdb id; episodes "
             "additionally require season_number/episode_number. Anime "
             "clients may add an anidb id to pin the exact MyAnimeList cour. "
-            "'start'/'pause' only update the live Now Playing card; "
-            "'stop' persists a durable watch/progress update."
+            "'start' only updates the live Now Playing card; 'pause' also "
+            "saves the resume position; 'stop' persists a durable "
+            "watch/progress update. A stop counts as watched once progress "
+            "reaches the user's threshold (scrobble_watched_percent in "
+            "/user/preferences/, 80% by default); below it, only the resume "
+            "position is kept. Rewatches are recorded as new plays; the same "
+            "play sent twice is reported as a duplicate."
         ),
         request={
             "application/json": {
@@ -194,17 +272,26 @@ class ScrobbleView(drf_views.APIView):
                     },
                     "position_seconds": {"type": "integer", "nullable": True},
                     "duration_seconds": {"type": "integer", "nullable": True},
+                    "progress": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "nullable": True,
+                        "description": "Percent watched. Optional; derived "
+                        "from position_seconds/duration_seconds when omitted.",
+                    },
                     "completed": {
                         "type": "boolean",
                         "nullable": True,
                         "description": "Only used by 'stop'. Overrides the "
-                        "position/duration completion heuristic when given.",
+                        "watched threshold when given.",
                     },
                     "played_at": {
                         "type": "string",
                         "format": "date-time",
                         "nullable": True,
-                        "description": "Only used by 'stop'. Defaults to now.",
+                        "description": "Only used by 'stop'. Defaults to the "
+                        "exact time the server receives the event.",
                     },
                     "score": {
                         "type": "number",
@@ -219,7 +306,25 @@ class ScrobbleView(drf_views.APIView):
         responses={
             200: {
                 "type": "object",
-                "properties": {"detail": {"type": "string"}},
+                "properties": {
+                    "detail": {"type": "string"},
+                    "action": {
+                        "type": "string",
+                        "enum": ["start", "pause", "scrobble"],
+                        "description": "'scrobble' when a stop counted as "
+                        "watched; 'pause' for a pause or a stop below the "
+                        "threshold.",
+                    },
+                    "progress": {"type": "number", "nullable": True},
+                    "watched": {"type": "boolean"},
+                    "duplicate": {
+                        "type": "boolean",
+                        "nullable": True,
+                        "description": "For a watched movie or episode: "
+                        "true when the play matched one already stored and "
+                        "nothing new was recorded. Null when not applicable.",
+                    },
+                },
             },
             400: {
                 "type": "object",
@@ -253,10 +358,35 @@ class ScrobbleView(drf_views.APIView):
 
             self._update_live_playback(request.user, action, media_type, ids, request.data)
 
-            if action != "stop":
-                return Response({"detail": "accepted"}, status=HTTP.OK)
+            percent = _progress_percent(request.data)
+            position = _position_seconds(request.data, percent)
 
+            if action == "start":
+                return _scrobble_response("start", percent)
+            if action == "pause":
+                self._store_playback_progress(
+                    request.user,
+                    {
+                        "media_type": media_type,
+                        "ids": ids,
+                        "season_number": request.data.get("season_number"),
+                        "episode_number": request.data.get("episode_number"),
+                        "position_seconds": position,
+                        "duration_seconds": request.data.get("duration_seconds"),
+                    },
+                    completed=False,
+                    create=True,
+                )
+                return _scrobble_response("pause", percent)
+
+            watched = _is_watched(request.user, request.data, percent)
             raw_played_at = request.data.get("played_at")
+            if raw_played_at:
+                played_at = try_parse_datetime_input(raw_played_at)
+            else:
+                # The exact moment, not rounded: CineTrack and other clients
+                # compare watch times to the instant.
+                played_at = timezone.now() if watched else None
             payload = {
                 "media_type": media_type,
                 "ids": ids,
@@ -264,15 +394,14 @@ class ScrobbleView(drf_views.APIView):
                 "series_title": request.data.get("series_title"),
                 "season_number": request.data.get("season_number"),
                 "episode_number": request.data.get("episode_number"),
-                "position_seconds": request.data.get("position_seconds"),
+                "position_seconds": position,
                 "duration_seconds": request.data.get("duration_seconds"),
-                "completed": request.data.get("completed"),
-                "played_at": try_parse_datetime_input(raw_played_at)
-                if raw_played_at
-                else None,
+                "completed": watched,
+                "played_at": played_at,
             }
+            processor = GenericScrobbleProcessor()
             try:
-                GenericScrobbleProcessor().process_payload(payload, request.user)
+                processor.process_payload(payload, request.user)
             except Exception:
                 logger.exception("Failed to process generic scrobble payload.")
                 return Response(
@@ -289,7 +418,15 @@ class ScrobbleView(drf_views.APIView):
             if "score" in request.data and media_type == MediaTypes.EPISODE.value:
                 self._apply_episode_score(request.user, payload, request.data["score"])
 
-            return Response({"detail": "accepted"}, status=HTTP.OK)
+            duplicate = None
+            if watched and processor.play_outcome is not None:
+                duplicate = processor.play_outcome == PLAY_DUPLICATE
+            return _scrobble_response(
+                "scrobble" if watched else "pause",
+                percent,
+                watched=watched,
+                duplicate=duplicate,
+            )
 
         if client_event_id:
             response, _ = get_or_record_receipt(
@@ -329,11 +466,13 @@ class ScrobbleView(drf_views.APIView):
         except Exception:
             logger.warning("Scrobble episode-score update failed", exc_info=True)
 
-    def _store_playback_progress(self, user, payload, *, completed):
+    def _store_playback_progress(self, user, payload, *, completed, create=False):
         """Persist the durable resume position; failures are never raised.
 
-        The processor has just resolved/created the Item, so this is a cheap
-        lookup. Exposed to clients via /api/v1/playback/progress/.
+        After a stop the processor has just resolved/created the Item, so this
+        is a cheap lookup. A pause may come first, so it may create the
+        metadata Item (never a watch row). Exposed to clients via
+        /api/v1/playback/progress/.
         """
         position = payload.get("position_seconds")
         if position is None:
@@ -345,7 +484,7 @@ class ScrobbleView(drf_views.APIView):
                 payload["ids"],
                 payload.get("season_number"),
                 payload.get("episode_number"),
-                create=False,
+                create=create,
             )
             if item is None:
                 return

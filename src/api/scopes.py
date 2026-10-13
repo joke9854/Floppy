@@ -181,6 +181,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_podcast.PodcastMarkAllPlayedView": {"POST": "podcasts:write"},
     "api.fork_views_podcast.PodcastEpisodePlayView": {"POST": "podcasts:write"},
     "api.fork_views_scrobble.ScrobbleView": {"POST": "scrobble:write"},
+    "api.fork_views_search_id.SearchIdView": {"GET": "catalog:read"},
     "api.fork_views_statistics.StatisticsOverviewView": {"GET": "statistics:read"},
     "api.fork_views_statistics.StatisticsRefreshView": {"POST": "statistics:write"},
     "api.fork_views_tracking.MediaEpisodeWatchView": {"POST": _W, "DELETE": _W},

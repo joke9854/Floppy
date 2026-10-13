@@ -1,6 +1,6 @@
 from django.urls import re_path
 
-from . import cinetrack_connection_views, views
+from . import cinetrack_connection_views, fork_views_search_id, views
 from .episode_order_views import EpisodeOrderView
 
 urlpatterns = [
@@ -164,6 +164,13 @@ urlpatterns = [
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/(?P<episode_number>\d+)/sync/?$",
         views.MediaEpisodeSyncView.as_view(),
         name="api_media_episode_sync",
+    ),
+    # FORK: id search must come before the per-media-type search route,
+    # which would otherwise take "id" as a media type.
+    re_path(
+        r"^search/id/?$",
+        fork_views_search_id.SearchIdView.as_view(),
+        name="api_search_id",
     ),
     re_path(
         r"^search/(?P<media_type>[^/]+)/?$",

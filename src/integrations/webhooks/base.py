@@ -23,8 +23,18 @@ logger = logging.getLogger(__name__)
 ANIME_EPISODE_REFUSED = object()
 
 
+# What happened to a played movie/episode, read by the /api/v1/scrobble/
+# response: a new play was stored, or it matched one already stored.
+PLAY_RECORDED = "recorded"
+PLAY_DUPLICATE = "duplicate"
+
+
 class BaseWebhookProcessor:
     """Base class for webhook processors."""
+
+    # PLAY_RECORDED / PLAY_DUPLICATE once a played movie or TV episode was
+    # handled; stays None for unplayed events and the progress-based anime path.
+    play_outcome = None
 
     MEDIA_TYPE_MAPPING = {
         "Episode": MediaTypes.TV.value,
@@ -1315,6 +1325,7 @@ class BaseWebhookProcessor:
             if movie_played:
                 current_instance.end_date = now
                 current_instance.status = Status.COMPLETED.value
+                self.play_outcome = PLAY_RECORDED
 
             elif current_instance.status != Status.IN_PROGRESS.value:
                 current_instance.start_date = now
@@ -1342,12 +1353,15 @@ class BaseWebhookProcessor:
             ).is_duplicate(movie_item.media_id, now)
 
             if duplicate:
+                self.play_outcome = PLAY_DUPLICATE
                 logger.debug(
                     "Skipping duplicate movie record near %s: %s",
                     now,
                     movie_item,
                 )
             else:
+                if movie_played:
+                    self.play_outcome = PLAY_RECORDED
                 app.models.Movie.objects.create(
                     item=movie_item,
                     user=user,
@@ -2085,6 +2099,7 @@ class BaseWebhookProcessor:
                 source=episode_item.source,
             )
             should_create = not existing_plays.is_duplicate(play_key, now)
+            self.play_outcome = PLAY_RECORDED if should_create else PLAY_DUPLICATE
             if not should_create:
                 logger.debug(
                     "Skipping duplicate episode record near %s: %s S%02dE%02d",

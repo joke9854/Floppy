@@ -475,6 +475,19 @@ class SessionDurationChoices(models.IntegerChoices):
     THREE_MONTHS = 7776000, _("90 days")
 
 
+class ScrobbleWatchedPercentChoices(models.IntegerChoices):
+    """How far into a movie or episode a scrobble stop counts as watched."""
+
+    FIFTY = 50, _("50%")
+    SIXTY = 60, _("60%")
+    SEVENTY = 70, _("70%")
+    SEVENTY_FIVE = 75, _("75%")
+    EIGHTY = 80, _("80%")
+    EIGHTY_FIVE = 85, _("85%")
+    NINETY = 90, _("90%")
+    NINETY_FIVE = 95, _("95%")
+
+
 class User(AbstractUser):
     """Custom user model."""
 
@@ -1309,6 +1322,14 @@ class User(AbstractUser):
         default=SessionDurationChoices.TWO_WEEKS,
         choices=SessionDurationChoices.choices,
         help_text="How long a login session persists before requiring re-authentication",
+    )
+    scrobble_watched_percent = models.PositiveSmallIntegerField(
+        default=ScrobbleWatchedPercentChoices.EIGHTY,
+        choices=ScrobbleWatchedPercentChoices.choices,
+        help_text=(
+            "How far into a movie or episode an app's scrobble stop must be to "
+            "count as watched (/api/v1/scrobble/)"
+        ),
     )
 
     class Meta:

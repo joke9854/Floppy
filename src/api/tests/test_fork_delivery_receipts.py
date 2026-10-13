@@ -207,7 +207,8 @@ class ScrobbleIdempotencyTests(FloppyApiTestCase):
         # 1. Initial request
         res1 = self.call_api("post", "api_scrobble", payload=payload, headers=headers)
         self.assertEqual(res1.status_code, HTTP.OK)
-        self.assertEqual(res1.data, {"detail": "accepted"})
+        self.assertEqual(res1.data["detail"], "accepted")
+        self.assertEqual(res1.data["action"], "start")
 
         receipt = IntegrationEventReceipt.objects.get(user=self.user1, client_event_id="scrobble-key-1")
         self.assertEqual(receipt.response_status_code, HTTP.OK)
@@ -217,7 +218,7 @@ class ScrobbleIdempotencyTests(FloppyApiTestCase):
         with patch("api.fork_views_scrobble.ScrobbleView._update_live_playback") as mock_live:
             res2 = self.call_api("post", "api_scrobble", payload=payload, headers=headers)
             self.assertEqual(res2.status_code, HTTP.OK)
-            self.assertEqual(res2.data, {"detail": "accepted"})
+            self.assertEqual(res2.data, res1.data)
             mock_live.assert_not_called()
 
         # 3. Request with same key but different payload returns 409 Conflict
