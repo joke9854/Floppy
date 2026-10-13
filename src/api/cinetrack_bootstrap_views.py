@@ -684,14 +684,22 @@ def ensure_episode_events(
     # older version stored on the wrong episode.
     if unresolved and not repair:
         stage_started = time.monotonic()
+        # Episodes an earlier request translated (anime absolute numbers,
+        # TVDB numbering) are looked up where they were stored, so a re-send
+        # finds them without fetching TMDB or TVDB again.
+        translations = _remembered_translations(source, media_id)
+        lookup = {
+            event[3]: translations.get((event[0], event[1]), (event[0], event[1]))
+            for event in unresolved
+        }
         existing = defaultdict(list)
         for row in (
             Episode.objects.filter(
                 related_season__user=user,
                 related_season__item__media_id=str(media_id),
                 related_season__item__source=source,
-                related_season__item__season_number__in={event[0] for event in unresolved},
-                item__episode_number__in={event[1] for event in unresolved},
+                related_season__item__season_number__in={coordinate[0] for coordinate in lookup.values()},
+                item__episode_number__in={coordinate[1] for coordinate in lookup.values()},
                 end_date__in={event[2] for event in unresolved},
             )
             .select_related("related_season__item", "item")
@@ -700,7 +708,8 @@ def ensure_episode_events(
             existing[(row.related_season.item.season_number, row.item.episode_number, row.end_date)].append(row)
         still_unresolved = []
         for season_number, episode_number, watched_at, client_event_id in unresolved:
-            candidates = existing.get((season_number, episode_number, watched_at), [])
+            coordinate = lookup[client_event_id]
+            candidates = existing.get((*coordinate, watched_at), [])
             if not candidates:
                 still_unresolved.append((season_number, episode_number, watched_at, client_event_id))
                 continue
@@ -711,6 +720,8 @@ def ensure_episode_events(
                     watch_operation_id=client_event_id,
                 )
             outcomes[client_event_id] = "already_satisfied"
+            if coordinate != (season_number, episode_number):
+                stored[client_event_id] = coordinate
         unresolved = still_unresolved
         timings["match_ms"] = int((time.monotonic() - stage_started) * 1000)
     timings["unresolved"] = len(unresolved)
@@ -1038,6 +1049,15 @@ def ensure_episode_events(
 
     if relocated:
         logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)
+    _remember_translations(
+        source,
+        media_id,
+        {
+            (event[0], event[1]): stored[event[3]]
+            for event in parsed
+            if event[3] in stored and outcomes.get(event[3]) in {"created", "already_satisfied"}
+        },
+    )
     elapsed_ms = int((time.monotonic() - started) * 1000)
     if elapsed_ms >= SLOW_EPISODE_ENSURE_MS:
         logger.warning(
@@ -1386,7 +1406,34 @@ def _match_tmdb_episode(tvdb_episode, tmdb_episodes, day_rank=None):
     return None
 
 
-TVDB_CATALOGUE_CACHE_SECONDS = 60 * 60
+# TVDB episode lists rarely change; one that misses an episode is refetched
+# once it is older than an hour, so newly aired episodes are still found.
+TVDB_CATALOGUE_CACHE_SECONDS = 7 * 24 * 60 * 60
+TVDB_CATALOGUE_FRESH_SECONDS = 60 * 60
+TRANSLATION_CACHE_SECONDS = 30 * 24 * 60 * 60
+
+
+def _translation_cache_key(source, media_id):
+    return f"cinetrack_episode_translations_v1_{source}_{media_id}"
+
+
+def _remembered_translations(source, media_id):
+    """Return {(sent season, sent episode): (stored season, stored episode)}."""
+    return cache.get(_translation_cache_key(source, media_id)) or {}
+
+
+def _remember_translations(source, media_id, translations):
+    """Keep where episodes sent under another numbering were stored.
+
+    Only a lookup hint: an event is matched through it solely when the user's
+    play is stored there at the exact same instant.
+    """
+    if not translations:
+        return
+    known = _remembered_translations(source, media_id)
+    if all(known.get(sent) == target for sent, target in translations.items()):
+        return
+    cache.set(_translation_cache_key(source, media_id), {**known, **translations}, TRANSLATION_CACHE_SECONDS)
 
 
 def _load_listed_seasons(media_id, source, metadata, metadata_by_season):
@@ -1468,18 +1515,36 @@ def _listed_season_numbers(metadata):
     return numbers
 
 
-def _tvdb_catalogue(tvdb_id, order, user):
+def _in_tvdb(event, catalogue, absolute):
+    """Whether TVDB lists the event's coordinate (season 1 also absolutely)."""
+    return (event[0], event[1]) in catalogue or (event[0] == 1 and (1, event[1]) in absolute)
+
+
+def _tvdb_catalogues(tvdb_id, events, user, max_age=None):
+    """Return the default catalogue and, when season 1 needs it, the absolute one."""
+    catalogue = _tvdb_catalogue(tvdb_id, "default", user, max_age=max_age)
+    # Trackers number anime continuously in one season; TVDB's absolute
+    # order holds exactly that numbering.
+    if any(event[0] == 1 and (1, event[1]) not in catalogue for event in events):
+        absolute = _tvdb_catalogue(tvdb_id, "absolute", user, max_age=max_age)
+    else:
+        absolute = {}
+    return catalogue, absolute
+
+
+def _tvdb_catalogue(tvdb_id, order, user, max_age=None):
     """Return {(season, number): {"air_date", "title"}} for one TVDB order.
 
     Coordinates TVDB lists more than once are dropped rather than guessed, and
     an order the series does not have is an empty catalogue. The absolute
-    order is keyed (1, absolute number), the way trackers number anime.
+    order is keyed (1, absolute number), the way trackers number anime. A
+    kept catalogue older than ``max_age`` seconds is fetched again.
     """
     language = tvdb._preferred_language_code()
-    cache_key = f"cinetrack_tvdb_catalogue_v1_{tvdb_id}_{order}_{language}"
+    cache_key = f"cinetrack_tvdb_catalogue_v2_{tvdb_id}_{order}_{language}"
     cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
+    if cached is not None and (max_age is None or time.time() - cached["fetched_at"] < max_age):
+        return cached["catalogue"]
     rows = []
     path = f"series/{tvdb_id}/episodes/{order}/{language}"
     try:
@@ -1508,7 +1573,7 @@ def _tvdb_catalogue(tvdb_id, order, user):
         catalogue[coordinate] = {"air_date": row.get("aired"), "title": row.get("name") or ""}
     for coordinate in duplicates:
         catalogue.pop(coordinate, None)
-    cache.set(cache_key, catalogue, TVDB_CATALOGUE_CACHE_SECONDS)
+    cache.set(cache_key, {"fetched_at": time.time(), "catalogue": catalogue}, TVDB_CATALOGUE_CACHE_SECONDS)
     return catalogue
 
 
@@ -1535,13 +1600,10 @@ def _identity_targets(user, media_id, source, metadata, metadata_by_season, even
         )
         if not tvdb_id:
             return {}, set(), dict.fromkeys(event_ids, "tvdb_id_unknown"), {}
-        catalogue = _tvdb_catalogue(tvdb_id, "default", user)
-        # Trackers number anime continuously in one season; TVDB's absolute
-        # order holds exactly that numbering.
-        if any(event[0] == 1 and (1, event[1]) not in catalogue for event in events):
-            absolute = _tvdb_catalogue(tvdb_id, "absolute", user)
-        else:
-            absolute = {}
+        catalogue, absolute = _tvdb_catalogues(tvdb_id, events, user)
+        if any(not _in_tvdb(event, catalogue, absolute) for event in events):
+            # A kept list may predate a newly aired episode.
+            catalogue, absolute = _tvdb_catalogues(tvdb_id, events, user, max_age=TVDB_CATALOGUE_FRESH_SECONDS)
         _load_listed_seasons(media_id, source, metadata, metadata_by_season)
     except Exception as error:
         logger.warning(

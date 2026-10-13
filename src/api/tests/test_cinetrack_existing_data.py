@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.db import OperationalError
 
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Status
+from app.providers import tvdb
 
 from .base import FloppyApiTestCase
 from .test_cinetrack_bootstrap_performance import COMBINED_METADATA
@@ -606,6 +607,64 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual({result["status"] for result in retried.values()}, {"already_satisfied"})
         self.assertEqual((retried[str(finale)]["stored_season_number"], retried[str(finale)]["stored_episode_number"]), (2, 3))
         self.assertEqual(Episode.objects.filter(watch_operation_id__in=[second_half, finale]).count(), 2)
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_v2_resend_of_translated_episodes_needs_no_provider_lookup(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
+        second_at = datetime(2025, 4, 1, 20, 0, tzinfo=UTC)
+        finale_at = datetime(2025, 4, 2, 20, 0, tzinfo=UTC)
+        self._ensure_episode(self._season_two_events(
+            (3, second_at, UUID("abababab-abab-4bab-8bab-abababababab")),
+            (4, finale_at, UUID("cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd")),
+        ))
+        before = Episode.objects.count()
+        metadata.reset_mock()
+        catalogue.reset_mock()
+
+        # A new connection re-sends the same plays with new event ids.
+        second_again = UUID("12121212-1212-4212-8212-121212121212")
+        finale_again = UUID("34343434-3434-4434-8434-343434343434")
+        response = self._ensure_episode(self._season_two_events((3, second_at, second_again), (4, finale_at, finale_again)))
+
+        results = {result["client_event_id"]: result for result in response.json()["results"]}
+        self.assertEqual({result["status"] for result in results.values()}, {"already_satisfied"})
+        self.assertEqual((results[str(second_again)]["stored_season_number"], results[str(second_again)]["stored_episode_number"]), (2, 2))
+        self.assertEqual((results[str(finale_again)]["stored_season_number"], results[str(finale_again)]["stored_episode_number"]), (2, 3))
+        self.assertEqual(Episode.objects.count(), before)
+        metadata.assert_not_called()
+        catalogue.assert_not_called()
+
+    @patch("api.cinetrack_bootstrap_views.tvdb._request")
+    @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
+    @patch("api.cinetrack_bootstrap_views.tvdb.enabled", return_value=True)
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_v3_kept_tvdb_list_is_refetched_only_when_old_and_missing_an_episode(self, metadata, _enabled, _tvdb_id, catalogue):
+        metadata.return_value = self._merged_metadata()
+        catalogue.side_effect = self._tvdb(self.TVDB_SEASON_TWO)
+        self._ensure_episode(self._season_two_events(
+            (4, datetime(2025, 4, 2, 20, 0, tzinfo=UTC), UUID("cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd")),
+        ))
+        self.assertTrue(catalogue.called)
+        unknown = self._season_two_events((9, datetime(2025, 5, 1, 20, 0, tzinfo=UTC), UUID("56565656-5656-4656-8656-565656565656")))
+
+        catalogue.reset_mock()
+        self._ensure_episode(unknown)
+        catalogue.assert_not_called()  # kept for under an hour: not refetched
+
+        key = f"cinetrack_tvdb_catalogue_v2_555_default_{tvdb._preferred_language_code()}"
+        kept = cache.get(key)
+        cache.set(key, {**kept, "fetched_at": kept["fetched_at"] - 2 * 60 * 60}, None)
+        listed = self._season_two_events((4, datetime(2025, 5, 2, 20, 0, tzinfo=UTC), UUID("78787878-7878-4878-8878-787878787878")))
+        self._ensure_episode(listed)
+        catalogue.assert_not_called()  # old, but it lists the episode
+
+        response = self._ensure_episode(unknown)
+        self.assertTrue(catalogue.called)  # old and missing it: refetched
+        self.assertEqual(response.json()["results"][0]["status"], "not_found")
 
     @patch("api.cinetrack_bootstrap_views.tvdb._request")
     @patch("api.cinetrack_bootstrap_views.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="555")
