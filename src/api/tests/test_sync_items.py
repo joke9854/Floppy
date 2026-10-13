@@ -94,6 +94,7 @@ class SnapshotTests(SyncItemsBase):
         )
         self.assertEqual(movie["status"], "completed")
         self.assertTrue(movie["in_library"])
+        self.assertTrue(movie["title"])
         episode = self.find(items, "episode", "1001", 1, 1)
         self.assertEqual(
             [play["watched_at"] for play in episode["plays"]],

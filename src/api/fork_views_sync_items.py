@@ -44,6 +44,11 @@ class SyncItemSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=("movie", "episode", "show"))
     source = serializers.CharField()
     media_id = serializers.CharField(help_text="For an episode, its show's id.")
+    title = serializers.CharField(
+        allow_blank=True,
+        help_text="The item's title (for an episode, the episode's), so an app "
+        "can list an item it has not seen before.",
+    )
     season_number = serializers.IntegerField(allow_null=True)
     episode_number = serializers.IntegerField(allow_null=True)
     ids = serializers.DictField(child=serializers.CharField())

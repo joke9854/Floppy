@@ -113,6 +113,7 @@ def _describe(item, *, plays, entry):
         "type": _API_TYPES[item.media_type],
         "source": item.source,
         "media_id": item.media_id,
+        "title": item.title,
         "season_number": item.season_number
         if item.media_type == MediaTypes.EPISODE.value
         else None,
