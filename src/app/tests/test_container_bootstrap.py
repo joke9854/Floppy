@@ -108,3 +108,17 @@ class ContainerEntrypointPathTests(SimpleTestCase):
             self.assertEqual(path, str(virtual_env_bin))
             self.assertEqual(Path(resolved_python), virtual_env_bin / "python")
 
+
+
+class EntrypointOwnershipContractTests(SimpleTestCase):
+    """Files the root migrate creates must be handed to the app user."""
+
+    def test_the_sign_in_key_is_handed_to_the_app_user_after_migrate(self):
+        source = ENTRYPOINT.read_text(encoding="utf-8")
+        migrate = source.index("manage.py migrate")
+        chown = source.index('chown -h abc:abc -- "$oidc_key_file"')
+        self.assertIn('oidc_key_file="${DATA_DIR}/oauth_oidc_private_key.pem"', source)
+        self.assertGreater(chown, migrate)
+        # The key name must match what the settings create.
+        settings = (ROOT / "src" / "config" / "settings.py").read_text(encoding="utf-8")
+        self.assertIn('"oauth_oidc_private_key.pem"', settings)

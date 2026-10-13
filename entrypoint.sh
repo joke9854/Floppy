@@ -249,6 +249,15 @@ if { [ -e "$generated_secret_file" ] || [ -L "$generated_secret_file" ]; } && \
     exit 1
 fi
 
+# The app sign-in signing key is created (owner-only) by the first process that
+# loads the settings, which is the root migrate above. Hand it to the app user
+# like the generated secret, or gunicorn cannot read it and never starts.
+oidc_key_file="${DATA_DIR}/oauth_oidc_private_key.pem"
+if { [ -e "$oidc_key_file" ] || [ -L "$oidc_key_file" ]; } &&    ! timeout 600 chown -h abc:abc -- "$oidc_key_file"; then
+    echo "[entrypoint] Cannot set ownership for the sign-in key ${oidc_key_file} with PUID=${PUID} and PGID=${PGID}. Fix the mount permissions or the IDs." >&2
+    exit 1
+fi
+
 if [ -z "$DB_HOST" ]; then
     if [ -e "$DB_PARENT" ] && ! timeout 600 chown abc:abc -- "$DB_PARENT"; then
         echo "[entrypoint] Cannot set ownership for FLOPPY_DB_PATH parent ${DB_PARENT} with PUID=${PUID} and PGID=${PGID}. Fix the mount permissions or the IDs." >&2

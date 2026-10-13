@@ -61,7 +61,8 @@ def load_or_create_private_key(path: Path) -> str:
     except (OSError, UnicodeError) as err:
         msg = (
             f"Cannot create or read the OIDC signing key at {path}. "
-            "Make FLOPPY_DATA_DIR writable or set IDP_OIDC_PRIVATE_KEY."
+            "Make FLOPPY_DATA_DIR writable by the Floppy user or set "
+            "OAUTH_OIDC_PRIVATE_KEY."
         )
         raise ImproperlyConfigured(msg) from err
     finally:
