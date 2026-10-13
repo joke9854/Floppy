@@ -33,6 +33,7 @@ from app.services.episode_coordinates import (
     resolve_episode_coordinate,
 )
 from app.services.sync_activity import batched_activity, touch_activity
+from app.services.sync_items import refresh_sync_item
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
 from .contract_serializers import DetailErrorSerializer
@@ -481,6 +482,9 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 fields=["status", "end_date"],
             )
             touch_activity(user, "library")
+            # bulk_update fires no signals; keep the main-tracker index exact.
+            for movie in dirty_movies.values():
+                refresh_sync_item(user, movie.item)
         queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
     return outcomes
 
@@ -560,6 +564,9 @@ def ensure_show_entries(user, parsed):
         if dirty:
             TV.objects.bulk_update(dirty, fields=["status"])
             touch_activity(user, "library")
+            # bulk_update fires no signals; keep the main-tracker index exact.
+            for tv in dirty:
+                refresh_sync_item(user, tv.item)
         queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
     return outcomes
 

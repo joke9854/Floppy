@@ -13,6 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from app.models import WatchStateSequence
+from app.services.sync_items import forget_enabled
 from integrations.models import (
     SyncBinding,
     SyncBindingStatus,
@@ -164,6 +165,7 @@ def _sync_emit_changes_flag(user):
     if sequence.emit_changes != should_emit:
         sequence.emit_changes = should_emit
         sequence.save(update_fields=["emit_changes"])
+        forget_enabled(user)
 
 
 def operational_bindings(user, *, direction=None, capability=None):

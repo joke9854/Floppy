@@ -136,6 +136,8 @@ SpecialModels = [
     "WatchStateChange",
     "WatchStateSequence",
     "SyncActivity",
+    "SyncItemState",
+    "SyncItemSequence",
     "EpisodeOrder",
     "EpisodeOrderChange",
 ]

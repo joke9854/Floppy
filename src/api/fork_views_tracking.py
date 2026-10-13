@@ -25,6 +25,7 @@ from app.history_cache_utils import normalize_history_media_type_tokens
 from app.models import Episode, Item, ItemTag, MediaTypes, Movie, MoviePlay, Status, TV, Tag
 from app.services import metadata_resolution
 from app.services.sync_activity import touch_activity
+from app.services.sync_items import refresh_sync_item
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
@@ -376,6 +377,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
             parsed.append((source, media_id, title, entry.get("image") or "", status, watched_at, external_id))
 
         results = []
+        touched_items = []
         with transaction.atomic():
             # Fetch existing identities together; newly-created rows are
             # minimal, deliberately avoiding services.get_media_metadata().
@@ -418,8 +420,11 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
                         Movie.objects.filter(pk=movie.pk).update(end_date=watched_at, status=Status.COMPLETED.value)
                     outcome = "created" if created else "already_satisfied"
                 results.append({"source": source, "media_id": media_id, "status": outcome})
+                touched_items.append(item)
         # Queryset updates above fire no signals.
         touch_activity(request.user, "library")
+        for item in touched_items:
+            refresh_sync_item(request.user, item)
         return Response({"results": results}, status=HTTP.OK)
 
 
@@ -436,6 +441,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
         if len(entries) > self.max_items:
             return Response({"detail": f"shows must contain at most {self.max_items} entries."}, status=HTTP.BAD_REQUEST)
         results = []
+        touched_items = []
         with transaction.atomic():
             for index, entry in enumerate(entries):
                 if not isinstance(entry, dict):
@@ -460,8 +466,11 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
                 # imported explicitly by CineTrack's event endpoint.
                 TV.objects.filter(pk=tv.pk).exclude(status=desired_status).update(status=desired_status)
                 results.append({"source": source, "media_id": media_id, "status": "already_satisfied"})
+                touched_items.append(item)
         # Queryset updates above fire no signals.
         touch_activity(request.user, "library")
+        for item in touched_items:
+            refresh_sync_item(request.user, item)
         return Response({"results": results}, status=HTTP.OK)
 
 

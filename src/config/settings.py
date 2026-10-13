@@ -352,7 +352,11 @@ SPECTACULAR_SETTINGS = {
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
     # Item.media_type and Item.library_media_type share one choice set.
-    "ENUM_NAME_OVERRIDES": {"MediaTypeEnum": "app.models.choices.MediaTypes"},
+    "ENUM_NAME_OVERRIDES": {
+        "MediaTypeEnum": "app.models.choices.MediaTypes",
+        # The API's library status names (sync writes and sync items).
+        "LibraryStatusEnum": ("planning", "in_progress", "paused", "dropped", "completed"),
+    },
 }
 
 if ENABLE_DEBUG_TOOLBAR:

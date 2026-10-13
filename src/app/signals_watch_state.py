@@ -25,7 +25,12 @@ from app.models import (
     Music,
     Podcast,
 )
-from app.services.watch_state import project_watch_state_for_change
+from app.models.tv import TV
+from app.services.sync_items import refresh_sync_item
+from app.services.watch_state import (
+    project_watch_state_for_change,
+    projection_suspended,
+)
 
 
 def _project(user_getter, item_getter):
@@ -65,6 +70,23 @@ def project_on_episode_change(sender, instance, **kwargs):
     if instance.item_id is None:
         return
     _project(lambda: instance.related_season.user, lambda: instance.item)
+
+
+@receiver([post_save, post_delete], sender=TV)
+def index_on_show_change(sender, instance, **kwargs):
+    """Re-index a show's library status and score for main-tracker apps.
+
+    Shows have no watched state of their own (their episodes do), so this is
+    the one change the projection receivers above do not already cover.
+    """
+    if projection_suspended():
+        return
+    try:
+        user = instance.user
+        item = instance.item
+    except ObjectDoesNotExist:
+        return
+    refresh_sync_item(user, item)
 
 
 @receiver([post_save, post_delete], sender=MoviePlay)

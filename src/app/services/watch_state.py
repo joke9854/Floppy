@@ -255,6 +255,13 @@ def project_watch_state(
     """
     if user is None or item is None or projection_suspended():
         return None
+
+    # The exact per-item index for main-tracker apps rides on every projection,
+    # including bulk paths that project once at the end.
+    from app.services.sync_items import refresh_sync_item
+
+    refresh_sync_item(user, item)
+
     if item.media_type not in PROJECTED_MEDIA_TYPES:
         return None
 

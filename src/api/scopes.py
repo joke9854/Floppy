@@ -211,6 +211,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     },
     "api.fork_views_watched_state.SyncConnectionDetailView": {"DELETE": "sync:read"},
     "api.fork_views_watched_state.SyncActivitiesView": {"GET": "sync:read"},
+    "api.fork_views_sync_items.SyncItemsSnapshotView": {"GET": "sync:read"},
+    "api.fork_views_sync_items.SyncItemsChangesView": {"GET": "sync:read"},
     "api.fork_views_watched_state.SyncConflictsView": {"GET": "sync:read"},
     "api.fork_views_watched_state.SyncConflictResolveView": {"POST": "sync:write"},
     "api.fork_views_users.UserPreferencesView": {

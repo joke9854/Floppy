@@ -15,6 +15,7 @@ from . import (
     fork_views_progress_changes,
     fork_views_scrobble,
     fork_views_statistics,
+    fork_views_sync_items,
     fork_views_sync_writes,
     fork_views_tracking,
     fork_views_users,
@@ -407,6 +408,16 @@ urlpatterns = [
         r"^sync/activities/?$",
         fork_views_watched_state.SyncActivitiesView.as_view(),
         name="api_sync_activities",
+    ),
+    re_path(
+        r"^sync/items/snapshot/?$",
+        fork_views_sync_items.SyncItemsSnapshotView.as_view(),
+        name="api_sync_items_snapshot",
+    ),
+    re_path(
+        r"^sync/items/changes/?$",
+        fork_views_sync_items.SyncItemsChangesView.as_view(),
+        name="api_sync_items_changes",
     ),
     re_path(
         r"^sync/conflicts/?$",

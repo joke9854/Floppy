@@ -91,6 +91,7 @@ from app.models.tv import (
     RewatchAlreadyCompleteError,
     Season,
 )
+from app.models.sync_items import SyncItemSequence, SyncItemState
 from app.models.watch_state import (
     SyncActivity,
     SyncActivityCategory,
@@ -176,6 +177,8 @@ __all__ = [
     "Studio",
     "SyncActivity",
     "SyncActivityCategory",
+    "SyncItemSequence",
+    "SyncItemState",
     "Tag",
     "Track",
     "UserProviderCredential",

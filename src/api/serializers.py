@@ -827,6 +827,7 @@ class InfoSerializer(serializers.Serializer):
                 "rate_limits_v1": True,
                 "error_codes_v1": True,
                 "paging_headers_v1": True,
+                "sync_items_v1": True,
             },
         }
 
