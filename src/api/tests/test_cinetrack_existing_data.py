@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from http import HTTPStatus as HTTP  # noqa: N814
+from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from django.core.cache import cache
 from django.db import OperationalError
 
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Status
-from app.providers import tvdb
+from app.providers import services, tvdb
 
 from .base import FloppyApiTestCase
 from .test_cinetrack_bootstrap_performance import COMBINED_METADATA
@@ -398,6 +399,32 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
 
         self.assertEqual(response.status_code, HTTP.OK)
         self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
+        self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_p2_show_the_provider_does_not_know_is_not_found_per_event(self, metadata):
+        metadata.side_effect = services.ProviderAPIError("tmdb", SimpleNamespace(response=SimpleNamespace(status_code=404)))
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._episode_payload(datetime(2024, 10, 10, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        result = response.json()["results"][0]
+        self.assertEqual((result["status"], result["reason"]), ("not_found", "unknown_to_provider"))
+        self.assertEqual(Episode.objects.count(), before)
+
+    @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
+    def test_p3_provider_failure_is_not_a_verdict(self, metadata):
+        metadata.side_effect = services.ProviderAPIError("tmdb", SimpleNamespace(response=SimpleNamespace(status_code=500)))
+        before = Episode.objects.count()
+
+        response = self._ensure_episode(
+            self._episode_payload(datetime(2024, 10, 10, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
+        )
+
+        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
         self.assertEqual(Episode.objects.count(), before)
 
     @patch("api.cinetrack_bootstrap_views.time.sleep")

@@ -749,6 +749,22 @@ def ensure_episode_events(
                 season_numbers,
             )
             timings["metadata_ms"] = int((time.monotonic() - stage_started) * 1000)
+        except services.ProviderAPIError as error:
+            if error.status_code != HTTP.NOT_FOUND:
+                logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
+                raise EpisodeEnsureError(
+                    MSG_RESOLVE_FAILED,
+                    HTTP.NOT_FOUND,
+                    kind="metadata",
+                    partial=EpisodeEnsureResult(dict(outcomes), dict(stored), dict(reasons), dict(titles)),
+                ) from None
+            # The provider itself says the show does not exist (a deleted or
+            # merged TMDB id): a definite verdict for every event, never history.
+            logger.warning("CineTrack episode ensure show unknown to provider media_id=%s", media_id)
+            for _season, _episode, _watched_at, client_event_id in unresolved:
+                outcomes[client_event_id] = "not_found"
+                reasons[client_event_id] = "unknown_to_provider"
+            return EpisodeEnsureResult(outcomes, stored, reasons, titles)
         except Exception:
             logger.exception("CineTrack episode metadata batch failed media_id=%s", media_id)
             raise EpisodeEnsureError(
