@@ -828,6 +828,7 @@ class InfoSerializer(serializers.Serializer):
                 "error_codes_v1": True,
                 "paging_headers_v1": True,
                 "sync_items_v1": True,
+                "cinetrack_episode_translate_v1": True,
             },
         }
 

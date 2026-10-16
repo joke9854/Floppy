@@ -99,6 +99,11 @@ urlpatterns = [
         name="api_media_episode_ensure",
     ),
     re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/episodes/translate/?$",
+        cinetrack_bootstrap_views.MediaEpisodeTranslateView.as_view(),
+        name="api_media_episode_translate",
+    ),
+    re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/tags/?$",
         fork_views_tracking.MediaTagsView.as_view(),
         name="api_media_tags",
