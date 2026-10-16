@@ -22,7 +22,6 @@ from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
-from app import cache_utils
 from app.fork_services_episode import create_episode_watch
 from app.models import TV, Episode, Item, MediaTypes, Movie, MoviePlay, Season, Status
 from app.providers import credentials, episode_orders, services, tmdb, tvdb
@@ -941,6 +940,7 @@ def ensure_episode_events(
         settled = EpisodeEnsureResult(dict(outcomes), dict(stored), dict(reasons), dict(titles))
         for attempt in range(len(DB_LOCK_BACKOFF_SECONDS) + 1):
             created_any = False
+            created_days = set()
             try:
                 with transaction.atomic():
                     seasons = {}
@@ -1036,6 +1036,8 @@ def ensure_episode_events(
                         )
                         outcomes[client_event_id] = "created" if result.created else "already_satisfied"
                         created_any = created_any or result.created
+                        if result.created:
+                            created_days.add(watched_at)
                 break
             except OperationalError as error:
                 if "locked" not in str(error).lower():
@@ -1072,8 +1074,12 @@ def ensure_episode_events(
                 kind="conflict",
             )
         if created_any:
-            cache_utils.clear_time_left_cache_for_user(user.id)
-            cache_utils.clear_media_list_cache_for_user(user.id)
+            # Plays are saved raw (no provider lookup), which also skips the
+            # Episode signals; refresh history days, the history index and
+            # home rows once for the whole request instead.
+            from app.signals import invalidate_episode_history_for_user
+
+            invalidate_episode_history_for_user(user.id, created_days)
 
     if relocated:
         logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)

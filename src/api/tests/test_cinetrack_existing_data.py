@@ -401,6 +401,27 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
         self.assertEqual(response.json()["results"][0]["status"], "metadata_unavailable")
         self.assertEqual(Episode.objects.count(), before)
 
+    @patch(
+        "api.cinetrack_bootstrap_views.services.get_media_metadata",
+        return_value=COMBINED_METADATA,
+    )
+    def test_p1_created_play_refreshes_history_and_home_rows(self, metadata):
+        payload = self._episode_payload(datetime(2024, 10, 10, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2)
+
+        with patch("app.signals._invalidate_episode_history_changes") as invalidate:
+            with self.captureOnCommitCallbacks(execute=True):
+                first = self._ensure_episode(payload)
+            with self.captureOnCommitCallbacks(execute=True):
+                repeat = self._ensure_episode(payload)
+
+        self.assertEqual(first.json()["results"][0]["status"], "created")
+        self.assertEqual(repeat.json()["results"][0]["status"], "already_satisfied")
+        # Once, for the created play's day; a replay changes nothing.
+        invalidate.assert_called_once()
+        changes, runtime_users = invalidate.call_args.args
+        self.assertEqual(list(runtime_users), [self.user1.id])
+        self.assertEqual(len(changes[self.user1.id]), 1)
+
     @patch("api.cinetrack_bootstrap_views.services.get_media_metadata")
     def test_p2_show_the_provider_does_not_know_is_not_found_per_event(self, metadata):
         metadata.side_effect = services.ProviderAPIError("tmdb", SimpleNamespace(response=SimpleNamespace(status_code=404)))

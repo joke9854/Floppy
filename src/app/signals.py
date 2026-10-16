@@ -805,6 +805,23 @@ def refresh_discover_cache_on_item_person_credit_change(sender, instance, **kwar
         discover_tab_cache.invalidate_for_media_change(user_id, media_type)
 
 
+def invalidate_episode_history_for_user(user_id, watched_at_values) -> None:
+    """Do for raw-saved plays what the Episode signals do for normal saves."""
+    day_keys = sorted(
+        {
+            day_key
+            for day_key in (history_cache.history_day_key(value) for value in watched_at_values)
+            if day_key
+        },
+    )
+    transaction.on_commit(
+        lambda: _invalidate_episode_history_changes(
+            {user_id: day_keys} if day_keys else {},
+            [user_id],
+        ),
+    )
+
+
 def _invalidate_episode_history_changes(changes, runtime_user_ids=()):
     """Invalidate committed Episode history and runtime caches by owner."""
     for user_id in runtime_user_ids:
