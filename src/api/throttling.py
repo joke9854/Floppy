@@ -38,6 +38,19 @@ class AccountRateThrottle(_SettingsRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": request.user.pk}
 
 
+class CrashReportRateThrottle(_SettingsRateThrottle):
+    """CineTrack crash-report uploads per account, on top of the general budget."""
+
+    scope = "cinetrack_crash_reports"
+    rate_setting = "CINETRACK_CRASH_REPORT_RATE_LIMIT"
+
+    def get_cache_key(self, request, view):
+        """Key on the account; anonymous requests are not counted here."""
+        if not (request.user and request.user.is_authenticated):
+            return None
+        return self.cache_format % {"scope": self.scope, "ident": request.user.pk}
+
+
 class AnonymousRateThrottle(_SettingsRateThrottle):
     """Requests per client address for calls without credentials."""
 

@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import Group
 from django.db.models import Field
 
-from users.models import User
+from users.models import CineTrackCrashReport, User
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -79,6 +79,23 @@ class CustomUserAdmin(UserAdmin):
 
     search_fields = ("username",)
     ordering = ("username",)
+
+
+@admin.register(CineTrackCrashReport)
+class CineTrackCrashReportAdmin(admin.ModelAdmin):
+    """Read-only view of crash reports uploaded by CineTrack clients."""
+
+    list_display = ("received_at", "user", "kind", "app_version", "exception_class")
+    list_filter = ("kind", "app_version")
+    ordering = ("-received_at",)
+
+    def has_add_permission(self, request):
+        """Reports are only created through the API."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Reports are immutable."""
+        return False
 
 
 admin.site.unregister(Group)

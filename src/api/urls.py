@@ -1,6 +1,11 @@
 from django.urls import re_path
 
-from . import cinetrack_connection_views, fork_views_search_id, views
+from . import (
+    cinetrack_connection_views,
+    cinetrack_crash_report_views,
+    fork_views_search_id,
+    views,
+)
 from .episode_order_views import EpisodeOrderView
 
 urlpatterns = [
@@ -22,6 +27,11 @@ urlpatterns = [
         r"^cinetrack/connection/?$",
         cinetrack_connection_views.CineTrackConnectionView.as_view(),
         name="api_cinetrack_connection",
+    ),
+    re_path(
+        r"^cinetrack/crash-reports/?$",
+        cinetrack_crash_report_views.CineTrackCrashReportView.as_view(),
+        name="api_cinetrack_crash_reports",
     ),
     re_path(r"^lists/?$", views.ListsView.as_view(), name="api_lists"),
     re_path(

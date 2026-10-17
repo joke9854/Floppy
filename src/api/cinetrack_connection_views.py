@@ -18,6 +18,7 @@ CINETRACK_API_EXTENSIONS = {
     "cinetrack_episode_events_v1": True,
     "cinetrack_bootstrap_v2": True,
     "episode_sql_pagination": True,
+    "cinetrack_crash_reports_v1": True,
 }
 
 
@@ -27,6 +28,7 @@ class CineTrackApiExtensionsSerializer(serializers.Serializer):
     cinetrack_episode_events_v1 = serializers.BooleanField()
     cinetrack_bootstrap_v2 = serializers.BooleanField()
     episode_sql_pagination = serializers.BooleanField()
+    cinetrack_crash_reports_v1 = serializers.BooleanField()
 
 
 class CineTrackConnectionSerializer(serializers.Serializer):

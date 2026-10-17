@@ -2358,3 +2358,49 @@ class HomeScreenRow(models.Model):
     def __str__(self):
         """Return a compact label for admin/debug use."""
         return f"{self.user_id}:{self.media_type}:{self.row_type}:{self.position}"
+
+
+class CineTrackCrashReport(models.Model):
+    """Sanitized crash or ANR report uploaded by a CineTrack client."""
+
+    KIND_CRASH = "crash"
+    KIND_ANR = "anr"
+    KIND_CHOICES = [(KIND_CRASH, "Crash"), (KIND_ANR, "ANR")]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="cinetrack_crash_reports",
+    )
+    report_id = models.UUIDField()
+    kind = models.CharField(max_length=8, choices=KIND_CHOICES)
+    occurred_at = models.DateTimeField()
+    received_at = models.DateTimeField(auto_now_add=True)
+    app_version = models.CharField(max_length=64)
+    version_code = models.PositiveIntegerField()
+    build_type = models.CharField(max_length=32)
+    android_sdk = models.IntegerField()
+    device_model = models.CharField(max_length=128)
+    exception_class = models.CharField(max_length=256, blank=True, default="")
+    thread = models.CharField(max_length=128, blank=True, default="")
+    stack_trace = models.TextField()
+
+    class Meta:
+        """Idempotency per user and a per-user newest-first index."""
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "report_id"],
+                name="cinetrack_crash_report_user_report_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "received_at"],
+                name="cinetrack_crash_user_recv_idx",
+            ),
+        ]
+
+    def __str__(self):
+        """Return a compact label for admin/debug use."""
+        return f"{self.kind}:{self.report_id}"

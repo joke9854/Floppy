@@ -316,6 +316,11 @@ API_RATE_LIMIT = None if _TESTING else _api_rate("API_RATE_LIMIT", "1200/min")
 API_ANON_RATE_LIMIT = (
     None if _TESTING else _api_rate("API_ANON_RATE_LIMIT", "120/min")
 )
+CINETRACK_CRASH_REPORT_RATE_LIMIT = (
+    None
+    if _TESTING
+    else _api_rate("CINETRACK_CRASH_REPORT_RATE_LIMIT", "60/hour")
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [

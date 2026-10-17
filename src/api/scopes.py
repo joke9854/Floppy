@@ -91,6 +91,7 @@ _W = "watchlist:write"
 # module.ClassName -> {HTTP method: scope}
 VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.cinetrack_connection_views.CineTrackConnectionView": {"GET": _R},
+    "api.cinetrack_crash_report_views.CineTrackCrashReportView": {"POST": _W},
     "api.episode_order_views.EpisodeOrderView": {"GET": _R, "POST": _W},
     "api.fork_views.CollectionView": {"GET": _R, "POST": _W},
     "api.fork_views.CollectionEntryView": {"GET": _R, "PATCH": _W, "DELETE": _W},
