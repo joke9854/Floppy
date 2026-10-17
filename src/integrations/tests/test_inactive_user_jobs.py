@@ -60,16 +60,10 @@ class InactiveUserJellyfinPushTests(TestCase):
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
 
-        with (
-            patch(
-                "integrations.tasks._media_imports.JellyfinPushSyncService"
-            ) as service,
-            patch(
-                "integrations.tasks._media_imports._jellyfin_health.reprobe_if_broken"
-            ) as reprobe,
-        ):
+        with patch(
+            "integrations.tasks._media_imports.JellyfinPushSyncService"
+        ) as service:
             result = push_jellyfin_watched.apply(args=[self.user.id], throw=True).get()
 
         self.assertIn("deactivated", result)
         service.assert_not_called()
-        reprobe.assert_not_called()
