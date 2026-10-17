@@ -37,6 +37,9 @@ class CineTrackConnectionSerializer(serializers.Serializer):
         help_text="Opaque, stable per account; not a username."
     )
     user = serializers.CharField(help_text="Deprecated alias of account_id.")
+    username = serializers.CharField(
+        help_text="Display name for the client UI only; never an account identity."
+    )
     server_version = serializers.CharField(allow_null=True)
     api_extensions = CineTrackApiExtensionsSerializer()
 
@@ -77,6 +80,9 @@ class CineTrackConnectionView(drf_views.APIView):
                 # the old preferences response solely to derive an account
                 # identity. This value is the same opaque HMAC, never a username.
                 "user": account_id,
+                # Shown to the token's own user as "Connected as ...". Clients
+                # must keep identifying the account by account_id.
+                "username": request.user.get_username(),
                 "server_version": info.get("version"),
                 "api_extensions": dict(CINETRACK_API_EXTENSIONS),
             }

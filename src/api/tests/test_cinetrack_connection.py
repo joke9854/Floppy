@@ -29,6 +29,8 @@ class CineTrackConnectionTests(FloppyApiTestCase):
         body = response.json()
         self.assertIs(body["authenticated"], True)
         self.assertTrue(body["account_id"])
+        self.assertEqual(body["username"], self.user1.get_username())
+        self.assertNotEqual(body["account_id"], body["username"])
         self.assertTrue(body["server_version"])
         self.assertEqual(
             body["api_extensions"],

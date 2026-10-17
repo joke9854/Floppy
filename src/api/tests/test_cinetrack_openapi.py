@@ -38,7 +38,13 @@ class CineTrackOpenApiTests(FloppyApiTestCase):
             responses["200"]["content"]["application/json"]["schema"]["$ref"]
         )
         self.assertTrue(
-            {"authenticated", "account_id", "server_version", "api_extensions"}
+            {
+                "authenticated",
+                "account_id",
+                "username",
+                "server_version",
+                "api_extensions",
+            }
             <= set(body["properties"])
         )
 
