@@ -4,6 +4,7 @@ from django.urls import re_path
 
 from . import (
     cinetrack_bootstrap_views,
+    cinetrack_character_views,
     fork_views,
     fork_views_discover,
     fork_views_integrations,
@@ -102,6 +103,11 @@ urlpatterns = [
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/episodes/translate/?$",
         cinetrack_bootstrap_views.MediaEpisodeTranslateView.as_view(),
         name="api_media_episode_translate",
+    ),
+    re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/characters/?$",
+        cinetrack_character_views.MediaCharactersView.as_view(),
+        name="api_media_characters",
     ),
     re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/tags/?$",

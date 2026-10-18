@@ -1602,3 +1602,73 @@ def build_specials_season(tvdb_id, *, media_id, source, tv_data):
     )
     season_payload["tvdb_id"] = str(tvdb_id)
     return season_payload
+
+
+# TVDB people types that play a character on screen (v4 sends the id in
+# ``type`` and its name in ``peopleType``).
+ON_SCREEN_PEOPLE_TYPES = {3, 4}
+ON_SCREEN_PEOPLE_TYPE_NAMES = {"actor", "guest star", "voice"}
+ARTWORK_HOST = "https://artworks.thetvdb.com"
+
+
+def _artwork_url(value) -> str | None:
+    """Return an absolute TVDB artwork URL, or None for an empty value."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.startswith("http"):
+        return text
+    return f"{ARTWORK_HOST}{text if text.startswith('/') else '/' + text}"
+
+
+def _is_on_screen(character: dict) -> bool:
+    people_type = character.get("type")
+    if isinstance(people_type, int) and not isinstance(people_type, bool):
+        return people_type in ON_SCREEN_PEOPLE_TYPES
+    name = str(character.get("peopleType") or people_type or "").strip().lower()
+    return name in ON_SCREEN_PEOPLE_TYPE_NAMES
+
+
+def _get_movie_extended(movie_id):
+    """Return one cached movie extended payload."""
+    cache_key = _cache_key("movie_extended", movie_id)
+    data = cache.get(cache_key)
+    if data is None:
+        data = _unwrap_data(_request(f"movies/{movie_id}/extended")) or {}
+        cache.set(cache_key, data, timeout=TVDB_METADATA_CACHE_TIMEOUT)
+    return data
+
+
+def character_images(media_type: str, tvdb_id) -> list[dict]:
+    """Return the on-screen characters of a TVDB series or movie with both images.
+
+    ``character_image`` is the picture of the character, ``person_image`` the
+    actor's photo; either may be None.
+    """
+    if media_type == MediaTypes.MOVIE.value:
+        data = _get_movie_extended(tvdb_id)
+    else:
+        data = _get_series_extended(tvdb_id)
+    rows = []
+    for character in _coerce_list((data or {}).get("characters")):
+        if not isinstance(character, dict) or not _is_on_screen(character):
+            continue
+        rows.append({
+            "name": str(character.get("name") or "").strip(),
+            "person_name": str(character.get("personName") or "").strip(),
+            "person_id": str(character.get("peopleId") or ""),
+            "character_image": _artwork_url(character.get("image")),
+            "person_image": _artwork_url(character.get("personImgURL")),
+            "sort": character.get("sort") if isinstance(character.get("sort"), int) else None,
+        })
+    rows.sort(key=lambda row: (row["sort"] is None, row["sort"] or 0))
+    return rows
+
+
+def movie_id_for_imdb(imdb_id: str) -> str | None:
+    """Return the TVDB movie id matching an IMDb id, if TVDB knows one."""
+    for result in search_remote_id(imdb_id) or []:
+        movie_data = result.get("movie") if isinstance(result, dict) else None
+        if isinstance(movie_data, dict) and movie_data.get("id"):
+            return str(movie_data["id"])
+    return None
