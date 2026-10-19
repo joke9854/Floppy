@@ -38,9 +38,13 @@ def _tvdb_id(media_type, source, media_id):
     """Return the TVDB id of a TMDB or TVDB title, or None when TVDB has no match."""
     if source == Sources.TVDB.value:
         return str(media_id)
+    # Only TMDB's small external_ids record: the full title took 5-60 s for
+    # titles Floppy had never fetched, and CineTrack gave up waiting.
+    external_ids = tmdb.external_ids(media_type, media_id)
     if media_type == MediaTypes.TV.value:
-        return tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=tmdb.tv(media_id))
-    external_ids = tmdb.movie(media_id).get("provider_external_ids") or {}
+        tvdb_id = str(external_ids.get("tvdb_id") or "").strip()
+        # Rare: TMDB lists no TVDB id, so fall back to the slower title match.
+        return tvdb_id or tmdb.resolve_tvdb_id_for_tmdb_show(media_id, tv_data=tmdb.tv(media_id))
     imdb_id = str(external_ids.get("imdb_id") or "").strip()
     return tvdb.movie_id_for_imdb(imdb_id) if imdb_id else None
 

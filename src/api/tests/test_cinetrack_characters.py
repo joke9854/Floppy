@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 
-from app.providers import services
+from app.providers import services, tmdb
 
 from .base import FloppyApiTestCase
 
@@ -49,14 +49,15 @@ class CharactersTests(FloppyApiTestCase):
     def test_tv_characters_keep_character_and_actor_images(self):
         with (
             patch(f"{VIEWS}.tvdb.enabled", return_value=True),
-            patch(f"{VIEWS}.tmdb.tv", return_value={"tvdb_id": "81189"}),
-            patch(f"{VIEWS}.tmdb.resolve_tvdb_id_for_tmdb_show", return_value="81189"),
-            patch("app.providers.tvdb._get_series_extended", return_value=SERIES_EXTENDED) as extended,
+            patch(f"{VIEWS}.tmdb.external_ids", return_value={"tvdb_id": 81189}),
+            patch(f"{VIEWS}.tmdb.tv") as tmdb_tv,
+            patch("app.providers.tvdb._series_characters_payload", return_value=SERIES_EXTENDED) as extended,
         ):
             response = self.fetch()
 
         self.assertEqual(response.status_code, 200)
         extended.assert_called_once_with("81189")
+        tmdb_tv.assert_not_called()
         body = response.json()
         self.assertEqual(body["tvdb_id"], "81189")
         self.assertEqual(
@@ -73,8 +74,8 @@ class CharactersTests(FloppyApiTestCase):
     def test_tvdb_source_skips_tmdb(self):
         with (
             patch(f"{VIEWS}.tvdb.enabled", return_value=True),
-            patch(f"{VIEWS}.tmdb.tv") as tmdb_tv,
-            patch("app.providers.tvdb._get_series_extended", return_value=SERIES_EXTENDED),
+            patch(f"{VIEWS}.tmdb.external_ids") as tmdb_tv,
+            patch("app.providers.tvdb._series_characters_payload", return_value=SERIES_EXTENDED),
         ):
             response = self.fetch(source="tvdb", media_id="81189")
 
@@ -85,7 +86,7 @@ class CharactersTests(FloppyApiTestCase):
     def test_movie_resolves_tvdb_id_through_imdb(self):
         with (
             patch(f"{VIEWS}.tvdb.enabled", return_value=True),
-            patch(f"{VIEWS}.tmdb.movie", return_value={"provider_external_ids": {"imdb_id": "tt0133093"}}),
+            patch(f"{VIEWS}.tmdb.external_ids", return_value={"imdb_id": "tt0133093"}),
             patch("app.providers.tvdb.search_remote_id", return_value=[{"series": {"id": 1}}, {"movie": {"id": 169}}]),
             patch("app.providers.tvdb._get_movie_extended", return_value=SERIES_EXTENDED) as extended,
         ):
@@ -105,18 +106,20 @@ class CharactersTests(FloppyApiTestCase):
     def test_no_tvdb_match_returns_empty_list(self):
         with (
             patch(f"{VIEWS}.tvdb.enabled", return_value=True),
+            patch(f"{VIEWS}.tmdb.external_ids", return_value={}),
             patch(f"{VIEWS}.tmdb.tv", return_value={}),
-            patch(f"{VIEWS}.tmdb.resolve_tvdb_id_for_tmdb_show", return_value=None),
+            patch(f"{VIEWS}.tmdb.resolve_tvdb_id_for_tmdb_show", return_value=None) as resolve,
         ):
             response = self.fetch()
 
         self.assertEqual(response.json()["reason"], "no_tvdb_match")
+        resolve.assert_called_once()
 
     def test_provider_failure_is_503(self):
         error = services.ProviderAPIError("tvdb", Exception("down"))
         with (
             patch(f"{VIEWS}.tvdb.enabled", return_value=True),
-            patch(f"{VIEWS}.tmdb.tv", side_effect=error),
+            patch(f"{VIEWS}.tmdb.external_ids", side_effect=error),
         ):
             response = self.fetch()
 
@@ -128,3 +131,31 @@ class CharactersTests(FloppyApiTestCase):
 
     def test_requires_authentication(self):
         self.assertIn(self.fetch(headers=False).status_code, {401, 403})
+
+
+class ExternalIdsTests(FloppyApiTestCase):
+    """The characters lookup never fetches a full TMDB title."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_fetches_only_external_ids_once(self):
+        payload = {"tvdb_id": 81189, "imdb_id": "tt0903747"}
+        with patch("app.providers.tmdb.services.api_request", return_value=payload) as request:
+            first = tmdb.external_ids("tv", "1396")
+            second = tmdb.external_ids("tv", "1396")
+
+        self.assertEqual(first["tvdb_id"], 81189)
+        self.assertEqual(second, first)
+        request.assert_called_once()
+        self.assertTrue(request.call_args.args[2].endswith("/tv/1396/external_ids"))
+
+    def test_reuses_a_cached_full_title(self):
+        cache.set(tmdb._tv_cache_key("1396"), {"provider_external_ids": {"tvdb_id": 81189}})
+        with patch("app.providers.tmdb.services.api_request") as request:
+            ids = tmdb.external_ids("tv", "1396")
+
+        self.assertEqual(ids["tvdb_id"], 81189)
+        request.assert_not_called()

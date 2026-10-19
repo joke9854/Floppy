@@ -379,6 +379,38 @@ def _discover_tmdb_tvdb_id_from_search(media_id, tv_data=None):
     return None
 
 
+def external_ids(media_type, media_id):
+    """Return TMDB's external IDs (imdb_id, tvdb_id, ...) for a movie or show, cheaply.
+
+    A cached full payload is reused; otherwise only the small /external_ids
+    record is fetched, never the full title with all its appends.
+    """
+    full_key = _tv_cache_key(media_id) if media_type == MediaTypes.TV.value else _movie_cache_key(media_id)
+    full = cache.get(full_key)
+    if isinstance(full, dict) and full.get("provider_external_ids"):
+        ids = dict(full["provider_external_ids"])
+    else:
+        cache_key = f"{Sources.TMDB.value}_{media_type}_{media_id}_external_ids"
+        ids = cache.get(cache_key)
+        if ids is None:
+            try:
+                ids = services.api_request(
+                    Sources.TMDB.value,
+                    "GET",
+                    f"{base_url}/{media_type}/{media_id}/external_ids",
+                    params={"api_key": credentials.get("tmdb", "api_key")},
+                ) or {}
+            except requests.exceptions.HTTPError as error:
+                handle_error(error)
+            cache.set(cache_key, ids)
+        ids = dict(ids)
+    if media_type == MediaTypes.TV.value:
+        override_tvdb_id = get_tvdb_id_override(media_id)
+        if override_tvdb_id:
+            ids["tvdb_id"] = override_tvdb_id
+    return ids
+
+
 def resolve_tvdb_id_for_tmdb_show(media_id, tv_data=None):
     """Return a TVDB series id for a TMDB show using cached data or search."""
     return _discover_tmdb_tvdb_id_from_search(media_id, tv_data=tv_data)

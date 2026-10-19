@@ -1639,6 +1639,23 @@ def _get_movie_extended(movie_id):
     return data
 
 
+def _series_characters_payload(series_id):
+    """Return a series extended payload for its characters.
+
+    Reuses the translated payload when cached; otherwise fetches the raw one,
+    skipping the translation request characters don't need.
+    """
+    cached = cache.get(_series_extended_cache_key(series_id))
+    if cached is not None:
+        return cached
+    cache_key = _cache_key("series_extended_raw", series_id)
+    data = cache.get(cache_key)
+    if data is None:
+        data = _unwrap_data(_request(f"series/{series_id}/extended")) or {}
+        cache.set(cache_key, data, timeout=TVDB_METADATA_CACHE_TIMEOUT)
+    return data
+
+
 def character_images(media_type: str, tvdb_id) -> list[dict]:
     """Return the on-screen characters of a TVDB series or movie with both images.
 
@@ -1648,7 +1665,7 @@ def character_images(media_type: str, tvdb_id) -> list[dict]:
     if media_type == MediaTypes.MOVIE.value:
         data = _get_movie_extended(tvdb_id)
     else:
-        data = _get_series_extended(tvdb_id)
+        data = _series_characters_payload(tvdb_id)
     rows = []
     for character in _coerce_list((data or {}).get("characters")):
         if not isinstance(character, dict) or not _is_on_screen(character):
