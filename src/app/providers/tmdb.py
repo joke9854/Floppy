@@ -379,6 +379,9 @@ def _discover_tmdb_tvdb_id_from_search(media_id, tv_data=None):
     return None
 
 
+EXTERNAL_IDS_CACHE_TIMEOUT = 60 * 60 * 24 * 30
+
+
 def external_ids(media_type, media_id):
     """Return TMDB's external IDs (imdb_id, tvdb_id, ...) for a movie or show, cheaply.
 
@@ -402,7 +405,8 @@ def external_ids(media_type, media_id):
                 ) or {}
             except requests.exceptions.HTTPError as error:
                 handle_error(error)
-            cache.set(cache_key, ids)
+            # IDs don't change; keep them for a month, not the default day.
+            cache.set(cache_key, ids, timeout=EXTERNAL_IDS_CACHE_TIMEOUT)
         ids = dict(ids)
     if media_type == MediaTypes.TV.value:
         override_tvdb_id = get_tvdb_id_override(media_id)

@@ -1682,10 +1682,24 @@ def character_images(media_type: str, tvdb_id) -> list[dict]:
     return rows
 
 
+MOVIE_ID_CACHE_TIMEOUT = 60 * 60 * 24 * 30
+
+
 def movie_id_for_imdb(imdb_id: str) -> str | None:
-    """Return the TVDB movie id matching an IMDb id, if TVDB knows one."""
+    """Return the TVDB movie id matching an IMDb id, if TVDB knows one.
+
+    TVDB's remote-ID search is the slow step for movies, and the mapping never
+    changes, so the answer (a miss included, as "") is kept for a month.
+    """
+    cache_key = _cache_key("movie_for_imdb", imdb_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached or None
+    movie_id = ""
     for result in search_remote_id(imdb_id) or []:
         movie_data = result.get("movie") if isinstance(result, dict) else None
         if isinstance(movie_data, dict) and movie_data.get("id"):
-            return str(movie_data["id"])
-    return None
+            movie_id = str(movie_data["id"])
+            break
+    cache.set(cache_key, movie_id, timeout=MOVIE_ID_CACHE_TIMEOUT)
+    return movie_id or None

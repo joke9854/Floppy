@@ -35,8 +35,11 @@ class PublicEndpointsTests(FloppyApiTestCase):
                 "timezone",
                 "admin_enabled",
                 "track_time",
+                # Fork capability flags CineTrack reads (api.serializers InfoSerializer).
+                "api_extensions",
             },
         )
+        self.assertIs(payload["api_extensions"]["cinetrack_characters_v1"], True)
 
     def test_openapi_endpoints_are_public(self):
         for route_name in (

@@ -1,6 +1,7 @@
 """Character pictures for CineTrack's cast row, read through Floppy's TVDB key."""
 
 import logging
+import time
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -14,6 +15,8 @@ from app.providers import credentials, services, tmdb, tvdb
 from .contract_serializers import DetailErrorSerializer
 
 logger = logging.getLogger(__name__)
+
+SLOW_STAGE_LOG_SECONDS = 1.0
 
 class CineTrackCharacterSerializer(serializers.Serializer):
     """One on-screen character with its TVDB pictures."""
@@ -73,10 +76,20 @@ class MediaCharactersView(drf_views.APIView):
             if not tvdb.enabled(request.user):
                 return Response({"tvdb_id": None, "reason": "tvdb_not_configured", "characters": []}, status=HTTP.OK)
             try:
+                started = time.monotonic()
                 tvdb_id = _tvdb_id(media_type, source, media_id)
+                resolved = time.monotonic()
                 if not tvdb_id:
                     return Response({"tvdb_id": None, "reason": "no_tvdb_match", "characters": []}, status=HTTP.OK)
                 characters = tvdb.character_images(media_type, tvdb_id)
+                finished = time.monotonic()
+                if finished - started > SLOW_STAGE_LOG_SECONDS:
+                    # Names the slow step: finding the TVDB id, or reading its characters.
+                    logger.info(
+                        "cinetrack_characters_timing media=%s/%s/%s tvdb_id_ms=%d characters_ms=%d",
+                        media_type, source, media_id,
+                        (resolved - started) * 1000, (finished - resolved) * 1000,
+                    )
             except services.ProviderAPIError as error:
                 logger.warning("CineTrack characters unavailable for %s %s %s: %s", media_type, source, media_id, error.provider)
                 return Response({"detail": "Metadata provider unavailable."}, status=HTTP.SERVICE_UNAVAILABLE)

@@ -159,3 +159,25 @@ class ExternalIdsTests(FloppyApiTestCase):
 
         self.assertEqual(ids["tvdb_id"], 81189)
         request.assert_not_called()
+
+
+class MovieIdCacheTests(FloppyApiTestCase):
+    """TVDB's slow remote-ID search runs once per IMDb id."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_match_and_miss_are_both_remembered(self):
+        from app.providers import tvdb
+
+        with patch("app.providers.tvdb.search_remote_id", return_value=[{"movie": {"id": 169}}]) as search:
+            self.assertEqual(tvdb.movie_id_for_imdb("tt0133093"), "169")
+            self.assertEqual(tvdb.movie_id_for_imdb("tt0133093"), "169")
+        search.assert_called_once()
+
+        with patch("app.providers.tvdb.search_remote_id", return_value=[]) as search:
+            self.assertIsNone(tvdb.movie_id_for_imdb("tt0000001"))
+            self.assertIsNone(tvdb.movie_id_for_imdb("tt0000001"))
+        search.assert_called_once()
