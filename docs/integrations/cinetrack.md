@@ -10,9 +10,10 @@ and the rules both sides keep. The client side is described in CineTrack's
 
 CineTrack connects in one of two ways:
 
-- **API key**: the user's token, sent as `Authorization: Bearer <token>`.
+- **API key**: the user's token, sent as `X-API-Key` (never on the public `/info/` call).
 - **Sign in with Floppy**: OAuth authorization code with PKCE at `/o/`, using the
-  built-in public app `cinetrack` with redirect URI `cinetrack://floppy`.
+  built-in public app `cinetrack` with redirect URI `cinetrack://floppy`; tokens are
+  sent as `Authorization: Bearer`.
 
 The preflight is `GET /api/v1/cinetrack/connection/` (needs `watchlist:read`) plus
 `GET /api/v1/info/`. CineTrack falls back to `GET /api/v1/user/preferences/` only when an
