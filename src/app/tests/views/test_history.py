@@ -862,12 +862,12 @@ class HistoryMonthViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["media_type"], MediaTypes.GAME.value)
-        # base.html renders the navbar's current type into selectedType; the
+        # base.html passes the navbar's current type to searchForm(); the
         # dropdown list below it always contains every type, so assert on the
         # selection itself rather than on the presence of "tv" anywhere.
         self.assertContains(
             response,
-            "selectedType: { display: 'Games', value: 'game' }",
+            "searchForm({ display: 'Games', value: 'game',",
         )
 
     def test_media_type_month_view_uses_cached_month_days(self):
