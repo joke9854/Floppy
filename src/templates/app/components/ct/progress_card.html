@@ -1,0 +1,93 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack progress card (W2): the artwork behind a dark left-to-right
+  fade, an 82px poster, the title with what's left, "S2 E5" for the next
+  episode, a glass check and a progress line along the bottom edge.
+
+  The check posts the same fields as the track modal's "Add watch" to
+  episode_save, with the end date taken in the browser at the moment of the
+  click (date only when TRACK_TIME is off), so history keeps the exact time.
+
+  Context: item, media, next_episode (from ct_next_episode), user,
+  TRACK_TIME, IMG_NONE.
+{% endcomment %}
+{% with image=media.card_image_override|default:item.image|default:IMG_NONE title=item|display_title:user %}
+  {% with srcset=image|tmdb_srcset percent=media|safe_attr:"progress_percentage" %}
+    <article class="ct-progress-card"
+             data-poster-accent-scope
+             data-media-type="{{ item.media_type }}"
+             style="--ct-progress: {{ percent|default:0 }}%; --ct-progress-step: {% if media.max_progress %}{% widthratio 1 media.max_progress 100 %}{% else %}0{% endif %}%">
+      <img alt=""
+           aria-hidden="true"
+           class="ct-progress-art ct-fade-img"
+           src="{{ image|tmdb_size:'w342'|image_url }}"
+           width="342"
+           height="513"
+           loading="lazy"
+           decoding="async">
+      {% if srcset %}
+        {# Accent sampling only. A size no other image uses, so its CORS-mode fetch never meets a cached no-CORS copy (which fails and would break a visible poster). #}
+        <img alt=""
+             aria-hidden="true"
+             class="ct-accent-probe"
+             src="{{ image|tmdb_size:'w92'|image_url }}"
+             crossorigin="anonymous"
+             data-poster-accent
+             width="1"
+             height="1"
+             decoding="async">
+      {% endif %}
+      <span class="ct-progress-fade" aria-hidden="true"></span>
+      <a href="{{ item|media_url }}" class="ct-progress-poster" tabindex="-1" aria-hidden="true">
+        <img alt=""
+             class="ct-fade-img"
+             src="{{ image|tmdb_size:'w185'|image_url }}"
+             {% if srcset %}srcset="{{ srcset }}" sizes="82px"{% endif %}
+             width="82"
+             height="123"
+             loading="lazy"
+             decoding="async">
+      </a>
+      <div class="ct-progress-body">
+        <div class="ct-progress-head">
+          <a href="{{ item|media_url }}" class="ct-progress-title">{{ title }}</a>
+          {% if media.time_left_display %}
+            <span class="ct-progress-left">{{ media.time_left_display }}</span>
+          {% elif media.episodes_left %}
+            <span class="ct-progress-left">
+              {% blocktranslate trimmed count count=media.episodes_left %}{{ count }} left{% plural %}{{ count }} left{% endblocktranslate %}
+            </span>
+          {% endif %}
+        </div>
+        <span class="ct-progress-episode" data-ct-episode-label>S{{ next_episode.season_number }} E{{ next_episode.episode_number }}</span>
+      </div>
+      {% watch_operation_id as check_watch_operation_id %}
+      <form class="ct-check-form"
+            hx-post="{% url 'episode_save' %}?next={% url 'home' %}"
+            hx-swap="none"
+            hx-vals='js:{end_date: window.ctWatchNow({{ TRACK_TIME|yesno:"true,false" }})}'
+            hx-disabled-elt="find button"
+            data-ct-check>
+        {% csrf_token %}
+        <input type="hidden" name="media_id" value="{{ next_episode.media_id }}">
+        <input type="hidden" name="season_number" value="{{ next_episode.season_number }}">
+        <input type="hidden" name="episode_number" value="{{ next_episode.episode_number }}">
+        <input type="hidden" name="source" value="{{ next_episode.source }}">
+        {% if next_episode.library_media_type %}
+          <input type="hidden" name="library_media_type" value="{{ next_episode.library_media_type }}">
+        {% endif %}
+        <input type="hidden" name="watch_operation_id" value="{{ check_watch_operation_id }}">
+        <button type="submit"
+                class="ct-check ct-glass-control"
+                aria-label="{% blocktranslate trimmed with value_1=title value_2=next_episode.season_number value_3=next_episode.episode_number %}Mark {{ value_1 }} S{{ value_2 }} E{{ value_3 }} watched{% endblocktranslate %}"
+                title="{% translate "Mark watched" %}">
+          {% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}
+        </button>
+      </form>
+      {# djlint:off H020 #}
+      <span class="ct-progress-line" aria-hidden="true"><span></span></span>
+      {# djlint:on #}
+    </article>
+  {% endwith %}
+{% endwith %}

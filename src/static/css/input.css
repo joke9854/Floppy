@@ -751,6 +751,334 @@ html.cinetrack {
   color: var(--poster-accent, var(--color-accent));
 }
 
+/* CineTrack Home cards (W2). Posters stay crisp: no glass or blur over them;
+   only the check button and the status chip are glass controls. */
+.ct-poster-card {
+  position: relative;
+}
+
+.ct-poster-link {
+  display: block;
+  border-radius: var(--ct-radius-sm);
+  outline: none;
+}
+
+.ct-poster-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--ct-radius-sm);
+  aspect-ratio: 2 / 3;
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 22%), 0 7px 18px rgb(0 0 0 / 14%);
+  transition: transform var(--motion-short) var(--ease-standard);
+}
+
+/* M5: posters lift instead of scaling, which would blur the art. */
+.ct-poster-link:hover .ct-poster-frame {
+  transform: translateY(-3px);
+}
+
+.ct-poster-link:focus-visible .ct-poster-frame {
+  box-shadow: 0 0 0 2px var(--poster-accent-text, var(--color-accent));
+}
+
+.ct-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-poster-title {
+  display: block;
+  margin-top: 8px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-poster-sub {
+  display: block;
+  min-height: 1.3em;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.ct-poster-card .media-status-chip {
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  background-color: rgb(23 27 33 / 72%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%), 0 4px 12px rgb(0 0 0 / 28%);
+}
+
+/* Progress line along the bottom edge (poster card and progress card). */
+.ct-progress-line {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  background-color: rgb(74 78 87 / 85%);
+}
+
+.ct-progress-line > span {
+  display: block;
+  height: 100%;
+  background-color: var(--poster-accent, var(--color-accent));
+  transition: width var(--motion-progress) var(--ease-standard);
+}
+
+.ct-progress-line.is-paused > span {
+  opacity: 0.45;
+}
+
+.ct-progress-slot {
+  width: min(86vw, 360px);
+}
+
+/* The phone grid-density setting sizes poster cards (!important, below);
+   the progress card keeps its own width. */
+[data-mobile-grid] .home-row-card.ct-progress-slot {
+  width: min(86vw, 360px) !important;
+}
+
+.ct-progress-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 147px;
+  padding: 12px 12px 15px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--ct-radius-md);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 22%), 0 7px 18px rgb(0 0 0 / 14%);
+  isolation: isolate;
+}
+
+.ct-progress-card .ct-progress-line > span {
+  width: var(--ct-progress);
+}
+
+.ct-progress-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: -2;
+  width: 70%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+.ct-accent-probe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ct-progress-fade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface) 30%,
+    rgb(42 41 50 / 88%) 55%,
+    rgb(42 41 50 / 55%) 100%
+  );
+}
+
+.ct-progress-poster {
+  flex: none;
+  width: 82px;
+  height: 123px;
+  overflow: hidden;
+  border-radius: 10px;
+  background-color: var(--color-surface-strong, #33323b);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 35%);
+}
+
+.ct-progress-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-progress-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-right: 48px;
+}
+
+.ct-progress-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.ct-progress-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ct-progress-title:hover {
+  text-decoration: underline;
+}
+
+.ct-progress-left {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ct-progress-episode {
+  color: var(--poster-accent-text, var(--color-text-secondary));
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ct-check-form {
+  position: absolute;
+  right: 12px;
+  bottom: 18px;
+}
+
+.ct-check {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    transform var(--motion-short) var(--ease-standard),
+    background-color var(--motion-medium) var(--ease-standard),
+    color var(--motion-medium) var(--ease-standard);
+}
+
+.ct-check:hover {
+  background-color: rgb(23 27 33 / 72%);
+}
+
+/* M5: press at .92, then fill green when the watch is saved. */
+.ct-check:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.ct-check:focus-visible {
+  outline: 2px solid var(--poster-accent-text, var(--color-accent));
+  outline-offset: 2px;
+}
+
+.ct-check.is-done,
+.ct-check.is-done:hover {
+  border-color: transparent;
+  background-color: #06804b;
+  color: #fff;
+  cursor: default;
+}
+
+.ct-check.htmx-request {
+  opacity: 0.7;
+}
+
+/* M7: posters fade in once decoded (ctShell.js adds .is-loaded). Without
+   scripting they show at once. */
+@media (scripting: enabled) {
+  .ct-fade-img {
+    opacity: 0;
+    transition: opacity 200ms var(--ease-standard);
+  }
+
+  .ct-fade-img.is-loaded {
+    opacity: 1;
+  }
+}
+
+/* M5: toasts are glass pills that slide up above the bottom nav. */
+html.cinetrack #htmx-toast-outlet {
+  top: auto;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  html.cinetrack #htmx-toast-outlet {
+    bottom: 24px;
+  }
+}
+
+html.cinetrack #htmx-toast-outlet > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+html.cinetrack #htmx-toast-outlet [role] {
+  border: 0.9px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background-color: rgb(23 27 33 / 72%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%), 0 10px 30px rgb(0 0 0 / 32%);
+  color: var(--color-text);
+  opacity: 1;
+  transform: none;
+  animation: ct-toast-in var(--motion-medium) var(--ease-enter) both;
+}
+
+html.cinetrack #htmx-toast-outlet .toast-success::before,
+html.cinetrack #htmx-toast-outlet .toast-error::before {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  content: "";
+}
+
+html.cinetrack #htmx-toast-outlet .toast-success::before {
+  background-color: #2fbf71;
+}
+
+html.cinetrack #htmx-toast-outlet .toast-error::before {
+  background-color: #ff6b5b;
+}
+
+@keyframes ct-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* M6: a spinner appears only after 400 ms of waiting, so quick requests
    finish without a flash. The reveal restarts whenever the spinner is
    shown again. */

@@ -1,0 +1,50 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack poster card (W2): a crisp 2:3 poster with the title and a
+  subtitle below, the shared status chip (glass on this card) and, for
+  in-progress media, a progress line along the poster's bottom edge.
+  Context: item, media (optional), entry (optional, for subtitle_override),
+  user, IMG_NONE.
+{% endcomment %}
+{% with image=media.card_image_override|default:item.image|default:IMG_NONE %}
+  {% with srcset=image|tmdb_srcset %}
+    <article class="ct-poster-card group" data-media-type="{{ item.media_type }}" data-poster-accent-scope>
+      <a href="{{ item|media_url }}" class="ct-poster-link">
+        <span class="ct-poster-frame">
+          <img alt="{% if item.media_type == MediaTypes.SEASON.value %}{% season_card_title item %}{% else %}{{ item|display_title:user }}{% endif %}"
+               class="ct-poster-img ct-fade-img"
+               src="{{ image|tmdb_size:'w342'|image_url }}"
+               {% if srcset %}srcset="{{ srcset }}" sizes="176px"{% endif %}
+               width="342"
+               height="513"
+               loading="lazy"
+               decoding="async">
+          {% if media and user.progress_bar %}
+            {# Same rule as media_card.html's inset bar: in progress or paused, counted media only. #}
+            {% with bar_status=media.aggregated_status|default:media.status percent=media|safe_attr:"progress_percentage" %}
+              {% if bar_status == Status.IN_PROGRESS.value or bar_status == Status.PAUSED.value %}
+                {% if item.media_type != MediaTypes.MOVIE.value and media.max_progress and media.progress %}
+                  {% widthratio media.progress media.max_progress 100 as count_percent %}
+                  <span class="ct-progress-line{% if bar_status == Status.PAUSED.value %} is-paused{% endif %}"
+                        aria-hidden="true"><span style="width: {% if percent is not None %}{{ percent }}{% else %}{{ count_percent }}{% endif %}%"></span></span>
+                {% endif %}
+              {% endif %}
+            {% endwith %}
+          {% endif %}
+        </span>
+        <span class="ct-poster-title">{% if item.media_type == MediaTypes.SEASON.value %}{% season_card_title item %}{% else %}{{ item|display_title:user }}{% endif %}</span>
+        <span class="ct-poster-sub">
+          {% if entry.subtitle_override %}
+            {{ entry.subtitle_override|iso_date_format:user }}
+          {% elif item.release_datetime %}
+            {{ item.release_datetime|date:"Y" }}
+          {% endif %}
+        </span>
+      </a>
+      {% if media %}
+        {% include "app/components/media_card_status_chip.html" with media=media current_sort_value="" recommend_mode=False show_next_event_chip=True Status=Status only %}
+      {% endif %}
+    </article>
+  {% endwith %}
+{% endwith %}

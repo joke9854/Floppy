@@ -277,7 +277,9 @@ function trackModalCreateToast(detail) {
     ? duration
     : type === "warning" || type === "error"
       ? 8000
-      : 5000;
+      : document.querySelector("[data-ct-shell]")
+        ? 2800
+        : 5000;
   window.setTimeout(() => toast.remove(), timeout);
   return toast;
 }

@@ -91,6 +91,94 @@ def image_url(value):
     return image_cache.rewrite_image_url(value)
 
 
+TMDB_IMAGE_SIZE_RE = re.compile(r"^(https://image\.tmdb\.org/t/p/)(?:w\d+|h\d+|original)(/.+)$")
+
+
+@register.filter
+def tmdb_size(value, size):
+    """Return a TMDB image URL at another size; other URLs pass through.
+
+    Only the rendered URL changes: stored image URLs keep their size.
+    """
+    match = TMDB_IMAGE_SIZE_RE.match(value) if isinstance(value, str) else None
+    if not match:
+        return value
+    return f"{match.group(1)}{size}{match.group(2)}"
+
+
+@register.filter
+def tmdb_srcset(value, sizes="w185,w342,w500"):
+    """Return a srcset of proxied TMDB sizes, or "" for non-TMDB images."""
+    if not isinstance(value, str) or not TMDB_IMAGE_SIZE_RE.match(value):
+        return ""
+    return ", ".join(
+        f"{image_url(tmdb_size(value, size))} {size[1:]}w" for size in sizes.split(",")
+    )
+
+
+# Views whose Home rows render the CineTrack cards; detail recommendations
+# reuse home_grid.html and keep the classic card until W3.
+CT_HOME_VIEWS = frozenset(
+    {
+        "home",
+        "home_rest_fragment",
+        "home_row_artwork_refresh",
+        "home_rows_artwork_refresh",
+        "toggle_home_screen_row_direction",
+    },
+)
+
+
+@register.filter
+def uses_ct_home_cards(request):
+    """Return whether this request renders Home rows with the CineTrack cards."""
+    user = getattr(request, "user", None)
+    match = getattr(request, "resolver_match", None)
+    return (
+        getattr(user, "theme", None) == "cinetrack"
+        and match is not None
+        and match.url_name in CT_HOME_VIEWS
+    )
+
+
+@register.simple_tag
+def ct_next_episode(entry):
+    """Return the episode a Home entry's progress card check marks watched.
+
+    Only entries that show progress controls get one. The coordinates are the
+    ones the track modal posts to episode_save, so the check records a watch
+    exactly as "Add watch" does.
+    """
+    item, media = entry.item, entry.media
+    if media is None or not entry.show_progress_controls:
+        return None
+    if item.media_type == MediaTypes.SEASON.value:
+        if not hasattr(media, "next_episode_number"):
+            return None
+        season_item, episode_number = item, media.next_episode_number()
+    elif item.media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value):
+        if getattr(media, "seasons", None) is None or not hasattr(
+            media,
+            "next_episode_target",
+        ):
+            return None
+        target = media.next_episode_target()
+        if target is None:
+            return None
+        season_item, episode_number = target[0].item, target[1]
+    else:
+        return None
+    if episode_number is None or season_item.season_number is None:
+        return None
+    return {
+        "media_id": season_item.media_id,
+        "source": season_item.source,
+        "season_number": season_item.season_number,
+        "episode_number": episode_number,
+        "library_media_type": season_item.library_media_type,
+    }
+
+
 @register.filter
 def user_tag_names(item_tags, user):
     """Return tag names from a prefetched ItemTag queryset, scoped to one user."""
