@@ -2,6 +2,8 @@
 {% load app_tags %}
 {% load user_tags %}
 {% load i18n %}
+{# W1: the CineTrack shell (rail + bottom nav) replaces the sidebar for that theme only. #}
+{% if user.is_authenticated and user.theme == 'cinetrack' and not public_view|default:False %}{% firstof "1" as ct_shell %}{% endif %}
 
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}"
@@ -11,7 +13,7 @@
   <head>
     {# Required meta tags #}
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0{% if ct_shell %}, viewport-fit=cover{% endif %}">
     <meta name="keywords" content="Floppy, Media Tracker">
     <meta name="description" content="Search and track media on Floppy.">
     <meta name="mobile-web-app-capable" content="yes">
@@ -39,7 +41,6 @@
             crossorigin>
     {% endif %}
     <link rel="stylesheet"
-          type="text/css"
           href="{% static 'css/main.css' %}{% get_static_file_mtime 'css/main.css' %}">
     {% djdt_enabled as djdt_is_enabled %}
     {% if djdt_is_enabled %}
@@ -148,6 +149,7 @@
     <script src="{% static 'js/horizontal-scroll.js' %}{% get_static_file_mtime 'js/horizontal-scroll.js' %}" defer></script>
     <script src="{% static 'js/searchForm.js' %}{% get_static_file_mtime 'js/searchForm.js' %}" defer></script>
     <script src="{% static 'js/posterAccent.js' %}{% get_static_file_mtime 'js/posterAccent.js' %}" defer></script>
+    <script src="{% static 'js/ctShell.js' %}{% get_static_file_mtime 'js/ctShell.js' %}" defer></script>
     <script defer src="{% static 'js/libraries/alpinejs-3.14.9.min.js' %}"></script>
 
     <link rel="apple-touch-icon"
@@ -237,13 +239,19 @@
       <div class="flex min-h-screen bg-[var(--color-page-bg)] text-[var(--color-text)]"
            x-data="{ isMobileMenuOpen: false }">
 
+        {% if ct_shell %}
+          {% include "app/components/ct/shell_nav.html" %}
+        {% endif %}
+
         {# Mobile menu overlay #}
+        {% if not ct_shell %}
         <div x-show="isMobileMenuOpen"
              class="fixed inset-0 bg-black/50 z-30 lg:hidden"
              @click="isMobileMenuOpen = false"></div>
+        {% endif %}
 
         {# Sidebar #}
-        {% if not public_view|default:False %}
+        {% if not public_view|default:False and not ct_shell %}
           <aside class="fixed top-0 left-0 z-40 h-screen w-64 bg-[var(--color-sidebar)] transform transition-transform duration-300 ease-in-out border-r border-[var(--color-border)] -translate-x-full lg:translate-x-0 lg:sticky flex flex-col"
                  :class="isMobileMenuOpen ? 'translate-x-0' : ''">
             <div class="h-16 border-b border-[var(--color-border)] flex items-center px-6">
@@ -456,14 +464,15 @@
         {% endif %}
 
         {# Main content #}
-        <div class="flex-1 flex flex-col min-h-screen min-w-0">
+        <div class="flex-1 flex flex-col min-h-screen min-w-0{% if ct_shell %} md:pl-[88px] pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-0{% endif %}"{% if ct_shell %} data-ct-shell{% endif %}>
           {# Top bar #}
-          <div class="sticky top-0 z-50 bg-[var(--color-sidebar)] border-b border-[var(--color-border)] shadow-md">
+          <div class="sticky top-0 z-50 {% if ct_shell %}ct-topbar{% else %}bg-[var(--color-sidebar)] border-b border-[var(--color-border)] shadow-md{% endif %}">
             <div class="container mx-auto px-4">
               <div class="flex items-center justify-between lg:justify-center gap-2 h-16 min-w-0">
                 {# Mobile: sidebar toggle button #}
-                {% if not public_view|default:False %}
-                  <button @click="isMobileMenuOpen = !isMobileMenuOpen"
+                {% if not public_view|default:False and not ct_shell %}
+                  <button type="button"
+                          @click="isMobileMenuOpen = !isMobileMenuOpen"
                           class="lg:hidden pe-3 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors duration-200">
                     {% include "app/icons/hamburger.svg" with classes="w-6 h-6" %}
 
@@ -499,6 +508,7 @@
                                  aria-autocomplete="list"
                                  aria-expanded="false"
                                  aria-controls="search-suggestions"
+                                 {% if ct_shell %}aria-keyshortcuts="Control+K Meta+K /"{% endif %}
                                  hx-get="{% url 'search_suggestions' %}"
                                  hx-trigger="keyup changed delay:250ms, search"
                                  hx-target="#search-suggestions"
@@ -621,7 +631,7 @@
     {% endblock body %}
 
     {% if messages %}
-      <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}lg:left-64{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none">
+      <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}{% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %}{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none">
         <div class="w-full max-w-xl px-4 space-y-2 pointer-events-auto">
           {% for message in messages %}
             {# djlint:off #}
@@ -630,7 +640,7 @@
                   init() { 
                     // Start entrance animation after a tiny delay
                     setTimeout(() => this.$el.classList.add('opacity-100', 'transform-none'), 10);
-                    this.$el.classList.add('transition-all', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]');
+                    this.$el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]');
           
                     {% if message.tags not in 'warning,error' %}
                       // Auto-dismiss non-critical messages
@@ -665,7 +675,7 @@
     {% endif %}
 
     <div id="htmx-toast-outlet"
-         class="fixed top-24 right-0 left-0 lg:left-64 z-50 flex justify-center pointer-events-none"
+         class="fixed top-24 right-0 left-0 {% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %} z-50 flex justify-center pointer-events-none"
          aria-live="polite"
          aria-atomic="true">
       <div class="w-full max-w-xl px-4 space-y-2 pointer-events-auto"></div>
@@ -846,11 +856,8 @@
         window.addEventListener("load", () => {
           navigator.serviceWorker
             .register("/serviceworker.js")
-            .then((registration) => {
-              console.log("SW registered: ", registration);
-            })
             .catch((registrationError) => {
-              console.log("SW registration failed: ", registrationError);
+              console.warn("Service worker registration failed", registrationError);
             });
         });
       }

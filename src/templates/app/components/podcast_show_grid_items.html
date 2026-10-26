@@ -59,7 +59,7 @@
 
         <div class="relative z-10 flex w-full max-w-full flex-wrap items-center justify-center gap-2.5 px-2">
           {# Track Button #}
-          <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-200 cursor-pointer"
+          <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                   title="{% translate "Edit tracking" %}"
                   hx-get="{% url 'podcast_show_track_modal' tracker.show.id %}"
                   hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -71,14 +71,14 @@
 
           {# View Show Button #}
           <a href="{% url 'podcast_show_detail' tracker.show.id %}"
-             class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-200 cursor-pointer"
+             class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition duration-200 cursor-pointer"
              title="{% translate "View show" %}">
             {% include "app/icons/microphone.svg" with classes="w-4 h-4" %}
           </a>
 
           {# History Button #}
           <a href="{% url 'history' %}?media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ tracker.show.id }}"
-             class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-200 cursor-pointer"
+             class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition duration-200 cursor-pointer"
              title="{% translate "View listening history" %}">
             {% include "app/icons/history.svg" with classes="w-4 h-4" %}
           </a>

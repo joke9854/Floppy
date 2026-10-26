@@ -67,7 +67,7 @@
         <div class="relative z-10 flex w-full max-w-full flex-wrap items-center justify-center gap-2.5 px-2">
           {% if history_mode != "release" %}
             {# Edit Tracking Button #}
-            <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-200 cursor-pointer"
+            <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                     title="{% translate "Edit tracking" %}"
                     hx-get="{% media_view_url 'track_modal' entry.item %}"
                     hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"{% if entry.instance_id %}, "instance_id": "{{ entry.instance_id }}"{% endif %}, "standard_modal": "1"}'
@@ -78,7 +78,7 @@
             </button>
 
             {# Lists Button #}
-            <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-200 cursor-pointer"
+            <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition duration-200 cursor-pointer"
                     title="{% translate "Add to custom lists" %}"
                     hx-get="{% media_view_url 'lists_modal' entry.item %}"
                     hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -89,7 +89,7 @@
             </button>
 
             {# History View Button #}
-            <a class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-200 cursor-pointer"
+            <a class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition duration-200 cursor-pointer"
                title="{% translate "View your activity history" %}"
                href="{% url 'history' %}?{% if entry.media_type == MediaTypes.MUSIC.value and entry.album %}album={{ entry.album.id }}{% elif entry.media_type == MediaTypes.PODCAST.value and entry.show %}media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ entry.show.id }}{% elif entry.media_type == MediaTypes.EPISODE.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ entry.item.media_id|urlencode }}&source={{ entry.item.source|urlencode }}{% if entry.item.season_number %}&season_number={{ entry.item.season_number }}{% endif %}{% else %}media_type={{ entry.media_type }}&media_id={{ entry.item.media_id|urlencode }}&source={{ entry.item.source|urlencode }}{% endif %}{% if entry.media_type == MediaTypes.GAME.value or entry.media_type == MediaTypes.BOARDGAME.value %}&logging_style=sessions{% endif %}">
               {% include "app/icons/history.svg" with classes="w-4 h-4" %}

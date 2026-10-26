@@ -526,6 +526,250 @@ html.cinetrack {
   }
 }
 
+/* CineTrack shell (W1): floating icon rail (md+), bottom nav (<md), glass
+   top bar. Display is left to Tailwind (hidden/md:flex) so the breakpoints
+   stay in the template. */
+.ct-topbar {
+  background-color: rgb(28 27 34 / 72%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid rgb(255 255 255 / 6%);
+}
+
+.ct-rail {
+  position: fixed;
+  z-index: 55;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  width: 64px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-radius: var(--ct-radius-lg);
+}
+
+.ct-rail-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ct-radius-sm);
+}
+
+.ct-rail-link,
+.ct-tab {
+  position: relative;
+  color: var(--color-text-muted);
+  transition:
+    color var(--motion-short) var(--ease-standard),
+    background-color var(--motion-short) var(--ease-standard);
+}
+
+.ct-rail-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.ct-rail-link:hover {
+  color: var(--color-text);
+  background-color: rgb(255 255 255 / 6%);
+}
+
+.ct-rail-link[aria-current="page"],
+.ct-rail-link.is-current,
+.ct-rail-link[aria-expanded="true"] {
+  color: var(--color-text);
+  background-color: rgb(255 255 255 / 12%);
+}
+
+.ct-rail-link[aria-current="page"] > [aria-hidden],
+.ct-rail-link.is-current > [aria-hidden],
+.ct-tab[aria-current="page"] .ct-tab-icon,
+.ct-tab.is-current .ct-tab-icon {
+  color: var(--poster-accent, var(--color-accent));
+}
+
+.ct-rail-link-attention {
+  color: var(--ct-gold);
+}
+
+.ct-rail-link:focus-visible,
+.ct-tab:focus-visible,
+.ct-menu-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The label is the link's accessible name; it only becomes visible on
+   hover or keyboard focus. */
+.ct-rail-tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  padding: 4px 10px;
+  border-radius: var(--ct-radius-xs);
+  background-color: rgb(23 27 33 / 94%);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  transition:
+    opacity var(--motion-short) var(--ease-standard),
+    transform var(--motion-short) var(--ease-standard);
+}
+
+.ct-rail-link:hover .ct-rail-tip,
+.ct-rail-link:focus-visible .ct-rail-tip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.ct-rail-link[aria-expanded="true"] .ct-rail-tip {
+  opacity: 0;
+}
+
+.ct-bottom-nav {
+  position: fixed;
+  z-index: 55;
+  right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 12px;
+  padding: 6px;
+  border-radius: var(--ct-radius-lg);
+}
+
+.ct-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 4px 0;
+  border-radius: var(--ct-radius-md);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Selected-tab droplet. */
+.ct-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 30px;
+  border-radius: 9999px;
+  transition: background-color var(--motion-medium) var(--ease-standard);
+}
+
+.ct-tab[aria-current="page"],
+.ct-tab.is-current,
+.ct-tab[aria-expanded="true"] {
+  color: var(--color-text);
+}
+
+.ct-tab[aria-current="page"] .ct-tab-icon,
+.ct-tab.is-current .ct-tab-icon,
+.ct-tab[aria-expanded="true"] .ct-tab-icon {
+  background-color: rgb(255 255 255 / 12%);
+}
+
+/* Menus sit inside a glass parent, whose backdrop-filter would leave a
+   nested blur nothing to sample, so they use a near-opaque fill instead. */
+.ct-menu {
+  position: absolute;
+  z-index: 1;
+  overflow-y: auto;
+  padding: 6px;
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(30 31 38 / 97%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 10px 30px rgb(0 0 0 / 40%);
+}
+
+.ct-menu-rail {
+  top: 0;
+  left: calc(100% + 12px);
+  width: 232px;
+  max-height: calc(100vh - 24px);
+}
+
+.ct-menu-rail-bottom {
+  top: auto;
+  bottom: 0;
+}
+
+.ct-menu-sheet {
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  max-height: min(70vh, calc(100vh - 120px));
+}
+
+.ct-menu-label {
+  padding: 8px 12px 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ct-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--ct-radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  transition: background-color var(--motion-short) var(--ease-standard);
+}
+
+.ct-menu-link:hover {
+  background-color: rgb(255 255 255 / 7%);
+  color: var(--color-text);
+}
+
+.ct-menu-link[aria-current="page"] {
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+}
+
+.ct-menu-link[aria-current="page"] > [aria-hidden] {
+  color: var(--poster-accent, var(--color-accent));
+}
+
+/* M6: a spinner appears only after 400 ms of waiting, so quick requests
+   finish without a flash. The reveal restarts whenever the spinner is
+   shown again. */
+@keyframes floppy-spinner-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-spin {
+  animation:
+    spin 1s linear infinite,
+    floppy-spinner-reveal 0s linear 400ms both;
+}
+
 html :where(
   .rounded,
   .rounded-sm,

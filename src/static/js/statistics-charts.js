@@ -351,8 +351,6 @@ function initStatisticsCharts() {
       const copyWrapper = document.getElementById("scoreCopyWrapper");
       const copyCanvasWrapper = document.getElementById("scoreCopyCanvasWrapper");
       const copyCanvas = document.getElementById("scoreStackedChartCopy");
-      console.debug("[stats] activityEl:", !!activityEl, "height:", activityEl ? activityEl.clientHeight : null);
-      console.debug("[stats] copyWrapper:", !!copyWrapper, "minHeight:", copyWrapper ? copyWrapper.style.minHeight : null);
       console.debug("[stats] copyCanvasWrapper:", !!copyCanvasWrapper, "height:", copyCanvasWrapper ? copyCanvasWrapper.clientHeight : null);
       console.debug("[stats] copyCanvas:", !!copyCanvas, "clientH/clientW:", copyCanvas ? [copyCanvas.clientHeight, copyCanvas.clientWidth] : null);
     } catch (e) {

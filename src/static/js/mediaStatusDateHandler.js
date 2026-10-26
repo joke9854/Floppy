@@ -262,7 +262,7 @@ function trackModalCreateToast(detail) {
     .addEventListener("click", () => toast.remove());
 
   toast.classList.add(
-    "transition-all",
+    "transition",
     "duration-300",
     "ease-out",
     "transform",

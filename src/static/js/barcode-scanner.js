@@ -6,21 +6,13 @@
 // Barcode scanning functionality using ZXing
 async function initBarcodeScanner() {
   // ZXing is loaded from a self-hosted static library in base.html
-  console.log('[BARCODE] initBarcodeScanner called, window.ZXing:', typeof window.ZXing, window.ZXing ? 'exists' : 'undefined');
   if (typeof window.ZXing === 'undefined') {
     console.error('[BARCODE] ZXing library not loaded - make sure the script tag loaded correctly');
     return null;
   }
 
   try {
-    console.log('[BARCODE] Extracting ZXing components...');
     const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = window.ZXing;
-    console.log('[BARCODE] ZXing components extracted:', {
-      BrowserMultiFormatReader: !!BrowserMultiFormatReader,
-      BarcodeFormat: !!BarcodeFormat,
-      DecodeHintType: !!DecodeHintType,
-      BrowserMultiFormatReaderType: typeof BrowserMultiFormatReader
-    });
     
     const hints = new Map();
     const formats = [
@@ -29,24 +21,13 @@ async function initBarcodeScanner() {
       BarcodeFormat.UPC_A,
       BarcodeFormat.UPC_E,
     ];
-    console.log('[BARCODE] Setting POSSIBLE_FORMATS:', formats);
     hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
     
-    console.log('[BARCODE] Setting TRY_HARDER: true');
     hints.set(DecodeHintType.TRY_HARDER, true);
     
-    console.log('[BARCODE] Setting CHARACTER_SET: UTF-8');
     hints.set(DecodeHintType.CHARACTER_SET, 'UTF-8');
     
-    console.log('[BARCODE] Creating BrowserMultiFormatReader with hints...');
     const reader = new BrowserMultiFormatReader(hints);
-    console.log('[BARCODE] Reader created, type:', typeof reader);
-    console.log('[BARCODE] Reader methods available:', {
-      decodeFromImageData: typeof reader.decodeFromImageData,
-      decodeFromImageElement: typeof reader.decodeFromImageElement,
-      decodeFromImage: typeof reader.decodeFromImage,
-      decodeFromVideo: typeof reader.decodeFromVideo
-    });
     
     return reader;
   } catch (error) {
@@ -205,36 +186,26 @@ async function canvasToImage(canvas) {
  * @returns {Promise<string|null>} Decoded ISBN-13 or null if failed
  */
 async function decodeBarcodeFromFile(file) {
-  console.log('[BARCODE] decodeBarcodeFromFile called with file:', file.name, file.type, file.size, 'bytes');
   try {
-    console.log('[BARCODE] Initializing barcode scanner...');
     const reader = await initBarcodeScanner();
     if (!reader) {
       console.error('[BARCODE] Failed to initialize barcode reader - reader is null/undefined');
       return null;
     }
-    console.log('[BARCODE] Reader initialized successfully, type:', typeof reader, 'has decodeFromImageData:', typeof reader.decodeFromImageData);
 
-    console.log('[BARCODE] Creating blob URL from file...');
     const imageUrl = URL.createObjectURL(file);
     let originalImg;
     try {
-      console.log('[BARCODE] Loading image from blob URL...');
       originalImg = await loadImageFromUrl(imageUrl);
-      console.log('[BARCODE] Image loaded successfully');
     } finally {
       URL.revokeObjectURL(imageUrl);
-      console.log('[BARCODE] Blob URL revoked');
     }
 
     const naturalWidth = originalImg.naturalWidth || originalImg.width;
     const naturalHeight = originalImg.naturalHeight || originalImg.height;
-    console.log('[BARCODE] Original image dimensions:', naturalWidth, 'x', naturalHeight, '(natural:', originalImg.naturalWidth, 'x', originalImg.naturalHeight, ')');
     
     const maxDimension = 1600;
-    console.log('[BARCODE] Creating base canvas with max dimension:', maxDimension);
     const baseCanvas = createCanvasFromImage(originalImg, maxDimension);
-    console.log('[BARCODE] Base canvas created:', baseCanvas.width, 'x', baseCanvas.height);
     
     const candidates = [
       { label: 'full', canvas: baseCanvas },
@@ -242,7 +213,6 @@ async function decodeBarcodeFromFile(file) {
 
     const height = baseCanvas.height;
     const width = baseCanvas.width;
-    console.log('[BARCODE] Generating candidate crops. Base dimensions:', width, 'x', height);
     
     if (height >= 200) {
       const bottomHalfY = Math.floor(height * 0.5);
@@ -251,7 +221,6 @@ async function decodeBarcodeFromFile(file) {
         label: 'bottom-half',
         canvas: bottomHalfCanvas,
       });
-      console.log('[BARCODE] Added bottom-half candidate:', bottomHalfCanvas.width, 'x', bottomHalfCanvas.height);
 
       const bottomThirdY = Math.floor(height * 0.65);
       const bottomThirdCanvas = cropCanvas(baseCanvas, { sx: 0, sy: bottomThirdY, sw: width, sh: height - bottomThirdY });
@@ -259,7 +228,6 @@ async function decodeBarcodeFromFile(file) {
         label: 'bottom-third',
         canvas: bottomThirdCanvas,
       });
-      console.log('[BARCODE] Added bottom-third candidate:', bottomThirdCanvas.width, 'x', bottomThirdCanvas.height);
 
       const bandHeight = Math.max(1, Math.floor(height * 0.3));
       const bandY = Math.floor((height - bandHeight) / 2);
@@ -268,62 +236,34 @@ async function decodeBarcodeFromFile(file) {
         label: 'center-band',
         canvas: centerBandCanvas,
       });
-      console.log('[BARCODE] Added center-band candidate:', centerBandCanvas.width, 'x', centerBandCanvas.height);
     }
 
-    console.log('[BARCODE] Starting decode attempts. Total candidates:', candidates.length);
 
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i];
       try {
-        console.log(`[BARCODE] [${i + 1}/${candidates.length}] Attempting decode for candidate: "${candidate.label}"`);
-        console.log(`[BARCODE] Canvas dimensions:`, candidate.canvas.width, 'x', candidate.canvas.height);
-        console.log('[BARCODE] Converting canvas to image element for ZXing...');
         const candidateImg = await canvasToImage(candidate.canvas);
-        console.log('[BARCODE] Image element created:', {
-          width: candidateImg.width,
-          height: candidateImg.height,
-          complete: candidateImg.complete,
-          naturalWidth: candidateImg.naturalWidth,
-          naturalHeight: candidateImg.naturalHeight
-        });
         
-        console.log('[BARCODE] Calling reader.decodeFromImageElement() with image element...');
         const decodeStartTime = performance.now();
         const result = await reader.decodeFromImageElement(candidateImg);
         const decodeTime = performance.now() - decodeStartTime;
-        console.log(`[BARCODE] decodeFromImageElement completed in ${decodeTime.toFixed(2)}ms`);
-        console.log('[BARCODE] Decode result:', result, 'type:', typeof result);
         
         if (!result) {
-          console.log('[BARCODE] Result is null/undefined, trying next candidate...');
           continue;
         }
 
-        console.log('[BARCODE] Result object keys:', result ? Object.keys(result) : 'none');
         const text = result.getText ? result.getText() : (result.text || result);
-        console.log('[BARCODE] Extracted text from result:', text, 'type:', typeof text);
         
         const validatedISBN = normalizeIsbn(text);
-        console.log('[BARCODE] Normalized ISBN:', validatedISBN);
         
         if (validatedISBN) {
-          console.log('[BARCODE] SUCCESS! Valid ISBN found:', validatedISBN);
           return validatedISBN;
         } else {
-          console.log('[BARCODE] Text did not normalize to valid ISBN, trying next candidate...');
         }
       } catch (error) {
         const errorName = error?.name || 'Error';
         const errorMessage = error?.message || '';
         const errorStack = error?.stack || '';
-        console.log(`[BARCODE] Decode error for candidate "${candidate.label}":`, errorName, errorMessage);
-        console.log('[BARCODE] Error details:', {
-          name: errorName,
-          message: errorMessage,
-          constructor: error?.constructor?.name,
-          stack: errorStack.substring(0, 500) // First 500 chars of stack
-        });
         
         if (errorName !== 'NotFoundException' && errorName !== 'NoCodeFoundException') {
           console.error('[BARCODE] Unexpected error type (not NotFoundException/NoCodeFoundException):', error);
@@ -332,7 +272,6 @@ async function decodeBarcodeFromFile(file) {
       }
     }
 
-    console.log('[BARCODE] All decode attempts exhausted. No barcode found.');
     return null;
   } catch (error) {
     console.error('[BARCODE] Fatal error in decodeBarcodeFromFile:', error);

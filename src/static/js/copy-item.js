@@ -1,7 +1,6 @@
 function initCopyButtons() {
   // Find all copy buttons with a data-copy-target attribute
   const copyButtons = document.querySelectorAll('[data-copy-target]');
-  console.log(`Found ${copyButtons.length} copy buttons`);
   copyButtons.forEach((copyButton) => {
     // Skip buttons already wired up (script re-runs on boosted navigation)
     if (copyButton.dataset.copyInit) {
@@ -9,7 +8,6 @@ function initCopyButtons() {
     }
     copyButton.dataset.copyInit = "true";
     const targetSelector = copyButton.getAttribute('data-copy-target');
-    console.log(`Target selector: ${targetSelector}`);
     const input = document.querySelector(targetSelector);
     if (!input) {
       console.error(`Could not find input for selector: ${targetSelector}`);

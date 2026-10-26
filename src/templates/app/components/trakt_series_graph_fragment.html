@@ -59,9 +59,9 @@ HTMX stops automatically — same pattern as prefetch_artist_covers.
     <div class="flex items-center gap-2 py-5 px-1 text-xs text-[var(--color-text-muted)]">
       {% if poll_for_graph %}
         <span class="flex gap-1">
-          <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-500" style="animation-delay:0ms"></span>
-          <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-500" style="animation-delay:150ms"></span>
-          <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-500" style="animation-delay:300ms"></span>
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-500" style="animation-delay:0ms"></span>
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-500" style="animation-delay:150ms"></span>
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-500" style="animation-delay:300ms"></span>
         </span>
         {% translate "Building series graph…" %}
       {% else %}

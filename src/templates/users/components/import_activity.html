@@ -25,7 +25,7 @@
             <input type="hidden"
                    name="task_name"
                    value="{{ periodic_import.task.name }}">
-            <button class="text-red-400 hover:text-white p-2 rounded-md transition-all duration-200 hover:bg-red-500 cursor-pointer">
+            <button class="text-red-400 hover:text-white p-2 rounded-md transition duration-200 hover:bg-red-500 cursor-pointer">
               {% include "app/icons/trashcan.svg" with classes="w-4 h-4" %}
             </button>
           </form>
@@ -93,7 +93,7 @@
                   <span>{{ result.progress_current }} / {{ result.progress_total }}</span>
                 </div>
                 <div class="w-full bg-[var(--color-surface)] rounded-full h-1.5 overflow-hidden">
-                  <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
+                  <div class="bg-indigo-500 h-1.5 rounded-full transition-[width] duration-500"
                        style="width: {{ result.progress_percent }}%"></div>
                 </div>
               {% else %}

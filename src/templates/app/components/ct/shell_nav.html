@@ -1,0 +1,253 @@
+{% load static %}
+{% load app_tags %}
+{% load i18n %}
+{% comment %}
+  CineTrack shell navigation (W1): a floating glass icon rail from md up and
+  a glass bottom nav below md. Rendered by base.html only when the user's
+  theme is "cinetrack"; classic themes keep the sidebar. Menus use the
+  ctMenu component in static/js/ctShell.js.
+{% endcomment %}
+{% url 'discover' as discover_url %}
+{% url 'calendar' as calendar_url %}
+{% url 'history' as history_url %}
+{% url 'statistics' as statistics_url %}
+{% url 'lists' as lists_url %}
+{% url 'collection_list' as collection_list_url %}
+{% url 'tag_index' as tag_index_url %}
+{% url 'create_entry' as create_entry_url %}
+{% url 'account' as account_url %}
+{% url 'notifications' as notifications_url %}
+{% url 'sidebar' as sidebar_url %}
+{% url 'preferences' as preferences_url %}
+{% url 'home_screen' as home_screen_url %}
+{% url 'integrations' as integrations_url %}
+{% url 'import_data' as import_url %}
+{% url 'export_data' as export_url %}
+{% url 'ui_preferences' as ui_preferences_url %}
+{% url 'appearance' as appearance_url %}
+{% if media_type or request.path == lists_url or request.path == collection_list_url or request.path == tag_index_url or request.path == create_entry_url %}
+  {% firstof "1" as is_library_page %}
+{% endif %}
+{% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == ui_preferences_url or request.path == appearance_url or request.path == preferences_url or request.path == home_screen_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}
+  {% firstof "1" as is_settings_page %}
+{% endif %}
+
+{# Desktop and tablet: icon rail. Labels show on hover and keyboard focus. #}
+<nav class="ct-rail ct-glass hidden md:flex"
+     aria-label="{% translate "Main" %}"
+     hx-boost="true">
+  <img src="{% static 'favicon/apple-touch-icon.png' %}"
+       alt="Floppy"
+       width="36"
+       height="36"
+       class="ct-rail-logo">
+  <ul class="flex flex-col items-center gap-1">
+    <li>
+      <a href="{% url 'home' %}"
+         class="ct-rail-link"
+         {% if request.path == "/" %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% include "app/icons/house.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Home" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ discover_url }}"
+         class="ct-rail-link"
+         {% if request.path == discover_url %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% include "app/icons/four-square.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Discover" %}</span>
+      </a>
+    </li>
+    <li
+        x-data="ctMenu"
+        @keydown.escape="close()"
+        @click.outside="close(false)"
+        @focusout="onFocusOut($event)">
+      <button type="button"
+              x-ref="toggle"
+              class="ct-rail-link{% if is_library_page %} is-current{% endif %}"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="ct-rail-library-menu"
+              :aria-expanded="open ? 'true' : 'false'"
+              @click="toggle()">
+        <span aria-hidden="true">{% include "app/icons/grid.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Library" %}</span>
+      </button>
+      <div id="ct-rail-library-menu"
+           x-ref="panel"
+           x-cloak
+           x-show="open"
+           x-transition.opacity.duration.150ms
+           class="ct-menu ct-menu-rail">
+        {% include "app/components/ct/library_links.html" %}
+      </div>
+    </li>
+    <li>
+      <a href="{{ calendar_url }}"
+         class="ct-rail-link"
+         {% if request.path == calendar_url %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% include "app/icons/calendar.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Calendar" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ history_url }}"
+         class="ct-rail-link"
+         {% if request.path == history_url %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% icon 'history' is_active=False %}</span>
+        <span class="ct-rail-tip">{% translate "History" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ statistics_url }}"
+         class="ct-rail-link"
+         {% if request.path == statistics_url %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Stats" %}</span>
+      </a>
+    </li>
+  </ul>
+
+  <div class="mt-auto flex flex-col items-center"
+       x-data="ctMenu"
+       @keydown.escape="close()"
+       @click.outside="close(false)"
+       @focusout="onFocusOut($event)">
+    {% if request.user.onboarding_status == "in_progress" %}
+      <a href="{% url 'onboarding_resume' %}" class="ct-rail-link ct-rail-link-attention mb-1">
+        <span aria-hidden="true">{% include "app/icons/pulse.svg" with classes="w-5 h-5" %}</span>
+        <span class="ct-rail-tip">{% translate "Finish setting up Floppy" %}</span>
+      </a>
+    {% endif %}
+    <button type="button"
+            x-ref="toggle"
+            class="ct-rail-link{% if is_settings_page %} is-current{% endif %}"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="ct-rail-account-menu"
+            :aria-expanded="open ? 'true' : 'false'"
+            @click="toggle()">
+      <span aria-hidden="true">{% include "app/icons/person.svg" with classes="w-5 h-5" %}</span>
+      <span class="ct-rail-tip">{% translate "Account" %}</span>
+    </button>
+    <div id="ct-rail-account-menu"
+         x-ref="panel"
+         x-cloak
+         x-show="open"
+         x-transition.opacity.duration.150ms
+         class="ct-menu ct-menu-rail ct-menu-rail-bottom">
+      <p class="ct-menu-label">{{ user.username }}</p>
+      {% include "app/components/ct/account_links.html" %}
+    </div>
+  </div>
+</nav>
+
+{# Phone: bottom nav with five tabs, as CineTrack's LiquidBottomNav. #}
+<nav class="ct-bottom-nav ct-glass md:hidden"
+     aria-label="{% translate "Main" %}"
+     hx-boost="true">
+  <ul class="flex items-stretch">
+    <li class="flex-1">
+      <a href="{% url 'home' %}"
+         class="ct-tab"
+         {% if request.path == "/" %}aria-current="page"{% endif %}>
+        <span class="ct-tab-icon" aria-hidden="true">{% include "app/icons/house.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "Home" %}</span>
+      </a>
+    </li>
+    <li class="flex-1">
+      <a href="{{ discover_url }}"
+         class="ct-tab"
+         {% if request.path == discover_url %}aria-current="page"{% endif %}>
+        <span class="ct-tab-icon" aria-hidden="true">{% include "app/icons/four-square.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "Discover" %}</span>
+      </a>
+    </li>
+    <li class="flex-1"
+        x-data="ctMenu"
+        @keydown.escape="close()"
+        @click.outside="close(false)"
+        @focusout="onFocusOut($event)">
+      <button type="button"
+              x-ref="toggle"
+              class="ct-tab w-full{% if is_library_page %} is-current{% endif %}"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="ct-sheet-library-menu"
+              :aria-expanded="open ? 'true' : 'false'"
+              @click="toggle()">
+        <span class="ct-tab-icon" aria-hidden="true">{% include "app/icons/grid.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "Library" %}</span>
+      </button>
+      <div id="ct-sheet-library-menu"
+           x-ref="panel"
+           x-cloak
+           x-show="open"
+           x-transition.opacity.duration.150ms
+           class="ct-menu ct-menu-sheet">
+        {% include "app/components/ct/library_links.html" %}
+      </div>
+    </li>
+    <li class="flex-1">
+      <a href="{{ calendar_url }}"
+         class="ct-tab"
+         {% if request.path == calendar_url %}aria-current="page"{% endif %}>
+        <span class="ct-tab-icon" aria-hidden="true">{% include "app/icons/calendar.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "Calendar" %}</span>
+      </a>
+    </li>
+    <li class="flex-1"
+        x-data="ctMenu"
+        @keydown.escape="close()"
+        @click.outside="close(false)"
+        @focusout="onFocusOut($event)">
+      <button type="button"
+              x-ref="toggle"
+              class="ct-tab w-full{% if is_settings_page or request.path == history_url or request.path == statistics_url %} is-current{% endif %}"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="ct-sheet-more-menu"
+              :aria-expanded="open ? 'true' : 'false'"
+              @click="toggle()">
+        <span class="ct-tab-icon" aria-hidden="true">{% include "app/icons/ellipsis.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "More" %}</span>
+      </button>
+      <div id="ct-sheet-more-menu"
+           x-ref="panel"
+           x-cloak
+           x-show="open"
+           x-transition.opacity.duration.150ms
+           class="ct-menu ct-menu-sheet">
+        <ul>
+          <li>
+            <a href="{{ history_url }}"
+               class="ct-menu-link"
+               {% if request.path == history_url %}aria-current="page"{% endif %}>
+              <span aria-hidden="true">{% icon 'history' is_active=False %}</span>
+              <span>{% translate "History" %}</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ statistics_url }}"
+               class="ct-menu-link"
+               {% if request.path == statistics_url %}aria-current="page"{% endif %}>
+              <span aria-hidden="true">{% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5" %}</span>
+              <span>{% translate "Stats" %}</span>
+            </a>
+          </li>
+          {% if request.user.onboarding_status == "in_progress" %}
+            <li>
+              <a href="{% url 'onboarding_resume' %}" class="ct-menu-link">
+                <span aria-hidden="true">{% include "app/icons/pulse.svg" with classes="w-5 h-5" %}</span>
+                <span>{% translate "Finish setting up Floppy" %}</span>
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+        <p class="ct-menu-label">{{ user.username }}</p>
+        {% include "app/components/ct/account_links.html" %}
+      </div>
+    </li>
+  </ul>
+</nav>

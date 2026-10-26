@@ -252,7 +252,6 @@
       const timestamp = new Date().toISOString();
       const logEntry = `[${timestamp}] ${event}: ${details}`;
       paginationDebugLog.push(logEntry);
-      console.log(logEntry);
       
       // Keep only last 20 entries
       if (paginationDebugLog.length > 20) {

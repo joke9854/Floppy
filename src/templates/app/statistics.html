@@ -523,12 +523,10 @@
         this.cacheUpdater = CacheUpdater.init('statistics', {
           rangeName: this.selectedRangeName,
           onRefreshComplete: (success, reason) => {
-            console.log('Statistics page: Refresh complete callback', success, reason);
             this.cacheRefreshing = false;
             this.metadataRefreshing = false;
           },
           onUpdate: () => {
-            console.log('Statistics page: Update callback called, reloading page');
             // Reload the page to show fresh data
             setTimeout(() => {
               window.location.reload();
@@ -540,7 +538,6 @@
       // When the refresh button triggers a rebuild, hand reload control to
       // CacheUpdater (which guards on data.exists before reloading).
       this.rebuildListener = () => {
-        console.log('Statistics page: rebuild started event received, starting CacheUpdater');
         this.cacheRefreshing = true;
         if (this.cacheUpdater && !this.cacheUpdater.isPolling) {
           this.cacheUpdater.wasRefreshing = true;
@@ -568,7 +565,6 @@
     },
     async checkCacheStatus() {
       if (!this.selectedRangeName) {
-        console.log('Statistics page: No range name, skipping cache status check');
         return;
       }
       try {
@@ -579,7 +575,6 @@
         const response = await fetch(`/api/cache-status/?${params.toString()}`);
         if (response.ok) {
           const data = await response.json();
-          console.log('Statistics page: Initial cache status', data);
           // Show notification and start polling only when a refresh is actually running
           // (or when this specific range is missing/stale while a broader refresh wave is active),
           // to avoid polling/reload loops from unrelated range rebuilds.
@@ -596,15 +591,6 @@
             this.metadataRefreshing ||
             ((!data.exists || data.is_stale) && data.any_range_refreshing);
           if (waitingOnCurrentRange) {
-            console.log('Statistics page: Showing notification and starting polling', {
-              is_stale: data.is_stale,
-              is_refreshing: data.is_refreshing,
-              exists: data.exists,
-              any_range_refreshing: data.any_range_refreshing,
-              recently_built: data.recently_built,
-              refresh_scheduled: data.refresh_scheduled,
-              metadata_refreshing: data.metadata_refreshing
-            });
             this.cacheRefreshing = true;
             if (this.cacheUpdater) {
               // Mark that we were refreshing so we can detect completion
@@ -615,11 +601,6 @@
             }
           } else {
             this.metadataRefreshing = false;
-            console.log('Statistics page: Cache is fresh, no notification needed', {
-              is_stale: data.is_stale,
-              is_refreshing: data.is_refreshing,
-              recently_built: data.recently_built
-            });
           }
         }
       } catch (error) {
@@ -629,13 +610,13 @@
   }">
   
   {# Cache refresh notification banner #}
-  <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}lg:left-64{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
+  <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}{% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %}{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
     <div class="w-full max-w-xl px-4 pointer-events-auto">
       <div x-show="cacheRefreshing && !metadataRefreshing"
            x-cloak
            x-transition
            class="flex items-center gap-2 rounded-md border px-3 py-2 shadow-lg toast-info opacity-0"
-           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition-all', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
+           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
         {% include "app/icons/info.svg" with classes="w-4 h-4 text-indigo-300 shrink-0 animate-pulse" %}
         <p class="text-sm font-medium flex-1">{% translate "Refreshing statistics in background..." %}</p>
         <button class="text-current opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -647,7 +628,7 @@
            x-cloak
            x-transition
            class="flex items-center gap-2 rounded-md border px-3 py-2 shadow-lg toast-info opacity-0"
-           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition-all', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
+           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
         {% include "app/icons/info.svg" with classes="w-4 h-4 text-indigo-300 shrink-0 animate-pulse" %}
         <p class="text-sm font-medium flex-1">{% translate "Updating metadata in background..." %}</p>
         <button class="text-current opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -685,7 +666,7 @@
       <div class="flex flex-wrap items-center gap-2">
       <div class="stats-range-wrapper relative min-w-0">
         <button @click="toggleRangeDropdown()"
-                class="stats-range-button flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition-all duration-200 border border-gray-700 shadow-sm cursor-pointer">
+                class="stats-range-button flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition duration-200 border border-gray-700 shadow-sm cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg"
                width="24"
                height="24"
@@ -813,7 +794,7 @@
 
       <div class="stats-mediatype-wrapper relative min-w-0">
         <button @click="toggleMediaTypeDropdown()"
-                class="stats-mediatype-button flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition-all duration-200 border border-gray-700 shadow-sm cursor-pointer">
+                class="stats-mediatype-button flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition duration-200 border border-gray-700 shadow-sm cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg"
                width="20"
                height="20"
@@ -875,7 +856,7 @@
 
       <div class="stats-compare-wrapper relative min-w-0" x-show="hasFiniteRange()" x-cloak>
         <button @click="toggleCompareDropdown()"
-                class="stats-compare-button flex items-center gap-2 w-full px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition-all duration-200 border border-gray-700 shadow-sm cursor-pointer">
+                class="stats-compare-button flex items-center gap-2 w-full px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition duration-200 border border-gray-700 shadow-sm cursor-pointer">
           <div class="stats-compare-copy">
             <span class="stats-compare-prefix">{% translate "Compare to:" %}</span>
             <span class="stats-compare-value"
@@ -937,7 +918,7 @@
 
       <button @click="refreshStatistics()"
               :disabled="refreshing"
-              class="stats-refresh-button flex items-center justify-center px-3 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-200 border border-gray-700 shadow-sm cursor-pointer"
+              class="stats-refresh-button flex items-center justify-center px-3 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition duration-200 border border-gray-700 shadow-sm cursor-pointer"
               title="{% translate "Refresh statistics" %}">
         <svg xmlns="http://www.w3.org/2000/svg"
              width="24"

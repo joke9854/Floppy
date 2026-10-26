@@ -7,11 +7,11 @@
        class="stats-highlight-track grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
   {% if highlights.first_play %}
     <a href="{{ highlights.first_play.item|media_url }}"
-       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
        data-carousel-card
        style="aspect-ratio: 3/2 !important;">
   {% else %}
-    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
          data-carousel-card
          style="aspect-ratio: 3/2 !important;">
   {% endif %}
@@ -46,11 +46,11 @@
 
   {% if highlights.last_play %}
     <a href="{{ highlights.last_play.item|media_url }}"
-       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
        data-carousel-card
        style="aspect-ratio: 3/2 !important;">
   {% else %}
-    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
          data-carousel-card
          style="aspect-ratio: 3/2 !important;">
   {% endif %}
@@ -86,11 +86,11 @@
   {% with tc=highlights.today_card %}
   {% if tc.entry %}
     <a href="{% url 'history' %}{% if tc.use_release_url %}?history_mode=release&month={{ highlights.today_month }}&day={{ highlights.today_day }}{% else %}?month={{ highlights.today_month }}&day={{ highlights.today_day }}{% endif %}"
-       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+       class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
        data-carousel-card
        style="aspect-ratio: 3/2 !important;">
   {% else %}
-    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
+    <div class="stats-highlight-card media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %} block"
          data-carousel-card
          style="aspect-ratio: 3/2 !important;">
   {% endif %}

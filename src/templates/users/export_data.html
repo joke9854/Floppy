@@ -144,7 +144,7 @@
                          value="{{ media_type }}"
                          @change="updateExportAvailability()"
                          checked>
-                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600">
+                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600">
                   </div>
                 </label>
               </div>
@@ -162,7 +162,7 @@
                        value="on"
                        @change="updateExportAvailability()"
                        checked>
-                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600">
+                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600">
                 </div>
               </label>
             </div>
@@ -179,7 +179,7 @@
                        value="on"
                        @change="updateExportAvailability()"
                        checked>
-                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600">
+                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600">
                 </div>
               </label>
             </div>
@@ -238,7 +238,7 @@
                 <input type="hidden"
                        name="task_name"
                        value="{{ scheduled_backup.task.name }}">
-                <button class="text-red-400 hover:text-white p-2 rounded-md transition-all duration-200 hover:bg-red-500 cursor-pointer">
+                <button class="text-red-400 hover:text-white p-2 rounded-md transition duration-200 hover:bg-red-500 cursor-pointer">
                   {% include "app/icons/trashcan.svg" with classes="w-4 h-4" %}
                 </button>
               </form>

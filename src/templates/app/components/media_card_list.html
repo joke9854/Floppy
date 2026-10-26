@@ -121,7 +121,7 @@
 
         <div class="relative flex items-center justify-center space-x-2.5">
           {# Track Button #}
-          <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-200 cursor-pointer"
+          <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                   title="{% translate "Add to tracker" %}"
                   hx-get="{% media_view_url 'track_modal' item %}"
                   hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "instance_id": "{{ media.id }}"}'
@@ -130,7 +130,7 @@
                   @click="trackOpen = true">{% include "app/icons/edit.svg" with classes="w-4 h-4" %}</button>
 
           {# Lists Button #}
-          <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-200 cursor-pointer"
+          <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition duration-200 cursor-pointer"
                   title="{% translate "Add to custom lists" %}"
                   hx-get="{% media_view_url 'lists_modal' item %}"
                   hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -139,7 +139,7 @@
                   @click="listsOpen = true">{% include "app/icons/list-add.svg" with classes="w-4 h-4" %}</button>
 
           {# History Button #}
-          <a class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-200 cursor-pointer"
+          <a class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition duration-200 cursor-pointer"
              title="{% translate "View your activity history" %}"
              href="{% url 'history' %}?{% if item.media_type == MediaTypes.SEASON.value or item.media_type == MediaTypes.EPISODE.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ item.media_id|urlencode }}&source={{ item.source|urlencode }}{% if item.season_number %}&season_number={{ item.season_number }}{% endif %}{% elif item.media_type == MediaTypes.TV.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ item.media_id|urlencode }}&source={{ item.source|urlencode }}{% elif item.media_type == MediaTypes.PODCAST.value and media.show %}media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ media.show.id }}{% elif item.media_type == MediaTypes.PODCAST.value and media.tracker.show %}media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ media.tracker.show.id }}{% else %}media_type={{ item.media_type }}&media_id={{ item.media_id|urlencode }}&source={{ item.source|urlencode }}{% endif %}{% if item.media_type == MediaTypes.GAME.value or item.media_type == MediaTypes.BOARDGAME.value %}&logging_style=sessions{% endif %}">
             {% include "app/icons/history.svg" with classes="w-4 h-4" %}

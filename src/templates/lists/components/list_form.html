@@ -73,7 +73,7 @@
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer ml-4">
                   <input class="sr-only peer" type="checkbox" name="{{ field.name }}" x-model="isPublic" {% if form.instance.is_public %}checked{% endif %}>
-                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
               <div class="flex items-center justify-between p-3 bg-[var(--color-surface-strong)] rounded-md" :class="{ 'opacity-50': !isPublic }">
@@ -86,7 +86,7 @@
                 </div>
                 <label class="relative inline-flex items-center ml-4" :class="isPublic ? 'cursor-pointer' : 'cursor-not-allowed'">
                   <input class="sr-only peer" type="checkbox" name="{{ form.include_notes.name }}" x-model="includeNotes" :disabled="!isPublic" {% if form.instance.include_notes %}checked{% endif %}>
-                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
             </div>
@@ -102,7 +102,7 @@
                 </div>
                 <label class="relative inline-flex items-center ml-4" :class="isPublic ? 'cursor-pointer' : 'cursor-not-allowed'">
                   <input class="sr-only peer" type="checkbox" name="{{ field.name }}" :disabled="!isPublic" {% if form.instance.allow_recommendations %}checked{% endif %}>
-                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
               <div class="flex items-center justify-between p-3 bg-[var(--color-surface-strong)] rounded-md">
@@ -115,7 +115,7 @@
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer ml-4">
                   <input class="sr-only peer" type="checkbox" name="{{ form.is_smart.name }}" x-model="isSmart" :checked="typeof listMode !== 'undefined' && listMode === 'smart'" {% if form.instance.is_smart %}checked{% endif %}>
-                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
             </div>

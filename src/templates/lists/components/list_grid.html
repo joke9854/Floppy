@@ -6,7 +6,7 @@
 {% for custom_list in custom_lists %}
   <div {% if forloop.last and custom_lists.has_next %} hx-get="{% if profile_username %}{% url 'user_profile' profile_username %}?page={{ custom_lists.next_page_number }}{% else %}{% url 'lists' %}?page={{ custom_lists.next_page_number }}{% endif %}" hx-trigger="revealed threshold:200px once" hx-swap="afterend" hx-include="#filter-form" hx-indicator="#loading-indicator" {% endif %}
        x-data="{ showModal: false }">
-    <div class="media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition-all search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %}"
+    <div class="media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %}"
          style="aspect-ratio: 3/2 !important;">
       <div class="relative">
         <a href="{% url 'list_detail' custom_list.public_reference %}">
@@ -17,7 +17,7 @@
         </a>
 
         {% if not profile_username and custom_list.can_edit %}
-          <button class="absolute top-2 right-2 z-20 p-2 bg-black/50 hover:bg-black/75 rounded-full opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100 transition-all duration-200 text-white hover:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] cursor-pointer"
+          <button class="absolute top-2 right-2 z-20 p-2 bg-black/50 hover:bg-black/75 rounded-full opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100 transition duration-200 text-white hover:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] cursor-pointer"
                   hx-get="{% url 'list_edit_form' custom_list.id %}"
                   hx-target="next .list-edit-modal-slot"
                   hx-swap="innerHTML"

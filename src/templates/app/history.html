@@ -36,11 +36,9 @@
       this.cacheUpdater = CacheUpdater.init('history', {
         loggingStyle: this.loggingStyle,
         onRefreshComplete: (success, reason) => {
-          console.log('History page: Refresh complete callback', success, reason);
           this.cacheRefreshing = false;
         },
         onUpdate: () => {
-          console.log('History page: Update callback called, reloading page');
           // Mark that this is a cache-triggered reload with timestamp to prevent loops
           sessionStorage.setItem('history_cache_reload', Date.now().toString());
           // Reload the page to show fresh data
@@ -70,10 +68,10 @@
   <div x-show="cacheRefreshing"
        x-cloak
        x-transition
-       class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}lg:left-64{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
+       class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}{% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %}{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
     <div class="w-full max-w-xl px-4 pointer-events-auto">
       <div class="flex items-center gap-2 rounded-md border px-3 py-2 shadow-lg toast-info opacity-0"
-           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition-all', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
+           x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
         {% include "app/icons/info.svg" with classes="w-4 h-4 text-indigo-300 shrink-0 animate-pulse" %}
         <p class="text-sm font-medium flex-1">{% translate "Refreshing history in background..." %}</p>
         <button class="text-current opacity-70 hover:opacity-100 transition-opacity cursor-pointer"

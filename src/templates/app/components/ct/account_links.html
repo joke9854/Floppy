@@ -1,0 +1,32 @@
+{% load i18n %}
+{% comment %}
+  Account menu for the CineTrack shell. Appearance replaces the header
+  sun/moon toggle (E3). Shared by the rail profile menu and the mobile sheet.
+{% endcomment %}
+<ul>
+  <li>
+    <a href="{{ account_url }}"
+       class="ct-menu-link"
+       {% if is_settings_page and request.path != appearance_url %}aria-current="page"{% endif %}>
+      <span aria-hidden="true">{% include "app/icons/settings.svg" with classes="w-5 h-5" %}</span>
+      <span>{% translate "Settings" %}</span>
+    </a>
+  </li>
+  <li>
+    <a href="{{ appearance_url }}"
+       class="ct-menu-link"
+       {% if request.path == appearance_url %}aria-current="page"{% endif %}>
+      <span aria-hidden="true">{% include "app/icons/sun.svg" with classes="w-5 h-5" %}</span>
+      <span>{% translate "Appearance" %}</span>
+    </a>
+  </li>
+  <li>
+    <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+      {% csrf_token %}
+      <button type="submit" class="ct-menu-link w-full cursor-pointer">
+        <span aria-hidden="true">{% include "app/icons/logout.svg" with classes="w-5 h-5" %}</span>
+        <span>{% translate "Logout" %}</span>
+      </button>
+    </form>
+  </li>
+</ul>

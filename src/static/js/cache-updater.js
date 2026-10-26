@@ -136,7 +136,6 @@ class CacheUpdater {
         if (this.abortController) {
             this.abortController.abort();
         }
-        console.log('CacheUpdater: Offline, pausing cache status polling');
     }
 
     resumeAfterOffline() {
@@ -148,7 +147,6 @@ class CacheUpdater {
         this.startTime += Date.now() - this.offlineSince;
         this.offlineSince = null;
         this.retryAttempt = 0;
-        console.log('CacheUpdater: Online, resuming cache status polling');
         this.poll();
     }
 
@@ -269,16 +267,6 @@ class CacheUpdater {
             this.retryAttempt = 0;
             const prevBuiltAt = this.lastBuiltAt;
             const refreshActive = this.currentRefreshActive(data);
-            console.log('CacheUpdater: Poll result', {
-                exists: data.exists,
-                is_stale: data.is_stale,
-                is_refreshing: data.is_refreshing,
-                recently_built: data.recently_built,
-                any_range_refreshing: data.any_range_refreshing,
-                wasRefreshing: this.wasRefreshing,
-                wasRefreshingBefore: this.wasRefreshing, // Show before update
-                built_at: data.built_at
-            });
 
             // Check if refresh just completed (was refreshing, now not)
             const refreshJustCompleted = this.wasRefreshing && !refreshActive;
@@ -308,18 +296,6 @@ class CacheUpdater {
             const shouldUpdate = currentRangeDone;
 
             if (shouldUpdate) {
-                console.log('CacheUpdater: Refresh completed, updating page', {
-                    refreshJustCompleted,
-                    recently_built: data.recently_built,
-                    exists: data.exists,
-                    is_stale: data.is_stale,
-                    is_refreshing: data.is_refreshing,
-                    any_range_refreshing: data.any_range_refreshing,
-                    wasRefreshingBefore,
-                    wasRefreshing: this.wasRefreshing,
-                    currentRangeDone,
-                    shouldUpdate
-                });
                 this.stop();
                 if (this.onRefreshCompleteCallback) {
                     this.onRefreshCompleteCallback(true, 'complete');
@@ -335,18 +311,10 @@ class CacheUpdater {
 
             // If still refreshing, continue polling
             if (refreshActive) {
-                console.log('CacheUpdater: Still refreshing, continuing to poll');
                 this.schedulePoll();
             } else if (data.exists && !data.is_stale && !refreshActive) {
                 // If we were waiting for a refresh, we should have caught it above.
                 // Otherwise, the current page is already up to date.
-                console.log('CacheUpdater: Cache is fresh and not refreshing, stopping', {
-                    wasRefreshingBefore,
-                    exists: data.exists,
-                    is_stale: data.is_stale,
-                    is_refreshing: data.is_refreshing,
-                    any_range_refreshing: data.any_range_refreshing
-                });
                 this.stop();
                 if (this.onRefreshCompleteCallback) {
                     this.onRefreshCompleteCallback(true, 'complete');
@@ -354,18 +322,15 @@ class CacheUpdater {
             } else if (data.exists && data.is_stale) {
                 // Cache exists but is stale - only poll if a refresh is actually running
                 if (this.cacheType === 'statistics' && !refreshActive && !data.any_range_refreshing) {
-                    console.log('CacheUpdater: Cache is stale but not refreshing, stopping');
                     this.stop();
                     if (this.onRefreshCompleteCallback) {
                         this.onRefreshCompleteCallback(false, 'stale_no_refresh');
                     }
                 } else {
-                    console.log('CacheUpdater: Cache is stale, continuing to poll');
                     this.schedulePoll();
                 }
             } else if (!data.exists) {
                 // Cache doesn't exist and no refresh in progress, stop polling
-                console.log('CacheUpdater: Cache does not exist, stopping');
                 this.stop();
                 if (this.onRefreshCompleteCallback) {
                     this.onRefreshCompleteCallback(false, 'no_cache');
@@ -407,7 +372,6 @@ class CacheUpdater {
      * Update the page content by reloading the current page
      */
     updatePage() {
-        console.log('CacheUpdater: Updating page to show fresh data');
         // Mark that this is a cache-triggered reload with timestamp to prevent loops
         if (this.cacheType === 'history') {
             sessionStorage.setItem('history_cache_reload', Date.now().toString());
@@ -416,10 +380,8 @@ class CacheUpdater {
         // Using a small delay to ensure cache is fully updated
         setTimeout(() => {
             if (window.location.pathname !== this.pagePath) {
-                console.log('CacheUpdater: Page changed, skipping reload');
                 return;
             }
-            console.log('CacheUpdater: Reloading page now');
             window.location.reload();
         }, 300);
     }

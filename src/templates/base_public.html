@@ -125,7 +125,7 @@
                   init() {
                     // Start entrance animation after a tiny delay
                     setTimeout(() => this.$el.classList.add('opacity-100', 'transform-none'), 10);
-                    this.$el.classList.add('transition-all', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]');
+                    this.$el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]');
 
                     {% if message.tags not in 'warning,error' %}
                       // Auto-dismiss non-critical messages
