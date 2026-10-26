@@ -16,13 +16,22 @@ from rest_framework.response import Response
 
 from app import fork_services_history, history_cache_reader
 from app.fork_services_episode import (
-    create_episode_watch,
     drop_episode,
     resolve_or_create_season,
 )
 from app.fork_services_movie import resolve_or_create_movie
 from app.history_cache_utils import normalize_history_media_type_tokens
-from app.models import Episode, Item, ItemTag, MediaTypes, Movie, MoviePlay, Status, TV, Tag
+from app.models import (
+    TV,
+    Episode,
+    Item,
+    ItemTag,
+    MediaTypes,
+    Movie,
+    MoviePlay,
+    Status,
+    Tag,
+)
 from app.services import metadata_resolution
 from app.services.sync_activity import touch_activity
 from app.services.sync_items import refresh_sync_items
@@ -342,6 +351,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
     max_items = 50
 
     def post(self, request):
+        """Ensure a batch of movies exists for the user."""
         entries = request.data.get("movies")
         if not isinstance(entries, list) or not entries:
             return Response({"detail": "movies must be a non-empty list."}, status=HTTP.BAD_REQUEST)
@@ -434,6 +444,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
     max_items = 50
 
     def post(self, request):
+        """Ensure a batch of shows exists for the user."""
         entries = request.data.get("shows")
         if not isinstance(entries, list) or not entries:
             return Response({"detail": "shows must be a non-empty list."}, status=HTTP.BAD_REQUEST)
@@ -985,6 +996,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
 
     @extend_schema(parameters=[MEDIA_TYPE_TV_ONLY_PARAM])
     def post(self, request, media_type, source, media_id):
+        """Ensure a batch of episode watch events exists for the user."""
         error = _tv_route_error(media_type, source)
         if error:
             return error

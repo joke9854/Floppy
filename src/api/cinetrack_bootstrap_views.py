@@ -81,10 +81,14 @@ class CineTrackMovieInputSerializer(serializers.Serializer):
 
 
 class CineTrackMoviesEnsureRequestSerializer(serializers.Serializer):
+    """A batch of movies to ensure."""
+
     movies = CineTrackMovieInputSerializer(many=True)
 
 
 class CineTrackShowInputSerializer(serializers.Serializer):
+    """One show to ensure, identified by provider IDs."""
+
     source = serializers.CharField()
     media_id = serializers.CharField()
     title = serializers.CharField(required=False, allow_blank=True)
@@ -93,10 +97,14 @@ class CineTrackShowInputSerializer(serializers.Serializer):
 
 
 class CineTrackShowsEnsureRequestSerializer(serializers.Serializer):
+    """A batch of shows to ensure."""
+
     shows = CineTrackShowInputSerializer(many=True)
 
 
 class CineTrackEpisodeEventInputSerializer(serializers.Serializer):
+    """One episode watch event to ensure."""
+
     season_number = serializers.IntegerField(min_value=0)
     episode_number = serializers.IntegerField(min_value=1)
     watched_at = serializers.DateTimeField()
@@ -104,17 +112,23 @@ class CineTrackEpisodeEventInputSerializer(serializers.Serializer):
 
 
 class CineTrackEpisodeEnsureRequestSerializer(serializers.Serializer):
+    """A batch of episode watch events to ensure."""
+
     events = CineTrackEpisodeEventInputSerializer(many=True)
     library_media_type = serializers.CharField(required=False, allow_blank=True)
 
 
 class CineTrackEpisodeTranslateInputSerializer(serializers.Serializer):
+    """One episode coordinate to translate between providers."""
+
     season = serializers.IntegerField(min_value=0)
     episode = serializers.IntegerField(min_value=1)
     watched_at = serializers.DateTimeField(required=False)
 
 
 class CineTrackEpisodeTranslateRequestSerializer(serializers.Serializer):
+    """A batch of episode coordinates to translate."""
+
     locals()["from"] = serializers.ChoiceField(
         choices=["tracker", "tmdb"],
         help_text="Numbering of the submitted episodes: a tracker's own or TMDB's.",
@@ -123,11 +137,15 @@ class CineTrackEpisodeTranslateRequestSerializer(serializers.Serializer):
 
 
 class CineTrackEpisodeCoordinateSerializer(serializers.Serializer):
+    """A season and episode number pair."""
+
     season = serializers.IntegerField()
     episode = serializers.IntegerField()
 
 
 class CineTrackEpisodeTranslateResultSerializer(serializers.Serializer):
+    """The translation of one episode coordinate."""
+
     season = serializers.IntegerField()
     episode = serializers.IntegerField()
     status = serializers.ChoiceField(choices=["same", "translated", "not_found", "metadata_unavailable"])
@@ -138,10 +156,14 @@ class CineTrackEpisodeTranslateResultSerializer(serializers.Serializer):
 
 
 class CineTrackEpisodeTranslateResponseSerializer(serializers.Serializer):
+    """The translations for a batch of episode coordinates."""
+
     results = CineTrackEpisodeTranslateResultSerializer(many=True)
 
 
 class CineTrackBootstrapResultSerializer(serializers.Serializer):
+    """The outcome for one ensured item."""
+
     source = serializers.CharField(required=False)
     media_id = serializers.CharField(required=False)
     client_event_id = serializers.CharField(required=False)
@@ -167,6 +189,8 @@ class CineTrackBootstrapResultSerializer(serializers.Serializer):
 
 
 class CineTrackBootstrapResponseSerializer(serializers.Serializer):
+    """The outcomes for a batch of ensured items."""
+
     results = CineTrackBootstrapResultSerializer(many=True)
 
 
@@ -1195,6 +1219,7 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
     )
     @batched_activity()
     def post(self, request):
+        """Ensure a batch of movies exists for the user."""
         raw_entries = request.data.get("movies")
         if not isinstance(raw_entries, list) or not raw_entries:
             return Response({"detail": "movies must be a non-empty list."}, status=HTTP.BAD_REQUEST)
@@ -1261,6 +1286,7 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
     )
     @batched_activity()
     def post(self, request):
+        """Ensure a batch of shows exists for the user."""
         raw_entries = request.data.get("shows")
         if not isinstance(raw_entries, list) or not raw_entries:
             return Response({"detail": "shows must be a non-empty list."}, status=HTTP.BAD_REQUEST)
@@ -1307,6 +1333,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
         responses=BOOTSTRAP_RESPONSES,
     )
     def post(self, request, media_type, source, media_id):
+        """Ensure a batch of episode watch events exists for the user."""
         # Token-authenticated API requests are authenticated after the
         # middleware that scopes provider credentials, so personal keys
         # (for example a user's own TVDB key) are bound here.
@@ -1392,6 +1419,7 @@ class MediaEpisodeTranslateView(drf_views.APIView):
         },
     )
     def post(self, request, media_type, source, media_id):
+        """Translate episode coordinates between providers."""
         with credentials.current_user_scope(request.user):
             return self._translate(request, media_type, source, media_id)
 

@@ -90,11 +90,11 @@ class CineTrackCrashReportAdmin(admin.ModelAdmin):
     ordering = ("-received_at",)
 
     def has_add_permission(self, request):
-        """Reports are only created through the API."""
+        """Refuse manual creation: reports only arrive through the API."""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Reports are immutable."""
+        """Refuse edits: reports are immutable."""
         return False
 
 

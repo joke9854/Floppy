@@ -84,6 +84,7 @@ from app.models.provider_credential import (
     InstanceProviderCredential,
     UserProviderCredential,
 )
+from app.models.sync_items import SyncItemSequence, SyncItemState
 from app.models.tombstone import DeletedMedia
 from app.models.tv import (
     TV,
@@ -91,7 +92,6 @@ from app.models.tv import (
     RewatchAlreadyCompleteError,
     Season,
 )
-from app.models.sync_items import SyncItemSequence, SyncItemState
 from app.models.watch_state import (
     SyncActivity,
     SyncActivityCategory,

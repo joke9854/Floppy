@@ -966,6 +966,11 @@ class UserGetImportTasksTests(TestCase):
             date_done=timezone.now(),
             result='"Synced collection."',
         )
+        # date_done is auto_now, so create() ignores the values above and both
+        # rows tie at the clock's resolution; set the order explicitly.
+        TaskResult.objects.filter(task_id="task-radarr-recurring").update(
+            date_done=timezone.now() - timedelta(minutes=5),
+        )
 
         import_tasks = self.user.get_import_tasks()
 

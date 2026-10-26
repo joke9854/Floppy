@@ -12,7 +12,6 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from app import metadata_utils
 from app.log_safety import exception_summary
 from app.models import Item, MediaTypes, Sources
 from app.providers import services
@@ -134,14 +133,15 @@ def queue_cinetrack_bootstrap_hydration(item_ids, user_id):
         return
 
     def enqueue_after_commit():
-        selected = []
-        for item_id in normalized_ids:
+        selected = [
+            item_id
+            for item_id in normalized_ids
             if cache.add(
                 _cinetrack_hydration_lock_key(item_id),
                 "queued",
                 timeout=CINETRACK_HYDRATION_LOCK_TTL,
-            ):
-                selected.append(item_id)
+            )
+        ]
         if not selected:
             return
         try:
