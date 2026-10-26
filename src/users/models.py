@@ -207,6 +207,7 @@ class ThemeChoices(models.TextChoices):
     SYSTEM = "system", _("System default")
     LIGHT = "light", _("Light")
     DARK = "dark", _("Dark")
+    CINETRACK = "cinetrack", _("CineTrack")
     CATPPUCCIN_MOCHA = "catppuccin_mocha", _("Catppuccin Mocha")
     DRACULA = "dracula", _("Dracula")
     NORD = "nord", _("Nord")

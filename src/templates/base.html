@@ -31,6 +31,13 @@
     {% block extra_head %}
     {% endblock extra_head %}
 
+    {% if user.is_authenticated and user.theme == 'cinetrack' %}
+      <link rel="preload"
+            href="{% static 'fonts/manrope/manrope-variable-latin.woff2' %}"
+            as="font"
+            type="font/woff2"
+            crossorigin>
+    {% endif %}
     <link rel="stylesheet"
           type="text/css"
           href="{% static 'css/main.css' %}{% get_static_file_mtime 'css/main.css' %}">
@@ -113,18 +120,35 @@
         }
       })();
     </script>
-    <script defer src="{% static 'js/libraries/marked-12.0.2.min.js' %}"></script>
+    <script>
+      // Loaded on first use, not on every page: marked by markdown-editor.js
+      // when a page has notes, ZXing and its helper by searchForm.js on the
+      // first barcode photo (in this order).
+      window.floppyMarkedSrc = "{% static 'js/libraries/marked-12.0.2.min.js' %}";
+      window.floppyBarcodeScripts = [
+        "{% static 'js/libraries/zxing-library-0.21.3.min.js' %}",
+        "{% static 'js/barcode-scanner.js' %}{% get_static_file_mtime 'js/barcode-scanner.js' %}",
+      ];
+    </script>
     <script defer
             src="{% static 'js/markdown-editor.js' %}{% get_static_file_mtime 'js/markdown-editor.js' %}"></script>
-    <script defer src="{% static 'js/libraries/alpinejs-3.14.9.min.js' %}"></script>
     <script src="{% static 'js/libraries/lazysizes-5.3.2.min.js' %}" async></script>
     <script defer
             src="{% static 'js/image-fallback.js' %}{% get_static_file_mtime 'js/image-fallback.js' %}"></script>
-    {# ZXing library for barcode decoding #}
-    <script src="{% static 'js/libraries/zxing-library-0.21.3.min.js' %}"
-            onload="console.log('ZXing library loaded');"></script>
-    <script src="{% static 'js/barcode-scanner.js' %}{% get_static_file_mtime 'js/barcode-scanner.js' %}"
-            onload="console.log('barcode-scanner.js loaded, barcodeScannerUtils available:', typeof window.barcodeScannerUtils);"></script>
+    {# Deferred scripts run in document order, and these register Alpine components on alpine:init, so they stay ahead of Alpine. In the head they also persist across hx-boost body swaps. #}
+    <script src="{% static 'js/mediaStatusDateHandler.js' %}{% get_static_file_mtime 'js/mediaStatusDateHandler.js' %}" defer></script>
+    <script src="{% static 'js/calendar.js' %}{% get_static_file_mtime 'js/calendar.js' %}" defer></script>
+    <script src="{% static 'js/dateTimePicker.js' %}{% get_static_file_mtime 'js/dateTimePicker.js' %}" defer></script>
+    <script src="{% static 'js/sessionHistory.js' %}{% get_static_file_mtime 'js/sessionHistory.js' %}" defer></script>
+    <script src="{% static 'js/episodeBulkTrackForm.js' %}{% get_static_file_mtime 'js/episodeBulkTrackForm.js' %}" defer></script>
+    <script src="{% static 'js/bulkSelection.js' %}{% get_static_file_mtime 'js/bulkSelection.js' %}" defer></script>
+    <script src="{% static 'js/collectionCustomFields.js' %}{% get_static_file_mtime 'js/collectionCustomFields.js' %}" defer></script>
+    <script src="{% static 'js/searchShortcut.js' %}{% get_static_file_mtime 'js/searchShortcut.js' %}" defer></script>
+    <script src="{% static 'js/searchAutocomplete.js' %}{% get_static_file_mtime 'js/searchAutocomplete.js' %}" defer></script>
+    <script src="{% static 'js/horizontal-scroll.js' %}{% get_static_file_mtime 'js/horizontal-scroll.js' %}" defer></script>
+    <script src="{% static 'js/searchForm.js' %}{% get_static_file_mtime 'js/searchForm.js' %}" defer></script>
+    <script src="{% static 'js/posterAccent.js' %}{% get_static_file_mtime 'js/posterAccent.js' %}" defer></script>
+    <script defer src="{% static 'js/libraries/alpinejs-3.14.9.min.js' %}"></script>
 
     <link rel="apple-touch-icon"
           sizes="180x180"
@@ -174,6 +198,8 @@
       <meta name="theme-color" content="#f8f9fa">
     {% elif user.is_authenticated and user.theme == 'dark' %}
       <meta name="theme-color" content="#181a1b">
+    {% elif user.is_authenticated and user.theme == 'cinetrack' %}
+      <meta name="theme-color" content="#1c1b22">
     {% else %}
       <meta name="theme-color"
             content="#181a1b"
@@ -456,7 +482,7 @@
                   <div class="relative grow min-w-0 max-w-2xl">
                     <form method="get"
                           action="{% url 'search' %}"
-                          x-data="{ isOpen: false, selectedType: { display: '{{ search_type|media_type_readable_plural }}', value: '{{ search_type }}' }, mediaTypes: {% get_search_media_types user as search_types %}{{ search_types }}, getPlaceholder() { return interpolate(gettext('Search %(media)s in your library or online...'), {media: this.selectedType.display}, true) }, barcodeScanning: false, barcodeError: null, barcodePreview: null, explicitSubmitTriggered: false, async handleBarcodeImage(event) { if (!event || !event.target) { console.error('[BARCODE] Invalid event or event.target'); return; } if (event.target.tagName !== 'INPUT' || event.target.type !== 'file') { console.error('[BARCODE] Event not from file input. TagName:', event.target.tagName, 'Type:', event.target.type); return; } if (event.target !== this.$refs.barcodeInput) { console.error('[BARCODE] Event not from barcode input ref'); return; } console.log('handleBarcodeImage called', event); const file = event.target.files?.[0]; if (!file) { console.log('No file selected'); return; } console.log('File selected:', file.name, file.type); this.barcodeScanning = true; this.barcodeError = null; this.barcodePreview = URL.createObjectURL(file); try { console.log('Checking for barcodeScannerUtils:', typeof window.barcodeScannerUtils); if (!window.barcodeScannerUtils) { throw new Error(gettext('Barcode scanner utilities not loaded. Please refresh the page.')); } console.log('Starting barcode decode...'); const isbn = await window.barcodeScannerUtils.decodeBarcodeFromFile(file); console.log('Decode result:', isbn); if (isbn) { const barcodeInput = event.target; let form = this.$root; if (!form || form.tagName !== 'FORM' || !form.contains(barcodeInput)) { form = barcodeInput.closest('form'); } if (!form || form.tagName !== 'FORM') { console.error('[FORM] Could not find valid form element'); return; } const searchInput = form.querySelector('input[name=q]'); const formContainsBarcodeInput = form.contains(barcodeInput); if (!searchInput || !formContainsBarcodeInput) { console.error('[FORM] Form validation failed - missing search input or barcode input not in form. Search input:', searchInput, 'Form contains barcode input:', formContainsBarcodeInput); return; } console.log('[FORM] ISBN received, form element:', form, 'tagName:', form.tagName); console.log('[FORM] Search input found:', searchInput); searchInput.value = isbn; console.log('[FORM] Set input value to:', isbn, 'Current value:', searchInput.value); this.explicitSubmitTriggered = true; console.log('[FORM] Submitting form...'); form.submit(); console.log('[FORM] Form submit called'); } else { this.barcodeError = gettext('Could not read barcode from image. Please try again or enter ISBN manually.'); } } catch (error) { console.error('Barcode scan error:', error); this.barcodeError = gettext('Error scanning barcode: ') + (error.message || gettext('Please try again.')); } finally { this.barcodeScanning = false; } }, clearBarcodeError() { this.barcodeError = null; this.barcodePreview = null; if (this.$refs.barcodeInput) { this.$refs.barcodeInput.value = ''; } }, selectType(type) { this.selectedType = type; this.isOpen = false; const input = this.$refs.searchInput; if (input && input.value.trim()) { this.$nextTick(() => this.$root.submit()); } }, handleFormSubmit(event) { if (event.currentTarget !== this.$el) { return true; } if (event.submitter && !this.$el.contains(event.submitter)) { console.log('[FORM] Submitter not in search form, allowing'); return true; } if (event.submitter && !this.$el.contains(event.submitter)) { console.log('[FORM] Submitter not in search form, allowing'); return true; } if (this.explicitSubmitTriggered) { this.explicitSubmitTriggered = false; return true; } if (event.submitter && event.submitter === this.$refs.searchButton) { return true; } if (!event.submitter) { const searchInput = this.$el.querySelector('input[name=q]'); if (searchInput && document.activeElement === searchInput) { return true; } } console.log('[FORM] Form submission prevented - not from search button or Enter key in search input'); event.preventDefault(); event.stopPropagation(); return false; }, init() { console.log('Search form Alpine.js initialized'); this.explicitSubmitTriggered = false; } }"
+                          x-data="searchForm({ display: '{{ search_type|media_type_readable_plural }}', value: '{{ search_type }}', mediaTypes: {% get_search_media_types user as search_types %}{{ search_types }} })"
                           @submit="handleFormSubmit($event)"
                           @click.away="document.getElementById('search-suggestions').innerHTML = ''">
                       <div class="flex">
@@ -829,15 +855,5 @@
         });
       }
     </script>
-    <script src="{% static 'js/mediaStatusDateHandler.js' %}{% get_static_file_mtime 'js/mediaStatusDateHandler.js' %}"></script>
-    <script src="{% static 'js/calendar.js' %}{% get_static_file_mtime 'js/calendar.js' %}"></script>
-    <script src="{% static 'js/dateTimePicker.js' %}{% get_static_file_mtime 'js/dateTimePicker.js' %}"></script>
-    <script src="{% static 'js/sessionHistory.js' %}{% get_static_file_mtime 'js/sessionHistory.js' %}"></script>
-    <script src="{% static 'js/episodeBulkTrackForm.js' %}{% get_static_file_mtime 'js/episodeBulkTrackForm.js' %}"></script>
-    <script src="{% static 'js/bulkSelection.js' %}{% get_static_file_mtime 'js/bulkSelection.js' %}"></script>
-    <script src="{% static 'js/collectionCustomFields.js' %}{% get_static_file_mtime 'js/collectionCustomFields.js' %}"></script>
-    <script src="{% static 'js/searchShortcut.js' %}{% get_static_file_mtime 'js/searchShortcut.js' %}"></script>
-    <script src="{% static 'js/searchAutocomplete.js' %}{% get_static_file_mtime 'js/searchAutocomplete.js' %}"></script>
-    <script src="{% static 'js/horizontal-scroll.js' %}{% get_static_file_mtime 'js/horizontal-scroll.js' %}"></script>
   </body>
 </html>

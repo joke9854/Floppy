@@ -9,7 +9,7 @@ neither failure is visible in the theme the author has open.
 `user.theme` holds a key from `users.appearance.THEME_PRESETS`. The collection
 includes the system, light, dark and custom states; Catppuccin Mocha, Dracula,
 Nord and Gruvbox classics; OLED, Glass Cinema and Plex-inspired modern themes;
-plus Projector and Video Store. `base.html` writes every explicit choice onto
+plus Projector and Video Store; and CineTrack, the Android app's palette. `base.html` writes every explicit choice onto
 the root element:
 
 ```html
@@ -68,6 +68,23 @@ scrolling to effectively instantaneous changes.
 `:not(.dark)`. It is kept only so the four blocks read symmetrically. If you add
 a token, add it to `:root`, to the media query and to `html.light`; the
 `html.dark` copy is optional and must match `:root` if you write it.
+
+## CineTrack
+
+`html.cinetrack` maps the Android app's `ui/theme` values onto the same tokens
+and sets Manrope, self-hosted under `static/fonts/manrope/` (SIL OFL) and
+preloaded only for this theme. It also defines `--ct-*` tokens (status colours,
+progress track, radii) for the redesigned components.
+
+Glass follows the app's rule: `.ct-glass` (overlays such as nav and sheets) and
+`.ct-glass-control` (buttons, pills) blur what is behind them, so use them only
+on controls, never as a card layer or over poster art. `.ct-card` is the plain
+card material and has no blur.
+
+`static/js/posterAccent.js` sets `--poster-accent` and `--poster-accent-text`
+on the nearest `[data-poster-accent-scope]` from an
+`<img data-poster-accent crossorigin="anonymous">`. A poster that can't be
+sampled sets nothing, so consume it as `var(--poster-accent, var(--color-accent))`.
 
 ## Never use Tailwind's `dark:` variant
 

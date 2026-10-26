@@ -64,3 +64,28 @@ class RequestPerformanceLoggingMiddlewareTests(TestCase):
         with self.assertNoLogs("app.middleware", level="INFO"):
             response = self._run(lambda _request: HttpResponse("ok"))
         self.assertEqual(response.status_code, 200)
+
+    @override_settings(PERF_LOG_ENABLED=True, PERF_SERVER_TIMING=False)
+    def test_no_server_timing_header_by_default(self):
+        """Request timings are not exposed unless the setting is on."""
+        response = self._run(lambda _request: HttpResponse("ok"))
+        self.assertNotIn("Server-Timing", response)
+
+    @override_settings(
+        PERF_LOG_ENABLED=False,
+        PERF_SERVER_TIMING=True,
+        PERF_LOG_SLOW_REQUEST_MS=0,
+    )
+    def test_server_timing_header_reports_app_and_db_time(self):
+        """The header carries durations and a query count, and nothing is logged."""
+
+        def view(_request):
+            list(Item.objects.all())
+            return HttpResponse("ok")
+
+        with self.assertNoLogs("app.middleware", level="INFO"):
+            response = self._run(view)
+        self.assertRegex(
+            response["Server-Timing"],
+            r'^app;dur=\d+\.\d, db;dur=\d+\.\d;desc="1 queries"$',
+        )

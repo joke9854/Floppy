@@ -154,19 +154,34 @@ class RequestPerformanceLoggingMiddleware:
 
     def __call__(self, request):
         """Time the request and count its queries, logging when over thresholds."""
-        if not settings.PERF_LOG_ENABLED:
+        if not settings.PERF_LOG_ENABLED and not settings.PERF_SERVER_TIMING:
             return self.get_response(request)
 
-        query_count = {"total": 0}
+        query_count = {"total": 0, "seconds": 0.0}
 
         def count_query(execute, sql, params, many, context):
             query_count["total"] += 1
-            return execute(sql, params, many, context)
+            query_start = time.perf_counter()
+            try:
+                return execute(sql, params, many, context)
+            finally:
+                query_count["seconds"] += time.perf_counter() - query_start
 
         start = time.perf_counter()
         with connection.execute_wrapper(count_query):
             response = self.get_response(request)
         duration_ms = (time.perf_counter() - start) * 1000
+
+        if settings.PERF_SERVER_TIMING:
+            # Durations and a count only: no paths, SQL or parameters.
+            response["Server-Timing"] = (
+                f"app;dur={duration_ms:.1f}, "
+                f"db;dur={query_count['seconds'] * 1000:.1f};"
+                f'desc="{query_count["total"]} queries"'
+            )
+
+        if not settings.PERF_LOG_ENABLED:
+            return response
 
         if (
             duration_ms >= settings.PERF_LOG_SLOW_REQUEST_MS

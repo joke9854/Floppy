@@ -265,8 +265,39 @@
     setActiveTab(editor, "write");
   };
 
+  // marked (35 KB) loads only once a page has notes to edit or render; the
+  // URL comes from base.html (window.floppyMarkedSrc).
+  let markedLoad = null;
+  let markedFailed = false;
+  const loadMarked = () => {
+    if (!markedLoad) {
+      markedLoad = new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src = window.floppyMarkedSrc;
+        // On failure the plain-text fallback in renderMarkdown still renders.
+        script.onload = resolve;
+        script.onerror = () => {
+          markedFailed = true;
+          resolve();
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return markedLoad;
+  };
+
   const initAll = (root) => {
     const scope = root || document;
+    if (
+      !window.marked
+      && !markedFailed
+      && window.floppyMarkedSrc
+      && scope.querySelector
+      && scope.querySelector("[data-markdown-editor], [data-markdown-preview]")
+    ) {
+      loadMarked().then(() => initAll(scope));
+      return;
+    }
     scope.querySelectorAll("[data-markdown-editor]").forEach(initEditor);
     scope.querySelectorAll("[data-markdown-preview]").forEach((preview) => {
       if (!preview || preview.dataset.mdRendered === "true") {

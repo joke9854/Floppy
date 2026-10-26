@@ -375,6 +375,10 @@ PERF_LOG_QUERY_COUNT_THRESHOLD = config(
     default=75,
     cast=int,
 )
+# Optional Server-Timing header (app and db time, query count) for browser
+# devtools and Lighthouse. Off by default: it tells any client how long the
+# server spent on its request.
+PERF_SERVER_TIMING = config("PERF_SERVER_TIMING", default=False, cast=bool)
 
 # High-water memory attribution (app/memory_envelope.py). Separate from the
 # slow-request log above: that one answers "what was slow", this one answers

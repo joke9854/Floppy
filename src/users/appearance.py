@@ -7,6 +7,7 @@ THEME_PRESETS = {
     "system": {"label": "System default"},
     "light": {"label": "Light"},
     "dark": {"label": "Dark"},
+    "cinetrack": {"label": "CineTrack"},
     "catppuccin_mocha": {"label": "Catppuccin Mocha"},
     "dracula": {"label": "Dracula"},
     "nord": {"label": "Nord"},
