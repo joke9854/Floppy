@@ -10,8 +10,12 @@
 
 {% block content %}
 {# Top section — mirrors media_details.html layout exactly #}
-<div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-2 md:mb-8">
-  <div class="w-full md:w-1/4 max-w-[250px] mx-auto md:mx-0">
+{% if ct_shell %}
+  {% ct_detail_backdrop season_metadata as ct_backdrop %}
+  {% include "app/components/ct/detail_backdrop.html" with backdrop=ct_backdrop poster=season_metadata.image %}
+{% endif %}
+<div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-2 md:mb-8{% if ct_shell %} ct-detail-hero ct-detail-hero--episode{% endif %}">
+  <div class="w-full md:w-1/4 max-w-[250px] mx-auto md:mx-0{% if ct_shell %} ct-detail-poster{% endif %}">
     <img alt="{{ episode_title }}"
          class="w-full rounded-lg shadow-lg bg-[var(--color-surface)] object-cover"
          src="{% if episode %}{{ episode.image|image_url }}{% else %}{{ IMG_NONE }}{% endif %}">
@@ -239,7 +243,7 @@
 
       {# Action buttons — mirrors media_details.html order-1/order-2 button row #}
       {% if not public_view and episode %}
-        <div class="order-1 mb-6 flex flex-col gap-3 sm:order-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div class="order-1 mb-6 flex flex-col gap-3 sm:order-2 sm:flex-row sm:flex-wrap sm:items-center{% if ct_shell %} ct-action-bar{% endif %}">
           <div class="mt-4 mb-5 flex flex-wrap gap-2">
             {# Hero track button — OOB-addressable so episode_save can flip it in place #}
             <div x-data="{ trackOpen: false }" class="w-full sm:w-auto sm:shrink-0">

@@ -2,6 +2,9 @@
 {% load i18n %}
 {% load app_tags %}
 {% load user_tags %}
+{% if request.user.theme == "cinetrack" and not public_view|default:False %}
+  {% include "app/components/ct/episode_row.html" %}
+{% else %}
 <div class="bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg"
      x-show="!$store.epLayout || $store.epLayout !== 'list'">
   {% comment %}
@@ -138,6 +141,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {# Compact list view row — shown when episode layout toggle is set to list #}
 <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--color-surface)] hover:bg-[var(--color-border)] transition-colors"

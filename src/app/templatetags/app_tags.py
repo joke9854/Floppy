@@ -13,7 +13,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import npgettext
 from unidecode import unidecode
 
-from app import config, helpers, image_cache
+from app import backdrops, config, helpers, image_cache
 from app.models import Item, MediaTypes, Sources, Status
 from app.providers import tmdb
 from app.services import metadata_resolution
@@ -176,6 +176,80 @@ def ct_next_episode(entry):
         "season_number": season_item.season_number,
         "episode_number": episode_number,
         "library_media_type": season_item.library_media_type,
+    }
+
+
+@register.simple_tag
+def ct_detail_backdrop(media):
+    """Return a detail page's horizontal backdrop URL, or None (W3).
+
+    Seasons and episodes resolve their show's backdrop. A miss is fetched once
+    and cached for 7 days, as statistics highlights already do.
+    """
+    return backdrops.resolve_backdrop(media)
+
+
+def _ct_value(obj, key):
+    """Read a key from a provider dict or an attribute from a model."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _ct_percent(done, total):
+    try:
+        done, total = int(done or 0), int(total or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(round(done / total * 100), 100)) if total > 0 else 0
+
+
+@register.simple_tag
+def ct_series_progress(media, current_instance):
+    """Return the series progress card's numbers for a show or season page (W3).
+
+    The totals are the same distinct-episode counts the classic progress bars
+    use. A show gets one dash per season (specials excluded), a season one
+    dash per episode.
+    """
+    if current_instance is None or not isinstance(media, dict):
+        return None
+    watched = getattr(current_instance, "completed_episode_count", 0) or 0
+    if media.get("media_type") == MediaTypes.SEASON.value:
+        episodes = media.get("episodes") or []
+        total = media.get("max_progress") or len(episodes)
+        dashes = [
+            {
+                "label": f"E{episode.get('episode_number')}",
+                "percent": 100 if watched_count(episode.get("history")) else 0,
+            }
+            for episode in episodes
+            if isinstance(episode, dict)
+        ]
+    else:
+        total = media.get("max_progress")
+        dashes = []
+        for season in (media.get("related") or {}).get("seasons") or []:
+            item = _ct_value(season, "item")
+            if _ct_value(item, "season_number") in (0, None):
+                continue
+            season_media = _ct_value(season, "media")
+            dashes.append(
+                {
+                    "label": _ct_value(season, "card_title")
+                    or f"S{_ct_value(item, 'season_number')}",
+                    "percent": _ct_percent(
+                        getattr(season_media, "completed_episode_count", 0),
+                        _ct_value(item, "episode_count")
+                        or _ct_value(item, "max_progress"),
+                    ),
+                },
+            )
+    return {
+        "watched": watched,
+        "total": total,
+        "percent": _ct_percent(watched, total),
+        "dashes": dashes,
     }
 
 

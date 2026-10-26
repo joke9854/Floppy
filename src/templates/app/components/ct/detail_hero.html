@@ -1,0 +1,45 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack detail hero (W3) for movie, show and season pages, in place of
+  media_details.html's top section: the blurred backdrop, a crisp poster, the
+  identity (centred on phones, left-aligned from md), score chips, one action
+  bar and the synopsis. The title block, chips, action buttons and synopsis
+  are the classic partials, so their ids, polling and modals are unchanged.
+  The trailer/photo carousel keeps #detail-carousel-wrap and its fragment
+  URL, moved under the hero; it collapses when the fragment comes back empty.
+  The action bar has no backdrop-filter: it holds fixed-position modals,
+  which a filtered ancestor would trap.
+  Context: as media_details.html.
+{% endcomment %}
+{% ct_detail_backdrop media as backdrop %}
+{% include "app/components/ct/detail_backdrop.html" with backdrop=backdrop poster=media.image %}
+<div class="ct-detail-hero">
+  <div class="ct-detail-poster">
+    {% with srcset=media.image|tmdb_srcset:'w342,w500,w780' %}
+      <img alt="{{ media|display_title:user }}"
+           class="ct-fade-img"
+           src="{{ media.image|tmdb_size:'w500'|image_url }}"
+           {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 250px, 200px"{% endif %}
+           width="500"
+           height="750"
+           decoding="async"
+           fetchpriority="high">
+    {% endwith %}
+  </div>
+  <div class="ct-detail-identity">
+    {% include "app/components/detail_title_block.html" %}
+    <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
+    <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
+    {% include "app/components/detail_synopsis.html" %}
+  </div>
+</div>
+{% if carousel_supported %}
+  <section class="ct-detail-media" aria-label="{% translate "Trailer and photos" %}">
+    <div class="ct-detail-media__frame"
+         id="detail-carousel-wrap"
+         hx-get="{{ detail_carousel_fragment_url }}"
+         hx-trigger="load delay:100ms"
+         hx-swap="innerHTML"></div>
+  </section>
+{% endif %}

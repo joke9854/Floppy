@@ -620,7 +620,7 @@
             {% endif %}
           </div>
 
-          <main class="flex-1 relative bg-[var(--color-page-bg)]">
+          <main class="flex-1 relative bg-[var(--color-page-bg)]"{% if ct_shell %} data-poster-accent-scope{% endif %}>
             <div class="container mx-auto px-4 py-6 mt-4 sm:px-8 sm:py-12 sm:mt-6">
               {% block content %}
               {% endblock content %}

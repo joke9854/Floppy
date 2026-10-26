@@ -365,6 +365,10 @@
           </div>
         {% endif %}
 
+        {% if request.user.theme == "cinetrack" and not public_view|default:False %}{% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value %}
+          {% include "app/components/ct/series_progress_card.html" %}
+        {% endif %}{% endif %}
+
         {% if media.related.seasons %}
           <div {% detail_section_attrs user detail_family "content" "seasons" %}>
             {% include "app/components/seasons_grid.html" %}

@@ -20,7 +20,9 @@
   {% else %}
     {% if not render_secondary_only %}
       {# Top section #}
-      {% if carousel_supported %}
+      {% if ct_shell %}
+        {% include "app/components/ct/detail_hero.html" %}
+      {% elif carousel_supported %}
         {# Carousel temporarily disabled below md while the mobile layout gets polished; mobile keeps today's stacked order, md+ gets the new two-row layout. See .detail-carousel-grid in input.css. #}
         <div class="detail-carousel-grid">
           <div class="detail-carousel-grid__poster w-full max-w-[250px] mx-auto md:mx-0">

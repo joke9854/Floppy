@@ -1,0 +1,29 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack series progress card (W3): watched against total episodes, an
+  accent progress line and the season (or episode) dash strip.
+  Context: media, current_instance.
+{% endcomment %}
+{% ct_series_progress media current_instance as series_progress %}
+{% if series_progress %}
+  <section class="ct-series-progress"
+           style="--ct-progress: {{ series_progress.percent }}%"
+           aria-label="{% translate "Your progress" %}">
+    <div class="ct-series-progress__head">
+      <h2 class="ct-series-progress__title">{% translate "Your progress" %}</h2>
+      <span class="ct-series-progress__percent">{{ series_progress.percent }}%</span>
+    </div>
+    <p class="ct-series-progress__count">
+      {% if series_progress.total %}
+        {% blocktranslate trimmed with watched=series_progress.watched total=series_progress.total %}{{ watched }} of {{ total }} episodes watched{% endblocktranslate %}
+      {% else %}
+        {% blocktranslate trimmed count count=series_progress.watched %}{{ count }} episode watched{% plural %}{{ count }} episodes watched{% endblocktranslate %}
+      {% endif %}
+    </p>
+    {# djlint:off H020 #}
+    <span class="ct-progress-line" aria-hidden="true"><span></span></span>
+    {# djlint:on #}
+    {% include "app/components/ct/season_dashes.html" with dashes=series_progress.dashes only %}
+  </section>
+{% endif %}

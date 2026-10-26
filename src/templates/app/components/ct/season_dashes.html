@@ -1,0 +1,15 @@
+{% comment %}
+  CineTrack season dashes (W3): one dash per season (show page) or episode
+  (season page), filled to its watched share. Context: dashes, a list of
+  {label, percent} from ct_series_progress.
+{% endcomment %}
+{% if dashes %}
+  <ol class="ct-season-dashes">
+    {% for dash in dashes %}
+      <li class="ct-season-dash{% if dash.percent >= 100 %} is-done{% endif %}"
+          title="{{ dash.label }} · {{ dash.percent }}%">
+        <span style="width: {{ dash.percent }}%"></span>
+      </li>
+    {% endfor %}
+  </ol>
+{% endif %}

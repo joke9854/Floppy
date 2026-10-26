@@ -1,0 +1,62 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack episode row (W3), in place of episode_row.html's grid card: the
+  still, "S2 E5", the title, the air date (or, once watched, the exact time
+  from the shared history line) and the check circle. The check is the
+  unchanged detail_episode_track_button inside detail_row_actions, so its ids,
+  the track modal and the save responses' OOB swaps all work as before; CSS
+  draws it as a circle. The compact list row in episode_row.html is untouched.
+  Context: as episode_row.html.
+{% endcomment %}
+{% with episode_number=episode.display_episode_number|default:episode.episode_number season_number=episode.season_number|default:media.season_number srcset=episode.image|tmdb_srcset:'w185,w300' %}
+  <article class="ct-ep-row"
+           x-show="!$store.epLayout || $store.epLayout !== 'list'"
+           x-data="{ revealed: false, blurred: {% if not public_view|default:False and user.is_authenticated and user.obfuscate_episodes and not episode.history %}true{% else %}false{% endif %} }">
+    <div class="ct-ep-still">
+      {% if ep_detail_url %}<a href="{{ ep_detail_url }}" tabindex="-1" aria-hidden="true">{% endif %}
+        <img alt=""
+             class="ct-fade-img{% if episode.image == IMG_NONE %} is-placeholder{% endif %}"
+             src="{{ episode.image|tmdb_size:'w300'|image_url }}"
+             {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 176px, 128px"{% endif %}
+             width="300"
+             height="169"
+             loading="lazy"
+             decoding="async"
+             :class="{ 'is-blurred': blurred && !revealed }">
+      {% if ep_detail_url %}</a>{% endif %}
+      <button type="button"
+              class="ct-ep-reveal ct-glass-control"
+              x-show="blurred && !revealed"
+              x-cloak
+              @click="revealed = true"
+              title="{% translate "Reveal thumbnail" %}"
+              aria-label="{% translate "Reveal thumbnail" %}">
+        {% include "app/icons/eye.svg" with classes="w-4 h-4" %}
+      </button>
+    </div>
+    <div class="ct-ep-body">
+      <span class="ct-ep-code">
+        {% if season_number is not None and episode_number %}S{{ season_number }} E{{ episode_number }}{% elif episode_number %}E{{ episode_number }}{% endif %}
+      </span>
+      {% if ep_detail_url %}
+        <a href="{{ ep_detail_url }}" class="ct-ep-title">{{ episode.title }}</a>
+      {% else %}
+        <span class="ct-ep-title">{{ episode.title }}</span>
+      {% endif %}
+      <span class="ct-ep-airdate">
+        {{ episode.air_date|user_date_format:user|default_if_none:_("Unknown date") }}{% if episode.runtime %} · {{ episode.runtime }}{% endif %}
+        {% if episode.collection_entry %}
+          <span class="ct-ep-collected" title="{% translate "Collected" %}{% if episode.collection_entry.resolution %} • {{ episode.collection_entry.resolution }}{% endif %}">{% include "app/icons/cube.svg" with classes="w-3.5 h-3.5" %}</span>
+        {% endif %}
+      </span>
+      {% include "app/components/detail_episode_history_line.html" with episode=episode user=user history_oob=False only %}
+    </div>
+    {% if not public_view|default:False %}
+      <div class="ct-ep-actions">
+        {% include "app/components/detail_row_actions.html" with episode=episode action_media_type=MediaTypes.EPISODE.value track_button_variant="episode" current_instance=current_instance history_item=episode.item detail_return_url=detail_return_url request=request csrf_token=csrf_token TRACK_TIME=TRACK_TIME user=user media_type=media_type MediaTypes=MediaTypes only %}
+      </div>
+    {% endif %}
+  </article>
+{% endwith %}
