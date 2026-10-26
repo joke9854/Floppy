@@ -3,17 +3,23 @@
 {% comment %}
   Library menu for the CineTrack shell: the user's enabled media types in
   their saved order, then Library > More. Shared by the rail menu and the
-  mobile sheet.
+  mobile sheet. TV Seasons is the Seasons view of TV Shows (E1), so it has
+  no entry of its own while TV Shows is enabled.
 {% endcomment %}
 <p class="ct-menu-label">{% translate "Library" %}</p>
 <ul>
-  {% get_sidebar_media_types user as sidebar_media_types %}
-  {% for item in sidebar_media_types %}
+  {% ct_library_types user as library %}
+  {% for item in library.types %}
+    {% if media_type == item.media_type or library.tv_seasons and media_type == "season" and item.media_type == "tv" %}
+      {% firstof "1" as is_current_type %}
+    {% else %}
+      {% firstof "" as is_current_type %}
+    {% endif %}
     <li>
       <a href="{% url 'medialist' media_type=item.media_type %}"
          class="ct-menu-link"
-         {% if media_type == item.media_type %}aria-current="page"{% endif %}>
-        <span aria-hidden="true">{% icon item.media_type is_active=media_type|str_equals:item.media_type %}</span>
+         {% if is_current_type %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% icon item.media_type is_active=is_current_type %}</span>
         <span>{{ item.display_name }}</span>
       </a>
     </li>

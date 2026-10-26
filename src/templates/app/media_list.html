@@ -48,6 +48,9 @@
       <div x-data="bulkSelection('media-bulk-action-data', 'bulk-tag-refresh')">
     {% endif %}
 
+    {% if ct_shell %}
+      {% include "app/components/ct/library_header.html" %}
+    {% else %}
     <div class="flex items-center gap-3 mb-6">
       <h1 class="text-3xl font-bold">{{ media_type|media_type_readable_plural }}</h1>
       <div data-result-count
@@ -60,6 +63,7 @@
       </div>
       {% include "app/components/media_settings_menu.html" with menu_class="ml-auto media-settings-menu-mobile" %}
     </div>
+    {% endif %}
 
     {% include "app/components/filter_form.html" with filter_show_completed_date=True filter_platform_multi=True %}
 

@@ -35,7 +35,8 @@
 {# Desktop and tablet: icon rail. Labels show on hover and keyboard focus. #}
 <nav class="ct-rail ct-glass hidden md:flex"
      aria-label="{% translate "Main" %}"
-     hx-boost="true">
+     hx-boost="true"
+     hx-swap="innerHTML transition:true">
   <img src="{% static 'favicon/apple-touch-icon.png' %}"
        alt="Floppy"
        width="36"
@@ -146,7 +147,8 @@
 {# Phone: bottom nav with five tabs, as CineTrack's LiquidBottomNav. #}
 <nav class="ct-bottom-nav ct-glass md:hidden"
      aria-label="{% translate "Main" %}"
-     hx-boost="true">
+     hx-boost="true"
+     hx-swap="innerHTML transition:true">
   <ul class="flex items-stretch">
     <li class="flex-1">
       <a href="{% url 'home' %}"

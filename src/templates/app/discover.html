@@ -9,9 +9,12 @@
 {% endblock title %}
 
 {% block content %}
-  <div x-data="discoverPage('{{ selected_media_type }}', {{ show_more|yesno:'true,false' }}, {{ discover_debug|yesno:'true,false' }}, {{ discover_loading|yesno:'true,false' }}, '{{ discover_activity_version|default:''|escapejs }}')"
+  <div x-data="discoverPage('{{ selected_media_type }}', {{ show_more|yesno:'true,false' }}, {{ discover_debug|yesno:'true,false' }}, {{ discover_loading|yesno:'true,false' }}, '{{ discover_activity_version|default:''|escapejs }}', {{ ct_shell|yesno:'true,false' }})"
        x-init="init()"
-       class="space-y-6">
+       class="space-y-6{% if ct_shell %} ct-discover{% endif %}">
+    {% if ct_shell %}
+      {% include "app/components/ct/discover_header.html" %}
+    {% else %}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-3xl font-bold text-[var(--color-text)]">{% translate "Discover" %}</h1>
@@ -49,6 +52,7 @@
         </button>
       {% endfor %}
     </div>
+    {% endif %}
 
     <div x-cloak
          x-show="cacheRefreshing"
@@ -99,16 +103,27 @@
     <div id="discover-rows">
       {% include "app/components/discover_rows.html" with rows=rows selected_media_type=selected_media_type show_more=show_more discover_debug=discover_debug discover_loading=discover_loading %}
     </div>
+    {% if ct_shell %}
+      {# E5: reaching the end of the rows loads the rest (show_more), as the button did. #}
+      <div data-discover-load-more
+           x-cloak
+           x-show="!showMore && !isHiddenView()"
+           class="ct-load-more"
+           aria-hidden="true"></div>
+    {% endif %}
   </div>
 {% endblock content %}
 
 {% block js %}
   <script src="{% static 'js/cache-updater.js' %}"></script>
   {% translate "Recommendations refreshed." as media_i18n_36 %}<script>
-    function discoverPage(initialMedia, initialShowMore, initialDebug, initialCacheRefreshing, initialActivityVersion) {
+    function discoverPage(initialMedia, initialShowMore, initialDebug, initialCacheRefreshing, initialActivityVersion, ctShell) {
       return {
         selectedMedia: initialMedia || "all",
         showMore: Boolean(initialShowMore),
+        ctShell: Boolean(ctShell),
+        loadingMore: false,
+        loadMoreObserver: null,
         discoverDebug: Boolean(initialDebug),
         refreshing: false,
         cacheRefreshing: Boolean(initialCacheRefreshing),
@@ -133,6 +148,7 @@
           }
           this.updateUrl();
           this.bindEvents();
+          this.bindLoadMore();
           if (this.discoverDebug) {
             return;
           }
@@ -165,6 +181,17 @@
             const responseMediaType = xhr.getResponseHeader("X-Discover-Media-Type");
             const responseShowMore = xhr.getResponseHeader("X-Discover-Show-More");
             const responseVersion = xhr.getResponseHeader("X-Discover-Activity-Version");
+
+            if (this.loadingMore && targetId === "discover-rows" && responseShowMore === "1") {
+              this.loadingMore = false;
+              // Scroll loading must not replace the rows on screen with the
+              // "Building rows" state: keep them until the cache poll swaps.
+              if (!String(xhr.responseText || "").includes('id="discover-row-')) {
+                event.detail.shouldSwap = false;
+                this.checkCacheStatus();
+                return;
+              }
+            }
 
             if (responseMediaType && responseMediaType !== this.selectedMedia) {
               event.detail.shouldSwap = false;
@@ -200,6 +227,7 @@
             if (!event.target || event.target.id !== "discover-rows") {
               return;
             }
+            this.rearmLoadMore();
             if (this.discoverDebug || this.isHiddenView()) {
               this.resetRefreshState();
               return;
@@ -220,8 +248,43 @@
           };
           document.body.addEventListener("discoverActionComplete", this.discoverActionListener);
         },
+        bindLoadMore() {
+          const sentinel = this.$root.querySelector("[data-discover-load-more]");
+          if (!this.ctShell || !sentinel || !("IntersectionObserver" in window)) {
+            return;
+          }
+          this.loadMoreObserver = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+              this.loadMoreRows();
+            }
+          }, { rootMargin: "0px 0px 600px 0px" });
+          this.loadMoreObserver.observe(sentinel);
+        },
+        rearmLoadMore() {
+          // A fresh observe reports the current state, so rows that swap in
+          // short enough to leave the sentinel in view still load the rest.
+          const sentinel = this.$root.querySelector("[data-discover-load-more]");
+          if (this.loadMoreObserver && sentinel) {
+            this.loadMoreObserver.unobserve(sentinel);
+            this.loadMoreObserver.observe(sentinel);
+          }
+        },
+        loadMoreRows() {
+          if (this.showMore || this.loadingMore || this.isHiddenView()) {
+            return;
+          }
+          // Nothing to extend while the tab is still building its first rows.
+          if (!document.querySelector("#discover-rows [id^='discover-row-']")) {
+            return;
+          }
+          this.loadingMore = true;
+          this.toggleShowMore();
+        },
         destroy() {
           // Stop polling and drop body listeners when the page is swapped away
+          if (this.loadMoreObserver) {
+            this.loadMoreObserver.disconnect();
+          }
           this.stopCacheUpdater();
           if (this.swapGuardListener) {
             document.body.removeEventListener("htmx:beforeSwap", this.swapGuardListener);
@@ -429,7 +492,8 @@
           });
           htmx.ajax("GET", `{% url 'discover_rows' %}?${params.toString()}`, {
             target: "#discover-rows",
-            swap: "innerHTML",
+            // M4: chip switches cross-fade in the CineTrack shell.
+            swap: this.ctShell ? "innerHTML transition:true" : "innerHTML",
           });
           this.updateUrl();
         },
@@ -511,6 +575,10 @@
             return;
           }
           this.selectedMedia = mediaType;
+          if (this.ctShell) {
+            // E5: each tab opens on its quick rows; scrolling loads the rest.
+            this.showMore = false;
+          }
           this.manualRefreshPending = false;
           this.dismissRefreshStatus();
           this.resetRefreshState();

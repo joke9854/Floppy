@@ -1,0 +1,36 @@
+{% load i18n %}
+{% comment %}
+  CineTrack Discover header (W4), included by discover.html when ct_shell in
+  place of the classic title row and chips. It sits inside discoverPage's
+  Alpine state and calls the same switchMedia/refreshRows methods.
+  No subtitle line (E4) and no Show more / fewer button: further rows load
+  as the page scrolls (E5, discover.html's load-more sentinel).
+{% endcomment %}
+<div class="ct-discover-head">
+  <div class="flex items-center justify-between gap-4">
+    <h1 class="ct-library-title">{% translate "Discover" %}</h1>
+    <button type="button"
+            @click="refreshRows()"
+            :disabled="refreshing"
+            class="ct-icon-button ct-glass-control"
+            title="{% translate "Refresh recommendations" %}"
+            aria-label="{% translate "Refresh recommendations" %}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" :class="{'animate-spin': refreshing}">
+        <path d="M21.5 2v6h-6"></path>
+        <path d="M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
+        <path d="M2.5 22v-6h6"></path>
+        <path d="M2.66 8.43a10 10 0 1 1 .57 8.38"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="ct-type-switch" role="group" aria-label="{% translate "Media type" %}">
+    {% for option in discover_media_options %}
+      <button type="button"
+              @click="switchMedia('{{ option.value }}')"
+              class="ct-type-pill"
+              :aria-pressed="selectedMedia === '{{ option.value }}' ? 'true' : 'false'">
+        {% translate option.label %}
+      </button>
+    {% endfor %}
+  </div>
+</div>

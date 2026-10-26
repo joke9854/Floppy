@@ -26,6 +26,48 @@ document.addEventListener("alpine:init", () => {
       if (!this.$root.contains(event.relatedTarget)) this.open = false;
     },
   }));
+
+  // Discover hero (W4): scroll-snap slides with dots and arrows. Autoplay
+  // advances every 7 s while the tab is visible and the hero has neither the
+  // pointer nor focus; never under reduced motion.
+  Alpine.data("ctHero", (count) => ({
+    index: 0,
+    paused: false,
+    timer: null,
+    init() {
+      this.$root.addEventListener("pointerenter", () => { this.paused = true; });
+      this.$root.addEventListener("pointerleave", () => { this.paused = false; });
+      this.$root.addEventListener("focusin", () => { this.paused = true; });
+      this.$root.addEventListener("focusout", () => { this.paused = false; });
+      if (count > 1 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        this.timer = setInterval(() => {
+          if (!this.paused && document.visibilityState === "visible") this.go(this.index + 1);
+        }, 7000);
+      }
+    },
+    destroy() {
+      clearInterval(this.timer);
+    },
+    slides() {
+      return Array.from(this.$refs.track.children);
+    },
+    go(next) {
+      const slides = this.slides();
+      if (!slides.length) return;
+      this.index = (next + slides.length) % slides.length;
+      this.$refs.track.scrollTo({ left: slides[this.index].offsetLeft - slides[0].offsetLeft, behavior: "smooth" });
+    },
+    sync() {
+      const slides = this.slides();
+      const left = this.$refs.track.scrollLeft;
+      let nearest = 0;
+      slides.forEach((slide, i) => {
+        const offset = slide.offsetLeft - slides[0].offsetLeft;
+        if (Math.abs(offset - left) < Math.abs(slides[nearest].offsetLeft - slides[0].offsetLeft - left)) nearest = i;
+      });
+      this.index = nearest;
+    },
+  }));
 });
 
 // Bind once: kept in <head>, which boosted navigation leaves in place.
@@ -40,6 +82,27 @@ if (!window.__floppyCtShellBound) {
     searchInput.focus();
     searchInput.select();
   });
+
+  // M3: the poster a detail link was clicked from morphs into the detail
+  // page's poster in the cross-document view transition (CineTrack's
+  // sharedPoster). A name must be unique on the page, so the previous one
+  // is cleared first, and a detail page (whose own poster holds the name)
+  // names nothing.
+  document.addEventListener("click", (event) => {
+    if (!document.querySelector("[data-ct-shell]") || document.querySelector(".ct-detail-hero")) return;
+    const link = event.target instanceof Element ? event.target.closest("a[href*='/details/']") : null;
+    const card = link?.closest(".media-card, .ct-poster-card, .ct-progress-card, .ct-discover-hero__slide");
+    if (!card) return;
+    const img = card.querySelector(".ct-progress-poster img, .ct-discover-hero__poster")
+      || card.querySelector("img:not(.ct-accent-probe)");
+    if (!img) return;
+    document.querySelectorAll("[data-ct-shared-poster]").forEach((named) => {
+      named.style.viewTransitionName = "";
+      named.removeAttribute("data-ct-shared-poster");
+    });
+    img.style.viewTransitionName = "ct-poster";
+    img.setAttribute("data-ct-shared-poster", "");
+  }, true);
 }
 
 // Home cards (W2). The check's end date is the browser's local time at the

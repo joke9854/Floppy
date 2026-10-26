@@ -1,0 +1,101 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack Discover hero (W4): a scroll-snap carousel of one pick per row,
+  each slide tinted by its poster's accent (a hidden w92 probe, as on detail
+  pages; visible TMDB images never carry crossorigin). The backdrop comes
+  from ct_discover_hero, which falls back to the poster. The slides link to
+  the same detail URLs as the row cards. ctHero (ctShell.js) runs the dots,
+  arrows and the autoplay, which stops on hover, focus and reduced motion.
+
+  Context: rows, user, IMG_NONE.
+{% endcomment %}
+{% ct_discover_hero rows as slides %}
+{% if slides %}
+  <section class="ct-discover-hero"
+           x-data="ctHero({{ slides|length }})"
+           aria-roledescription="carousel"
+           aria-label="{% translate "Featured" %}">
+    <div class="ct-discover-hero__track" x-ref="track" @scroll.debounce.100ms="sync()">
+      {% for slide in slides %}
+        {% with candidate=slide.candidate %}
+          <article class="ct-discover-hero__slide"
+                   data-poster-accent-scope
+                   aria-roledescription="slide"
+                   aria-label="{% blocktranslate trimmed with value_1=forloop.counter value_2=slides|length %}{{ value_1 }} of {{ value_2 }}{% endblocktranslate %}">
+            {% if slide.backdrop %}
+              <img alt=""
+                   class="ct-discover-hero__art ct-fade-img"
+                   src="{{ slide.backdrop|tmdb_size:'w780'|image_url }}"
+                   {% with srcset=slide.backdrop|tmdb_srcset:'w780,w1280' %}{% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 80vw, 100vw"{% endif %}{% endwith %}
+                   width="1280"
+                   height="720"
+                   decoding="async"
+                   {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %}>
+            {% else %}
+              <img alt=""
+                   class="ct-discover-hero__art is-poster ct-fade-img"
+                   src="{{ candidate.image|tmdb_size:'w342'|image_url }}"
+                   width="342"
+                   height="513"
+                   decoding="async"
+                   {% if not forloop.first %}loading="lazy"{% endif %}>
+            {% endif %}
+            {% if candidate.image|tmdb_srcset %}
+              <img alt=""
+                   class="ct-accent-probe"
+                   src="{{ candidate.image|tmdb_size:'w92'|image_url }}"
+                   crossorigin="anonymous"
+                   data-poster-accent
+                   width="1"
+                   height="1"
+                   decoding="async">
+            {% endif %}
+            <div class="ct-discover-hero__fade" aria-hidden="true"></div>
+            <a href="{{ candidate|media_url }}" class="ct-discover-hero__body">
+              <img alt=""
+                   class="ct-discover-hero__poster ct-fade-img"
+                   src="{{ candidate.image|tmdb_size:'w342'|image_url }}"
+                   {% with srcset=candidate.image|tmdb_srcset %}{% if srcset %}srcset="{{ srcset }}" sizes="120px"{% endif %}{% endwith %}
+                   width="342"
+                   height="513"
+                   decoding="async"
+                   {% if not forloop.first %}loading="lazy"{% endif %}>
+              <span class="ct-discover-hero__text">
+                <span class="ct-discover-hero__eyebrow">{{ slide.row_title }}</span>
+                <span class="ct-discover-hero__title">{{ candidate|display_title:user }}</span>
+                {% if candidate.release_date %}
+                  <span class="ct-discover-hero__meta">{{ candidate.release_date|slice:":4" }}</span>
+                {% endif %}
+              </span>
+            </a>
+          </article>
+        {% endwith %}
+      {% endfor %}
+    </div>
+    {% if slides|length > 1 %}
+      <div class="ct-discover-hero__controls">
+        <button type="button"
+                class="ct-icon-button ct-glass-control"
+                @click="go(index - 1)"
+                aria-label="{% translate "Previous" %}">
+          {% include "app/icons/chevron-left.svg" with classes="w-4 h-4" %}
+        </button>
+        <div class="ct-discover-hero__dots">
+          {% for slide in slides %}
+            <button type="button"
+                    @click="go({{ forloop.counter0 }})"
+                    :aria-current="index === {{ forloop.counter0 }} ? 'true' : 'false'"
+                    aria-label="{% blocktranslate trimmed with value_1=forloop.counter %}Slide {{ value_1 }}{% endblocktranslate %}"></button>
+          {% endfor %}
+        </div>
+        <button type="button"
+                class="ct-icon-button ct-glass-control"
+                @click="go(index + 1)"
+                aria-label="{% translate "Next" %}">
+          {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
+        </button>
+      </div>
+    {% endif %}
+  </section>
+{% endif %}

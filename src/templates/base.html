@@ -42,6 +42,10 @@
     {% endif %}
     <link rel="stylesheet"
           href="{% static 'css/main.css' %}{% get_static_file_mtime 'css/main.css' %}">
+    {% if ct_shell %}
+      {# M3: cross-document view transitions, CineTrack shell only (the at-rule cannot be scoped to a theme class in main.css). #}
+      <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
+    {% endif %}
     {% djdt_enabled as djdt_is_enabled %}
     {% if djdt_is_enabled %}
       <link rel="stylesheet" href="{% static 'debug_toolbar/css/toolbar.css' %}">

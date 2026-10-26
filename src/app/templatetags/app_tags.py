@@ -253,6 +253,61 @@ def ct_series_progress(media, current_instance):
     }
 
 
+@register.simple_tag
+def ct_library_types(user):
+    """Return the CineTrack Library switch: the user's enabled types (W4, E1).
+
+    The types keep the user's saved sidebar order. TV Seasons is not an entry
+    of its own while TV Shows is enabled; it becomes the Seasons view of TV
+    (``tv_seasons``). Its page and URL are unchanged.
+    """
+    types = get_sidebar_media_types(user)
+    values = {entry["media_type"] for entry in types}
+    tv_seasons = MediaTypes.TV.value in values and MediaTypes.SEASON.value in values
+    return {
+        "types": [
+            entry
+            for entry in types
+            if not (tv_seasons and entry["media_type"] == MediaTypes.SEASON.value)
+        ],
+        "tv_seasons": tv_seasons,
+    }
+
+
+@register.simple_tag
+def ct_discover_hero(rows, limit=5):
+    """Return the Discover hero slides: one candidate per row, in row order (W4).
+
+    A missing backdrop is fetched once and cached for 7 days, as on detail
+    pages, so a cold fragment waits on at most ``limit`` provider calls. Types
+    without a backdrop source fall back to the poster.
+    """
+    slides = []
+    seen = set()
+    for row in rows or []:
+        for candidate in _ct_value(row, "items") or []:
+            image = _ct_value(candidate, "image")
+            identity = (
+                _ct_value(candidate, "media_type"),
+                _ct_value(candidate, "source"),
+                str(_ct_value(candidate, "media_id")),
+            )
+            if not image or image == settings.IMG_NONE or identity in seen:
+                continue
+            seen.add(identity)
+            slides.append(
+                {
+                    "candidate": candidate,
+                    "row_title": _ct_value(row, "title"),
+                    "backdrop": backdrops.resolve_backdrop(candidate),
+                },
+            )
+            break
+        if len(slides) >= limit:
+            break
+    return slides
+
+
 @register.filter
 def user_tag_names(item_tags, user):
     """Return tag names from a prefetched ItemTag queryset, scoped to one user."""

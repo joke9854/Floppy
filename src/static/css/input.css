@@ -1542,6 +1542,429 @@ a.ct-ep-title:hover {
   }
 }
 
+/* CineTrack Library, Discover and Search (W4). Switches and tabs are plain
+   pills (many of them, so no blur); rows stay crisp poster rails. The page's
+   indigo utilities take a deepened accent that keeps white text readable. */
+main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head)) {
+  --color-indigo-400: var(--color-link);
+  --color-indigo-500: var(--color-accent);
+  --color-indigo-600: color-mix(in srgb, var(--color-accent) 62%, #0b1a22);
+  --color-indigo-700: color-mix(in srgb, var(--color-accent) 52%, #0b1a22);
+}
+
+.ct-library-head,
+.ct-discover-head,
+.ct-search-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.ct-library-title {
+  color: var(--color-text);
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+
+.ct-type-switch,
+.ct-status-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-block: 2px;
+  scrollbar-width: none;
+}
+
+.ct-type-switch::-webkit-scrollbar,
+.ct-status-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ct-type-pill,
+.ct-status-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-short, 150ms) var(--motion-ease),
+    border-color var(--motion-short, 150ms) var(--motion-ease),
+    color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-type-pill {
+  height: 36px;
+  padding-inline: 14px;
+  background-color: rgb(180 195 210 / 7.5%);
+}
+
+.ct-status-tab {
+  height: 32px;
+  padding-inline: 12px;
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.ct-type-pill:hover,
+.ct-status-tab:hover {
+  background-color: rgb(180 195 210 / 13%);
+  color: var(--color-text);
+}
+
+.ct-type-pill[aria-current="page"],
+.ct-type-pill[aria-pressed="true"] {
+  border-color: transparent;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.ct-type-pill svg {
+  color: inherit;
+}
+
+.ct-status-tab[aria-pressed="true"] {
+  border-color: rgb(255 255 255 / 18%);
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+}
+
+:is(.ct-type-pill, .ct-status-tab, .ct-segment > a, .ct-discover-hero__body):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ct-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--color-text-muted);
+}
+
+[data-status="completed"] > .ct-status-dot { background-color: var(--ct-status-completed); }
+[data-status="in-progress"] > .ct-status-dot { background-color: var(--ct-status-watching); }
+[data-status="planning"] > .ct-status-dot { background-color: var(--ct-status-planned); }
+[data-status="paused"] > .ct-status-dot { background-color: var(--ct-status-paused); }
+[data-status="dropped"] > .ct-status-dot { background-color: var(--ct-status-dropped); }
+
+.ct-count-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ct-segment {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-segment > a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-segment--icons > a {
+  padding: 7px 10px;
+}
+
+.ct-segment > a:hover {
+  color: var(--color-text);
+}
+
+.ct-segment > a[aria-current="page"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-icon-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ct-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ct-search-eyebrow {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Discover hero: one slide per row pick, art behind a dark fade tinted by
+   the slide's poster accent, a crisp poster, title and year. */
+.ct-discover-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ct-radius-lg);
+  background-color: var(--color-surface-dim);
+}
+
+.ct-discover-hero__track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.ct-discover-hero__track::-webkit-scrollbar {
+  display: none;
+}
+
+.ct-discover-hero__slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: clamp(250px, 56vw, 360px);
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.ct-discover-hero__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+.ct-discover-hero__art.is-poster {
+  filter: blur(40px) saturate(1.3);
+  transform: scale(1.4);
+}
+
+.ct-discover-hero__fade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgb(28 27 34 / 88%) 0%, rgb(28 27 34 / 30%) 55%, transparent 80%),
+    linear-gradient(90deg, rgb(28 27 34 / 80%) 0%, rgb(28 27 34 / 35%) 50%, transparent 80%),
+    radial-gradient(90% 120% at 0% 100%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 36%, transparent), transparent 70%);
+}
+
+.ct-discover-hero__body {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 18px;
+  border-radius: inherit;
+}
+
+.ct-discover-hero__poster {
+  width: 84px;
+  flex: none;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--ct-radius-sm);
+  object-fit: cover;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+}
+
+.ct-discover-hero__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ct-discover-hero__eyebrow {
+  overflow: hidden;
+  color: var(--poster-accent, var(--color-accent));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ct-discover-hero__title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ct-discover-hero__meta {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.ct-discover-hero__controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-discover-hero__dots {
+  display: flex;
+  align-items: center;
+}
+
+.ct-discover-hero__dots > button {
+  display: inline-flex;
+  width: 18px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ct-discover-hero__dots > button::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 40%);
+  content: "";
+  transition:
+    width var(--motion-medium, 250ms) var(--motion-ease),
+    background-color var(--motion-medium, 250ms) var(--motion-ease);
+}
+
+.ct-discover-hero__dots > button[aria-current="true"]::before {
+  width: 14px;
+  background-color: var(--color-text);
+}
+
+/* Discover rows as poster rails (drag-scrollable via horizontal-scroll.js). */
+.ct-rail-row.media-grid {
+  display: flex !important;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.ct-rail-row.media-grid > * {
+  flex: 0 0 132px;
+  scroll-snap-align: start;
+}
+
+.ct-discover [id^="discover-row-"] h2 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.ct-load-more {
+  height: 1px;
+}
+
+/* Search: three posters a row on phones, as in the Library grid. */
+@media (max-width: 479px) {
+  main:has(.ct-search-head) [class*="minmax(150px"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 639px) {
+  .ct-type-switch,
+  .ct-status-tabs,
+  .ct-rail-row.media-grid {
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scroll-padding-inline: 16px;
+  }
+
+  .ct-discover-hero {
+    margin-inline: -16px;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .ct-type-switch {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .ct-search-head {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .ct-discover-hero__body {
+    gap: 20px;
+    padding: 28px;
+  }
+
+  .ct-discover-hero__poster {
+    width: 120px;
+  }
+
+  .ct-discover-hero__title {
+    font-size: 29px;
+    letter-spacing: -0.6px;
+  }
+
+  .ct-rail-row.media-grid > * {
+    flex-basis: 164px;
+  }
+}
+
+/* M3 / M4: view transitions in the CineTrack shell. Page loads and HTMX
+   swaps with transition:true cross-fade in 150 ms; the clicked poster
+   (named by ctShell.js) morphs into the movie/show/season detail poster.
+   base.html opts documents in; reduced motion turns it all off. */
+html.cinetrack::view-transition-old(root),
+html.cinetrack::view-transition-new(root) {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.cinetrack::view-transition-group(ct-poster) {
+  animation-duration: 350ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.cinetrack .ct-detail-hero:not(.ct-detail-hero--episode) .ct-detail-poster img {
+  view-transition-name: ct-poster;
+}
+
 /* M6: a spinner appears only after 400 ms of waiting, so quick requests
    finish without a flash. The reveal restarts whenever the spinner is
    shown again. */
@@ -3415,5 +3838,13 @@ html.light .theme-toggle-icon-moon {
   .preferences-actions,
   .preferences-actions-status-dot {
     transition: none !important;
+  }
+
+  /* M3/M4: HTMX transition:true still starts a view transition; skip its
+     animation (the `*` rule above does not reach these pseudo-elements). */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

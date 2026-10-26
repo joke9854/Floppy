@@ -1,0 +1,84 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack Library header (W4), included by media_list.html when ct_shell in
+  place of the title row. It sits inside the page's Alpine filter state.
+
+  - Media-type switch: the user's enabled types in their saved order, linking
+    to the same /medialist/<type> URLs. TV Seasons is the Seasons view of TV
+    Shows (E1) while both are enabled.
+  - Status tabs: single-status shortcuts over the toolbar's status filter.
+    They set the same `statuses` state and request the same endpoint, target
+    and form as the toolbar's Status menu, which stays for multi-select.
+    The swap cross-fades (M4).
+{% endcomment %}
+{% ct_library_types user as library %}
+<div class="ct-library-head">
+  <nav class="ct-type-switch" aria-label="{% translate "Library" %}">
+    {% for item in library.types %}
+      {% if media_type == item.media_type or library.tv_seasons and media_type == "season" and item.media_type == "tv" %}
+        {% firstof "1" as is_current_type %}
+      {% else %}
+        {% firstof "" as is_current_type %}
+      {% endif %}
+      <a href="{% url 'medialist' media_type=item.media_type %}"
+         class="ct-type-pill"
+         {% if is_current_type %}aria-current="page"{% endif %}>
+        <span aria-hidden="true">{% icon item.media_type is_active=is_current_type extra_classes="w-4 h-4" %}</span>
+        <span>{{ item.display_name }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="flex items-center gap-3">
+    <h1 class="ct-library-title">{{ media_type|media_type_readable_plural }}</h1>
+    <div data-result-count class="result-count-badge result-count-mobile ct-count-pill">
+      {% if media_list.paginator %}
+        {{ media_list.paginator.count }}
+      {% else %}
+        {{ media_list|length }}
+      {% endif %}
+    </div>
+    {% include "app/components/media_settings_menu.html" with menu_class="ml-auto media-settings-menu-mobile" %}
+  </div>
+
+  {% if library.tv_seasons and media_type == "tv" or library.tv_seasons and media_type == "season" %}
+    <nav class="ct-segment" aria-label="{% translate "TV view" %}">
+      <a href="{% url 'medialist' media_type='tv' %}"
+         {% if media_type == "tv" %}aria-current="page"{% endif %}>{% translate "Shows" %}</a>
+      <a href="{% url 'medialist' media_type='season' %}"
+         {% if media_type == "season" %}aria-current="page"{% endif %}>{% translate "Seasons" %}</a>
+    </nav>
+  {% endif %}
+
+  {% if status_choices %}
+    <div class="ct-status-tabs" role="group" aria-label="{% translate "Status" %}">
+      <button type="button"
+              class="ct-status-tab"
+              hx-get="{{ media_list_url }}"
+              hx-target="{{ filter_hx_target }}"
+              hx-include="#filter-form"
+              hx-indicator="#loading-indicator"
+              hx-swap="innerHTML transition:true"
+              :aria-pressed="statuses.length === 0 ? 'true' : 'false'"
+              @click="statuses = []">{% translate "All" %}</button>
+      {% for value, label in status_choices %}
+        {% if value != 'all' and value != 'All' %}
+          <button type="button"
+                  class="ct-status-tab"
+                  data-status="{{ value|slugify }}"
+                  hx-get="{{ media_list_url }}"
+                  hx-target="{{ filter_hx_target }}"
+                  hx-include="#filter-form"
+                  hx-indicator="#loading-indicator"
+                  hx-swap="innerHTML transition:true"
+                  :aria-pressed="statuses.length === 1 && statuses[0] === '{{ value|escapejs }}' ? 'true' : 'false'"
+                  @click="statuses = ['{{ value|escapejs }}']">
+            <span class="ct-status-dot" aria-hidden="true"></span>
+            {% translate label %}
+          </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
