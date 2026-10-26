@@ -361,6 +361,8 @@ SPECTACULAR_SETTINGS = {
         "MediaTypeEnum": "app.models.choices.MediaTypes",
         # The API's library status names (sync writes and sync items).
         "LibraryStatusEnum": ("planning", "in_progress", "paused", "dropped", "completed"),
+        # Sync item and search-by-ID result types; otherwise collides on "type".
+        "SyncItemTypeEnum": ("movie", "show", "episode"),
     },
 }
 

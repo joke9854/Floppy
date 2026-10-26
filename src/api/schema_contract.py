@@ -367,7 +367,6 @@ _COLLISION_MEMBER_SIZE = 2
 EXPECTED_SCHEMA_ERRORS: frozenset[SchemaFinding] = frozenset(
     {
         ("api.fork_views.CollectionEntryView", "serializer-unresolved"),
-        ("api.fork_views.CollectionView", "serializer-unresolved"),
         ("api.fork_views.MediaProgressView", "serializer-unresolved"),
         ("api.fork_views.TaskStatusView", "serializer-unresolved"),
         ("api.fork_views_discover.CollectionSeasonView", "serializer-unresolved"),
@@ -422,10 +421,6 @@ EXPECTED_SCHEMA_ERRORS: frozenset[SchemaFinding] = frozenset(
         ),
         ("api.fork_views_podcast.PodcastShowsView", "serializer-unresolved"),
         (
-            "api.fork_views_progress_changes.ProgressChangeFeedView",
-            "serializer-unresolved",
-        ),
-        (
             "api.fork_views_statistics.StatisticsOverviewView",
             "serializer-unresolved",
         ),
@@ -433,19 +428,7 @@ EXPECTED_SCHEMA_ERRORS: frozenset[SchemaFinding] = frozenset(
             "api.fork_views_statistics.StatisticsRefreshView",
             "serializer-unresolved",
         ),
-        (
-            "api.fork_views_watched_state.SyncConflictResolveView",
-            "serializer-unresolved",
-        ),
-        ("api.fork_views_watched_state.SyncConflictsView", "serializer-unresolved"),
-        ("api.fork_views_watched_state.SyncConnectionsView", "serializer-unresolved"),
-        (
-            "api.fork_views_watched_state.WatchedStateChangeFeedView",
-            "serializer-unresolved",
-        ),
-        ("api.fork_views_watched_state.WatchedStateView", "serializer-unresolved"),
         ("api.fork_views_tracking.HistoryRecordView", "serializer-unresolved"),
-        ("api.fork_views_tracking.HistoryView", "serializer-unresolved"),
         ("api.fork_views_tracking.MediaEpisodeBulkView", "serializer-unresolved"),
         ("api.fork_views_tracking.MediaEpisodeDropView", "serializer-unresolved"),
         ("api.fork_views_tracking.MediaEpisodeWatchView", "serializer-unresolved"),
@@ -462,13 +445,11 @@ EXPECTED_SCHEMA_ERRORS: frozenset[SchemaFinding] = frozenset(
             "serializer-unresolved",
         ),
         ("api.fork_views_users.UserNotificationsView", "serializer-unresolved"),
-        ("api.fork_views_users.UserPreferencesView", "serializer-unresolved"),
         ("api.fork_views_users.UserSidebarView", "serializer-unresolved"),
         ("api.fork_views_users.UserTokenRegenerateView", "serializer-unresolved"),
         ("api.views.CalendarUpdateView", "serializer-unresolved"),
         ("api.views.CalendarView", "serializer-unresolved"),
         ("api.views.HealthView", "serializer-unresolved"),
-        ("api.views.InfoView", "serializer-unresolved"),
         ("api.views.ListDetailView", "serializer-unresolved"),
         ("api.views.ListItemView", "serializer-unresolved"),
         ("api.views.ListItemsView", "serializer-unresolved"),

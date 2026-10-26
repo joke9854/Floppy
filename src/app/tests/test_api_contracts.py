@@ -304,6 +304,17 @@ class OpenAPIArtifactTests(SimpleTestCase):
                     "url": "https://www.gnu.org/licenses/agpl-3.0.html",
                 },
                 "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+                "ENUM_NAME_OVERRIDES": {
+                    "MediaTypeEnum": "app.models.choices.MediaTypes",
+                    "LibraryStatusEnum": (
+                        "planning",
+                        "in_progress",
+                        "paused",
+                        "dropped",
+                        "completed",
+                    ),
+                    "SyncItemTypeEnum": ("movie", "show", "episode"),
+                },
             },
         )
 
@@ -975,7 +986,7 @@ class SchemaFindingContractTests(SimpleTestCase):
         self.assertIn(SCHEMA_REGENERATION_COMMAND, message)
 
     def test_reviewed_baseline_has_expected_unique_counts(self):
-        self.assertEqual(len(EXPECTED_SCHEMA_ERRORS), 89)
+        self.assertEqual(len(EXPECTED_SCHEMA_ERRORS), 79)
         self.assertEqual(len(EXPECTED_SCHEMA_WARNINGS), 18)
 
     def test_generated_schema_findings_match_reviewed_baseline(self):
