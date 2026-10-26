@@ -660,6 +660,11 @@ class UserGetImportTasksTests(TestCase):
             date_done=timezone.now(),
             result='"Synced collection ownership."',
         )
+        # date_done is auto_now, so create() ignores the values above and both
+        # rows tie at the clock's resolution; set the order explicitly.
+        TaskResult.objects.filter(task_id="task-radarr").update(
+            date_done=timezone.now() - timedelta(minutes=5),
+        )
 
         PeriodicTask.objects.create(
             name="Import from Radarr for test (every 2 hours)",

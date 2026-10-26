@@ -34,7 +34,7 @@ class ModalCloakContractTests(SimpleTestCase):
     def test_modal_backdrops_carry_x_cloak(self):
         offenders = []
         for path in _template_files():
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             for match in OPEN_TAG.finditer(text):
                 tag = match.group(0)
                 if not BACKDROP.search(tag):
@@ -58,7 +58,7 @@ class ModalCloakContractTests(SimpleTestCase):
         """Guard the guard: a regex that matches nothing would pass vacuously."""
         found = 0
         for path in _template_files():
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             for match in OPEN_TAG.finditer(text):
                 tag = match.group(0)
                 shows = re.search(r'x-show="([^"]+)"', tag)
