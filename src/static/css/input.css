@@ -1946,6 +1946,492 @@ main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head)) {
   }
 }
 
+/* CineTrack History, Calendar, Stats, Lists, Settings and sign-in pages (W5).
+   Restyle only: the pages keep their markup, ids and endpoints. They are found
+   by the page marker base.html puts on <main> (or a ct class), take the
+   deepened accent for their indigo utilities as the W4 pages do, and the
+   CineTrack radii for their panels. */
+html.cinetrack main:is([data-ct-page="history"], [data-ct-page="calendar"], [data-ct-page="statistics"], [data-ct-page="lists"], [data-ct-page="list_detail"]),
+html.cinetrack main:has(.ct-settings),
+.ct-entrance {
+  --color-indigo-300: var(--color-link);
+  --color-indigo-400: var(--color-link);
+  --color-indigo-500: var(--color-accent);
+  --color-indigo-600: color-mix(in srgb, var(--color-accent) 62%, #0b1a22);
+  --color-indigo-700: color-mix(in srgb, var(--color-accent) 52%, #0b1a22);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}
+
+html.cinetrack main:is([data-ct-page="calendar"], [data-ct-page="lists"], [data-ct-page="list_detail"]) h1.text-3xl,
+.ct-settings h1.text-3xl {
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+
+/* Filter buttons float above the bottom nav on phones. */
+html.cinetrack .ct-fab {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  box-shadow: 0 10px 28px rgb(0 0 0 / 38%);
+}
+
+@media (min-width: 768px) {
+  html.cinetrack .ct-fab {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+/* History: day groups of plays, one row per play at its local time. */
+.ct-history-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.ct-history-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ct-history-day-head h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.ct-history-weekday {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.ct-history-date,
+.ct-history-day-meta {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-history-day-meta {
+  flex: none;
+  font-size: 12px;
+}
+
+.ct-history-list,
+.ct-agenda-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: var(--ct-radius-md);
+  list-style: none;
+}
+
+.ct-history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--ct-radius-sm);
+  transition: background-color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-history-row:hover,
+.ct-agenda-row:hover {
+  background-color: rgb(180 195 210 / 6%);
+}
+
+.ct-history-time {
+  flex: none;
+  width: 64px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ct-history-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+}
+
+.ct-history-poster,
+.ct-agenda-poster {
+  flex: none;
+  width: 48px;
+  height: 72px;
+  border-radius: var(--ct-radius-xs);
+  background-color: var(--color-surface);
+  object-fit: cover;
+}
+
+.ct-history-poster--square {
+  height: 48px;
+}
+
+.ct-history-text,
+.ct-agenda-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ct-history-title,
+.ct-agenda-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-history-sub,
+.ct-history-meta,
+.ct-agenda-sub {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ct-history-sub > span:last-child,
+.ct-agenda-sub > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-history-meta {
+  color: var(--color-text-muted);
+}
+
+.ct-history-code,
+.ct-agenda-code {
+  flex: none;
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+.ct-history-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ct-gold);
+}
+
+.ct-history-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.ct-history-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-short, 150ms) var(--motion-ease),
+    color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-history-action:hover {
+  background-color: rgb(180 195 210 / 15%);
+  color: var(--color-text);
+}
+
+.ct-history-more {
+  padding: 8px 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-history-more:hover {
+  color: var(--color-text);
+}
+
+:is(.ct-history-main, .ct-history-action, .ct-history-more, .ct-agenda-row):focus-visible,
+.ct-segment > label:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .ct-history-row {
+    gap: 10px;
+    padding: 8px 6px;
+  }
+
+  .ct-history-time {
+    width: 42px;
+    font-size: 12px;
+  }
+
+  .ct-history-main {
+    gap: 10px;
+  }
+
+  .ct-history-action {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ct-history-action--wide {
+    display: none;
+  }
+}
+
+/* Calendar: an Agenda list on phones next to the month day picker. */
+.ct-segment > label {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-segment > label:has(input:checked) {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-cal-mode {
+  margin-bottom: 16px;
+}
+
+.ct-calendar:has(.ct-cal-mode input[value="agenda"]:checked) [data-mobile-calendar] > :not(.ct-agenda),
+.ct-calendar:has(.ct-cal-mode input[value="month"]:checked) .ct-agenda {
+  display: none;
+}
+
+.ct-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ct-agenda-day:not(:has([data-release-media-type])),
+.ct-agenda-empty {
+  display: none;
+}
+
+.ct-agenda:not(:has([data-release-media-type])) .ct-agenda-empty {
+  display: block;
+  padding: 24px 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.ct-agenda-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ct-agenda-weekday {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.ct-agenda-date {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-agenda-today {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ct-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--ct-radius-sm);
+  color: inherit;
+}
+
+.ct-agenda-poster {
+  width: 40px;
+  height: 60px;
+}
+
+.ct-agenda-time {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+html.cinetrack main[data-ct-page="calendar"] {
+  --color-gray-600: var(--color-surface-strong);
+}
+
+@media (max-width: 639px) {
+  html.cinetrack .ct-calendar {
+    padding: 16px;
+  }
+}
+
+/* Settings: section pills on phones, a soft accent row on wider screens. */
+.ct-settings nav[hx-boost] > a {
+  border-left-width: 0;
+  border-radius: var(--ct-radius-sm);
+}
+
+.ct-settings nav[hx-boost] > a[aria-current="page"] {
+  background-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-text);
+}
+
+.ct-settings nav[hx-boost] > a[aria-current="page"] svg {
+  color: var(--color-link);
+}
+
+@media (max-width: 767px) {
+  .ct-settings > .mb-8 {
+    margin-bottom: 16px;
+  }
+
+  .ct-settings > .flex {
+    gap: 16px;
+  }
+
+  .ct-settings div:has(> nav[hx-boost]) {
+    position: static;
+    overflow: visible;
+    background-color: transparent;
+  }
+
+  .ct-settings nav[hx-boost] {
+    display: flex;
+    gap: 8px;
+    padding: 2px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ct-settings nav[hx-boost]::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ct-settings nav[hx-boost] > a {
+    flex: none;
+    width: auto;
+    margin: 0;
+    padding: 7px 14px;
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 999px;
+    background-color: rgb(180 195 210 / 7.5%);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .ct-settings nav[hx-boost] > a[aria-current="page"] {
+    border-color: transparent;
+    background-color: var(--color-accent);
+    color: var(--color-accent-contrast);
+  }
+
+  .ct-settings nav[hx-boost] > a[aria-current="page"] svg {
+    color: inherit;
+  }
+}
+
+/* Sign-in, app authorization and device pages for a signed-in CineTrack user. */
+.ct-entrance .max-w-md > div:last-child {
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--ct-radius-lg);
+  background-color: rgb(180 195 210 / 7.5%);
+  background-image: linear-gradient(rgb(23 27 33 / 30%), rgb(23 27 33 / 30%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 7px 18px rgb(0 0 0 / 14%);
+}
+
+.ct-entrance .max-w-md > .text-center > p {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.ct-entrance button[type="submit"] {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.ct-entrance input:not([type="checkbox"], [type="radio"], [type="hidden"]) {
+  border-radius: var(--ct-radius-sm);
+}
+
+.ct-entrance ul.list-disc {
+  padding-left: 0;
+  list-style: none;
+}
+
+.ct-entrance ul.list-disc > li {
+  position: relative;
+  padding-left: 26px;
+}
+
+.ct-entrance ul.list-disc > li::before {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.6 5.9-4.2 4.6a.8.8 0 0 1-1.2 0L4.4 8.6a.8.8 0 1 1 1.2-1.1L6.8 8.8l3.6-4a.8.8 0 0 1 1.2 1.1Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.6 5.9-4.2 4.6a.8.8 0 0 1-1.2 0L4.4 8.6a.8.8 0 1 1 1.2-1.1L6.8 8.8l3.6-4a.8.8 0 0 1 1.2 1.1Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* M3 / M4: view transitions in the CineTrack shell. Page loads and HTMX
    swaps with transition:true cross-fade in 150 ms; the clicked poster
    (named by ctShell.js) morphs into the movie/show/season detail poster.

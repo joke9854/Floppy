@@ -8,6 +8,9 @@
      data-mobile-calendar
      data-selected-day="{{ selected_day }}"
      data-month-name="{{ month_name }}">
+  {% if ct_shell %}
+    {% include "app/components/ct/calendar_agenda.html" %}
+  {% endif %}
   <div class="grid grid-cols-7 gap-1 mb-2">
     {% for header in weekday_headers %}
       <div class="text-center text-xs font-medium text-[var(--color-text-muted)] py-1">{{ header }}</div>

@@ -2,6 +2,9 @@
 {% load i18n %}
 {% load app_tags %}
 
+{% if request.user.theme == "cinetrack" %}
+  {% include "app/components/ct/history_day.html" %}
+{% else %}
 <div id="history-day-{{ day.day_key|default:'unknown' }}"
      class="history-day space-y-4">
   <div class="flex items-center justify-between gap-4 pb-3 border-b border-[var(--color-border)]">
@@ -64,3 +67,4 @@
     </div>
   {% endif %}
 </div>
+{% endif %}

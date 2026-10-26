@@ -1,0 +1,38 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack History header (W5), included by history.html when ct_shell.
+  The type chips are shortcuts over the filter sheet's media type: they send
+  `ct-history-type` to it, which sets the same `media_type` parameter and
+  swaps the results in with a cross-fade (M4). The sheet stays for dates,
+  genres, release mode and multi-select.
+{% endcomment %}
+{% ct_library_types user as library %}
+<div class="ct-history-head"
+     x-data="{ current: '{{ request.GET.media_type|default:''|escapejs }}' }"
+     @ct-history-filtered.window="current = $event.detail">
+  <h1 class="ct-library-title">{% translate "History" %}</h1>
+  <div class="ct-type-switch" role="group" aria-label="{% translate "Media type" %}">
+    <button type="button"
+            class="ct-type-pill"
+            :aria-pressed="(current === '').toString()"
+            aria-pressed="{% if request.GET.media_type %}false{% else %}true{% endif %}"
+            @click="$dispatch('ct-history-type', '')">
+      {% translate "All" %}
+    </button>
+    {% for item in library.types %}
+      {% with key=","|add:item.media_type|add:"," %}
+        {% if key in ",tv,movie,anime,game,music,book,manga,comic,podcast,boardgame," %}
+          <button type="button"
+                  class="ct-type-pill"
+                  :aria-pressed="(current === '{{ item.media_type }}').toString()"
+                  aria-pressed="{% if request.GET.media_type == item.media_type %}true{% else %}false{% endif %}"
+                  @click="$dispatch('ct-history-type', '{{ item.media_type }}')">
+            <span aria-hidden="true">{% icon item.media_type is_active=False extra_classes="w-4 h-4" %}</span>
+            <span>{{ item.display_name }}</span>
+          </button>
+        {% endif %}
+      {% endwith %}
+    {% endfor %}
+  </div>
+</div>

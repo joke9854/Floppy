@@ -2,7 +2,7 @@
 {% load allauth account static %}
 
 {% block body %}
-  <div class="flex min-h-screen bg-[var(--color-page-bg)] text-[var(--color-text)]">
+  <div class="flex min-h-screen bg-[var(--color-page-bg)] text-[var(--color-text)]{% if user.is_authenticated and user.theme == "cinetrack" %} ct-entrance{% endif %}">
     <div class="flex-1 flex flex-col justify-center lg:pb-40 items-center p-4">
       <div class="w-full max-w-md">
         <div class="text-center mb-8">

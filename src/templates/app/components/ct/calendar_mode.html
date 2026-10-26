@@ -1,0 +1,35 @@
+{% load i18n %}
+{% comment %}
+  CineTrack Calendar mode switch (W5), phones only, grid view only: Agenda
+  (calendar_agenda.html) or Month (the existing day picker). It sits outside
+  the filtered x-html block so a filter change keeps the choice; the choice
+  is remembered per browser.
+{% endcomment %}
+<div class="ct-cal-mode md:hidden"
+     x-data="{
+       mode: 'agenda',
+       init() { try { this.mode = localStorage.getItem('ct-calendar-mode') || 'agenda'; } catch (e) {} },
+       save() { try { localStorage.setItem('ct-calendar-mode', this.mode); } catch (e) {} },
+     }">
+  <div class="ct-segment" role="radiogroup" aria-label="{% translate "Calendar view" %}">
+    <label>
+      <input type="radio"
+             name="ct-calendar-mode"
+             value="agenda"
+             class="sr-only"
+             x-model="mode"
+             @change="save()"
+             checked>
+      <span>{% translate "Agenda" %}</span>
+    </label>
+    <label>
+      <input type="radio"
+             name="ct-calendar-mode"
+             value="month"
+             class="sr-only"
+             x-model="mode"
+             @change="save()">
+      <span>{% translate "Month" %}</span>
+    </label>
+  </div>
+</div>

@@ -82,6 +82,9 @@
     </div>
   </div>
   
+{% if ct_shell %}
+  {% include "app/components/ct/history_header.html" %}
+{% endif %}
 <div class="history-page">
   {# Month-based navigation header #}
   {# Left = toward present (newer), Right = toward past (older) #}
@@ -452,13 +455,40 @@
     if (this.selectedGenres.length) p.set('genre', this.selectedGenres.join(','));
     if (this.selectedImpliedGenres.length) p.set('implied_genre', this.selectedImpliedGenres.join(','));
     const qs = p.toString();
-    window.location.href = '{% url 'history' %}' + (qs ? '?' + qs : '');
+    this.go('{% url 'history' %}' + (qs ? '?' + qs : ''));
+  },
+  go(url) {
+    {% if ct_shell %}
+    // M4: the CineTrack shell swaps the results in place with a cross-fade
+    // (innerHTML, transition:true). htmx.swap, not htmx.ajax: the entrance
+    // guard in base.html would turn a full-page response into a reload. A
+    // response without the results (e.g. the sign-in page) navigates instead.
+    // The htmx-flagged history entry makes Back reload the previous filter.
+    if (window.htmx && htmx.swap) {
+      this.open = false;
+      fetch(url, { credentials: 'same-origin' })
+        .then(response => (response.ok ? response.text() : Promise.reject(response.status)))
+        .then(html => {
+          const next = new DOMParser().parseFromString(html, 'text/html').querySelector('.history-page');
+          const page = document.querySelector('.history-page');
+          if (!next || !page) {
+            throw new Error('history results missing');
+          }
+          htmx.swap(page, next.innerHTML, { swapStyle: 'innerHTML', transition: true }, { contextElement: page, eventInfo: { elt: page, target: page } });
+          history.pushState({ htmx: true }, '', url);
+          window.dispatchEvent(new CustomEvent('ct-history-filtered', { detail: new URL(url, location.origin).searchParams.get('media_type') || '' }));
+        })
+        .catch(() => { window.location.href = url; });
+      return;
+    }
+    {% endif %}
+    window.location.href = url;
   },
   clear() {
     const p = new URLSearchParams(window.location.search);
     ['start-date', 'end-date', 'media_type', 'history_mode', 'genre', 'implied_genre', 'page'].forEach(k => p.delete(k));
     const qs = p.toString();
-    window.location.href = '{% url 'history' %}' + (qs ? '?' + qs : '');
+    this.go('{% url 'history' %}' + (qs ? '?' + qs : ''));
   },
   openMediaTypeDropdown() {
     this.mediaTypeOpen = !this.mediaTypeOpen;
@@ -569,10 +599,11 @@
     if (!term) return this.availableImpliedGenres;
     return this.availableImpliedGenres.filter(g => g.toLowerCase().includes(term));
   }
-}">
+}"{% if ct_shell %}
+   @ct-history-type.window="selectedMediaTypes = $event.detail ? [$event.detail] : []; apply()"{% endif %}>
   {# FAB button #}
   <button @click="open = true"
-          class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
+          class="{% if ct_shell %}ct-fab {% endif %}fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
           title="{% translate "Filter history" %}"
           aria-label="{% translate "Filter history" %}">
     {% include "app/icons/funnel.svg" with classes="w-5 h-5" %}

@@ -1,0 +1,128 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack History row (W5): exact local time, crisp poster, title, the
+  episode or play line and the same actions as history_card.html (edit
+  tracking, lists, filtered history), with the same modal endpoints and ids.
+{% endcomment %}
+<li class="ct-history-row"
+    data-media-type="{{ entry.media_type }}"
+    x-data="{ trackOpen: false, listsOpen: false }">
+  <time class="ct-history-time"
+        datetime="{{ entry.played_at_local|date:'c' }}"
+        title="{{ entry.played_at_local|user_datetime_format:user }}">
+    {% if history_mode == "release" %}
+      {% translate "Released" %}
+    {% elif entry.media_type == MediaTypes.MUSIC.value and entry.time_range_display %}
+      {{ entry.time_range_display }}
+    {% elif entry.progress_display and entry.media_type == MediaTypes.GAME.value or entry.progress_display and entry.media_type == MediaTypes.BOARDGAME.value %}
+      {{ entry.date_range_display }}
+    {% else %}
+      {{ entry.played_at_local|user_time_format:user }}
+    {% endif %}
+  </time>
+
+  {% with entry.item|display_title:user as preferred_entry_title %}
+  <a class="ct-history-main"
+     hx-boost="true"
+     href="{% if entry.media_type == MediaTypes.MUSIC.value and entry.album %}{{ entry.album|music_album_url }}{% elif entry.media_type == MediaTypes.PODCAST.value and entry.show and entry.show.podcast_uuid %}{% url 'media_details' source='pocketcasts' media_type='podcast' media_id=entry.show.podcast_uuid title=entry.show.slug|default:entry.show.title|slug %}{% else %}{{ entry.item|media_url }}{% endif %}">
+    <img alt=""
+         class="ct-history-poster ct-fade-img{% if entry.media_type == MediaTypes.MUSIC.value or entry.media_type == MediaTypes.PODCAST.value %} ct-history-poster--square{% endif %}"
+         src="{{ entry.poster|tmdb_size:'w154'|image_url }}"
+         width="48"
+         height="{% if entry.media_type == MediaTypes.MUSIC.value or entry.media_type == MediaTypes.PODCAST.value %}48{% else %}72{% endif %}"
+         loading="lazy"
+         decoding="async">
+    <span class="ct-history-text">
+      <span class="ct-history-title">
+        {% if entry.media_type == MediaTypes.EPISODE.value and entry.show.title %}
+          {{ entry.show.title }}
+        {% else %}
+          {{ preferred_entry_title|default:entry.display_title|default:entry.title }}
+        {% endif %}
+      </span>
+      <span class="ct-history-sub">
+        {% if entry.episode_code %}
+          <span class="ct-history-code">{{ entry.episode_code }}</span>
+          <span>{{ preferred_entry_title|default:entry.display_title|default:entry.title }}</span>
+        {% elif entry.media_type == MediaTypes.MOVIE.value or entry.media_type == MediaTypes.MUSIC.value or entry.media_type == MediaTypes.PODCAST.value %}
+          {% if entry.media_type == MediaTypes.PODCAST.value and entry.show.title %}<span>{{ entry.show.title }}</span>{% endif %}
+          {% if entry.media_type == MediaTypes.MUSIC.value %}
+            <span class="ct-history-code">{% blocktranslate trimmed with value_1=entry.play_count|default:1 count count=entry.play_count|default:1 %}{{ value_1 }} play{% plural %}{{ value_1 }} plays{% endblocktranslate %}</span>
+          {% else %}
+            <span>{{ entry.media_type|media_type_readable }}</span>
+          {% endif %}
+        {% elif entry.progress_display %}
+          <span class="ct-history-code">{{ entry.progress_display }}</span>
+        {% else %}
+          <span>{{ entry.media_type|media_type_readable }}</span>
+        {% endif %}
+      </span>
+      <span class="ct-history-meta">
+        {% if entry.runtime_display %}<span>{{ entry.runtime_display }}</span>{% endif %}
+        {% if entry.score|show_media_score:user %}
+          <span class="ct-history-score">
+            {% include "app/icons/star.svg" with classes="w-3 h-3 fill-current" %}
+            {{ entry.score|score_display:user }}
+          </span>
+        {% endif %}
+      </span>
+    </span>
+  </a>
+  {% endwith %}
+
+  {% if entry.item and entry.item.media_type and history_mode != "release" %}
+    <div class="ct-history-actions">
+      <button type="button"
+              class="ct-history-action"
+              title="{% translate "Edit tracking" %}"
+              aria-label="{% translate "Edit tracking" %}"
+              hx-get="{% media_view_url 'track_modal' entry.item %}"
+              hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"{% if entry.instance_id %}, "instance_id": "{{ entry.instance_id }}"{% endif %}, "standard_modal": "1"}'
+              hx-target="#{% component_id 'track' entry.item entry.entry_key %}"
+              hx-trigger="click once"
+              @click="trackOpen = true">
+        {% include "app/icons/edit.svg" with classes="w-4 h-4" %}
+      </button>
+      <button type="button"
+              class="ct-history-action"
+              title="{% translate "Add to custom lists" %}"
+              aria-label="{% translate "Add to custom lists" %}"
+              hx-get="{% media_view_url 'lists_modal' entry.item %}"
+              hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
+              hx-target="#{% component_id 'lists' entry.item entry.entry_key %}"
+              hx-trigger="click once"
+              @click="listsOpen = true">
+        {% include "app/icons/list-add.svg" with classes="w-4 h-4" %}
+      </button>
+      <a class="ct-history-action ct-history-action--wide"
+         title="{% translate "View your activity history" %}"
+         aria-label="{% translate "View your activity history" %}"
+         href="{% url 'history' %}?{% if entry.media_type == MediaTypes.MUSIC.value and entry.album %}album={{ entry.album.id }}{% elif entry.media_type == MediaTypes.PODCAST.value and entry.show %}media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ entry.show.id }}{% elif entry.media_type == MediaTypes.EPISODE.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ entry.item.media_id|urlencode }}&source={{ entry.item.source|urlencode }}{% if entry.item.season_number %}&season_number={{ entry.item.season_number }}{% endif %}{% else %}media_type={{ entry.media_type }}&media_id={{ entry.item.media_id|urlencode }}&source={{ entry.item.source|urlencode }}{% endif %}{% if entry.media_type == MediaTypes.GAME.value or entry.media_type == MediaTypes.BOARDGAME.value %}&logging_style=sessions{% endif %}">
+        {% include "app/icons/history.svg" with classes="w-4 h-4" %}
+      </a>
+    </div>
+
+    {# Modals: same structure and target ids as history_card.html #}
+    <div x-show="trackOpen"
+         @mousedown.self="trackOpen = false"
+         x-cloak
+         @keydown.escape.window="trackOpen = false"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="modal-max-height overflow-y-auto px-4 md:px-0 relative z-60 w-full"
+           style="width: min(96vw, 72rem);">
+        <div id="{% component_id 'track' entry.item entry.entry_key %}"></div>
+      </div>
+    </div>
+    <div x-show="listsOpen"
+         @mousedown.self="listsOpen = false"
+         x-cloak
+         @keydown.escape.window="listsOpen = false"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60">
+        <div id="{% component_id 'lists' entry.item entry.entry_key %}"></div>
+      </div>
+    </div>
+  {% endif %}
+</li>

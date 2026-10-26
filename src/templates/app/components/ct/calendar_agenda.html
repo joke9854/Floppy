@@ -1,0 +1,56 @@
+{% load i18n %}
+{% load app_tags %}
+{% load events_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack Calendar agenda (W5), phones only: the month's releases as one
+  list of day groups, from today on when viewing the current month. Included
+  by calendar_grid.html inside the mobile block, so it passes through the
+  page's filterReleaseMarkup: rows keep data-release-media-type/-status and
+  CSS hides days the filter emptied. calendar_mode.html switches between
+  this list and the month picker.
+{% endcomment %}
+<div class="ct-agenda">
+  {% for day in days_in_month %}
+    {% if month != today.month or year != today.year or day >= today.day %}
+      {% with releases=release_dict|get_item:day %}
+        {% if releases %}
+          <section class="ct-agenda-day">
+            <h3 class="ct-agenda-day-head">
+              <span class="ct-agenda-weekday">{% day_of_week day month year %}</span>
+              <span class="ct-agenda-date">{{ month_name }} {{ day }}</span>
+              {% if day == today.day and month == today.month and year == today.year %}
+                <span class="ct-agenda-today">{% translate "Today" %}</span>
+              {% endif %}
+            </h3>
+            <div class="ct-agenda-rows ct-card">
+              {% for release in releases %}
+                <a data-release-media-type="{{ release.item.media_type }}"
+                   data-release-status="{{ release.status }}"
+                   href="{{ release.item|media_url }}"
+                   class="ct-agenda-row">
+                  <img alt=""
+                       class="ct-agenda-poster"
+                       src="{{ release.item.image|tmdb_size:'w154'|image_url }}"
+                       width="40"
+                       height="60"
+                       loading="lazy"
+                       decoding="async">
+                  <span class="ct-agenda-text">
+                    <span class="ct-agenda-title">{{ release.item }}</span>
+                    <span class="ct-agenda-sub">
+                      {% if release.readable_content_number %}<span class="ct-agenda-code">{{ release.readable_content_number }}</span>{% endif %}
+                      <span>{{ release.item.media_type|media_type_readable }}</span>
+                    </span>
+                  </span>
+                  <span class="ct-agenda-time">{{ release|user_event_time:user }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+      {% endwith %}
+    {% endif %}
+  {% endfor %}
+  <p class="ct-agenda-empty">{% translate "No upcoming releases this month." %}</p>
+</div>

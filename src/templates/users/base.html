@@ -4,7 +4,7 @@
 {% load static %}
 
 {% block content %}
-  <div class="mx-auto max-w-6xl">
+  <div class="mx-auto max-w-6xl{% if ct_shell %} ct-settings{% endif %}">
     <div class="mb-8">
       <h1 class="text-3xl font-bold">{% translate "Settings" %}</h1>
       <p class="text-[var(--color-text-muted)] mt-2 text-sm">{% translate "Configure your account and preferences" %}</p>
