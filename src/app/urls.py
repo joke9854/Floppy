@@ -239,6 +239,7 @@ urlpatterns = [
         name="search_parent_season",
     ),
     path("statistics", views.statistics, name="statistics"),
+    path("statistics/recap", views.statistics_recap, name="statistics_recap"),
     path("statistics/refresh", views.refresh_statistics, name="refresh_statistics"),
     path(
         "statistics/preferences",

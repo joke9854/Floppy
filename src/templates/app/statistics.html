@@ -937,6 +937,10 @@
           <path d="M2.66 8.43a10 10 0 1 1 .57 8.38"></path>
         </svg>
       </button>
+      {% if ct_shell %}
+        <a href="{% url 'statistics_recap' %}"
+           class="flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition duration-200 border border-gray-700 shadow-sm text-sm font-medium text-[var(--color-text)]">{% translate "Monthly recap" %}</a>
+      {% endif %}
       </div>
     </div>
 

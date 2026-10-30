@@ -10,7 +10,9 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.formats import date_format
 from django.utils.timezone import datetime
+from django.utils.translation import gettext_lazy
 from django.views.decorators.http import require_GET, require_POST
 
 from app import config, statistics_cache, stats_cast_crew
@@ -1641,3 +1643,87 @@ def _adjust_month_delta(reference_date, months):
 
 def _dates_close(date_one, date_two, tolerance_days=1):
     return abs((date_one - date_two).days) <= tolerance_days
+
+
+RECAP_TOP_LIMIT = 5
+RECAP_PLAY_TYPES = (
+    (MediaTypes.TV.value, "tv_consumption", gettext_lazy("Episodes")),
+    (MediaTypes.MOVIE.value, "movie_consumption", gettext_lazy("Movies")),
+    (MediaTypes.ANIME.value, "anime_consumption", gettext_lazy("Anime episodes")),
+)
+
+
+def _recap_top(top_played, media_type):
+    entries = top_played.get(media_type, []) if isinstance(top_played, dict) else []
+    return [
+        {
+            "title": str(entry["media"].item.title),
+            "duration": entry.get("formatted_duration") or "",
+            "episodes": entry.get("episode_count") or 0,
+            "plays": entry.get("play_count") or 0,
+        }
+        for entry in entries[:RECAP_TOP_LIMIT]
+    ]
+
+
+@require_GET
+def statistics_recap(request):
+    """Return a one-month recap card built from the same data as Statistics."""
+    today = timezone.localdate()
+    try:
+        month_start = datetime.strptime(request.GET.get("month", ""), "%Y-%m").date()
+    except ValueError:
+        month_start = today.replace(day=1)
+    month_start = min(month_start, today.replace(day=1))
+    month_end = month_start + relativedelta(months=1) - timedelta(days=1)
+
+    start = _statistics_day_boundary(month_start)
+    end = _statistics_day_boundary(month_end, end_of_day=True)
+    data = statistics_cache.get_statistics_data(request.user, start, end)
+    # Missing day caches are built in the background, never inline, so a cold
+    # month says so instead of looking empty.
+    counting = statistics_cache._has_missing_day_caches(
+        request.user.id,
+        statistics_cache._resolve_day_list(request.user, start, end),
+    )
+    total_minutes = sum(_get_statistics_minutes_by_type(data).values())
+    plays = [
+        {
+            "media_type": media_type,
+            "label": str(label),
+            "count": int((data.get(key) or {}).get("plays", {}).get("total") or 0),
+        }
+        for media_type, key, label in RECAP_PLAY_TYPES
+    ]
+    top_played = data.get("top_played")
+    recap = {
+        "month": month_start.strftime("%Y-%m"),
+        "month_label": date_format(month_start, "F Y"),
+        "total_time": stats._format_hours_minutes(
+            total_minutes,
+            getattr(request.user, "duration_format", "hours_minutes"),
+        ),
+        "plays": [play for play in plays if play["count"]],
+        "top": [
+            {
+                "label": app_tags.media_type_readable_plural(play["media_type"]),
+                "entries": entries,
+            }
+            for play in plays
+            if (entries := _recap_top(top_played, play["media_type"]))
+        ],
+    }
+    previous_month = month_start - relativedelta(months=1)
+    next_month = month_start + relativedelta(months=1)
+    return render(
+        request,
+        "app/statistics_recap.html",
+        {
+            "recap": recap,
+            "counting": counting,
+            "previous_month": previous_month.strftime("%Y-%m"),
+            "next_month": next_month.strftime("%Y-%m")
+            if next_month <= today
+            else None,
+        },
+    )

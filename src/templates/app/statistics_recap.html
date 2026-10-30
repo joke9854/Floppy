@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load i18n static app_tags %}
+
+{% block title %}
+  {% blocktranslate trimmed with month=recap.month_label %}{{ month }} recap - Floppy{% endblocktranslate %}
+{% endblock title %}
+
+{% block content %}
+  <div class="ct-recap-page">
+    <nav class="ct-recap-nav" aria-label="{% translate "Month" %}">
+      <a href="?month={{ previous_month }}"
+         class="ct-recap-step"
+         aria-label="{% translate "Previous month" %}">‹</a>
+      <h1 class="ct-recap-heading">{{ recap.month_label }}</h1>
+      {% if next_month %}
+        <a href="?month={{ next_month }}"
+           class="ct-recap-step"
+           aria-label="{% translate "Next month" %}">›</a>
+      {% else %}
+        <span class="ct-recap-step" aria-hidden="true"></span>
+      {% endif %}
+    </nav>
+
+    {% if counting %}
+      <p class="ct-recap-caption" role="status">
+        {% translate "Still counting this month. Reload in a minute for the full recap." %}
+      </p>
+    {% endif %}
+    <article class="ct-recap-card" data-recap-card>
+      <p class="ct-recap-eyebrow">{% translate "Monthly recap" %}</p>
+      <p class="ct-recap-total">{{ recap.total_time }}</p>
+      <p class="ct-recap-caption">{% translate "watched and played" %}</p>
+      {% if recap.plays %}
+        <dl class="ct-recap-plays">
+          {% for play in recap.plays %}
+            <div>
+              <dt>{{ play.label }}</dt>
+              <dd>{{ play.count }}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% endif %}
+      {% for section in recap.top %}
+        <section class="ct-recap-top">
+          <h2>{% blocktranslate trimmed with label=section.label %}Top {{ label }}{% endblocktranslate %}</h2>
+          <ol>
+            {% for entry in section.entries %}
+              <li>
+                <span class="truncate">{{ entry.title }}</span>
+                <span class="ct-recap-meta">
+                  {% if entry.episodes %}
+                    {% blocktranslate trimmed count counter=entry.episodes %}{{ counter }} ep{% plural %}{{ counter }} eps{% endblocktranslate %}
+                  {% else %}
+                    {{ entry.duration }}
+                  {% endif %}
+                </span>
+              </li>
+            {% endfor %}
+          </ol>
+        </section>
+      {% empty %}
+        {% if not counting %}
+          <p class="ct-recap-empty">{% translate "Nothing tracked this month yet." %}</p>
+        {% endif %}
+      {% endfor %}
+    </article>
+
+    <div class="ct-recap-actions">
+      <button type="button"
+              class="ct-recap-save"
+              data-recap-save
+              data-filename="floppy-recap-{{ recap.month }}.png">{% translate "Save image" %}</button>
+      <a href="{% url 'statistics' %}" hx-boost="false" class="ct-recap-back">{% translate "All statistics" %}</a>
+    </div>
+  </div>
+  {{ recap|json_script:"ct-recap-data" }}
+  <script src="{% static 'js/statisticsRecap.js' %}{% get_static_file_mtime 'js/statisticsRecap.js' %}"></script>
+{% endblock content %}
