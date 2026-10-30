@@ -66,6 +66,13 @@ def media_save(request):
         source=source,
         identity_media_type=identity_media_type,
     )
+    # A4: "Save as another play" on a tracked movie adds a second Movie row,
+    # the shape importers use for a rewatch, instead of editing the shown one.
+    if (
+        request.POST.get("save_as_new_entry") == "1"
+        and tracking_media_type == MediaTypes.MOVIE.value
+    ):
+        instance_id = None
 
     # A season already tracked under a different identity bucket (e.g. via
     # the show's TV identity) must resolve to the same row here as it does

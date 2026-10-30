@@ -236,7 +236,11 @@
                         name="save_as_new_entry"
                         value="1"
                         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 cursor-pointer">
-                  {% translate "Save as new entry" %}
+                  {% if media_type == "movie" %}
+                    {% translate "Save as another play" %}
+                  {% else %}
+                    {% translate "Save as new entry" %}
+                  {% endif %}
                 </button>
               {% endif %}
               <button type="submit"

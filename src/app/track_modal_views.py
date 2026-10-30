@@ -835,7 +835,8 @@ def _render_standard_track_modal(
         ),
         "general_existing_instance": media,
         "episode_save_as_new": bool(
-            media_type == MediaTypes.EPISODE.value and media,
+            media_type in (MediaTypes.EPISODE.value, MediaTypes.MOVIE.value)
+            and media,
         ),
         "metadata_fields": metadata_fields,
         "image_field": image_field,

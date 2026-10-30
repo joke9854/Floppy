@@ -1287,6 +1287,48 @@ class EditMedia(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Movie.objects.get(item__media_id="10494").score, 10)
 
+    @patch("app.save_views.ensure_item_metadata")
+    def test_movie_save_as_another_play_adds_a_row(self, ensure_item_metadata_mock):
+        """A4: "Save as another play" keeps the first play and adds a second."""
+        item = Item.objects.create(
+            media_id="10494",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Perfect Blue",
+            image="http://example.com/image.jpg",
+        )
+        ensure_item_metadata_mock.return_value = SimpleNamespace(item=item)
+        first_play = datetime.datetime(2023, 6, 1, 20, 0, tzinfo=datetime.UTC)
+        movie = Movie.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.COMPLETED.value,
+            end_date=first_play,
+        )
+
+        response = self.client.post(
+            reverse("media_save"),
+            {
+                "instance_id": movie.id,
+                "save_as_new_entry": "1",
+                "media_id": "10494",
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.MOVIE.value,
+                "status": Status.COMPLETED.value,
+                "end_date": "2026-10-29T21:15:30",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        plays = Movie.objects.filter(user=self.user, item=item).order_by("end_date")
+        self.assertEqual(plays.count(), 2)
+        self.assertEqual(plays[0].pk, movie.pk)
+        self.assertEqual(plays[0].end_date, first_play)
+        self.assertEqual(
+            timezone.localtime(plays[1].end_date).replace(tzinfo=None),
+            datetime.datetime(2026, 10, 29, 21, 15, 30),
+        )
+
     @patch("app.models.providers.services.get_media_metadata")
     def test_edit_episode_tracking_details(self, metadata_mock):
         """Episode edits and save-as-new submissions persist the right row."""

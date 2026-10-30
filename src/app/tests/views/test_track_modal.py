@@ -160,6 +160,9 @@ class TrackModalViewTests(TestCase):
         self.assertIn("media", response.context)
         self.assertEqual(response.context["media"], self.movie)
         self.assertEqual(response.context["return_url"], "/home")
+        # A4: a tracked movie can be saved as another play.
+        self.assertContains(response, "Save as another play")
+        self.assertContains(response, 'name="save_as_new_entry"', html=False)
         self.assertTrue(response.context["metadata_tab_available"])
         self.assertTrue(response.context["discover_tab_available"])
         self.assertFalse(response.context["is_hidden_from_discover"])
