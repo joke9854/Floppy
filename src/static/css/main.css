@@ -9241,11 +9241,11 @@ html.light .theme-toggle-icon-moon {
   }
   .list-detail-filter-toolbar {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     overflow-x: visible;
     overflow-y: visible;
     column-gap: calc(var(--spacing) * 1);
-    row-gap: 0;
+    row-gap: calc(var(--spacing) * 2);
     align-items: center;
   }
   .list-detail-filter-toolbar>* {
