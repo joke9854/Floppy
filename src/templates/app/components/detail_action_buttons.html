@@ -57,6 +57,7 @@
                      @click.outside="trackMenuOpen = false">
                   <div class="inline-flex w-full overflow-hidden rounded-xl shadow-sm sm:w-auto">
                     <button type="button"
+                            data-ct-shortcut="track"
                             class="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap border-r border-indigo-500 bg-indigo-600 px-5 py-3 text-white transition duration-300 hover:bg-indigo-700 cursor-pointer sm:flex-none"
                             hx-get="{% media_view_url 'track_modal' media %}"
                             hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "instance_id": "{{ current_instance.id }}"}'

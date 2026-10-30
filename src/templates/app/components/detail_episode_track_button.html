@@ -12,6 +12,14 @@
     hx-target="#{% component_id 'track' episode %}{{ target_suffix }}"
     hx-trigger="click"
     @click="trackOpen = true"
+    {# A5: W marks the first unwatched episode on the page through episode_save. #}
+    data-ct-episode-check
+    data-watched="{{ watched }}"
+    data-media-id="{{ episode.media_id }}"
+    data-season-number="{{ episode.season_number }}"
+    data-episode-number="{{ episode.episode_number }}"
+    data-source="{{ episode.source }}"
+    {% if episode.library_media_type %}data-library-media-type="{{ episode.library_media_type }}"{% endif %}
     title="{% translate "Track Episode" %}"
     class="p-2 {% if watched > 0 %}bg-indigo-600 hover:bg-indigo-700{% elif episode.history %}bg-amber-600 hover:bg-amber-700{% else %}bg-gray-600 hover:bg-gray-500{% endif %} text-white rounded-full transition duration-300 cursor-pointer">
     {% if episode.history %}

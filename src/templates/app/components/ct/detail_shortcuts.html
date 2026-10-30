@@ -1,0 +1,56 @@
+{% load i18n %}
+{# A5: detail-page keyboard shortcuts (CineTrack shell). ctShell.js handles the keys and opens this list on "?". #}
+<div x-data="{ open: false }"
+     x-show="open"
+     x-cloak
+     @ct-shortcuts-open.window="open = true; $nextTick(() => $refs.close.focus())"
+     @keydown.escape.window="open = false"
+     class="ct-palette"
+     data-ct-shortcuts
+     data-track-time="{{ TRACK_TIME|yesno:'true,false' }}"
+     data-episode-save-url="{% url 'episode_save' %}"
+     data-none-left="{% translate "No unwatched episode on this page." %}"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="ct-shortcuts-title">
+  <div class="ct-palette-backdrop" @click="open = false"></div>
+  <div class="ct-palette-panel ct-shortcuts-panel">
+    <div class="ct-palette-field">
+      <h2 id="ct-shortcuts-title" class="flex-1 text-base font-semibold text-[var(--color-text)]">
+        {% translate "Keyboard shortcuts" %}
+      </h2>
+      <button type="button"
+              x-ref="close"
+              class="ct-palette-kbd cursor-pointer"
+              @click="open = false">Esc</button>
+    </div>
+    <dl class="ct-shortcuts-list">
+      <div>
+        <dt><kbd class="ct-palette-kbd">W</kbd></dt>
+        <dd>{% translate "Mark the next unwatched episode watched (season pages)" %}</dd>
+      </div>
+      <div>
+        <dt><kbd class="ct-palette-kbd">S</kbd></dt>
+        <dd>{% translate "Change status and tracking" %}</dd>
+      </div>
+      <div>
+        <dt><kbd class="ct-palette-kbd">R</kbd></dt>
+        <dd>{% translate "Rate" %}</dd>
+      </div>
+      <div>
+        <dt>
+          <kbd class="ct-palette-kbd">Ctrl</kbd> <kbd class="ct-palette-kbd">K</kbd>
+        </dt>
+        <dd>{% translate "Search or jump to a page" %}</dd>
+      </div>
+      <div>
+        <dt><kbd class="ct-palette-kbd">/</kbd></dt>
+        <dd>{% translate "Focus search" %}</dd>
+      </div>
+      <div>
+        <dt><kbd class="ct-palette-kbd">?</kbd></dt>
+        <dd>{% translate "Show this list" %}</dd>
+      </div>
+    </dl>
+  </div>
+</div>

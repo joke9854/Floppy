@@ -138,6 +138,59 @@ if (!window.__floppyCtShellBound) {
     searchInput.select();
   });
 
+  // A5: detail-page shortcuts. W marks the first unwatched episode on the
+  // page (as the Home check does), S opens tracking, R the rating, and ?
+  // lists them. Ignored while typing, with modifiers, or with a dialog open.
+  const isTyping = (el) => el instanceof Element
+    && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  const dialogOpen = () => [...document.querySelectorAll(".fixed.inset-0, .ct-palette")]
+    .some((el) => el.checkVisibility());
+  const markNextEpisode = (help) => {
+    const next = document.querySelector("[data-ct-episode-check][data-watched='0']");
+    if (!next) {
+      document.dispatchEvent(new CustomEvent("showToast", {
+        detail: { message: help.dataset.noneLeft, type: "info" },
+      }));
+      return;
+    }
+    const values = {
+      media_id: next.dataset.mediaId,
+      season_number: next.dataset.seasonNumber,
+      episode_number: next.dataset.episodeNumber,
+      source: next.dataset.source,
+      end_date: window.ctWatchNow(help.dataset.trackTime === "true"),
+    };
+    if (next.dataset.libraryMediaType) values.library_media_type = next.dataset.libraryMediaType;
+    if (window.crypto && crypto.randomUUID) values.watch_operation_id = crypto.randomUUID();
+    next.dataset.watched = "pending";
+    const url = `${help.dataset.episodeSaveUrl}?next=${encodeURIComponent(location.pathname)}`;
+    // The body as source, so the button's own hx-vals (instance_id) are not sent.
+    htmx.ajax("POST", url, { values, swap: "none", source: document.body }).catch(() => {
+      next.dataset.watched = "0";
+    });
+  };
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isTyping(event.target) || !document.querySelector("[data-ct-shell] .ct-detail-hero")) return;
+    const help = document.querySelector("[data-ct-shortcuts]");
+    if (!help || dialogOpen()) return;
+    const key = event.key.toLowerCase();
+    if (key === "?") {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("ct-shortcuts-open"));
+    } else if (key === "w") {
+      event.preventDefault();
+      markNextEpisode(help);
+    } else if (key === "s" || key === "r") {
+      const target = document.querySelector(
+        `.ct-detail-hero [data-ct-shortcut="${key === "s" ? "track" : "rate"}"]`,
+      );
+      if (!target) return;
+      event.preventDefault();
+      target.click();
+    }
+  });
+
   // M3: the poster a detail link was clicked from morphs into the detail
   // page's poster in the cross-document view transition (CineTrack's
   // sharedPoster). A name must be unique on the page, so the previous one

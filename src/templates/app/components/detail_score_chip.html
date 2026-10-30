@@ -8,6 +8,7 @@
      x-data="{ showRatingPopup: false, rating: {% localize off %}{{ current_instance.score|score_display:user|default:'null' }}{% endlocalize %}, ratingScaleMax: {{ user|rating_scale_max }}, hoverRating: null, isHovering: false, formatRating(value) { if (value === null || value === undefined || value === '') { return ''; } return this.ratingScaleMax === 5 ? String(value) + '/5' : String(value); } }"
      class="relative min-w-0 sm:w-auto">
   <button type="button"
+          data-ct-shortcut="rate"
           @click="showRatingPopup = !showRatingPopup"
           class="inline-flex h-[1.875rem] min-w-0 items-center gap-0.5 overflow-hidden rounded-full border border-amber-400/18 bg-amber-500/[0.07] pl-0 pr-1.5 text-[12px] text-white shadow-sm transition-colors duration-200 hover:border-amber-300/28 hover:bg-amber-500/[0.11] sm:h-8 sm:gap-2 sm:pr-3 sm:text-sm">
     <span class="sr-only">{% translate "Your score" %}</span>

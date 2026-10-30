@@ -7874,6 +7874,28 @@ html.cinetrack .ct-detail-hero:not(.ct-detail-hero--episode) .ct-detail-poster i
   margin-top: 4px;
   color: var(--color-text-secondary);
 }
+.ct-shortcuts-panel {
+  width: min(440px, 100%);
+}
+.ct-shortcuts-list {
+  display: grid;
+  gap: 2px;
+  padding: 8px 16px 16px;
+}
+.ct-shortcuts-list > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.ct-shortcuts-list dt {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  width: 76px;
+}
 .ct-palette-empty {
   padding: 10px;
   color: var(--color-text-muted);

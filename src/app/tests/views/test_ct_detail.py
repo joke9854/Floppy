@@ -132,3 +132,16 @@ class CineTrackDetailPageTests(TestCase):
         self.assertContains(response, "detail-carousel-grid")
         self.assertNotContains(response, "ct-detail-hero")
         self.assertNotContains(response, "ct-detail-backdrop")
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_cinetrack_detail_has_keyboard_shortcut_hooks(self, mock_get_metadata):
+        """A5: the shortcut list and the S target render in the CineTrack shell only."""
+        classic = self._get(mock_get_metadata)
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        cinetrack = self._get(mock_get_metadata)
+
+        self.assertNotContains(classic, "data-ct-shortcuts")
+        self.assertContains(cinetrack, "data-ct-shortcuts")
+        self.assertContains(cinetrack, 'data-ct-shortcut="track"')
+        self.assertContains(cinetrack, 'data-episode-save-url="/episode_save"')
