@@ -12,8 +12,10 @@
     <div class="flex flex-col md:flex-row gap-8">
       <div class="md:w-64 shrink-0">
         <div class="bg-[var(--color-surface)] rounded-lg overflow-hidden sticky top-20">
-          {# hx-boost: swap the body instead of reloading on settings navigation #}
-          <nav class="p-2 space-y-1" hx-boost="true">
+          {# hx-boost: swap the body instead of reloading on settings navigation; CineTrack cross-fades it (M3) #}
+          <nav class="p-2 space-y-1"
+               hx-boost="true"{% if request.user.theme == "cinetrack" %}
+               hx-swap="innerHTML transition:true"{% endif %}>
             {% url 'account' as account_url %}
             <a href="{{ account_url }}"
                {% if request.path == account_url %}aria-current="page"{% endif %}

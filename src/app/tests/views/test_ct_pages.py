@@ -116,6 +116,14 @@ class CineTrackPageShellTests(_ThemeMixin, TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, marker)
 
+    def test_settings_nav_cross_fades_only_in_cinetrack(self):
+        classic = self.client.get(reverse("account"))
+        self._use_cinetrack()
+        cinetrack = self.client.get(reverse("account"))
+
+        self.assertNotContains(classic, "transition:true")
+        self.assertContains(cinetrack, 'hx-swap="innerHTML transition:true"', count=3)
+
     def test_classic_pages_have_no_ct_marker(self):
         for name in ("statistics", "lists", "account"):
             with self.subTest(name=name):
