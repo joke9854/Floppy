@@ -19,7 +19,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
@@ -59,6 +59,8 @@ from integrations.models import (
     LastFMAccount,
     PlexAccount,
     PlexWebhookShare,
+    SyncBinding,
+    SyncClientKind,
 )
 from integrations.plex_watchlist import WATCHLIST_TASK_NAME
 from users import appearance as appearance_config
@@ -2769,6 +2771,125 @@ def revoke_connected_app(request, client_id):
         DeviceGrant.objects.filter(user=request.user, client_id=client_id).delete()
     messages.success(request, f"Disconnected '{app['name']}'.")
     return redirect("integrations")
+
+
+CONNECTED_APPS_CRASH_REPORT_LIMIT = 50
+
+
+def app_sessions_for(user):
+    """Return one entry per signed-in install, newest activity first.
+
+    Refresh tokens rotate on every refresh, so each install holds exactly one
+    live refresh token; an unexpired access token without one is a session of
+    its own. ``last_active`` is when that token was issued: the sign-in or the
+    app's latest refresh.
+    """
+    from oauth2_provider.models import (
+        AccessToken,
+        RefreshToken,
+        refresh_token_expire_timedelta,
+    )
+
+    now = timezone.now()
+    refresh_tokens = RefreshToken.objects.filter(
+        user=user,
+        revoked__isnull=True,
+        access_token__isnull=False,
+        application__isnull=False,
+    )
+    lifetime = refresh_token_expire_timedelta()
+    if lifetime:
+        refresh_tokens = refresh_tokens.filter(access_token__expires__gt=now - lifetime)
+    sessions = [
+        {
+            "id": f"r{token.pk}",
+            "name": token.application.name,
+            "scopes": token.access_token.scope.split(),
+            "last_active": token.created,
+        }
+        for token in refresh_tokens.select_related("application", "access_token")
+    ]
+    sessions += [
+        {
+            "id": f"a{token.pk}",
+            "name": token.application.name,
+            "scopes": token.scope.split(),
+            "last_active": token.created,
+        }
+        for token in AccessToken.objects.filter(
+            user=user,
+            expires__gt=now,
+            application__isnull=False,
+            refresh_token__isnull=True,
+        ).select_related("application")
+    ]
+    return sorted(sessions, key=lambda session: session["last_active"], reverse=True)
+
+
+@require_GET
+def connected_apps(request):
+    """Render signed-in installs, app sync connections and crash reports."""
+    reports = request.user.cinetrack_crash_reports.order_by("-received_at", "-pk")
+    return render(
+        request,
+        "users/connected_apps.html",
+        {
+            "app_sessions": app_sessions_for(request.user),
+            "sync_connections": SyncBinding.objects.filter(
+                user=request.user,
+                client_kind=SyncClientKind.APP.value,
+            )
+            .annotate(last_sync=Max("checkpoints__updated_at"))
+            .order_by("-last_sync", "label"),
+            "crash_reports": reports[:CONNECTED_APPS_CRASH_REPORT_LIMIT],
+            "crash_report_count": reports.count(),
+        },
+    )
+
+
+@require_GET
+def export_crash_reports(request):
+    """Download every stored crash report, in the API's list shape."""
+    from api.cinetrack_crash_report_views import CineTrackCrashReportItemSerializer
+
+    reports = request.user.cinetrack_crash_reports.order_by("-received_at", "-pk")
+    response = JsonResponse(
+        {
+            "count": reports.count(),
+            "results": CineTrackCrashReportItemSerializer(reports, many=True).data,
+        },
+    )
+    response["Content-Disposition"] = 'attachment; filename="floppy-crash-reports.json"'
+    return response
+
+
+@require_POST
+def revoke_app_session(request, session_id):
+    """Sign one install out; the user's other installs and apps keep working."""
+    from oauth2_provider.models import AccessToken, RefreshToken
+
+    kind, pk = session_id[:1], session_id[1:]
+    if not pk.isdigit() or kind not in {"r", "a"}:
+        raise Http404
+    if kind == "r":
+        token = get_object_or_404(
+            RefreshToken.objects.select_related("application"),
+            pk=pk,
+            user=request.user,
+            revoked__isnull=True,
+        )
+    else:
+        token = get_object_or_404(
+            AccessToken.objects.select_related("application"),
+            pk=pk,
+            user=request.user,
+        )
+    name = token.application.name if token.application else gettext("App")
+    # RefreshToken.revoke() also ends its access token; the session's
+    # history and data are untouched.
+    token.revoke()
+    messages.success(request, gettext("Signed out one %(app)s install.") % {"app": name})
+    return redirect("connected_apps")
 
 
 @require_POST

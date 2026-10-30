@@ -47,6 +47,7 @@ All paths are under `/api/v1/`.
 | `POST media/tv/{source}/{media_id}/episodes/translate/` | Read-only numbering translation (`from=tracker` or `tmdb`) |
 | `GET media/{type}/{source}/{media_id}/characters/` | Characters for the cast row |
 | `POST cinetrack/crash-reports/` | Crash and ANR reports (needs `watchlist:write`) |
+| `GET cinetrack/crash-reports/?limit=` | The account's own reports, newest first (needs `watchlist:read`). Settings > Connected apps shows the same reports and exports them as JSON |
 | `POST`/`DELETE sync/connections/` | Registers CineTrack as a pull connection, which turns on the change index |
 | `GET sync/items/snapshot/`, `GET sync/items/changes/?cursor=` | Floppy as main tracker: full snapshot first, then the change feed |
 | `media/...` status and watch routes | Live writes after the first sync (status changes, single plays, removals) |

@@ -1,0 +1,124 @@
+{% extends "users/base.html" %}
+{% load i18n %}
+
+{% load app_tags %}
+
+{% block title %}
+  {% translate "Connected apps - Floppy" %}
+{% endblock title %}
+
+{% block settings_content %}
+  <div class="space-y-6">
+    {# Each install that signed in with your Floppy account (OAuth). #}
+    <section class="bg-[var(--color-surface)] rounded-lg p-6">
+      <h2 class="text-lg font-semibold">{% translate "Signed-in apps" %}</h2>
+      <p class="mt-1 mb-4 text-sm text-[var(--color-text-muted)]">
+        {% translate "One row per install. Signing one out ends only that install's session; your history is untouched and the app can sign in again." %}
+      </p>
+      {% if app_sessions %}
+        <ul class="divide-y divide-[var(--color-border)]" data-app-sessions>
+          {% for session in app_sessions %}
+            <li class="py-3 flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate">{{ session.name }}</p>
+                <p class="text-[var(--color-text-muted)] text-xs mt-1">
+                  {% translate "Last signed in or refreshed" %} {{ session.last_active|datetime_format:user }}
+                </p>
+                <p class="text-[var(--color-text-muted)] text-xs mt-1">
+                  {% for scope in session.scopes %}
+                    <span class="inline-block bg-[var(--color-surface-dim)] rounded px-1.5 py-0.5 mr-1 mb-1 font-mono">{{ scope }}</span>
+                  {% endfor %}
+                </p>
+              </div>
+              <form method="post"
+                    class="shrink-0"
+                    action="{% url 'revoke_app_session' session.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-3 py-1.5 border border-[var(--color-warning-text)] text-[var(--color-warning-text)] rounded-md hover:bg-[var(--color-surface-dim)] transition-colors text-sm cursor-pointer">
+                  {% translate "Sign out" %}
+                </button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-[var(--color-text-muted)]">{% translate "No app is signed in to your account." %}</p>
+      {% endif %}
+      <p class="mt-4 text-sm text-[var(--color-text-muted)]">
+        {% url 'integrations' as integrations_url %}
+        {% blocktranslate %}App tokens, and disconnecting an app from every install at once, are in <a class="text-[var(--color-link)] hover:underline" href="{{ integrations_url }}#connected-apps">Integrations</a>.{% endblocktranslate %}
+      </p>
+    </section>
+
+    {# Apps that registered as pull clients of the change feeds. #}
+    <section class="bg-[var(--color-surface)] rounded-lg p-6">
+      <h2 class="text-lg font-semibold">{% translate "Sync connections" %}</h2>
+      <p class="mt-1 mb-4 text-sm text-[var(--color-text-muted)]">
+        {% translate "Apps that keep a copy of your library in step with Floppy, and when each last synced." %}
+      </p>
+      {% if sync_connections %}
+        <ul class="divide-y divide-[var(--color-border)]" data-sync-connections>
+          {% for connection in sync_connections %}
+            <li class="py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <p class="text-sm font-medium min-w-0 truncate">{{ connection.label|default:connection.get_client_kind_display }}</p>
+              <p class="text-[var(--color-text-muted)] text-xs">
+                {{ connection.get_status_display }}
+                ·
+                {% if connection.last_sync %}
+                  {% translate "Last sync" %} {{ connection.last_sync|datetime_format:user }}
+                {% else %}
+                  {% translate "Not synced yet" %}
+                {% endif %}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-[var(--color-text-muted)]">{% translate "No app syncs with your library yet." %}</p>
+      {% endif %}
+    </section>
+
+    {# Sanitized CineTrack crash and ANR reports (A3). #}
+    <section class="bg-[var(--color-surface)] rounded-lg p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">{% translate "Crash reports" %}</h2>
+        {% if crash_report_count %}
+          <a href="{% url 'export_crash_reports' %}"
+             download="floppy-crash-reports.json"
+             hx-boost="false"
+             data-crash-export
+             class="px-3 py-1.5 border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-dim)] transition-colors text-sm">
+            {% translate "Export JSON" %}
+          </a>
+        {% endif %}
+      </div>
+      <p class="mt-1 mb-4 text-sm text-[var(--color-text-muted)]">
+        {% translate "Sent by CineTrack when crash reports are on in its settings. They contain the app version, device model and a stack trace, never your library or credentials." %}
+      </p>
+      {% if crash_reports %}
+        <ul class="space-y-2" data-crash-reports>
+          {% for report in crash_reports %}
+            <li>
+              <details class="rounded-md bg-[var(--color-surface-strong)]">
+                <summary class="cursor-pointer p-3 text-sm flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="font-medium">{{ report.get_kind_display }}</span>
+                  <span class="min-w-0 break-all font-mono text-xs">{{ report.exception_class|default:"—" }}</span>
+                  <span class="text-xs text-[var(--color-text-muted)]">{{ report.occurred_at|datetime_format:user }} · {{ report.app_version }} · {{ report.device_model }} · Android SDK {{ report.android_sdk }}</span>
+                </summary>
+                <pre class="px-3 pb-3 text-xs overflow-x-auto max-h-80 whitespace-pre">{{ report.stack_trace }}</pre>
+              </details>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if crash_report_count > crash_reports|length %}
+          <p class="mt-3 text-xs text-[var(--color-text-muted)]">
+            {% blocktranslate with shown=crash_reports|length total=crash_report_count %}Showing the newest {{ shown }} of {{ total }}. The export has all of them.{% endblocktranslate %}
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="text-sm text-[var(--color-text-muted)]">{% translate "No crash reports." %}</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock settings_content %}

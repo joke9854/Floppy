@@ -72,6 +72,16 @@
               <span>{% translate "Integrations" %}</span>
             </a>
 
+            {% if ct_shell %}
+              {% url 'connected_apps' as connected_apps_url %}
+              <a href="{{ connected_apps_url }}"
+                 {% if request.path == connected_apps_url %}aria-current="page"{% endif %}
+                 class="w-full flex items-center space-x-3 px-2 py-2 rounded-md transition-colors text-left border-l-2 cursor-pointer text-sm {% if request.path == connected_apps_url %}bg-[var(--color-surface-strong)] text-[var(--color-text)] border-[var(--color-link)]{% else %}text-[var(--color-text-muted)] border-transparent hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]{% endif %}">
+                {% include "app/icons/padlock.svg" with classes="w-5 h-5" %}
+                <span>{% translate "Connected apps" %}</span>
+              </a>
+            {% endif %}
+
             {% url 'metadata_settings' as metadata_url %}
             <a href="{{ metadata_url }}"
                {% if request.path == metadata_url %}aria-current="page"{% endif %}

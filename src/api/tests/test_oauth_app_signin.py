@@ -8,6 +8,7 @@ not signed in is sent to allauth's login page first.
 
 import base64
 import hashlib
+import uuid
 from datetime import timedelta
 from http import HTTPStatus as HTTP  # noqa: N814
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -683,3 +684,133 @@ class ConnectedAppsTests(SignInTestCase):
         make_access_token(other_user, "nuvio", "other-nuvio-token")
         response = self.browser.post(reverse("revoke_connected_app", args=["nuvio"]))
         self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+
+
+class AppSessionsTests(SignInTestCase):
+    """Settings > Connected apps: one row per install, each signed out alone."""
+
+    def page(self):
+        """Return the Connected apps page."""
+        response = self.browser.get(reverse("connected_apps"))
+        self.assertEqual(response.status_code, HTTP.OK)
+        return response
+
+    def test_each_install_is_listed_and_signed_out_alone(self):
+        phone = self.sign_in()
+        tablet = self.sign_in()
+        sessions = self.page().context["app_sessions"]
+        self.assertEqual([s["name"] for s in sessions], ["CineTrack", "CineTrack"])
+
+        response = self.browser.post(
+            reverse("revoke_app_session", args=[sessions[0]["id"]])
+        )
+        self.assertRedirects(response, reverse("connected_apps"))
+
+        statuses = sorted(
+            self.client.get(COLLECTION, **bearer(tokens["access_token"])).status_code
+            for tokens in (phone, tablet)
+        )
+        self.assertEqual(statuses, [HTTP.OK, HTTP.FORBIDDEN])
+        self.assertEqual(len(self.page().context["app_sessions"]), 1)
+        # The install's refresh token is revoked, not deleted.
+        self.assertEqual(
+            RefreshToken.objects.filter(user=self.user, revoked__isnull=False).count(),
+            1,
+        )
+
+    def test_access_token_without_refresh_token_is_its_own_session(self):
+        token = make_access_token(self.user, "nuvio", "nuvio-token")
+        sessions = self.page().context["app_sessions"]
+        self.assertEqual([s["id"] for s in sessions], [f"a{token.pk}"])
+        self.browser.post(reverse("revoke_app_session", args=[f"a{token.pk}"]))
+        self.assertFalse(AccessToken.objects.filter(pk=token.pk).exists())
+
+    def test_another_users_session_is_404(self):
+        other_user = get_user_model().objects.create_user(username="someone-else")
+        token = make_access_token(other_user, "nuvio", "other-nuvio-token")
+        for session_id in (f"a{token.pk}", "r999", "x1", "a"):
+            response = self.browser.post(
+                reverse("revoke_app_session", args=[session_id])
+            )
+            self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        self.assertTrue(AccessToken.objects.filter(pk=token.pk).exists())
+
+    def test_sign_out_requires_post(self):
+        token = make_access_token(self.user, "nuvio", "nuvio-token")
+        response = self.browser.get(
+            reverse("revoke_app_session", args=[f"a{token.pk}"])
+        )
+        self.assertEqual(response.status_code, HTTP.METHOD_NOT_ALLOWED)
+        self.assertTrue(AccessToken.objects.filter(pk=token.pk).exists())
+
+    def test_page_shows_own_crash_reports_and_sync_connections(self):
+        from integrations.models import SyncBinding, SyncCheckpoint
+        from users.models import CineTrackCrashReport
+
+        other_user = get_user_model().objects.create_user(username="someone-else")
+        report = {
+            "kind": "crash",
+            "occurred_at": timezone.now(),
+            "app_version": "0.99.80",
+            "version_code": 9980,
+            "build_type": "release",
+            "android_sdk": 35,
+            "device_model": "Pixel 9",
+            "exception_class": "java.lang.IllegalStateException",
+            "stack_trace": "java.lang.IllegalStateException: mine",
+        }
+        CineTrackCrashReport.objects.create(
+            user=self.user, report_id=uuid.uuid4(), **report
+        )
+        CineTrackCrashReport.objects.create(
+            user=other_user,
+            report_id=uuid.uuid4(),
+            **{**report, "stack_trace": "someone else's trace"},
+        )
+        binding = SyncBinding.objects.create(
+            user=self.user,
+            client_kind="app",
+            instance_key="cinetrack:a",
+            origin_key="o-a",
+            label="Pixel 9",
+        )
+        SyncCheckpoint.objects.create(
+            binding=binding, resource="watched_state", direction="outbound"
+        )
+        SyncBinding.objects.create(
+            user=other_user,
+            client_kind="app",
+            instance_key="cinetrack:b",
+            origin_key="o-b",
+            label="Their phone",
+        )
+
+        response = self.page()
+        self.assertEqual(response.context["crash_report_count"], 1)
+        self.assertContains(response, "java.lang.IllegalStateException: mine")
+        self.assertNotContains(response, "someone else&#x27;s trace")
+        self.assertContains(response, "data-crash-export")
+        connections = list(response.context["sync_connections"])
+        self.assertEqual([c.label for c in connections], ["Pixel 9"])
+        self.assertIsNotNone(connections[0].last_sync)
+
+        export = self.browser.get(reverse("export_crash_reports"))
+        self.assertEqual(export.status_code, HTTP.OK)
+        self.assertIn("attachment", export["Content-Disposition"])
+        body = export.json()
+        self.assertEqual(body["count"], 1)
+        self.assertEqual(
+            body["results"][0]["stack_trace"], "java.lang.IllegalStateException: mine"
+        )
+
+    def test_settings_nav_links_the_page_in_cinetrack_only(self):
+        self.user.theme = "cinetrack"
+        self.user.save(update_fields=["theme"])
+        self.assertContains(
+            self.browser.get(reverse("account")), reverse("connected_apps")
+        )
+        self.user.theme = "dark"
+        self.user.save(update_fields=["theme"])
+        self.assertNotContains(
+            self.browser.get(reverse("account")), reverse("connected_apps")
+        )

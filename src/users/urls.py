@@ -87,6 +87,17 @@ urlpatterns = [
         name="convert_anime_library",
     ),
     path("settings/integrations", views.integrations, name="integrations"),
+    path("settings/connected-apps", views.connected_apps, name="connected_apps"),
+    path(
+        "settings/connected-apps/crash-reports.json",
+        views.export_crash_reports,
+        name="export_crash_reports",
+    ),
+    path(
+        "settings/connected-apps/sessions/<str:session_id>/revoke",
+        views.revoke_app_session,
+        name="revoke_app_session",
+    ),
     path("settings/rss", views.rss_settings, name="rss_settings"),
     path(
         "settings/metadata",
