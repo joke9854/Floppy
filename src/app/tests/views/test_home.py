@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from unittest.mock import patch
 
@@ -897,6 +898,23 @@ class HomeViewTests(TestCase):
             response,
             "hx-trigger=\"every 10s [document.visibilityState=='visible'], "
             "visibilitychange[document.visibilityState=='visible'] from:document\"",
+        )
+
+    def test_boosted_pages_do_not_look_like_the_entrance_page(self):
+        """The entrance guard must not match base.html's own script (F10)."""
+        entrance = re.compile(r'<meta\s+name="floppy-page"\s+content="entrance"')
+        response = self.client.get(reverse("home"))
+        self.assertIsNone(entrance.search(response.content.decode()))
+        self.client.logout()
+        login = self.client.get(reverse("account_login"))
+        self.assertIsNotNone(entrance.search(login.content.decode()))
+
+    def test_statistics_nav_link_is_not_boosted(self):
+        """Statistics loads its scripts in the body, so its link does a full load."""
+        response = self.client.get(reverse("home"))
+        self.assertRegex(
+            response.content.decode(),
+            r'href="/statistics"\s+hx-boost="false"',
         )
 
     def test_active_playback_fragment_empty(self):

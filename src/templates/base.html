@@ -85,8 +85,11 @@
             if (!xhr) {
               return;
             }
+            // A regex, not the literal tag: this script is in every base.html
+            // response, so the literal would match itself and turn every
+            // boosted navigation into a full reload.
             const body = xhr.responseText || "";
-            if (body.indexOf('name="floppy-page" content="entrance"') === -1) {
+            if (!/<meta\s+name="floppy-page"\s+content="entrance"/.test(body)) {
               return;
             }
             event.detail.shouldSwap = false;
@@ -394,7 +397,9 @@
 
                   {% url 'statistics' as statistics_url %}
                   <li>
+                    {# Not boosted: Statistics loads date-range.js and Chart.js in its body, which a body swap runs after Alpine. #}
                     <a href="{{ statistics_url }}"
+                       hx-boost="false"
                        class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == statistics_url %}text-[var(--color-text)] bg-[var(--color-border)]{% else %}text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover-dim)]{% endif %}">
                       {% if request.path|str_equals:statistics_url %}
                         {% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5 text-[var(--color-link)] " %}

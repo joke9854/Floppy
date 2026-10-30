@@ -1,6 +1,12 @@
 {% extends "allauth/layouts/base.html" %}
 {% load allauth account static %}
 
+{% block extra_head %}
+  {{ block.super }}
+  {# Lets base.html's htmx:beforeSwap guard spot a sign-in page returned to a boosted or fragment request. #}
+  {% if not user.is_authenticated %}<meta name="floppy-page" content="entrance">{% endif %}
+{% endblock extra_head %}
+
 {% block body %}
   <div class="flex min-h-screen bg-[var(--color-page-bg)] text-[var(--color-text)]{% if user.is_authenticated and user.theme == "cinetrack" %} ct-entrance{% endif %}">
     <div class="flex-1 flex flex-col justify-center lg:pb-40 items-center p-4">

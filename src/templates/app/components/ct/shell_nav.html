@@ -101,7 +101,9 @@
       </a>
     </li>
     <li>
+      {# Not boosted: Statistics loads date-range.js and Chart.js in its body, which a body swap runs after Alpine. #}
       <a href="{{ statistics_url }}"
+         hx-boost="false"
          class="ct-rail-link"
          {% if request.path == statistics_url %}aria-current="page"{% endif %}>
         <span aria-hidden="true">{% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5" %}</span>
@@ -232,6 +234,7 @@
           </li>
           <li>
             <a href="{{ statistics_url }}"
+               hx-boost="false"
                class="ct-menu-link"
                {% if request.path == statistics_url %}aria-current="page"{% endif %}>
               <span aria-hidden="true">{% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5" %}</span>
