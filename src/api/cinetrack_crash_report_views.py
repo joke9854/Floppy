@@ -1,11 +1,12 @@
 """CineTrack crash/ANR report upload to the user's own Floppy server.
 
 Reports are sanitized by the client. The server never logs the stack trace,
-request body or credentials.
+request body or credentials. GET lists the caller's own reports so they can be
+read and exported without Django admin; it never returns another account's.
 """
 
 from django.db import IntegrityError, transaction
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework import views as drf_views
 from rest_framework.response import Response
@@ -21,6 +22,7 @@ from .throttling import (
 
 MAX_REPORTS_PER_USER = 500
 MAX_STACK_TRACE_CHARS = 65536
+DEFAULT_LIST_LIMIT = 100
 
 
 class _AwareDateTimeField(serializers.DateTimeField):
@@ -60,15 +62,79 @@ class CineTrackCrashReportResultSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=["created", "already_received"])
 
 
-class CineTrackCrashReportView(drf_views.APIView):
-    """Accept one sanitized crash or ANR report per request."""
+class CineTrackCrashReportItemSerializer(CineTrackCrashReportSerializer):
+    """One stored report as its owner reads it back."""
 
-    required_scopes = {"POST": "watchlist:write"}
+    received_at = serializers.DateTimeField()
+
+
+class CineTrackCrashReportListSerializer(serializers.Serializer):
+    """The caller's reports, newest received first."""
+
+    count = serializers.IntegerField(help_text="All reports stored for this account.")
+    results = CineTrackCrashReportItemSerializer(many=True)
+
+
+class CineTrackCrashReportView(drf_views.APIView):
+    """Accept one sanitized crash or ANR report per request; list your own."""
+
+    required_scopes = {"GET": "watchlist:read", "POST": "watchlist:write"}
     throttle_classes = [
         AccountRateThrottle,
         AnonymousRateThrottle,
         CrashReportRateThrottle,
     ]
+
+    def get_throttles(self):
+        """Count only uploads against the crash-report budget."""
+        throttles = super().get_throttles()
+        if self.request.method == "POST":
+            return throttles
+        return [t for t in throttles if not isinstance(t, CrashReportRateThrottle)]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "limit",
+                int,
+                description=(
+                    f"Reports to return, 1-{MAX_REPORTS_PER_USER} "
+                    f"(default {DEFAULT_LIST_LIMIT})."
+                ),
+            ),
+        ],
+        responses={
+            200: CineTrackCrashReportListSerializer,
+            400: OpenApiResponse(DetailErrorSerializer, description="Invalid limit."),
+            401: OpenApiResponse(
+                DetailErrorSerializer, description="Missing or invalid API key."
+            ),
+            403: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Token lacks the watchlist:read scope.",
+            ),
+        },
+    )
+    def get(self, request):
+        """List the caller's own reports, newest received first."""
+        raw_limit = request.query_params.get("limit", DEFAULT_LIST_LIMIT)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = 0
+        if not 1 <= limit <= MAX_REPORTS_PER_USER:
+            return Response(
+                {"detail": f"limit must be between 1 and {MAX_REPORTS_PER_USER}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reports = CineTrackCrashReport.objects.filter(user=request.user)
+        rows = reports.order_by("-received_at", "-pk")[:limit]
+        return Response(
+            {
+                "count": reports.count(),
+                "results": CineTrackCrashReportItemSerializer(rows, many=True).data,
+            }
+        )
 
     @extend_schema(
         request=CineTrackCrashReportSerializer,

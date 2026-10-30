@@ -161,3 +161,62 @@ class CineTrackCrashReportTests(FloppyApiTestCase):
         self.assertIs(info["api_extensions"]["cinetrack_crash_reports_v1"], True)
         probe = self.client.get("/api/v1/cinetrack/connection/", **self.headers).json()
         self.assertIs(probe["api_extensions"]["cinetrack_crash_reports_v1"], True)
+
+
+class CineTrackCrashReportListTests(FloppyApiTestCase):
+    """The owner reads and exports their own reports; nobody else's."""
+
+    def setUp(self):
+        super().setUp()
+        _, raw = IntegrationToken.generate(
+            user=self.user1, name="Reader", scopes=["watchlist:read"]
+        )
+        self.headers = {"HTTP_X_API_KEY": raw}
+
+    def store(self, user, **overrides):
+        """Create one stored report for a user."""
+        body = payload(**overrides)
+        body["report_id"] = uuid.UUID(body["report_id"])
+        return CineTrackCrashReport.objects.create(user=user, **body)
+
+    def test_lists_only_own_reports_newest_first(self):
+        older = self.store(self.user1, kind="anr")
+        newer = self.store(self.user1)
+        self.store(self.user2)
+        response = self.client.get(URL, **self.headers)
+        self.assertEqual(response.status_code, HTTP.OK)
+        body = response.json()
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(
+            [row["report_id"] for row in body["results"]],
+            [str(newer.report_id), str(older.report_id)],
+        )
+        row = body["results"][1]
+        self.assertEqual(row["kind"], "anr")
+        self.assertEqual(row["stack_trace"], older.stack_trace)
+        self.assertIn("received_at", row)
+        self.assertNotIn("user", row)
+
+    def test_limit_caps_results_but_not_count(self):
+        for _ in range(3):
+            self.store(self.user1)
+        body = self.client.get(URL + "?limit=2", **self.headers).json()
+        self.assertEqual((body["count"], len(body["results"])), (3, 2))
+        for bad in ("0", "501", "many"):
+            response = self.client.get(URL + f"?limit={bad}", **self.headers)
+            self.assertEqual(response.status_code, HTTP.BAD_REQUEST)
+
+    def test_read_needs_watchlist_read(self):
+        _, raw = IntegrationToken.generate(
+            user=self.user1, name="Scrobbler", scopes=["scrobble:write"]
+        )
+        response = self.client.get(URL, HTTP_X_API_KEY=raw)
+        self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+
+    def test_reading_does_not_spend_the_upload_budget(self):
+        with patch(
+            "api.cinetrack_crash_report_views.CrashReportRateThrottle.allow_request",
+            return_value=False,
+        ):
+            response = self.client.get(URL, **self.headers)
+        self.assertEqual(response.status_code, HTTP.OK)
