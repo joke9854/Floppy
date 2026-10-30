@@ -93,7 +93,7 @@
                style="min-width: max-content">
             <div id="trakt-series-graph-{{ display_provider }}-{{ media.media_id }}"
                  hx-get="{% url 'trakt_series_graph_fragment' source=display_provider media_id=media.media_id %}"
-                 hx-trigger="load delay:300ms, every 5s"
+                 hx-trigger="load delay:300ms, every 5s [document.visibilityState=='visible']"
                  hx-target="this"
                  hx-swap="outerHTML">
               <div class="mb-2 flex items-center justify-between gap-3">

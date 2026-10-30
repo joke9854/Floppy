@@ -12,7 +12,7 @@ HTMX stops automatically — same pattern as prefetch_artist_covers.
 <div id="trakt-series-graph-{{ source }}-{{ media_id }}"
      {% if poll_for_graph %}
        hx-get="{% url 'trakt_series_graph_fragment' source=source media_id=media_id %}"
-       hx-trigger="every 5s"
+       hx-trigger="every 5s [document.visibilityState=='visible']"
        hx-target="this"
        hx-swap="outerHTML"
      {% endif %}>

@@ -12,7 +12,7 @@
 <div id="home-artwork-poller"
      {% if oob %}hx-swap-oob="outerHTML"{% endif %}
      hx-get="{% url 'home_rows_artwork_refresh' %}?ids={% for rid in poll_row_ids %}{{ rid }}{% if not forloop.last %},{% endif %}{% endfor %}"
-     hx-trigger="{% if initial %}load delay:1s, {% endif %}every 30s"
+     hx-trigger="{% if initial %}load delay:1s, {% endif %}every 30s [document.visibilityState=='visible']"
      hx-sync="this:abort"
      hx-swap="outerHTML"></div>
 {% else %}

@@ -127,7 +127,7 @@
           {# Picks up plays recorded by webhooks/scrobblers (Plex, generic scrobble API), #}
           {# which write history directly with no open response to OOB-swap into. #}
           <div hx-get="{% url 'episode_history_poll' current_instance.id %}"
-               hx-trigger="every 15s"
+               hx-trigger="every 15s [document.visibilityState=='visible'], visibilitychange[document.visibilityState=='visible'] from:document"
                hx-swap="none"></div>
         {% endif %}
 

@@ -890,6 +890,15 @@ class HomeViewTests(TestCase):
         self.assertEqual(final_response["X-Home-Row-Total"], "37")
         self.assertEqual(final_response["X-Home-Row-Loaded"], "37")
 
+    def test_active_playback_poll_pauses_in_background_tabs(self):
+        """Home polls active playback only while the tab is visible (F8)."""
+        response = self.client.get(reverse("home"))
+        self.assertContains(
+            response,
+            "hx-trigger=\"every 10s [document.visibilityState=='visible'], "
+            "visibilitychange[document.visibilityState=='visible'] from:document\"",
+        )
+
     def test_active_playback_fragment_empty(self):
         """Fragment endpoint returns empty body when nothing is playing."""
         response = self.client.get(reverse("active_playback_fragment"))

@@ -33,5 +33,5 @@ class TraktSeriesGraphFragmentTests(TestCase):
 
         content = response.content.decode()
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn('hx-trigger="every 5s"', content)
+        self.assertNotIn("every 5s", content)
         self.assertNotIn("Fetching remaining episodes", content)
