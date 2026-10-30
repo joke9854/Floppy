@@ -1,0 +1,45 @@
+{% load i18n %}
+{# A1: Ctrl/Cmd+K command palette (CineTrack shell). Opened by ctShell.js; results come from command_palette. #}
+<div x-data="ctPalette"
+     x-show="open"
+     x-cloak
+     @ct-palette-open.window="show()"
+     @keydown.escape.window="open && close()"
+     class="ct-palette"
+     role="dialog"
+     aria-modal="true"
+     aria-label="{% translate "Command palette" %}">
+  <div class="ct-palette-backdrop" @click="close()"></div>
+  <div class="ct-palette-panel">
+    <div class="ct-palette-field">
+      {% include "app/icons/magnifying-glass.svg" with classes="w-5 h-5 shrink-0" %}
+      <input x-ref="input"
+             type="search"
+             name="q"
+             autocomplete="off"
+             spellcheck="false"
+             role="combobox"
+             aria-expanded="true"
+             aria-controls="ct-palette-results"
+             aria-autocomplete="list"
+             :aria-activedescendant="activeId"
+             placeholder="{% translate "Search or jump to a page" %}"
+             hx-get="{% url 'command_palette' %}"
+             hx-trigger="input changed delay:150ms, ct-palette-refresh"
+             hx-target="#ct-palette-results"
+             hx-swap="innerHTML"
+             hx-sync="this:replace"
+             hx-include="[name='media_type']"
+             @keydown.arrow-down.prevent="move(1)"
+             @keydown.arrow-up.prevent="move(-1)"
+             @keydown.enter.prevent="go()">
+      <kbd class="ct-palette-kbd">Esc</kbd>
+    </div>
+    <div id="ct-palette-results"
+         class="ct-palette-results"
+         role="listbox"
+         aria-label="{% translate "Results" %}"
+         @htmx:after-swap="reset()"
+         @mousemove="hover($event)"></div>
+  </div>
+</div>

@@ -1,7 +1,57 @@
-// CineTrack shell: rail and bottom-nav menus, and Ctrl/Cmd+K to search.
+// CineTrack shell: rail and bottom-nav menus, and the Ctrl/Cmd+K command palette.
 // Loaded for every theme (it is small) so a boosted switch to the CineTrack
 // theme, which keeps the old <head>, still finds the component.
 document.addEventListener("alpine:init", () => {
+  // A1: command palette. Arrow keys move the highlighted option, Enter
+  // follows it; with nothing highlighted Enter runs the online search.
+  Alpine.data("ctPalette", () => ({
+    open: false,
+    active: -1,
+    activeId: null,
+    returnFocus: null,
+    options() {
+      return Array.from(this.$root.querySelectorAll("[role=option]"));
+    },
+    show() {
+      this.returnFocus = document.activeElement;
+      this.open = true;
+      this.$refs.input.value = "";
+      this.$nextTick(() => {
+        this.$refs.input.focus();
+        htmx.trigger(this.$refs.input, "ct-palette-refresh");
+      });
+    },
+    close() {
+      this.open = false;
+      if (this.returnFocus && this.returnFocus.focus) this.returnFocus.focus();
+    },
+    reset() {
+      this.select(this.$refs.input.value.trim() && this.options().length ? 0 : -1);
+    },
+    select(index) {
+      const options = this.options();
+      options.forEach((option, i) => option.setAttribute("aria-selected", i === index ? "true" : "false"));
+      this.active = index;
+      this.activeId = index >= 0 && options[index] ? options[index].id : null;
+      if (this.activeId) options[index].scrollIntoView({ block: "nearest" });
+    },
+    move(step) {
+      const count = this.options().length;
+      if (!count) return;
+      this.select((this.active + step + count) % count);
+    },
+    hover(event) {
+      const option = event.target instanceof Element ? event.target.closest("[role=option]") : null;
+      const index = option ? this.options().indexOf(option) : -1;
+      if (index >= 0 && index !== this.active) this.select(index);
+    },
+    go() {
+      const options = this.options();
+      const target = options[this.active] || options.find((option) => option.classList.contains("ct-palette-online"));
+      if (target) target.click();
+    },
+  }));
+
   // Disclosure menu: a button plus a panel of links. Opening moves focus to
   // the first item; Escape closes and returns focus; tabbing out closes.
   Alpine.data("ctMenu", () => ({
@@ -76,6 +126,11 @@ if (!window.__floppyCtShellBound) {
   document.addEventListener("keydown", (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") return;
     if (!document.querySelector("[data-ct-shell]")) return;
+    if (document.querySelector(".ct-palette")) {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("ct-palette-open"));
+      return;
+    }
     const searchInput = document.getElementById("global-search");
     if (!searchInput) return;
     event.preventDefault();

@@ -248,6 +248,7 @@
 
         {% if ct_shell %}
           {% include "app/components/ct/shell_nav.html" %}
+          {% include "app/components/ct/command_palette.html" %}
         {% endif %}
 
         {# Mobile menu overlay #}
@@ -517,7 +518,7 @@
                                  aria-autocomplete="list"
                                  aria-expanded="false"
                                  aria-controls="search-suggestions"
-                                 {% if ct_shell %}aria-keyshortcuts="Control+K Meta+K /"{% endif %}
+                                 {% if ct_shell %}aria-keyshortcuts="/"{% endif %}
                                  hx-get="{% url 'search_suggestions' %}"
                                  hx-trigger="keyup changed delay:250ms, search"
                                  hx-target="#search-suggestions"

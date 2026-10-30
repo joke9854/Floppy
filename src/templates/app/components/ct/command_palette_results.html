@@ -1,0 +1,52 @@
+{% load i18n app_tags %}
+{% if library %}
+  <div class="ct-palette-group" role="presentation">{% translate "In your library" %}</div>
+  {% for match in library %}
+    <a href="{{ match.url }}"
+       id="ct-palette-option-library-{{ forloop.counter }}"
+       role="option"
+       class="ct-palette-option">
+      {% if match.image and match.image != IMG_NONE %}
+        <img src="{{ match.image|image_url }}"
+             alt=""
+             loading="lazy"
+             decoding="async"
+             width="28"
+             height="42"
+             class="ct-palette-poster">
+      {% else %}
+        <span class="ct-palette-poster" aria-hidden="true"></span>
+      {% endif %}
+      <span class="min-w-0 flex-1">
+        <span class="block truncate">{{ match.title }}</span>
+        {% if match.subtitle %}<span class="ct-palette-meta">{{ match.subtitle }}</span>{% endif %}
+      </span>
+    </a>
+  {% endfor %}
+{% endif %}
+{% regroup pages by group as page_groups %}
+{% for page_group in page_groups %}
+  <div class="ct-palette-group" role="presentation">{{ page_group.grouper }}</div>
+  {% for page in page_group.list %}
+    <a href="{{ page.url }}"
+       id="ct-palette-option-page-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+       role="option"
+       class="ct-palette-option">
+      <span class="min-w-0 flex-1 truncate">{{ page.title }}</span>
+    </a>
+  {% endfor %}
+{% endfor %}
+{% if query %}
+  <a href="{% url 'search' %}?q={{ query|urlencode }}&media_type={{ media_type|urlencode }}"
+     id="ct-palette-option-online"
+     role="option"
+     class="ct-palette-option ct-palette-online">
+    {% include "app/icons/magnifying-glass.svg" with classes="w-4 h-4 shrink-0" %}
+    <span class="min-w-0 flex-1 truncate">
+      {% blocktranslate trimmed with value_1=query value_2=media_type|media_type_readable_plural %}Search online for “{{ value_1 }}” in {{ value_2 }}{% endblocktranslate %}
+    </span>
+  </a>
+{% endif %}
+{% if query and not library and not pages %}
+  <p class="ct-palette-empty">{% translate "Nothing in your library or pages matches. Press Enter to search online." %}</p>
+{% endif %}

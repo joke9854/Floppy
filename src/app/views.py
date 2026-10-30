@@ -307,6 +307,7 @@ from app.score_views import (
 )
 from app.search_views import (
     _mark_grouped_anime_route,
+    command_palette,
     media_search,
     search_suggestions,
 )
@@ -2214,6 +2215,7 @@ __all__ = [
     "collection_status_api",
     "collection_update",
     "comicvine",
+    "command_palette",
     "config",
     "create_album_from_search",
     "create_artist_from_search",

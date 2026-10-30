@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils.translation import gettext
 from django.views.decorators.http import require_GET
 
@@ -19,13 +20,20 @@ from app.models import (
 )
 from app.providers import services
 from app.services import metadata_resolution
-from app.templatetags.app_tags import media_url, music_album_url, music_artist_url
+from app.templatetags.app_tags import (
+    media_type_readable_plural,
+    media_url,
+    music_album_url,
+    music_artist_url,
+)
 from users.models import VALID_SEARCH_TYPES, MediaStatusChoices
 
 logger = logging.getLogger(__name__)
 
 # Minimum characters before the search bar fires autocomplete suggestions.
 MIN_SUGGESTION_QUERY_LENGTH = 2
+# Most saved-library matches the command palette lists (A1).
+PALETTE_LIBRARY_LIMIT = 8
 
 
 def _mark_grouped_anime_route(media_items):
@@ -567,5 +575,88 @@ def search_suggestions(request):
             "suggestions": suggestions,
             "query": query,
             "media_type": media_type,
+        },
+    )
+
+
+def _palette_pages(user):
+    """Return the pages the command palette can jump to, in nav order."""
+    library = [
+        (gettext("Library"), media_type_readable_plural(media_type),
+         reverse("medialist", args=[media_type]))
+        for media_type in user.get_sidebar_media_types()
+    ]
+    go_to = gettext("Go to")
+    settings_group = gettext("Settings")
+    return [
+        (go_to, gettext("Home"), reverse("home")),
+        (go_to, gettext("Discover"), reverse("discover")),
+        *library,
+        (go_to, gettext("Calendar"), reverse("calendar")),
+        (go_to, gettext("History"), reverse("history")),
+        (go_to, gettext("Statistics"), reverse("statistics")),
+        (go_to, gettext("Lists"), reverse("lists")),
+        (go_to, gettext("Collection"), reverse("collection_list")),
+        (go_to, gettext("Tags"), reverse("tag_index")),
+        (go_to, gettext("Create custom entry"), reverse("create_entry")),
+        (settings_group, gettext("Account"), reverse("account")),
+        (settings_group, gettext("Preferences"), reverse("preferences")),
+        (settings_group, gettext("Appearance"), reverse("appearance")),
+        (settings_group, gettext("Notifications"), reverse("notifications")),
+        (settings_group, gettext("Sidebar"), reverse("sidebar")),
+        (settings_group, gettext("Home screen"), reverse("home_screen")),
+        (settings_group, gettext("Integrations"), reverse("integrations")),
+        (settings_group, gettext("Import"), reverse("import_data")),
+        (settings_group, gettext("Export"), reverse("export_data")),
+    ]
+
+
+@require_GET
+def command_palette(request):
+    """Return the CineTrack command palette results (A1).
+
+    Pages whose name matches the query, saved-library matches across the
+    user's enabled media types, and a hand-off to the full online search.
+    """
+    query = request.GET.get("q", "").strip()
+    folded = query.casefold()
+    sidebar_types = request.user.get_sidebar_media_types()
+    media_type = request.GET.get("media_type", "")
+    if media_type not in sidebar_types:
+        media_type = sidebar_types[0] if sidebar_types else MediaTypes.TV.value
+
+    pages = [
+        {"group": group, "title": title, "url": url}
+        for group, title, url in _palette_pages(request.user)
+        if folded in title.casefold() or (folded and folded in group.casefold())
+    ]
+    if not query:
+        pages = [page for page in pages if page["group"] != gettext("Settings")]
+
+    library = []
+    if len(query) >= MIN_SUGGESTION_QUERY_LENGTH:
+        for library_type in sidebar_types:
+            remaining = PALETTE_LIBRARY_LIMIT - len(library)
+            if remaining <= 0:
+                break
+            try:
+                matches = get_saved_suggestions(
+                    request.user, library_type, query, limit=remaining,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Palette search failed: %s", exception_summary(exc))
+                continue
+            for match in matches[:remaining]:
+                match["subtitle"] = match["subtitle"] or MediaTypes(library_type).label
+                library.append(match)
+
+    return render(
+        request,
+        "app/components/ct/command_palette_results.html",
+        {
+            "query": query,
+            "media_type": media_type,
+            "pages": pages,
+            "library": library,
         },
     )

@@ -56,6 +56,7 @@ urlpatterns = [
         views.search_suggestions,
         name="search_suggestions",
     ),
+    path("search/palette", views.command_palette, name="command_palette"),
     path(
         "details/music/artist/<int:artist_id>/<slug:artist_slug>/",
         views.music_artist_details,
