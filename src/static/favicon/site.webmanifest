@@ -51,8 +51,14 @@
             "url": "/",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/home.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/home.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -63,8 +69,14 @@
             "url": "/medialist/tv",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/tv.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/tv.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -75,8 +87,14 @@
             "url": "/medialist/movie",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/movies.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/movies.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -87,8 +105,14 @@
             "url": "/medialist/anime",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/anime.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/anime.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -99,8 +123,14 @@
             "url": "/medialist/manga",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/manga.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/manga.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -111,8 +141,14 @@
             "url": "/medialist/game",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/games.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/games.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -123,8 +159,14 @@
             "url": "/medialist/book",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/books.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/books.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -135,8 +177,14 @@
             "url": "/medialist/comic",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/comics.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/comics.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -147,8 +195,14 @@
             "url": "/medialist/boardgame",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/boardgames.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/boardgames.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -159,8 +213,14 @@
             "url": "/statistics",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/stats.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/stats.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         },
@@ -171,8 +231,14 @@
             "url": "/lists",
             "icons": [
                 {
+                    "src": "/static/img/shortcuts/lists.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                },
+                {
                     "src": "/static/img/shortcuts/lists.svg",
-                    "sizes": "192x192"
+                    "sizes": "any",
+                    "type": "image/svg+xml"
                 }
             ]
         }

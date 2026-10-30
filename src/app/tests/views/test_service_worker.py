@@ -69,6 +69,21 @@ class ServiceWorkerViewTests(TestCase):
         self.assertIn("ignoreSearch: true", body)
 
 
+    def test_service_worker_keeps_an_offline_copy_of_home_only(self):
+        """A6: navigations fall back to the last Home, which sign-out clears."""
+        body = self.client.get(reverse("service_worker")).content.decode()
+
+        self.assertIn('const PAGES_CACHE = "floppy-pages-v1";', body)
+        self.assertIn("cacheName !== CACHE_NAME && cacheName !== PAGES_CACHE", body)
+        # Preloaded, so a page load is requested once (#725).
+        self.assertIn("navigationPreload.enable()", body)
+        self.assertIn("await event.preloadResponse", body)
+        # Only the signed-in Home is stored; /accounts/ pages delete it.
+        self.assertIn('url.pathname.startsWith("/accounts/")', body)
+        self.assertIn("caches.delete(PAGES_CACHE)", body)
+        self.assertIn('const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/"];', body)
+
+
 class StaticJavascriptViewTests(TestCase):
     """Regression tests for app-served JavaScript assets."""
 
