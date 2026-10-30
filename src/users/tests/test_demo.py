@@ -26,6 +26,7 @@ class EnsureDemoUserTests(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.email, DEMO_EMAIL)
         self.assertTrue(user.check_password(DEMO_PASSWORD))
+        self.assertEqual(user.theme, "cinetrack")
 
     @override_settings(TESTING=False, DEMO_ACCOUNT_ENABLED=False)
     def test_signal_skips_provisioning_when_demo_account_disabled(self):
@@ -108,6 +109,7 @@ class EnsureDemoUserTests(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.email, DEMO_EMAIL)
         self.assertTrue(user.check_password(DEMO_PASSWORD))
+        self.assertEqual(user.theme, "system")
 
 
 class DemoDefaultTests(TestCase):

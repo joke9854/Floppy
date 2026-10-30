@@ -30,6 +30,7 @@
 
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {% for value, preset in theme_presets.items %}
+          {% if not preset.hidden or value == appearance_theme %}
           <button type="button"
                   @click="theme = '{{ value }}'"
                   :aria-pressed="(theme === '{{ value }}').toString()"
@@ -38,6 +39,7 @@
             <span class="theme-swatch theme-swatch-{{ value }}" aria-hidden="true"></span>
             <span class="font-medium">{{ preset.label }}</span>
           </button>
+          {% endif %}
         {% endfor %}
       </div>
 

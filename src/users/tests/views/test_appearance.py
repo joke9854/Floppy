@@ -22,7 +22,7 @@ class AppearanceViewTests(TestCase):
     def test_appearance_exposes_presets_and_distinct_detail_families(self):
         response = self.client.get(reverse("appearance"))
 
-        self.assertContains(response, "Glass cinema")
+        self.assertNotContains(response, "Glass cinema")
         self.assertContains(response, "Catppuccin Mocha")
         self.assertContains(response, "Dracula")
         self.assertContains(response, "Nord")
@@ -131,6 +131,15 @@ class AppearanceViewTests(TestCase):
         self.assertContains(response, "--theme-blur: 16px")
         self.assertContains(response, "--theme-surface-opacity: 72%")
         self.assertNotContains(response, "background:url")
+
+    def test_glass_stays_selectable_for_users_already_on_it(self):
+        self.user.theme = "glass"
+        self.user.save(update_fields=["theme"])
+
+        response = self.client.get(reverse("appearance"))
+
+        self.assertContains(response, "Glass cinema")
+        self.assertContains(response, "@click=\"theme = 'glass'\"")
 
     def test_explicit_preset_is_rendered_on_the_root_element(self):
         self.user.theme = "glass"

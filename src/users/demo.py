@@ -20,6 +20,7 @@ def ensure_demo_user():
             "is_demo": True,
             "is_staff": False,
             "is_superuser": False,
+            "theme": "cinetrack",
         },
     )
 

@@ -1,3 +1,4 @@
+from allauth.account.signals import user_signed_up
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in
@@ -6,7 +7,19 @@ from django.db.models.signals import post_migrate
 from django.db.utils import OperationalError, ProgrammingError
 from django.dispatch import receiver
 
+from app.models import MediaTypes
 from users.demo import ensure_demo_user
+from users.models import ThemeChoices
+
+# Media types a new account starts with; the rest are one switch away in Settings.
+NEW_ACCOUNT_MEDIA_TYPES = frozenset(
+    (
+        MediaTypes.TV.value,
+        MediaTypes.SEASON.value,
+        MediaTypes.MOVIE.value,
+        MediaTypes.ANIME.value,
+    ),
+)
 
 
 def _demo_user_schema_ready():
@@ -41,6 +54,19 @@ def apply_session_duration(sender, request, user, **kwargs):
     duration = getattr(user, "session_duration", None)
     if duration is not None:
         request.session.set_expiry(duration)
+
+
+@receiver(user_signed_up)
+def apply_new_account_defaults(sender, request, user, **kwargs):
+    """Start a newly signed-up account on CineTrack with TV, Movies and Anime."""
+    user.theme = ThemeChoices.CINETRACK
+    update_fields = ["theme"]
+    for media_type in MediaTypes.values:
+        field_name = f"{media_type}_enabled"
+        if hasattr(user, field_name):
+            setattr(user, field_name, media_type in NEW_ACCOUNT_MEDIA_TYPES)
+            update_fields.append(field_name)
+    user.save(update_fields=update_fields)
 
 
 @receiver(post_migrate)

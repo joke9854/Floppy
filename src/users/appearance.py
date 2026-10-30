@@ -13,7 +13,8 @@ THEME_PRESETS = {
     "nord": {"label": "Nord"},
     "gruvbox": {"label": "Gruvbox"},
     "oled": {"label": "OLED"},
-    "glass": {"label": "Glass cinema"},
+    # Hidden from new choices (E2); users already on it still see it selected.
+    "glass": {"label": "Glass cinema", "hidden": True},
     "plex": {"label": "Plex inspired"},
     "projector": {"label": "Projector"},
     "video_store": {"label": "Video store"},

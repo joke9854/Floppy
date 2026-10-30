@@ -31,6 +31,32 @@ class SignupViewTests(TestCase):
         )
         self.assertEqual(auth.get_user(self.client).username, "newuser")
 
+    def test_new_account_starts_on_cinetrack_with_tv_movies_and_anime(self):
+        """Test a new account gets the W6 theme and media-type defaults."""
+        existing = get_user_model().objects.create_user(
+            username="existing",
+            password="12345",
+        )
+
+        self.client.post(
+            reverse("account_signup"),
+            {
+                "username": "newuser",
+                "password1": "SuperSecret123!",
+                "password2": "SuperSecret123!",
+            },
+        )
+
+        user = get_user_model().objects.get(username="newuser")
+        self.assertEqual(user.theme, "cinetrack")
+        self.assertEqual(
+            user.get_enabled_media_types(),
+            ["tv", "season", "movie", "anime"],
+        )
+        existing.refresh_from_db()
+        self.assertEqual(existing.theme, "system")
+        self.assertTrue(existing.book_enabled)
+
     def test_duplicate_username_returns_form_error_not_500(self):
         """Test registering an already-taken username re-renders with an error."""
         get_user_model().objects.create_user(username="taken", password="12345")
