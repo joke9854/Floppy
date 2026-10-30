@@ -52,6 +52,18 @@ class CineTrackShellTests(TestCase):
         self.assertNotContains(response, "ct-rail")
         self.assertNotContains(response, "data-ct-shell")
 
+    def test_view_transition_opt_in_skips_pages_that_never_opt_in(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "@view-transition { navigation: auto; }")
+        self.assertContains(response, 'addEventListener("pageswap"')
+        self.assertContains(response, 'pathname.startsWith("/accounts/")')
+
+        self._use_theme(ThemeChoices.DARK)
+        response = self.client.get(reverse("home"))
+        self.assertNotContains(response, "@view-transition")
+        self.assertNotContains(response, "pageswap")
+
     def test_current_page_is_marked_for_assistive_tech(self):
         self._use_theme(ThemeChoices.CINETRACK)
         response = self.client.get(reverse("calendar"))

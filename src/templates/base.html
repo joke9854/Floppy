@@ -45,6 +45,20 @@
     {% if ct_shell %}
       {# M3: cross-document view transitions, CineTrack shell only (the at-rule cannot be scoped to a theme class in main.css). #}
       <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }</style>
+      {# Entrance pages and classic themes never opt in, so a transition into one (sign-out, the signed-out boost guard, saving another theme) aborts with a page error; skip it instead. #}
+      <script>
+        (() => {
+          let leavingShell = false;
+          window.navigation?.addEventListener("navigate", (event) => {
+            const theme = event.formData && event.formData.get("theme");
+            leavingShell = theme != null && theme !== "cinetrack";
+          });
+          addEventListener("pageswap", (event) => {
+            const url = event.viewTransition && event.activation && event.activation.entry.url;
+            if (url && (leavingShell || new URL(url).pathname.startsWith("/accounts/"))) event.viewTransition.skipTransition();
+          });
+        })();
+      </script>
     {% endif %}
     {% djdt_enabled as djdt_is_enabled %}
     {% if djdt_is_enabled %}
