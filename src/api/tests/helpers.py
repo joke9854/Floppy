@@ -189,8 +189,8 @@ def check_info_structure(test_case, item):
     """Assert that the given item follows the expected info endpoint structure."""
     test_case.assertIn("version", item)
     test_case.assertEqual(item["version"], settings.VERSION)
-    test_case.assertIn("debug", item)
-    test_case.assertEqual(item["debug"], settings.DEBUG)
+    # Public and unauthenticated, so it must not reveal whether DEBUG is on.
+    test_case.assertNotIn("debug", item)
     test_case.assertIn("frontend_url", item)
     test_case.assertIn("language", item)
     test_case.assertEqual(item["language"], settings.LANGUAGE_CODE)

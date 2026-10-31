@@ -3265,8 +3265,6 @@ components:
       properties:
         version:
           type: string
-        debug:
-          type: boolean
         frontend_url:
           type: string
         language:
@@ -3279,7 +3277,6 @@ components:
           type: boolean
       required:
       - admin_enabled
-      - debug
       - frontend_url
       - language
       - timezone

@@ -29,7 +29,6 @@ class PublicEndpointsTests(FloppyApiTestCase):
             set(payload),
             {
                 "version",
-                "debug",
                 "frontend_url",
                 "language",
                 "timezone",

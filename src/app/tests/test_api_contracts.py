@@ -515,7 +515,6 @@ class OpenAPIArtifactTests(SimpleTestCase):
             set(schemas["InfoResponse"]["properties"]),
             {
                 "version",
-                "debug",
                 "frontend_url",
                 "language",
                 "timezone",

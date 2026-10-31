@@ -802,7 +802,6 @@ class InfoSerializer(serializers.Serializer):
         """Transform to representation."""
         return {
             "version": settings.VERSION,
-            "debug": settings.DEBUG,
             "frontend_url": settings.BASE_URL or "http://localhost:8000",
             "language": settings.LANGUAGE_CODE,
             "timezone": settings.TIME_ZONE,

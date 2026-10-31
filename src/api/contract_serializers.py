@@ -295,7 +295,6 @@ class InfoResponseSerializer(serializers.Serializer):
     """Exact public info response."""
 
     version = serializers.CharField()
-    debug = serializers.BooleanField()
     frontend_url = serializers.CharField()
     language = serializers.CharField()
     timezone = serializers.CharField()

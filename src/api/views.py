@@ -314,7 +314,6 @@ class InfoApiResponseSerializer(serializers.Serializer):
     """Public server info, including the capability flags clients probe."""
 
     version = serializers.CharField()
-    debug = serializers.BooleanField()
     frontend_url = serializers.CharField()
     language = serializers.CharField()
     timezone = serializers.CharField()
