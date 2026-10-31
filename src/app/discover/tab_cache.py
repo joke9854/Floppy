@@ -261,7 +261,9 @@ def get_activity_version(user_id: int, media_type: str) -> str:
 
 def bump_activity_version(user_id: int, media_type: str) -> str:
     """Advance the activity version for a Discover media type."""
-    version = timezone.now().isoformat()
+    # Unique per bump: two bumps, or a build and a bump, can share a clock
+    # tick (about 15ms on Windows), and an unchanged version reads as fresh.
+    version = f"{timezone.now().isoformat()}-{uuid4().hex[:8]}"
     _cache_set(
         _activity_version_key(user_id, media_type),
         version,
