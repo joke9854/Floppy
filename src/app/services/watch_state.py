@@ -15,6 +15,7 @@ upgrade's backfill from pushing a whole library outward.
 """
 
 import logging
+from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
 from uuid import uuid4
@@ -22,6 +23,7 @@ from uuid import uuid4
 from django.apps import apps
 from django.db import transaction
 from django.db.models import Max, Min
+from django.utils import timezone
 
 from app.models.choices import MediaTypes, Status
 from app.models.watch_state import (
@@ -123,29 +125,38 @@ def _derive_movie(user, item):
     original end_date as a play. A row therefore contributes its own plays when
     it has any, and otherwise contributes its end_date as a single play.
     """
+    return _derive_movies(user, [item])[item.id]
+
+
+def _derive_movies(user, items):
+    """Return _derive_movie's state for each item id, in two queries."""
     movie_model = apps.get_model(app_label="app", model_name=MediaTypes.MOVIE.value)
-    rows = movie_model.objects.filter(user=user, item=item).prefetch_related("plays")
+    rows_by_item = defaultdict(list)
+    for row in movie_model.objects.filter(user=user, item__in=items).prefetch_related("plays"):
+        rows_by_item[row.item_id].append(row)
 
-    dates = []
-    play_count = 0
-    completed = False
-    for row in rows:
-        play_dates = [play.end_date for play in row.plays.all() if play.end_date]
-        if play_dates:
-            play_count += len(play_dates)
-            dates.extend(play_dates)
-        elif row.end_date:
-            play_count += 1
-            dates.append(row.end_date)
-        if row.status == Status.COMPLETED.value:
-            completed = True
-
-    return ProjectedState(
-        watched=bool(play_count) or completed,
-        play_count=play_count,
-        first_watched_at=min(dates) if dates else None,
-        last_watched_at=max(dates) if dates else None,
-    )
+    states = {}
+    for item in items:
+        dates = []
+        play_count = 0
+        completed = False
+        for row in rows_by_item[item.id]:
+            play_dates = [play.end_date for play in row.plays.all() if play.end_date]
+            if play_dates:
+                play_count += len(play_dates)
+                dates.extend(play_dates)
+            elif row.end_date:
+                play_count += 1
+                dates.append(row.end_date)
+            if row.status == Status.COMPLETED.value:
+                completed = True
+        states[item.id] = ProjectedState(
+            watched=bool(play_count) or completed,
+            play_count=play_count,
+            first_watched_at=min(dates) if dates else None,
+            last_watched_at=max(dates) if dates else None,
+        )
+    return states
 
 
 def _derive_episode(user, item):
@@ -332,6 +343,64 @@ def project_watch_state_for_change(user, item, **kwargs):
     if user is None or item is None or projection_suspended():
         return
     project_watch_state(user, item, **kwargs)
+
+
+def project_movie_watch_states(user, items):
+    """Project many movies at once: project_watch_state's writes in fixed queries.
+
+    For bulk paths that wrote movie rows under ``suspend_projection``. When the
+    user's changes are logged, each moved movie still records its own change,
+    which is per row by design.
+    """
+    from app.models.watch_state import WatchStateOrigin
+    from app.services.sync_items import refresh_sync_items
+
+    items = list(items)
+    if user is None or not items or projection_suspended():
+        return
+    refresh_sync_items(user, items)
+    derived = _derive_movies(user, items)
+    if _should_emit_changes(user):
+        for item in items:
+            _project_as_change(user, item, derived[item.id])
+        return
+
+    existing = {state.item_id: state for state in WatchState.objects.filter(user=user, item__in=items)}
+    created, changed = [], []
+    now = timezone.now()
+    for item in items:
+        state = derived[item.id]
+        digest = calculate_state_digest(state.watched, state.play_count, state.last_watched_at)
+        row = existing.get(item.id)
+        if row is None:
+            created.append(WatchState(
+                user=user,
+                item=item,
+                watched=state.watched,
+                play_count=state.play_count,
+                first_watched_at=state.first_watched_at,
+                last_watched_at=state.last_watched_at,
+                state_digest=digest,
+                origin_kind=WatchStateOrigin.BACKFILL.value,
+                origin_key="",
+            ))
+        elif row.state_digest != digest:
+            row.watched = state.watched
+            row.play_count = state.play_count
+            row.first_watched_at = state.first_watched_at
+            row.last_watched_at = state.last_watched_at
+            row.state_digest = digest
+            row.updated_at = now
+            changed.append(row)
+    if created:
+        WatchState.objects.bulk_create(created)
+    if changed:
+        WatchState.objects.bulk_update(
+            changed,
+            fields=["watched", "play_count", "first_watched_at", "last_watched_at", "state_digest", "updated_at"],
+        )
+    if created or changed:
+        touch_activity(user, "watched")
 
 
 class RevisionConflictError(Exception):

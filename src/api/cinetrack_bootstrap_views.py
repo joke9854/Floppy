@@ -33,7 +33,8 @@ from app.services.episode_coordinates import (
 )
 from app.services.sync_activity import batched_activity, touch_activity
 from app.services.sync_items import refresh_sync_items
-from app.services.watch_state import project_watch_state_for_change, suspend_projection
+from app.services.watch_state import project_movie_watch_states, suspend_projection
+from app.signals import queue_backfills_for_new_items
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
 from .contract_serializers import DetailErrorSerializer
@@ -240,6 +241,30 @@ def _minimal_item(*, source, media_id, media_type, title, image="", library_medi
     )
 
 
+def _create_minimal_items(entries, media_type):
+    """Create one minimal Item per distinct entry in a single insert, keyed by _item_key.
+
+    bulk_create skips Item.save and post_save: library_media_type is set here and
+    the create-time backfills are queued in batch.
+    """
+    new_items = {}
+    for entry in entries:
+        key = _item_key(entry["source"], entry["media_id"])
+        if key not in new_items:
+            new_items[key] = Item(
+                source=entry["source"],
+                media_id=str(entry["media_id"]),
+                media_type=media_type,
+                library_media_type=media_type,
+                title=entry["title"],
+                original_title=entry["title"] or None,
+                image=entry["image"] or "",
+            )
+    Item.objects.bulk_create(new_items.values())
+    queue_backfills_for_new_items(new_items.values())
+    return new_items
+
+
 def _tv_queryset(user, media_id, source, library_media_type=""):
     queryset = TV.objects.filter(
         user=user,
@@ -430,18 +455,12 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 media_id__in=media_ids,
             )
         }
-        hydration_ids = []
-        for entry in parsed:
-            key = _item_key(entry["source"], entry["media_id"])
-            if key not in items:
-                items[key] = _minimal_item(
-                    source=entry["source"],
-                    media_id=entry["media_id"],
-                    media_type=MediaTypes.MOVIE.value,
-                    title=entry["title"],
-                    image=entry["image"],
-                )
-                hydration_ids.append(items[key].id)
+        new_items = _create_minimal_items(
+            [e for e in parsed if _item_key(e["source"], e["media_id"]) not in items],
+            MediaTypes.MOVIE.value,
+        )
+        items.update(new_items)
+        hydration_ids = [item.id for item in new_items.values()]
 
         item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
         items_by_id = {item.id: item for item in items.values()}
@@ -486,6 +505,15 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
             ).order_by("id"):
                 legacy_plays[(play.movie_id, play.end_date)].append(play)
 
+        movies_with_plays = set(
+            MoviePlay.objects.filter(
+                movie_id__in=[movie.id for movie in movies.values() if movie.id not in created_movie_ids],
+            ).values_list("movie_id", flat=True).distinct(),
+        )
+        # existing_plays holds every stored play for these movies and external
+        # ids, and a watch always carries one, so a miss is a new play.
+        new_plays = []
+        adopted_plays = []
         dirty_movies = {}
         touched_movies = {movie.id: movie for movie in new_movies}
         for entry in parsed:
@@ -508,28 +536,19 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                         if not play.external_id:
                             # Identity adoption only; never overwrite another id.
                             play.external_id = external_id
-                            play.save(update_fields=["external_id"])
+                            adopted_plays.append(play)
                             touched_movies[movie.id] = movie
                         existing_plays[(movie.id, external_id)] = play
                         outcome = "already_satisfied"
-                    elif movie.end_date == watched_at and not movie.plays.exists():
-                        play, _ = MoviePlay.objects.get_or_create(
-                            movie=movie,
-                            external_id=external_id,
-                            defaults={"end_date": watched_at},
-                        )
-                        existing_plays[(movie.id, external_id)] = play
-                        touched_movies[movie.id] = movie
-                        outcome = "already_satisfied"
                     else:
-                        play, created = MoviePlay.objects.get_or_create(
-                            movie=movie,
-                            external_id=external_id,
-                            defaults={"end_date": watched_at},
-                        )
+                        # The row's own end_date as its only watch is this watch.
+                        backfilled = movie.end_date == watched_at and movie.id not in movies_with_plays
+                        play = MoviePlay(movie=movie, external_id=external_id, end_date=watched_at)
+                        new_plays.append(play)
+                        movies_with_plays.add(movie.id)
                         existing_plays[(movie.id, external_id)] = play
                         touched_movies[movie.id] = movie
-                        outcome = "created" if created else "already_satisfied"
+                        outcome = "already_satisfied" if backfilled else "created"
                 elif play_level_outcomes:
                     outcome = "already_satisfied"
                 if movie.end_date is None or watched_at > movie.end_date:
@@ -544,6 +563,9 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 MovieEnsureOutcome(outcome, movie.id in created_movie_ids, changed),
             )
 
+        MoviePlay.objects.bulk_create(new_plays)
+        if adopted_plays:
+            MoviePlay.objects.bulk_update(adopted_plays, fields=["external_id"])
         if dirty_movies:
             Movie.objects.bulk_update(
                 list(dirty_movies.values()),
@@ -556,8 +578,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 [movie.item for movie in dirty_movies.values()],
             )
         queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
-    for movie in touched_movies.values():
-        project_watch_state_for_change(user, items_by_id[movie.item_id])
+    project_movie_watch_states(user, [items_by_id[movie.item_id] for movie in touched_movies.values()])
     return outcomes
 
 
@@ -599,18 +620,12 @@ def ensure_show_entries(user, parsed):
         ).select_related("item").order_by("id"):
             own.setdefault(_item_key(tv.item.source, tv.item.media_id), tv.item)
         items.update(own)
-        hydration_ids = []
-        for entry in parsed:
-            key = _item_key(entry["source"], entry["media_id"])
-            if key not in items:
-                items[key] = _minimal_item(
-                    source=entry["source"],
-                    media_id=entry["media_id"],
-                    media_type=MediaTypes.TV.value,
-                    title=entry["title"],
-                    image=entry["image"],
-                )
-                hydration_ids.append(items[key].id)
+        new_items = _create_minimal_items(
+            [e for e in parsed if _item_key(e["source"], e["media_id"]) not in items],
+            MediaTypes.TV.value,
+        )
+        items.update(new_items)
+        hydration_ids = [item.id for item in new_items.values()]
 
         item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
         items_by_id = {item.id: item for item in items.values()}

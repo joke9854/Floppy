@@ -1307,6 +1307,38 @@ def refresh_statistics_cache_on_boardgame_change(sender, instance, **kwargs):
     )
 
 
+def queue_backfills_for_new_items(items):
+    """Queue the backfills schedule_runtime_backfill_on_item_save queues on create.
+
+    For movie/TV/anime items made with bulk_create, which sends no post_save. A
+    new item has no runtime, genres, credits or backfill state yet, so only the
+    enqueue decisions apply; the enqueuers filter in batch.
+    """
+    if settings.TESTING or media_change_side_effects_suppressed():
+        return
+    flat_types = (MediaTypes.MOVIE.value, MediaTypes.TV.value, MediaTypes.ANIME.value)
+    items = [item for item in items if item.media_type in flat_types]
+    runtime_ids = [item.id for item in items if item.source in RUNTIME_BACKFILL_SOURCES]
+    genre_ids = [item.id for item in items if item.source in GENRE_BACKFILL_SOURCES]
+    credit_ids = [
+        item.id
+        for item in items
+        if item.source == Sources.TMDB.value and item.media_type != MediaTypes.ANIME.value
+    ]
+    if runtime_ids:
+        from app.tasks import enqueue_runtime_backfill_items
+
+        enqueue_runtime_backfill_items(runtime_ids)
+    if genre_ids:
+        from app.tasks import enqueue_genre_backfill_items
+
+        enqueue_genre_backfill_items(genre_ids)
+    if credit_ids:
+        from app.tasks import enqueue_credits_backfill_items
+
+        enqueue_credits_backfill_items(credit_ids)
+
+
 @receiver(post_save, sender=Item)
 def schedule_runtime_backfill_on_item_save(
     sender,

@@ -247,11 +247,11 @@ class CineTrackBootstrapQueryGrowthTests(FloppyApiTestCase):
     by design and is deliberately not bypassed.
     """
 
-    # Measured per new row (movies 14.9 and shows 3.9 since rows are bulk
-    # created and movies project once; episode events 8.4 on 395d7266), with
-    # headroom for unrelated model changes.
-    NEW_MOVIE_QUERIES = 16
-    NEW_SHOW_QUERIES = 5
+    # New movies and shows are written and projected in batches, so a larger
+    # batch costs no extra queries. Episode events measured 8.4 per new row on
+    # 395d7266, with headroom for unrelated model changes.
+    NEW_MOVIE_QUERIES = 0
+    NEW_SHOW_QUERIES = 0
     NEW_EPISODE_QUERIES = 10
 
     def _queries(self, name, payload, args=()):
@@ -350,12 +350,12 @@ class CineTrackBootstrapQueryGrowthWithSyncIndexTests(CineTrackBootstrapQueryGro
 
     Re-sends stay flat (the index refreshes in batches, not per row). Measured
     per new row on CineTrack-API with the index on and cold caches: movies
-    26.6, shows 3.6, episode events 21.8 (mostly the watched-state change
-    log, which runs per saved row by design).
+    12.7, shows 0, episode events 21.8 (the watched-state change log, which
+    records each moved item by design).
     """
 
-    NEW_MOVIE_QUERIES = 29
-    NEW_SHOW_QUERIES = 5
+    NEW_MOVIE_QUERIES = 14
+    NEW_SHOW_QUERIES = 0
     NEW_EPISODE_QUERIES = 24
 
     def setUp(self):
@@ -408,3 +408,58 @@ class CineTrackMovieEnsureProjectionTests(FloppyApiTestCase):
         self.assertTrue(state.watched)
         self.assertEqual(state.play_count, 1)
         self.assertEqual(state.last_watched_at.isoformat(), "2024-03-01T21:47:18+00:00")
+
+    def test_batch_projection_matches_per_item_derivation(self):
+        from app.models import Item, WatchState
+        from app.services.watch_state import derive_state, project_movie_watch_states
+
+        items = [
+            Item.objects.create(source="tmdb", media_id=str(620000 + n), media_type=MediaTypes.MOVIE.value, title=f"M{n}")
+            for n in range(3)
+        ]
+        with patch("app.services.watch_state.projection_suspended", return_value=True):
+            seen = Movie.objects.create(user=self.user1, item=items[0], status=Status.COMPLETED.value)
+            MoviePlay.objects.create(movie=seen, external_id="a", end_date="2024-01-02T10:00:00Z")
+            MoviePlay.objects.create(movie=seen, external_id="b", end_date="2024-02-03T10:00:00Z")
+            Movie.objects.create(user=self.user1, item=items[1], status=Status.COMPLETED.value)
+            Movie.objects.create(user=self.user1, item=items[2], status=Status.PLANNING.value)
+
+        project_movie_watch_states(self.user1, items)
+
+        for item in items:
+            expected = derive_state(self.user1, item)
+            state = WatchState.objects.get(user=self.user1, item=item)
+            self.assertEqual(
+                (state.watched, state.play_count, state.first_watched_at, state.last_watched_at),
+                (expected.watched, expected.play_count, expected.first_watched_at, expected.last_watched_at),
+            )
+        with CaptureQueriesContext(connection) as unchanged:
+            project_movie_watch_states(self.user1, items)
+        self.assertFalse([q for q in unchanged.captured_queries if q["sql"].startswith(("INSERT", "UPDATE"))])
+
+
+class NewItemBackfillQueueTests(FloppyApiTestCase):
+    """Bulk-created items queue the backfills Item's post_save would have queued."""
+
+    def test_queues_runtime_genre_and_credit_backfills_in_one_call_each(self):
+        from django.test import override_settings
+
+        from app.models import Item
+        from app.signals import queue_backfills_for_new_items
+
+        items = [
+            Item(id=1, source="tmdb", media_id="1", media_type=MediaTypes.MOVIE.value),
+            Item(id=2, source="tvdb", media_id="2", media_type=MediaTypes.TV.value),
+            Item(id=3, source="tmdb", media_id="3", media_type=MediaTypes.EPISODE.value),
+        ]
+        with (
+            override_settings(TESTING=False),
+            patch("app.tasks.enqueue_runtime_backfill_items") as runtime,
+            patch("app.tasks.enqueue_genre_backfill_items") as genres,
+            patch("app.tasks.enqueue_credits_backfill_items") as credits,
+        ):
+            queue_backfills_for_new_items(items)
+
+        runtime.assert_called_once_with([1, 2])
+        genres.assert_called_once_with([1, 2])
+        credits.assert_called_once_with([1])
