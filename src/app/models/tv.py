@@ -1147,8 +1147,12 @@ class Season(Media):
 
         # Filter in Python: season querysets prefetch `episodes`, and a
         # queryset filter here would bypass that cache and turn every list
-        # page into an N+1.
-        episodes = [ep for ep in self.episodes.all() if self.play_counts_for_pass(ep)]
+        # page into an N+1. Without a prefetch (a save), load each episode's
+        # item in the same query; reading `ep.item` below is one query each.
+        episodes = self.episodes.all()
+        if "episodes" not in getattr(self, "_prefetched_objects_cache", {}):
+            episodes = episodes.select_related("item")
+        episodes = [ep for ep in episodes if self.play_counts_for_pass(ep)]
         completed_episode_numbers = set()
         max_episode_number = 0
 

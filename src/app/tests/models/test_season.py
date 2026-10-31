@@ -78,6 +78,27 @@ class SeasonModel(TestCase):
         """Test the progress property of the Season model."""
         self.assertEqual(self.season.progress, 2)
 
+    def test_episode_stats_read_items_in_one_query(self):
+        """Episode stats cost one query however many plays the season has."""
+        for number in range(3, 13):
+            item = Item.objects.create(
+                media_id="1668",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Friends",
+                image="http://example.com/image.jpg",
+                season_number=1,
+                episode_number=number,
+            )
+            Episode.objects.create(
+                item=item,
+                related_season=self.season,
+                end_date=datetime(2023, 6, number, 0, 0, tzinfo=UTC),
+            )
+        season = Season.objects.get(pk=self.season.pk)
+        with self.assertNumQueries(1):
+            self.assertEqual(season.completed_episode_count, 12)
+
     def test_completed_episode_count(self):
         """Test completed episode count ignores duplicates and non-completed plays."""
         item_ep2 = Item.objects.get(

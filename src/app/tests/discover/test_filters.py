@@ -10,6 +10,7 @@ from app.discover.filters import (
     get_feedback_keys_by_media_type,
     get_owned_keys_by_media_type,
     get_tracked_keys_by_media_type,
+    memoized_key_lookups,
 )
 from app.discover.schemas import CandidateItem
 from app.models import (
@@ -77,6 +78,30 @@ class DiscoverFilterTests(TestCase):
         tracked = get_tracked_keys_by_media_type(self.user, MediaTypes.MOVIE.value)
         self.assertIn((MediaTypes.MOVIE.value, Sources.TMDB.value, "100"), tracked)
         self.assertNotIn((MediaTypes.MOVIE.value, Sources.TMDB.value, "101"), tracked)
+
+    def test_one_build_reads_each_key_set_once(self):
+        movie = MediaTypes.MOVIE.value
+        with memoized_key_lookups():
+            with self.assertNumQueries(2):
+                first = get_tracked_keys_by_media_type(self.user, movie)
+                get_tracked_keys_by_media_type(self.user, movie)
+                get_feedback_keys_by_media_type(self.user, movie)
+                get_feedback_keys_by_media_type(self.user, movie)
+            # Callers extend the returned set; the memo must not change with it.
+            first.add(("movie", "tmdb", "999"))
+            self.assertNotIn(
+                ("movie", "tmdb", "999"),
+                get_tracked_keys_by_media_type(self.user, movie),
+            )
+            with self.assertNumQueries(1):
+                get_tracked_keys_by_media_type(
+                    self.user, movie, statuses={Status.PLANNING.value}
+                )
+
+    def test_outside_a_build_each_call_reads_fresh(self):
+        with self.assertNumQueries(2):
+            get_tracked_keys_by_media_type(self.user, MediaTypes.MOVIE.value)
+            get_tracked_keys_by_media_type(self.user, MediaTypes.MOVIE.value)
 
     def test_get_tracked_keys_by_media_type_accepts_custom_statuses(self):
         tracked = get_tracked_keys_by_media_type(

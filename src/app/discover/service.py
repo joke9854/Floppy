@@ -38,6 +38,7 @@ from app.discover.filters import (
     exclude_tracked_items,
     get_feedback_keys_by_media_type,
     get_tracked_keys_by_media_type,
+    memoized_key_lookups,
 )
 from app.discover.match_signals import (
     _row_match_signal,
@@ -1229,6 +1230,7 @@ def _discover_feedback_keys(user, media_type: str) -> set[tuple[str, str, str]]:
     return feedback_keys
 
 
+@memoized_key_lookups()
 def get_discover_rows(
     user,
     media_type: str,
