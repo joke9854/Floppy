@@ -848,6 +848,35 @@ def _render_track_action_oob(request, instance, return_url):
     )
 
 
+def _render_episode_track_buttons_oob(request, episode, return_url):
+    """Render both season-page track buttons for an Episode model as OOB swaps.
+
+    The page renders the button from episode metadata; the model keeps the
+    route coordinates on its item, so copy them across or the swapped button
+    loses its modal URL, target and episode number.
+    """
+    item = episode.item
+    episode.media_type = MediaTypes.EPISODE.value
+    episode.media_id = item.media_id
+    episode.source = item.source
+    episode.season_number = item.season_number
+    episode.episode_number = item.episode_number
+    episode.library_media_type = item.library_media_type
+    return "".join(
+        render_to_string(
+            "app/components/detail_episode_track_button.html",
+            {
+                "episode": episode,
+                "target_suffix": target_suffix,
+                "track_button_oob": True,
+                "detail_return_url": return_url,
+            },
+            request=request,
+        )
+        for target_suffix in ("", "-list")
+    )
+
+
 def _write_episode_save_oob(
     response,
     request,
@@ -948,18 +977,7 @@ def _write_episode_save_oob(
         # Season-progress spans only exist on the season page — nothing to target here.
         return
 
-    for target_suffix in ("", "-list"):
-        response.write(
-            render_to_string(
-                "app/components/detail_episode_track_button.html",
-                {
-                    "episode": episode,
-                    "target_suffix": target_suffix,
-                    "track_button_oob": True,
-                },
-                request=request,
-            ),
-        )
+    response.write(_render_episode_track_buttons_oob(request, episode, next_path))
     response.write(
         render_to_string(
             "app/components/detail_episode_history_line.html",
@@ -1280,18 +1298,13 @@ def episode_history_poll(request, season_id):
             .first()
         )
 
-        for target_suffix in ("", "-list"):
-            response.write(
-                render_to_string(
-                    "app/components/detail_episode_track_button.html",
-                    {
-                        "episode": episode,
-                        "target_suffix": target_suffix,
-                        "track_button_oob": True,
-                    },
-                    request=request,
-                ),
-            )
+        response.write(
+            _render_episode_track_buttons_oob(
+                request,
+                episode,
+                media_url(related_season.item),
+            ),
+        )
         response.write(
             render_to_string(
                 "app/components/detail_episode_history_line.html",

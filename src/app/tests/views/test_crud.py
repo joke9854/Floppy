@@ -750,6 +750,16 @@ class CreateMedia(TestCase):
             html=False,
         )
         self.assertContains(response, '-list" hx-swap-oob="true"', html=False)
+        # The swapped button must reopen the same episode's modal (board bug:
+        # it carried an empty episode number and the POST path as return URL).
+        self.assertContains(
+            response,
+            '"return_url": "/details/tmdb/tv/1668/friends/season/1", '
+            '"episode_number": "1"',
+            count=2,
+            html=False,
+        )
+        self.assertContains(response, 'data-episode-number="1"', count=2, html=False)
         latest_episode = Episode.objects.filter(
             item__media_id="1668",
             related_season__user=self.user,
@@ -1866,6 +1876,14 @@ class DeleteMedia(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("HX-Redirect", response)
         self.assertContains(response, 'id="episode-track-button-', html=False)
+        self.assertContains(
+            response,
+            '"return_url": "/details/tmdb/tv/1668/friends/season/1", '
+            '"episode_number": "99", "is_create": "1"',
+            count=2,
+            html=False,
+        )
+        self.assertContains(response, 'hx-target="#track-episode-1668-1-99', html=False)
         self.assertContains(response, 'id="episode-history-', html=False)
         self.assertContains(response, "season-progress-mobile-", html=False)
         self.assertContains(response, "season-progress-desktop-", html=False)
