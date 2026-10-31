@@ -82,6 +82,14 @@ class LoginRequiredConfigurationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/javascript")
 
+    def test_anonymous_package_static_file_is_served_outside_prod(self):
+        """Non-prod static resolves through the finders, not only src/static."""
+        response = self.client.get(
+            f"/{settings.STATIC_URL.lstrip('/')}django_select2/django_select2.css",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/css")
+
     def test_anonymous_api_schema_and_docs_return_200(self):
         """OpenAPI schema and documentation endpoints must be accessible without login."""
         for endpoint in [
