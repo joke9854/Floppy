@@ -12,6 +12,10 @@
 {% block content %}
   {# Form CSS lives in the content block so boosted navigation keeps it #}
   {% if form %}{{ form.media.css }}{% endif %}
+  {# Encloses the header too: its Select Items buttons read selectMode. #}
+  {% if can_edit %}
+    <div x-data="bulkSelection('list-bulk-action-data', 'bulk-action-refresh')">
+  {% endif %}
   <div class="mb-6">
     <div class="w-full min-w-0">
       <div class="mb-2 flex flex-wrap items-center gap-3">
@@ -383,10 +387,6 @@
          $watch('isOrderEditing', v => v ? initListSortable(layout) : destroyListSortable());
        "
        @open-list-edit-modal.window="showModal = true">
-
-    {% if can_edit %}
-      <div x-data="bulkSelection('list-bulk-action-data', 'bulk-action-refresh')">
-    {% endif %}
 
     <!-- Form to manage state -->
     <form id="filter-form" class="hidden">
@@ -787,10 +787,10 @@
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
       </div>
     </div>
-    {% if can_edit %}
-      </div>
-    {% endif %}
     </div>
+  {% if can_edit %}
+    </div>
+  {% endif %}
 {% endblock content %}
 {# djlint:on #}
 
