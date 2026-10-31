@@ -1,0 +1,9 @@
+# Store text with LF line endings; working copies follow core.autocrlf.
+* text=auto
+
+# Run inside Linux containers and CI.
+*.sh text eol=lf
+
+# Generated artifacts that tests compare byte for byte.
+src/api/contracts/** text eol=lf
+docs/agents/domain_model.md text eol=lf
