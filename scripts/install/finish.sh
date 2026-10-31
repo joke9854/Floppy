@@ -29,21 +29,6 @@ floppy_url() {
     printf 'http://%s:%s' "$host" "$PORT"
 }
 
-# Rewrite one setting in the installation's configuration, keeping the quoting
-# each method's file format needs and the file's owner-only permissions.
-set_env_value() {
-    local key=$1 value=$2 rendered tmp
-    if [ "$METHOD" = "source" ]; then
-        rendered="${key}='${value}'"
-    else
-        rendered="${key}=${value}"
-    fi
-    tmp="${ENV_FILE}.tmp.$$"
-    ( umask 077; { grep -v "^${key}=" "$ENV_FILE" 2>/dev/null || true; printf '%s\n' "$rendered"; } >"$tmp" )
-    chmod 600 "$tmp"
-    mv "$tmp" "$ENV_FILE"
-}
-
 # ---------------------------------------------------------------------------
 
 finish_startup() {
@@ -145,16 +130,9 @@ finish_optional_configuration() {
     say "    ${url}/settings/metadata"
     say ""
     say "Floppy works without them; add them whenever you like."
-
-    if [ "$(state_get OWNER || echo 0)" = "1" ]; then
-        say ""
-        if ask_yes_no "Now that your account exists, close registration to new accounts?" no; then
-            set_env_value REGISTRATION False
-            floppy_restart_app
-            state_set REGISTRATION False
-            say "Registration is closed. To reopen it, set REGISTRATION to True in $ENV_FILE and restart Floppy."
-        fi
-    fi
+    say ""
+    say "Sign-up is closed now that your account exists. To let others sign up,"
+    say "set REGISTRATION to True in $ENV_FILE and restart Floppy."
 }
 
 finish_summary() {

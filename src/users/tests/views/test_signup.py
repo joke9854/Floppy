@@ -1,14 +1,18 @@
 from django.contrib import auth
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from users import helpers
 
 
+@override_settings(
+    REGISTRATION=True,
+    ACCOUNT_ADAPTER="allauth.account.adapter.DefaultAccountAdapter",
+)
 class SignupViewTests(TestCase):
-    """Test the local registration flow at account_signup."""
+    """Test the local registration flow at account_signup with sign-up open."""
 
     def setUp(self):
         """Clear the cached first-run flag so it doesn't leak between tests."""
@@ -95,3 +99,45 @@ class SignupViewTests(TestCase):
         response = self.client.get(reverse("account_signup"))
 
         self.assertNotContains(response, "Welcome to Floppy")
+
+
+class ClosedRegistrationDefaultTests(TestCase):
+    """REGISTRATION defaults to off, but a fresh install can still set up."""
+
+    def setUp(self):
+        """Clear the cached first-run flag so it doesn't leak between tests."""
+        cache.delete(helpers.IS_FIRST_RUN_CACHE_KEY)
+
+    def _signup(self, username):
+        return self.client.post(
+            reverse("account_signup"),
+            {
+                "username": username,
+                "password1": "a-very-strong-pass123",
+                "password2": "a-very-strong-pass123",
+            },
+        )
+
+    def test_first_account_can_sign_up_then_signup_closes(self):
+        """The first real account signs up; the next visitor is turned away."""
+        login_page = self.client.get(reverse("account_login"))
+        self.assertContains(login_page, "Create your account")
+
+        self._signup("owner")
+        self.assertTrue(get_user_model().objects.filter(username="owner").exists())
+
+        self.client.logout()
+        # The cached first-run flag is still True here; the adapter must not
+        # rely on it.
+        self._signup("stranger")
+        self.assertFalse(
+            get_user_model().objects.filter(username="stranger").exists(),
+        )
+
+    def test_login_page_hides_signup_once_an_account_exists(self):
+        """With sign-up closed, the login page offers no sign-up link."""
+        get_user_model().objects.create_user(username="existing", password="12345")
+
+        response = self.client.get(reverse("account_login"))
+
+        self.assertNotContains(response, reverse("account_signup"))

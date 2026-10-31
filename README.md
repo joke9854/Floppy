@@ -51,7 +51,6 @@ services:
     environment:
       - SECRET=change_me_to_a_long_random_string
       - REDIS_URL=redis://redis:6379
-      - REGISTRATION=True
       - DEMO_ACCOUNT_ENABLED=False
       - TZ=America/Chicago
       - TMDB_API=your_tmdb_api_key
@@ -78,7 +77,7 @@ volumes:
   redis_data:
 ```
 
-Open `http://localhost:8000`, create your account, then set `REGISTRATION=False` and redeploy so strangers can't sign up.
+Open `http://localhost:8000` and create your account. Sign-up is closed by default, but a fresh install accepts its first account; after that nobody else can sign up unless you set `REGISTRATION=True`.
 
 The examples above set `DEMO_ACCOUNT_ENABLED=False` for clarity; it is also the default. Set `DEMO_ACCOUNT_ENABLED=True` only if you actually want a shared demo account — it provisions a publicly known `demo` / `demodemo` login after migrations.
 
@@ -181,7 +180,7 @@ Floppy exposes a REST API at `/api/v1` and ships an [MCP server](mcp_server/). I
 - `/api/openapi.yaml` is the reviewed, committed 41-operation subset for supported integrations and MCP.
 - `/api/schema/` is the full dynamic diagnostic schema.
 - [Domain model guide](docs/agents/domain_model.md) lists the local vocabulary used by the API.
-- Copy your `API Token` from **Settings → Integrations**. It grants full authenticated API access and also authenticates webhooks and iCal. Never put it in commits, logs, screenshots, or shared shell history. If it is exposed, regenerate it in **Settings → Integrations**.
+- Copy your `API Token` from **Settings → Integrations**. It grants full authenticated API access and also authenticates webhooks. The iCal subscription URL on the Calendar page uses its own calendar token, so sharing it does not expose the API token. Never put it in commits, logs, screenshots, or shared shell history. If it is exposed, regenerate it in **Settings → Integrations**.
 - Full reference: [API and MCP Server](https://github.com/dannyvfilms/Floppy/wiki/7.-API-and-MCP-Server)
 
 Set the Floppy URL. Include its configured base prefix when it has one, for example `https://YOUR_FLOPPY_HOST/floppy`:
@@ -389,7 +388,6 @@ docker run -d \
   -e PGID=1000 \
   -e PUID=1000 \
   -e REDIS_URL=redis://floppy-redis:6379 \
-  -e REGISTRATION=True \
   -e SECRET=your_django_secret_key \
   -e TMDB_API=your_tmdb_api_key \
   -e TVDB_API_KEY=your_tvdb_api_key \
@@ -399,7 +397,7 @@ docker run -d \
   ghcr.io/dannyvfilms/floppy:latest
 ```
 
-Leave `REGISTRATION=True` for your first run, then recreate the container with `False` once your account exists.
+Sign-up is closed by default except for the first account on a fresh install. Add `-e REGISTRATION=True` only if you want other people to be able to sign up.
 
 ### Portainer and Unraid
 
@@ -410,7 +408,7 @@ Prefer **Stacks** over **Containers → Add container**. Stacks let you paste a 
 3. Paste one of the compose configurations above
 4. Set `SECRET` to a secure random string, and fill in whichever metadata API keys you have
 5. Deploy the stack
-6. Create your account while `REGISTRATION=True`, then set it to `False` and redeploy
+6. Create your account (a fresh install accepts the first sign-up even though `REGISTRATION` defaults to `False`)
 
 If you use **Containers → Add container** anyway: always set `SECRET` and `REDIS_URL`; for SQLite mount persistent storage to `/floppy/db`; for PostgreSQL set the `DB_*` variables on the Floppy container and persist `/var/lib/postgresql/data` on the Postgres container; publish port `8000`; and leave `Command` and `Entrypoint` empty.
 
@@ -443,7 +441,7 @@ The only universally required variable is `SECRET`. For Docker installs you shou
 - `REDIS_ADMIN_URL` - Redis service that Floppy can tune with `CONFIG`. The default is `REDIS_CACHE_URL`, then `REDIS_URL`
 - `DEBUG` - leave unset or `False` in production; enabling it slows every request (debug toolbar, no template caching) and is only meant for troubleshooting
 - Anime routing across scrobblers and importers - see the [grouped anime guide](docs/grouped_anime.md)
-- `REGISTRATION` - set to `True` to allow new signups (needed for your first account), then set to `False` afterward
+- `REGISTRATION` - defaults to `False`: only the first account on a fresh install can sign up. Set to `True` to let anyone sign up
 - `DEMO_ACCOUNT_ENABLED` - defaults to `False`. Set it to `True` to provision the built-in `demo` / `demodemo` account after migrations (shared-demo installs only). The setting gates provisioning; an account that already exists stays until you deactivate or delete it — `python manage.py floppy_preflight` warns when a known-password demo login is active
 - `ALLOWED_HOSTS` / `PUID` / `PGID` - `ALLOWED_HOSTS` is a comma-separated list of hostnames/IPs Django will accept requests for; `PUID` / `PGID` set the file-ownership user/group inside the container (match your host user, e.g. Unraid's `99`/`100`, if you hit permission errors)
 

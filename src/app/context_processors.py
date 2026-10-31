@@ -9,14 +9,19 @@ from users.helpers import is_first_run
 
 def export_vars(request):
     """Export variables to templates."""
+    first_run = SimpleLazyObject(is_first_run)
     return {
-        "REGISTRATION": settings.REGISTRATION,
+        # Matches the account adapter: closed sign-up still opens for the
+        # first account.
+        "REGISTRATION": SimpleLazyObject(
+            lambda: settings.REGISTRATION or bool(first_run),
+        ),
         "REDIRECT_LOGIN_TO_SSO": settings.REDIRECT_LOGIN_TO_SSO,
         "IMG_NONE": settings.IMG_NONE,
         "TRACK_TIME": settings.TRACK_TIME,
         "FORK_OWNER_NAME": settings.FORK_OWNER_NAME,
         "FORK_OWNER_URL": settings.FORK_OWNER_URL,
-        "IS_FIRST_RUN": SimpleLazyObject(is_first_run),
+        "IS_FIRST_RUN": first_run,
     }
 
 

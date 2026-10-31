@@ -2127,7 +2127,9 @@ SOCIALACCOUNT_ONLY = config("SOCIALACCOUNT_ONLY", default=False, cast=bool)
 if SOCIALACCOUNT_ONLY:
     ACCOUNT_EMAIL_VERIFICATION = "none"
 
-REGISTRATION = config("REGISTRATION", default=True, cast=bool)
+# Closed by default; a fresh install still lets its first account sign up
+# (see users.account_adapter.NoNewUsersAccountAdapter).
+REGISTRATION = config("REGISTRATION", default=False, cast=bool)
 if not REGISTRATION:
     ACCOUNT_ADAPTER = "users.account_adapter.NoNewUsersAccountAdapter"
 
