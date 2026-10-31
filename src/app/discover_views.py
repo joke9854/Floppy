@@ -9,7 +9,7 @@ from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 
-from app import discover
+from app import cache_utils, discover
 from app.discover import tab_cache as discover_tab_cache
 from app.models import (
     TV,
@@ -358,6 +358,9 @@ def _invalidate_discover_after_action(
     feedback_change: bool,
 ) -> list[str]:
     """Invalidate Discover after a quick action, avoiding debug-mode task overlap."""
+    if not feedback_change:
+        # The tracker write ran with media cache signals suppressed.
+        cache_utils.clear_media_list_cache_for_user(user_id)
     if discover_debug:
         return _mark_discover_stale_without_refresh(user_id, media_type)
     if feedback_change:

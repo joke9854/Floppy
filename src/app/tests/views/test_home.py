@@ -1043,6 +1043,35 @@ class HomeRowCacheTests(TestCase):
             self.client.get(reverse("home"))
         mock_entries.assert_called()
 
+    def assert_rows_rebuilt_after(self, invalidate):
+        self.client.get(reverse("home"))  # warm cache
+        invalidate()
+        with patch(
+            "users.home_screen._library_query_entries",
+            return_value=[],
+        ) as mock_entries:
+            self.client.get(reverse("home"))
+        mock_entries.assert_called()
+
+    def test_media_list_invalidation_clears_rows(self):
+        """Tag and entry-grouping edits clear only the media-list cache."""
+        from app import cache_utils
+
+        self.assert_rows_rebuilt_after(
+            lambda: cache_utils.clear_media_list_cache_for_user(self.user.id),
+        )
+
+    def test_discover_quick_action_clears_rows(self):
+        """Discover quick actions save trackers with cache signals suppressed."""
+        from app import discover_views
+
+        with patch.object(discover_views.discover_tab_cache, "invalidate_for_media_change"):
+            self.assert_rows_rebuilt_after(
+                lambda: discover_views._invalidate_discover_after_action(
+                    self.user.id, MediaTypes.MOVIE.value, discover_debug=False, feedback_change=False,
+                ),
+            )
+
 
 class HomeArtworkPollTests(TestCase):
     """Coalesced artwork poll endpoint behavior."""

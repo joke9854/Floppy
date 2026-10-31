@@ -27,6 +27,7 @@ TOKEN_CACHE_KEY = f"{TVDB_CACHE_NAMESPACE}_access_token"
 TOKEN_CACHE_TIMEOUT = 60 * 60 * 12
 TVDB_METADATA_CACHE_TIMEOUT = 60 * 60 * 12
 TVDB_TRANSLATION_FAILURE_CACHE_TIMEOUT = 60
+CHARACTERS_CACHE_TIMEOUT = 60 * 60 * 24 * 7
 PREFERRED_TRANSLATION_CODES = ("eng", "en", "eng-us", "en-us")
 
 # TVDB v4 paginates `series/{id}/episodes/default/{lang}` at 500 rows/page;
@@ -126,7 +127,14 @@ def metadata_cache_keys(media_id, season_number=None, language=None):
             )
     keys.append(_series_extended_cache_key(media_id, language))
     keys.append(_series_episode_translations_cache_key(media_id, language))
+    keys.append(_cache_key("series_extended_raw", media_id))
+    keys.append(characters_cache_key(MediaTypes.TV.value, media_id))
     return keys
+
+
+def characters_cache_key(media_type, tvdb_id):
+    """Return the cache key for a title's on-screen characters."""
+    return _cache_key("characters", media_type, tvdb_id)
 
 
 def enabled(user=None) -> bool:
@@ -1662,6 +1670,13 @@ def character_images(media_type: str, tvdb_id) -> list[dict]:
     ``character_image`` is the picture of the character, ``person_image`` the
     actor's photo; either may be None.
     """
+    # The rows outlive the 12h payloads they are read from: re-reading a whole
+    # extended payload from TVDB took 0.5-1.9 s per title. A metadata refresh
+    # clears them through metadata_cache_keys.
+    cache_key = characters_cache_key(media_type, tvdb_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     if media_type == MediaTypes.MOVIE.value:
         data = _get_movie_extended(tvdb_id)
     else:
@@ -1679,6 +1694,7 @@ def character_images(media_type: str, tvdb_id) -> list[dict]:
             "sort": character.get("sort") if isinstance(character.get("sort"), int) else None,
         })
     rows.sort(key=lambda row: (row["sort"] is None, row["sort"] or 0))
+    cache.set(cache_key, rows, timeout=CHARACTERS_CACHE_TIMEOUT)
     return rows
 
 

@@ -255,7 +255,10 @@ def build_media_list_filter_cache_key(
 
 
 HOME_ROW_CACHE_PREFIX = "home_row_v1"
-HOME_ROW_CACHE_TTL = 60  # seconds — matches the media-list cache horizon
+# Writes clear the rows (signals, clear_media_list_cache_for_user, Discover quick
+# actions), so the TTL only bounds what no write reaches: preference changes and
+# item metadata refreshes. At 60 s nearly every first Home visit rebuilt every row.
+HOME_ROW_CACHE_TTL = 60 * 10
 _HOME_ROW_REGISTRY_TEMPLATE = f"{HOME_ROW_CACHE_PREFIX}_registry_{{user_id}}"
 
 
@@ -314,7 +317,11 @@ def register_media_list_cache_key(user_id: int, cache_key: str) -> None:
 
 
 def clear_media_list_cache_for_user(user_id: int) -> None:
-    """Invalidate all cached media lists for a user (called on media save/delete)."""
+    """Invalidate all cached media lists for a user (called on media save/delete).
+
+    Home rows are built from the same library, so they are cleared too.
+    """
+    clear_home_row_cache_for_user(user_id)
     registry_key = _media_list_registry_key(user_id)
     keys: Iterable[str] | None = cache.get(registry_key)
 

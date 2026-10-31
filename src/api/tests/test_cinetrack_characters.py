@@ -181,3 +181,55 @@ class MovieIdCacheTests(FloppyApiTestCase):
             self.assertIsNone(tvdb.movie_id_for_imdb("tt0000001"))
             self.assertIsNone(tvdb.movie_id_for_imdb("tt0000001"))
         search.assert_called_once()
+
+
+class CharacterRowsCacheTests(FloppyApiTestCase):
+    """Character rows outlive their TVDB payload until a metadata refresh."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def read_twice_around(self, media_type, tvdb_id, refresh_keys):
+        from app.providers import tvdb
+
+        payload = {"data": SERIES_EXTENDED}
+        with patch("app.providers.tvdb._request", return_value=payload) as request:
+            first = tvdb.character_images(media_type, tvdb_id)
+            # Payloads expire after 12h; the rows must not need them.
+            cache.delete_many([
+                tvdb._cache_key("series_extended_raw", tvdb_id),
+                tvdb._cache_key("movie_extended", tvdb_id),
+            ])
+            self.assertEqual(tvdb.character_images(media_type, tvdb_id), first)
+            self.assertEqual(request.call_count, 1)
+            self.assertIn(tvdb.characters_cache_key(media_type, tvdb_id), refresh_keys())
+            cache.delete_many(refresh_keys())
+            tvdb.character_images(media_type, tvdb_id)
+            self.assertEqual(request.call_count, 2)
+
+    def test_tvdb_show_refresh_clears_rows(self):
+        from app import metadata_utils
+
+        self.read_twice_around(
+            "tv", "81189", lambda: metadata_utils.provider_metadata_cache_keys("tvdb", "tv", "81189"),
+        )
+
+    def test_tmdb_show_refresh_clears_rows(self):
+        from app import metadata_utils
+
+        cache.set("tmdb_tv_1396_external_ids", {"tvdb_id": 81189})
+        self.read_twice_around(
+            "tv", "81189", lambda: metadata_utils.provider_metadata_cache_keys("tmdb", "tv", "1396"),
+        )
+
+    def test_tmdb_movie_refresh_clears_rows(self):
+        from app import metadata_utils
+        from app.providers import tvdb
+
+        cache.set("tmdb_movie_603_external_ids", {"imdb_id": "tt0133093"})
+        cache.set(tvdb._cache_key("movie_for_imdb", "tt0133093"), "169")
+        self.read_twice_around(
+            "movie", "169", lambda: metadata_utils.provider_metadata_cache_keys("tmdb", "movie", "603"),
+        )

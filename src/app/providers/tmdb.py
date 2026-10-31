@@ -130,7 +130,29 @@ def metadata_cache_keys(media_id, media_type, season_number=None, episode_number
         and episode_number is not None
     ):
         keys.append(_episode_cache_key(media_id, season_number, episode_number))
+    if media_type in (MediaTypes.MOVIE.value, MediaTypes.TV.value):
+        keys.extend(_tvdb_characters_cache_keys(media_type, media_id))
     return keys
+
+
+def _tvdb_characters_cache_keys(media_type, media_id):
+    """Return the TVDB characters key of a title whose TVDB id is already cached.
+
+    Reads the cache only, so clearing caches never calls a provider.
+    """
+    from app.providers import tvdb
+
+    full = cache.get(_tv_cache_key(media_id) if media_type == MediaTypes.TV.value else _movie_cache_key(media_id))
+    if isinstance(full, dict) and full.get("provider_external_ids"):
+        ids = full["provider_external_ids"]
+    else:
+        ids = cache.get(f"{Sources.TMDB.value}_{media_type}_{media_id}_external_ids") or {}
+    if media_type == MediaTypes.TV.value:
+        tvdb_id = get_tvdb_id_override(media_id) or ids.get("tvdb_id")
+    else:
+        imdb_id = str(ids.get("imdb_id") or "").strip()
+        tvdb_id = cache.get(tvdb._cache_key("movie_for_imdb", imdb_id)) if imdb_id else None
+    return [tvdb.characters_cache_key(media_type, tvdb_id)] if tvdb_id else []
 
 
 def handle_error(error):
