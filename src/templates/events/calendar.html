@@ -176,7 +176,7 @@
               </button>
             </form>
             <a class="flex items-center w-full px-4 py-2 text-left text-sm transition-colors cursor-pointer text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] border-t border-[var(--color-border)]"
-               href="{% url 'download_calendar' token=user.token %}"
+               href="{% url 'download_calendar' token=user.calendar_token %}"
                @click="actionsOpen = false">
               {% include "app/icons/download.svg" with classes="w-4 h-4 mr-3" %}
               <span>{% translate "Download Calendar" %}</span>
@@ -228,7 +228,7 @@
              '{{ status }}',
            {% endfor %}
          ],
-         calendarBaseUrl: '{{ request.scheme }}://{{ request.get_host }}{% url 'download_calendar' token=user.token %}',
+         calendarBaseUrl: '{{ request.scheme }}://{{ request.get_host }}{% url 'download_calendar' token=user.calendar_token %}',
          get calendarExportUrl() {
            const params = new URLSearchParams();
            this.selectedMediaTypes.forEach((mediaType) => {

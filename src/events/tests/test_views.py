@@ -611,7 +611,7 @@ class DownloadCalendarViewTests(TestCase):
             return_value=export_events,
         ):
             response = self.client.get(
-                reverse("download_calendar", kwargs={"token": self.user.token}),
+                reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
                 {"media_types": [MediaTypes.MOVIE.value]},
             )
 
@@ -630,7 +630,7 @@ class DownloadCalendarViewTests(TestCase):
             return_value=export_events,
         ):
             response = self.client.get(
-                reverse("download_calendar", kwargs={"token": self.user.token}),
+                reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
                 {"media_types": [MediaTypes.TV.value]},
             )
 
@@ -649,11 +649,11 @@ class DownloadCalendarViewTests(TestCase):
             return_value=export_events,
         ):
             planning_response = self.client.get(
-                reverse("download_calendar", kwargs={"token": self.user.token}),
+                reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
                 {"status": [Status.PLANNING.value]},
             )
             in_progress_response = self.client.get(
-                reverse("download_calendar", kwargs={"token": self.user.token}),
+                reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
                 {"status": [Status.IN_PROGRESS.value]},
             )
 
@@ -677,6 +677,19 @@ class DownloadCalendarViewTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_download_calendar_rejects_the_api_token(self):
+        """The API token must not open the calendar, and the page must not show it."""
+        self.assertNotEqual(self.user.token, self.user.calendar_token)
+        response = self.client.get(
+            reverse("download_calendar", kwargs={"token": self.user.token}),
+        )
+        self.assertEqual(response.status_code, 401)
+
+        self.client.login(**self.credentials)
+        page = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn(self.user.calendar_token, page)
+        self.assertNotIn(self.user.token, page)
+
     @patch(
         "events.views.Event.objects.get_user_events",
         return_value=Event.objects.none(),
@@ -684,7 +697,7 @@ class DownloadCalendarViewTests(TestCase):
     def test_download_calendar_returns_empty_calendar(self, _mock_get_user_events):
         """An empty export should still return a valid iCalendar payload."""
         response = self.client.get(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -697,7 +710,7 @@ class DownloadCalendarViewTests(TestCase):
     def test_download_calendar_returns_events(self):
         """Exports should include tracked release summaries."""
         response = self.client.get(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -728,7 +741,7 @@ class DownloadCalendarViewTests(TestCase):
         self.movie_event.save()
 
         response = self.client.get(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -755,7 +768,7 @@ class DownloadCalendarViewTests(TestCase):
         self.movie_event.save()
 
         response = self.client.get(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -767,7 +780,7 @@ class DownloadCalendarViewTests(TestCase):
     def test_download_calendar_allows_head_requests(self):
         """HEAD requests should be accepted for calendar clients."""
         response = self.client.head(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -778,7 +791,7 @@ class DownloadCalendarViewTests(TestCase):
         self.client.logout()
 
         response = self.client.get(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -786,7 +799,7 @@ class DownloadCalendarViewTests(TestCase):
     def test_download_calendar_post_not_allowed(self):
         """Only GET-like methods should be allowed on the export endpoint."""
         response = self.client.post(
-            reverse("download_calendar", kwargs={"token": self.user.token}),
+            reverse("download_calendar", kwargs={"token": self.user.calendar_token}),
         )
 
         self.assertEqual(response.status_code, 405)

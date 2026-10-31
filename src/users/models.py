@@ -1003,6 +1003,13 @@ class User(AbstractUser):
         default=generate_token,
         help_text="Token for external integrations",
     )
+    # Separate from `token` so a shared calendar URL never carries the API key.
+    calendar_token = models.CharField(
+        max_length=32,
+        unique=True,
+        default=generate_token,
+        help_text="Token for the iCalendar subscription URL",
+    )
     plex_usernames = models.TextField(
         blank=True,
         help_text="Comma-separated list of Plex usernames for webhook matching",

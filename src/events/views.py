@@ -220,9 +220,13 @@ def reload_calendar(request):
 @csrf_exempt
 @require_http_methods(["GET", "HEAD", "PROPFIND"])
 def download_calendar(request, token: str):
-    """Download the calendar as a iCalendar file."""
+    """Download the calendar as a iCalendar file.
+
+    Authenticated by the calendar token only, never the API token, so a
+    shared or leaked subscription URL cannot be used against the API.
+    """
     try:
-        user = User.objects.get(token=token)
+        user = User.objects.get(calendar_token=token)
     except ObjectDoesNotExist:
         logger.warning(
             "Could not process Calendar request: Invalid token",
