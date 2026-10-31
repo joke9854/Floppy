@@ -247,10 +247,11 @@ class CineTrackBootstrapQueryGrowthTests(FloppyApiTestCase):
     by design and is deliberately not bypassed.
     """
 
-    # Measured per new row on CineTrack-API 395d7266 (movies 22, shows 5,
-    # episode events 8.4), with headroom for unrelated model changes.
-    NEW_MOVIE_QUERIES = 24
-    NEW_SHOW_QUERIES = 6
+    # Measured per new row (movies 14.9 and shows 3.9 since rows are bulk
+    # created and movies project once; episode events 8.4 on 395d7266), with
+    # headroom for unrelated model changes.
+    NEW_MOVIE_QUERIES = 16
+    NEW_SHOW_QUERIES = 5
     NEW_EPISODE_QUERIES = 10
 
     def _queries(self, name, payload, args=()):
@@ -349,12 +350,12 @@ class CineTrackBootstrapQueryGrowthWithSyncIndexTests(CineTrackBootstrapQueryGro
 
     Re-sends stay flat (the index refreshes in batches, not per row). Measured
     per new row on CineTrack-API with the index on and cold caches: movies
-    50.6, shows 10.6, episode events 21.8 (mostly the watched-state change
+    26.6, shows 3.6, episode events 21.8 (mostly the watched-state change
     log, which runs per saved row by design).
     """
 
-    NEW_MOVIE_QUERIES = 56
-    NEW_SHOW_QUERIES = 12
+    NEW_MOVIE_QUERIES = 29
+    NEW_SHOW_QUERIES = 5
     NEW_EPISODE_QUERIES = 24
 
     def setUp(self):
@@ -363,3 +364,47 @@ class CineTrackBootstrapQueryGrowthWithSyncIndexTests(CineTrackBootstrapQueryGro
             user=self.user1,
             defaults={"emit_changes": True},
         )
+
+
+class CineTrackMovieEnsureProjectionTests(FloppyApiTestCase):
+    """Movies project watch state once, after status and end_date are written."""
+
+    def test_status_only_completion_is_projected(self):
+        from app.models import Item
+        from app.services.watch_state import effective_state
+
+        item = Item.objects.create(
+            source="tmdb", media_id="610001", media_type=MediaTypes.MOVIE.value, title="Planned",
+        )
+        Movie.objects.create(user=self.user1, item=item, status=Status.PLANNING.value)
+        self.assertFalse(effective_state(self.user1, item).watched)
+
+        response = self.call_api(
+            "post",
+            "api_cinetrack_bootstrap_movies_ensure",
+            payload={"movies": [{"source": "tmdb", "media_id": "610001", "title": "Planned", "status": 3}]},
+            headers=self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertTrue(effective_state(self.user1, item).watched)
+
+    def test_new_watched_movie_projects_its_play(self):
+        from app.services.watch_state import effective_state
+
+        response = self.call_api(
+            "post",
+            "api_cinetrack_bootstrap_movies_ensure",
+            payload={"movies": [{
+                "source": "tmdb", "media_id": "610002", "title": "Seen", "status": 3,
+                "watch": {"watched_at": "2024-03-01T21:47:18Z", "client_event_id": "cinetrack:movie:610002"},
+            }]},
+            headers=self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        movie = Movie.objects.get(user=self.user1, item__media_id="610002")
+        state = effective_state(self.user1, movie.item)
+        self.assertTrue(state.watched)
+        self.assertEqual(state.play_count, 1)
+        self.assertEqual(state.last_watched_at.isoformat(), "2024-03-01T21:47:18+00:00")

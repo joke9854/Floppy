@@ -33,6 +33,7 @@ from app.services.episode_coordinates import (
 )
 from app.services.sync_activity import batched_activity, touch_activity
 from app.services.sync_items import refresh_sync_items
+from app.services.watch_state import project_watch_state_for_change, suspend_projection
 from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
 from .contract_serializers import DetailErrorSerializer
@@ -413,9 +414,12 @@ def ensure_movie_entries(user, parsed, *, detect_conflicts=False, complete_on_ad
     ]
 
 
+@transaction.atomic
 def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance):
     outcomes = []
-    with transaction.atomic():
+    # Projection is a recompute per save; run it once per touched movie instead,
+    # after status and end_date are written (it reads both).
+    with transaction.atomic(), suspend_projection():
         sources = {entry["source"] for entry in parsed}
         media_ids = {entry["media_id"] for entry in parsed}
         items = {
@@ -440,25 +444,27 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 hydration_ids.append(items[key].id)
 
         item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
+        items_by_id = {item.id: item for item in items.values()}
         movies = {
             movie.item_id: movie
             for movie in Movie.objects.filter(user=user, item_id__in=item_ids)
         }
-        created_movie_ids = set()
-        for item_id in item_ids:
-            if item_id in movies:
-                continue
-            movie = Movie(
+        # One insert for the batch. Every Movie receiver but watch-state
+        # projection skips raw saves anyway; projection runs once at the end.
+        new_movies = Movie.objects.bulk_create([
+            Movie(
                 user=user,
-                item_id=item_id,
+                item=items_by_id[item_id],
                 status=Status.IN_PROGRESS.value,
                 score=None,
                 notes="",
                 created_at=timezone.now(),
             )
-            movie.save_base(raw=True, force_insert=True)
-            movies[item_id] = movie
-            created_movie_ids.add(movie.id)
+            for item_id in dict.fromkeys(item_ids)
+            if item_id not in movies
+        ])
+        movies.update({movie.item_id: movie for movie in new_movies})
+        created_movie_ids = {movie.id for movie in new_movies}
 
         external_ids = {e["external_id"] for e in parsed if e["external_id"]}
         existing_plays = {
@@ -481,6 +487,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 legacy_plays[(play.movie_id, play.end_date)].append(play)
 
         dirty_movies = {}
+        touched_movies = {movie.id: movie for movie in new_movies}
         for entry in parsed:
             item = items[_item_key(entry["source"], entry["media_id"])]
             movie = movies[item.id]
@@ -502,6 +509,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                             # Identity adoption only; never overwrite another id.
                             play.external_id = external_id
                             play.save(update_fields=["external_id"])
+                            touched_movies[movie.id] = movie
                         existing_plays[(movie.id, external_id)] = play
                         outcome = "already_satisfied"
                     elif movie.end_date == watched_at and not movie.plays.exists():
@@ -511,6 +519,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                             defaults={"end_date": watched_at},
                         )
                         existing_plays[(movie.id, external_id)] = play
+                        touched_movies[movie.id] = movie
                         outcome = "already_satisfied"
                     else:
                         play, created = MoviePlay.objects.get_or_create(
@@ -519,6 +528,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                             defaults={"end_date": watched_at},
                         )
                         existing_plays[(movie.id, external_id)] = play
+                        touched_movies[movie.id] = movie
                         outcome = "created" if created else "already_satisfied"
                 elif play_level_outcomes:
                     outcome = "already_satisfied"
@@ -529,6 +539,7 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                     changed = True
             if changed:
                 dirty_movies[movie.id] = movie
+                touched_movies[movie.id] = movie
             outcomes.append(
                 MovieEnsureOutcome(outcome, movie.id in created_movie_ids, changed),
             )
@@ -545,6 +556,8 @@ def _ensure_movie_rows(user, parsed, *, play_level_outcomes, complete_on_advance
                 [movie.item for movie in dirty_movies.values()],
             )
         queue_cinetrack_bootstrap_hydration(hydration_ids, user.id)
+    for movie in touched_movies.values():
+        project_watch_state_for_change(user, items_by_id[movie.item_id])
     return outcomes
 
 
@@ -600,26 +613,28 @@ def ensure_show_entries(user, parsed):
                 hydration_ids.append(items[key].id)
 
         item_ids = [items[_item_key(e["source"], e["media_id"])].id for e in parsed]
+        items_by_id = {item.id: item for item in items.values()}
         tv_rows = {
             tv.item_id: tv
             for tv in TV.objects.filter(user=user, item_id__in=item_ids)
         }
         dirty = []
-        created_ids = set()
-        for item_id in item_ids:
-            if item_id in tv_rows:
-                continue
-            tv = TV(
+        # One insert for the batch. TV receivers skip raw saves except the sync
+        # index, which refresh_sync_items below covers: new rows are all dirty.
+        new_rows = TV.objects.bulk_create([
+            TV(
                 user=user,
-                item_id=item_id,
+                item=items_by_id[item_id],
                 status=Status.IN_PROGRESS.value,
                 score=None,
                 notes="",
                 created_at=timezone.now(),
             )
-            tv.save_base(raw=True, force_insert=True)
-            tv_rows[item_id] = tv
-            created_ids.add(tv.id)
+            for item_id in dict.fromkeys(item_ids)
+            if item_id not in tv_rows
+        ])
+        tv_rows.update({tv.item_id: tv for tv in new_rows})
+        created_ids = {tv.id for tv in new_rows}
 
         for entry in parsed:
             item = items[_item_key(entry["source"], entry["media_id"])]
