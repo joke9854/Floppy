@@ -50,8 +50,26 @@ All paths are under `/api/v1/`.
 | `GET cinetrack/crash-reports/?limit=` | The account's own reports, newest first (needs `watchlist:read`). Settings > Connected apps shows the same reports and exports them as JSON |
 | `POST`/`DELETE sync/connections/` | Registers CineTrack as a pull connection, which turns on the change index |
 | `GET sync/items/snapshot/`, `GET sync/items/changes/?cursor=` | Floppy as main tracker: full snapshot first, then the change feed |
+| `GET sync/activities/`, `sync/changes/`, `sync/progress-changes/` | Cheap "anything new?" checks and the watched-state and progress feeds |
+| `POST sync/history/`, `sync/history/remove/`, `sync/ratings/`, `sync/status/` | Batched plays, removals, ratings and statuses |
+| `GET sync/conflicts/`, `POST sync/conflicts/{id}/resolve/` | Sync disagreements waiting for the user to pick a side |
+| `POST scrobble/` | Live playback start, pause and stop |
+| `GET search/id/` | Resolve an item by external id (TMDB, IMDb, TVDB) |
 | `media/...` status and watch routes | Live writes after the first sync (status changes, single plays, removals) |
 | `GET health/` | Server health |
+
+These operations are listed in `CINETRACK_OPERATIONS` (`src/api/schema_contract.py`)
+and committed in `src/api/contracts/openapi.yaml`, so a change to their request or
+response shape fails the contract test. After a deliberate change, regenerate the file
+with the command in AGENTS.md and ship the matching CineTrack change.
+
+## Signing out
+
+Settings > Connected apps lists each signed-in install and signs one out at a time.
+After that, the install's bearer token answers `401` with
+`WWW-Authenticate: Bearer error="invalid_token"`. CineTrack renews once, and when the
+renewal is refused too it asks the user to reconnect. A revoked API key sent as
+`X-API-Key` answers `403`.
 
 ## Rules both sides keep
 
@@ -74,8 +92,17 @@ All paths are under `/api/v1/`.
 ## Testing
 
 On `CineTrack-API` pushes, the "CineTrack API Targeted Tests" workflow runs the CineTrack
-test modules. To run one locally:
+test modules and the committed-contract test, the `mcp_server` tests, and `ruff check`.
+To run one module locally:
 
 ```bash
 SECRET=test-only scripts/test.sh api.tests.test_fork_tracking
 ```
+
+## Deploying
+
+Each push to `CineTrack-API` also publishes `ghcr.io/joke9854/floppy:cinetrack-api` and
+`:sha-<short>`. On the server, run `scripts/deploy_cinetrack.sh` from the compose
+directory. It deploys only when the image's commit has a green "CineTrack API Targeted
+Tests" run, and appends the commit and run URL to `deployments.log`. Put that commit in
+the CineTrack release notes that pair with it.

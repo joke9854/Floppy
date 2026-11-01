@@ -177,9 +177,10 @@ Floppy retains Yamtrack's core tracking, import, and self-hosting workflows, wit
 Floppy exposes a REST API at `/api/v1` and ships an [MCP server](mcp_server/). Integrations meant for Floppy should target **this repository** and the `ghcr.io/dannyvfilms/floppy` image — upstream Yamtrack does not carry Floppy's API surface, media types, or integration workflows, so "compatible with Yamtrack" and "compatible with Floppy" are not interchangeable claims.
 
 - `/api/docs/` is the offline, read-only API index.
-- `/api/openapi.yaml` is the reviewed, committed 41-operation subset for supported integrations and MCP.
+- `/api/openapi.yaml` is the reviewed, committed 66-operation subset for supported integrations, MCP and CineTrack.
 - `/api/schema/` is the full dynamic diagnostic schema.
 - [Domain model guide](docs/agents/domain_model.md) lists the local vocabulary used by the API.
+- [Third-party tracking client guide](docs/integrations/nuvio-client-guide.md) is what a sync client implements; the [CineTrack integration](docs/integrations/cinetrack.md) page covers the Android app built against this API.
 - Copy your `API Token` from **Settings → Integrations**. It grants full authenticated API access and also authenticates webhooks. The iCal subscription URL on the Calendar page uses its own calendar token, so sharing it does not expose the API token. Never put it in commits, logs, screenshots, or shared shell history. If it is exposed, regenerate it in **Settings → Integrations**.
 - Full reference: [API and MCP Server](https://github.com/dannyvfilms/Floppy/wiki/7.-API-and-MCP-Server)
 
@@ -947,6 +948,16 @@ The image lives at `ghcr.io/dannyvfilms/floppy`:
 - `:latest` - the latest commit on the `latest` branch
 - `:release` - the latest commit on the `release` branch, or the stable alias for a GitHub release tag
 - `:vX.Y.Z` - versioned release builds from GitHub release tags
+
+A fork publishes to its own owner's package. The `CineTrack-API` branch builds
+`ghcr.io/joke9854/floppy` with two tags:
+
+- `:cinetrack-api` - the latest commit on `CineTrack-API`
+- `:sha-<short>` - one exact commit, for pinning or rolling back
+
+`scripts/deploy_cinetrack.sh` pulls `:cinetrack-api` and restarts only when that
+image's commit passed the "CineTrack API Targeted Tests" workflow, appending
+each deploy and its CI run to `deployments.log`.
 
 ## Local development
 
