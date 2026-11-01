@@ -2142,3 +2142,15 @@ REDIRECT_LOGIN_TO_SSO = config("REDIRECT_LOGIN_TO_SSO", default=False, cast=bool
 # this setting gates provisioning, not the account itself (see
 # floppy_preflight's demo check for how to notice and retire it).
 DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
+
+# Error reporting to a Sentry-compatible server (GlitchTip). Off unless a DSN
+# is set; config.error_reporting strips credentials from every event.
+SENTRY_DSN = config("SENTRY_DSN", default=secret("SENTRY_DSN_FILE", default=""))
+if SENTRY_DSN:
+    from config.error_reporting import init_error_reporting
+
+    init_error_reporting(
+        SENTRY_DSN,
+        release=VERSION,
+        environment=config("SENTRY_ENVIRONMENT", default="production"),
+    )

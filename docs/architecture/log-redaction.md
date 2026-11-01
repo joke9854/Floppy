@@ -129,6 +129,13 @@ Put diagnostic context in a separate log call.
 `floppy_safe` log format. A new process that writes output without the Python
 logging module needs its own boundary.
 
+**Error reporting.** When `SENTRY_DSN` is set, the Sentry SDK builds events from
+the request and the stack, not from log records, so the factory does not see
+them. `src/config/error_reporting.py` is that boundary: it keeps only the request
+method and a `safe_url()` URL, drops local variables, source context and
+`extra`, and runs `redact_secrets()` over messages, exception values and
+breadcrumbs.
+
 ## Cost
 
 The factory renders and redacts every record that passes the logger level.

@@ -444,6 +444,7 @@ The only universally required variable is `SECRET`. For Docker installs you shou
 - Anime routing across scrobblers and importers - see the [grouped anime guide](docs/grouped_anime.md)
 - `REGISTRATION` - defaults to `False`: only the first account on a fresh install can sign up. Set to `True` to let anyone sign up
 - `DEMO_ACCOUNT_ENABLED` - defaults to `False`. Set it to `True` to provision the built-in `demo` / `demodemo` account after migrations (shared-demo installs only). The setting gates provisioning; an account that already exists stays until you deactivate or delete it — `python manage.py floppy_preflight` warns when a known-password demo login is active
+- `SENTRY_DSN` (or `SENTRY_DSN_FILE`) / `SENTRY_ENVIRONMENT` - optional error reporting to GlitchTip or another Sentry-compatible server; off when unset. Events carry no headers, cookies, bodies, query strings or local variables. See the [monitoring guide](docs/monitoring.md)
 - `ALLOWED_HOSTS` / `PUID` / `PGID` - `ALLOWED_HOSTS` is a comma-separated list of hostnames/IPs Django will accept requests for; `PUID` / `PGID` set the file-ownership user/group inside the container (match your host user, e.g. Unraid's `99`/`100`, if you hit permission errors)
 
 For the complete list, see the [Environment Variables documentation](https://github.com/dannyvfilms/Floppy/wiki/6.-Admin-and-Operations#environment-variables).
