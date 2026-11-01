@@ -643,6 +643,20 @@ docker compose up -d --force-recreate floppy
 Because `latest` is mutable, pin a versioned image tag when reproducible
 upgrades matter.
 
+#### Security defaults (November 2026)
+
+Upgrading past these changes alters three defaults:
+
+- **Sign-up is closed by default.** `REGISTRATION` now defaults to `False`.
+  A fresh install still accepts its first account. After that, nobody else
+  can sign up. If an existing install never set `REGISTRATION`, sign-up
+  closes when you upgrade. Set `REGISTRATION=True` to keep it open.
+- **Calendar subscription URLs change.** iCal feeds now use a per-user calendar
+  token instead of the API token. Old subscription URLs return `401`. Copy the
+  new URL from the Calendar page and subscribe again in each calendar app.
+- **`/api/v1/info` no longer returns `debug`.** Clients that read that key
+  must stop expecting it.
+
 ### Persistence checklist
 
 - SQLite stores the app database at `/floppy/db/db.sqlite3` by default. Persist
