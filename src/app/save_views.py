@@ -1128,19 +1128,27 @@ def episode_save(request):
             next_path=next_path,
         )
         next_watch_operation_id = str(uuid4())
+        toast = {
+            "message": (
+                f"Updated episode {episode_number}."
+                if instance_id
+                else f"Added watch for episode {episode_number}."
+            ),
+            "type": "success",
+        }
+        # M5: a CineTrack toast can undo the play it just added.
+        if not instance_id and request.user.theme == "cinetrack":
+            toast["undo"] = {
+                "url": reverse("media_delete"),
+                "instanceId": episode.id,
+                "mediaType": MediaTypes.EPISODE.value,
+            }
         response["HX-Trigger"] = json.dumps(
             {
                 "closeModal": {
                     "watchOperationId": next_watch_operation_id,
                 },
-                "showToast": {
-                    "message": (
-                        f"Updated episode {episode_number}."
-                        if instance_id
-                        else f"Added watch for episode {episode_number}."
-                    ),
-                    "type": "success",
-                },
+                "showToast": toast,
             },
         )
         response["Cache-Control"] = "no-cache, no-store, must-revalidate"

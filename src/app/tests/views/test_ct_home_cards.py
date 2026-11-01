@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 from unittest.mock import patch
@@ -137,14 +138,12 @@ class CineTrackHomeCardTests(TestCase):
         self.assertTrue("ct-progress-card" in html or "ct-poster-card" in html)
         self.assertNotIn('class="media-card ', html)
 
-    def test_check_records_the_exact_click_time(self):
-        """The check's fields, posted with the browser's local time, keep it to the second."""
-        self._use_theme(ThemeChoices.CINETRACK)
+    def _check_fields(self):
         html = self._hydrated_home()
         form = re.search(r'<form class="ct-check-form".*?</form>', html, re.DOTALL).group(0)
-        fields = dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))
-        fields["end_date"] = "2026-10-26T21:14:37"
+        return dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))
 
+    def _post_check(self, fields):
         with (
             patch("app.save_views.resolve_episode_coordinate"),
             patch(
@@ -167,8 +166,17 @@ class CineTrackHomeCardTests(TestCase):
                 fields,
                 HTTP_HX_REQUEST="true",
             )
-
         self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_check_records_the_exact_click_time(self):
+        """The check's fields, posted with the browser's local time, keep it to the second."""
+        self._use_theme(ThemeChoices.CINETRACK)
+        fields = self._check_fields()
+        fields["end_date"] = "2026-10-26T21:14:37"
+
+        self._post_check(fields)
+
         watched = Episode.objects.get(
             related_season=self.season,
             item__episode_number=5,
@@ -176,3 +184,41 @@ class CineTrackHomeCardTests(TestCase):
         expected = timezone.make_aware(datetime(2026, 10, 26, 21, 14, 37))
         self.assertEqual(watched.end_date, expected)
         self.assertEqual(str(watched.watch_operation_id), fields["watch_operation_id"])
+
+    def test_check_toast_offers_undo_of_the_new_play(self):
+        """M5: the toast names the play it added, and undoing it deletes only that play."""
+        self._use_theme(ThemeChoices.CINETRACK)
+        fields = self._check_fields()
+        fields["end_date"] = "2026-10-26T21:14:37"
+
+        response = self._post_check(fields)
+
+        undo = json.loads(response["HX-Trigger"])["showToast"]["undo"]
+        watched = Episode.objects.get(related_season=self.season, item__episode_number=5)
+        self.assertEqual(
+            undo,
+            {"url": reverse("media_delete"), "instanceId": watched.id, "mediaType": "episode"},
+        )
+        before = Episode.objects.filter(related_season=self.season).count()
+        with patch("app.save_views._write_episode_save_oob"):
+            self.client.post(
+                f"{undo['url']}?next={reverse('home')}",
+                {"instance_id": undo["instanceId"], "media_type": undo["mediaType"]},
+                HTTP_HX_REQUEST="true",
+            )
+        self.assertFalse(Episode.objects.filter(id=watched.id).exists())
+        self.assertEqual(Episode.objects.filter(related_season=self.season).count(), before - 1)
+
+    def test_classic_episode_toast_has_no_undo(self):
+        """Classic themes keep the toast exactly as before."""
+        self._use_theme(ThemeChoices.CINETRACK)
+        fields = self._check_fields()
+        self._use_theme(ThemeChoices.DARK)
+        fields["end_date"] = "2026-10-26T21:14:37"
+
+        response = self._post_check(fields)
+
+        self.assertEqual(
+            json.loads(response["HX-Trigger"])["showToast"],
+            {"message": "Added watch for episode 5.", "type": "success"},
+        )

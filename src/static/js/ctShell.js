@@ -262,6 +262,15 @@ if (!window.__floppyCtCardsBound) {
       return;
     }
     const card = form.closest(".ct-progress-card");
+    // Remember the play and the card's state so the toast's Undo can reset it.
+    try {
+      const trigger = JSON.parse(event.detail.xhr.getResponseHeader("HX-Trigger") || "{}");
+      const instanceId = trigger.showToast?.undo?.instanceId;
+      if (instanceId) form.dataset.ctWatchedInstance = String(instanceId);
+    } catch {
+      // No undo for this check.
+    }
+    button.dataset.ctLabel = button.getAttribute("aria-label") || "";
     button.classList.add("is-done");
     button.disabled = true;
     button.setAttribute("aria-label", window.gettext ? gettext("Watched") : "Watched");
@@ -269,8 +278,29 @@ if (!window.__floppyCtCardsBound) {
       const style = getComputedStyle(card);
       const progress = Number.parseFloat(style.getPropertyValue("--ct-progress")) || 0;
       const step = Number.parseFloat(style.getPropertyValue("--ct-progress-step")) || 0;
+      card.dataset.ctProgressBefore = card.style.getPropertyValue("--ct-progress");
       card.style.setProperty("--ct-progress", `${Math.min(100, progress + step)}%`);
       card.classList.add("is-watched");
     }
+  });
+
+  document.addEventListener("ctWatchUndone", (event) => {
+    const form = document.querySelector(
+      `form[data-ct-check][data-ct-watched-instance="${event.detail.instanceId}"]`,
+    );
+    if (!form) return;
+    delete form.dataset.ctWatchedInstance;
+    const button = form.querySelector("button");
+    button.classList.remove("is-done");
+    button.disabled = false;
+    button.setAttribute("aria-label", button.dataset.ctLabel || "");
+    const card = form.closest(".ct-progress-card");
+    if (card) {
+      card.style.setProperty("--ct-progress", card.dataset.ctProgressBefore || "");
+      card.classList.remove("is-watched");
+    }
+    // A new check is a new play, not a resend of the undone one.
+    const operation = form.querySelector('[name="watch_operation_id"]');
+    if (operation && window.crypto?.randomUUID) operation.value = crypto.randomUUID();
   });
 }

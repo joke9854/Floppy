@@ -883,6 +883,9 @@
   .max-h-72 {
     max-height: calc(var(--spacing) * 72);
   }
+  .max-h-80 {
+    max-height: calc(var(--spacing) * 80);
+  }
   .max-h-96 {
     max-height: calc(var(--spacing) * 96);
   }
@@ -6593,6 +6596,18 @@ html.cinetrack {
     opacity: 1;
   }
 }
+html.cinetrack :is(.duration-75, .duration-100, .duration-150) {
+  --tw-duration: var(--motion-short);
+  transition-duration: var(--motion-short);
+}
+html.cinetrack .duration-200 {
+  --tw-duration: var(--motion-medium);
+  transition-duration: var(--motion-medium);
+}
+html.cinetrack .duration-300 {
+  --tw-duration: var(--motion-long);
+  transition-duration: var(--motion-long);
+}
 html.cinetrack #htmx-toast-outlet {
   top: auto;
   bottom: calc(84px + env(safe-area-inset-bottom));
@@ -6628,6 +6643,15 @@ html.cinetrack #htmx-toast-outlet .toast-success::before, html.cinetrack #htmx-t
 }
 html.cinetrack #htmx-toast-outlet .toast-success::before {
   background-color: #2fbf71;
+}
+html.cinetrack #htmx-toast-outlet .ct-toast-undo {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--color-accent);
+  transition: background-color var(--motion-short) var(--ease-standard);
+}
+html.cinetrack #htmx-toast-outlet .ct-toast-undo:hover, html.cinetrack #htmx-toast-outlet .ct-toast-undo:focus-visible {
+  background-color: rgb(255 255 255 / 10%);
 }
 html.cinetrack #htmx-toast-outlet .toast-error::before {
   background-color: #ff6b5b;

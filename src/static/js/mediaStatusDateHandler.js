@@ -261,6 +261,32 @@ function trackModalCreateToast(detail) {
     .querySelector("button")
     .addEventListener("click", () => toast.remove());
 
+  // M5: undo the play this toast reports. The delete response's own OOB
+  // swaps and toast update the page; ctWatchUndone resets a Home card.
+  const undo = detail && detail.undo;
+  if (undo && undo.url && undo.instanceId && window.htmx) {
+    const undoButton = document.createElement("button");
+    undoButton.type = "button";
+    undoButton.className = "ct-toast-undo text-sm font-semibold cursor-pointer";
+    undoButton.textContent = gettext("Undo");
+    undoButton.addEventListener("click", () => {
+      toast.remove();
+      const url = `${undo.url}?next=${encodeURIComponent(location.pathname)}`;
+      htmx
+        .ajax("POST", url, {
+          values: { instance_id: undo.instanceId, media_type: undo.mediaType },
+          swap: "none",
+          source: document.body,
+        })
+        .then(() => {
+          document.dispatchEvent(
+            new CustomEvent("ctWatchUndone", { detail: { instanceId: String(undo.instanceId) } }),
+          );
+        });
+    });
+    toast.insertBefore(undoButton, toast.querySelector("button"));
+  }
+
   toast.classList.add(
     "transition",
     "duration-300",
@@ -277,7 +303,7 @@ function trackModalCreateToast(detail) {
     ? duration
     : type === "warning" || type === "error"
       ? 8000
-      : document.querySelector("[data-ct-shell]")
+      : document.querySelector("[data-ct-shell]") && !undo
         ? 2800
         : 5000;
   window.setTimeout(() => toast.remove(), timeout);

@@ -1019,6 +1019,24 @@ html.cinetrack {
   }
 }
 
+/* M1/M2: CineTrack runs the ad-hoc Tailwind durations on its motion scale.
+   Scoped to the theme so classic themes keep their timing; 500 and 1000
+   are deliberate long fades and stay. */
+html.cinetrack :is(.duration-75, .duration-100, .duration-150) {
+  --tw-duration: var(--motion-short);
+  transition-duration: var(--motion-short);
+}
+
+html.cinetrack .duration-200 {
+  --tw-duration: var(--motion-medium);
+  transition-duration: var(--motion-medium);
+}
+
+html.cinetrack .duration-300 {
+  --tw-duration: var(--motion-long);
+  transition-duration: var(--motion-long);
+}
+
 /* M5: toasts are glass pills that slide up above the bottom nav. */
 html.cinetrack #htmx-toast-outlet {
   top: auto;
@@ -1061,6 +1079,18 @@ html.cinetrack #htmx-toast-outlet .toast-error::before {
 
 html.cinetrack #htmx-toast-outlet .toast-success::before {
   background-color: #2fbf71;
+}
+
+html.cinetrack #htmx-toast-outlet .ct-toast-undo {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--color-accent);
+  transition: background-color var(--motion-short) var(--ease-standard);
+}
+
+html.cinetrack #htmx-toast-outlet .ct-toast-undo:hover,
+html.cinetrack #htmx-toast-outlet .ct-toast-undo:focus-visible {
+  background-color: rgb(255 255 255 / 10%);
 }
 
 html.cinetrack #htmx-toast-outlet .toast-error::before {
