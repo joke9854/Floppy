@@ -37,6 +37,7 @@ class CineTrackConnectionTests(FloppyApiTestCase):
             {
                 "cinetrack_episode_events_v1": True,
                 "cinetrack_bootstrap_v2": True,
+                "cinetrack_bootstrap_jobs_v1": True,
                 "episode_sql_pagination": True,
                 "cinetrack_crash_reports_v1": True,
                 "cinetrack_episode_translate_v1": True,

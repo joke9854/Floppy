@@ -3,6 +3,7 @@
 from django.urls import re_path
 
 from . import (
+    cinetrack_bootstrap_job_views,
     cinetrack_bootstrap_views,
     cinetrack_character_views,
     fork_views,
@@ -53,6 +54,16 @@ urlpatterns = [
         r"^cinetrack/bootstrap/shows/ensure/?$",
         cinetrack_bootstrap_views.CineTrackBootstrapShowsEnsureView.as_view(),
         name="api_cinetrack_bootstrap_shows_ensure",
+    ),
+    re_path(
+        r"^cinetrack/bootstrap/jobs/?$",
+        cinetrack_bootstrap_job_views.CineTrackBootstrapJobsView.as_view(),
+        name="api_cinetrack_bootstrap_jobs",
+    ),
+    re_path(
+        r"^cinetrack/bootstrap/jobs/(?P<job_id>[0-9a-f]{32})/?$",
+        cinetrack_bootstrap_job_views.CineTrackBootstrapJobDetailView.as_view(),
+        name="api_cinetrack_bootstrap_job_detail",
     ),
     re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/episodes/(?P<episode_number>\d+)/watch/?$",

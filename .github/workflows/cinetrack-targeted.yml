@@ -41,6 +41,9 @@ jobs:
       - name: Existing-data bootstrap tests
         run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_existing_data --exclude-tag network
 
+      - name: Bootstrap job and error reporting tests
+        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_bootstrap_jobs config.tests.test_error_reporting --exclude-tag network
+
       - name: Scope map coverage
         run: uv run --no-sync python src/manage.py test api.tests.test_fork_scope_enforcement.ScopeMapCoverageTests --exclude-tag network
 

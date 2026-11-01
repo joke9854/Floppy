@@ -1240,6 +1240,104 @@ def ensure_episode_events(
     return EpisodeEnsureResult(outcomes, stored, reasons, titles)
 
 
+def parse_movie_entries(raw_entries, *, max_items=MAX_BOOTSTRAP_ITEMS):
+    """Validate a movies batch: ``(parsed, None)`` or ``(None, detail)``."""
+    if not isinstance(raw_entries, list) or not raw_entries:
+        return None, "movies must be a non-empty list."
+    if len(raw_entries) > max_items:
+        return None, f"movies must contain at most {max_items} entries."
+
+    parsed = []
+    seen_events = set()
+    for index, entry in enumerate(raw_entries):
+        if not isinstance(entry, dict):
+            return None, f"movies[{index}] must be an object."
+        source = str(entry.get("source") or "").strip()
+        media_id = str(entry.get("media_id") or "").strip()
+        if not source or not media_id or not check_source_type(MediaTypes.MOVIE.value, source):
+            return None, f"movies[{index}] has invalid source or media_id."
+        desired_status = _parse_status(entry.get("status"))
+        if desired_status is None:
+            return None, f"movies[{index}].status is invalid."
+        title = str(entry.get("title") or f"CineTrack movie {media_id}").strip()
+        watched_at = external_id = None
+        watch = entry.get("watch")
+        if watch is not None:
+            if not isinstance(watch, dict):
+                return None, f"movies[{index}].watch is invalid."
+            external_id = str(watch.get("client_event_id") or "").strip()
+            try:
+                watched_at = try_parse_datetime_input(watch.get("watched_at"))
+            except (TypeError, ValueError):
+                watched_at = None
+            if not external_id or watched_at is None:
+                return None, f"movies[{index}].watch requires watched_at and client_event_id."
+            event_key = (source, media_id, external_id)
+            if event_key in seen_events:
+                return None, "movie client_event_id values must be unique per movie in one request."
+            seen_events.add(event_key)
+        parsed.append({
+            "source": source,
+            "media_id": media_id,
+            "title": title,
+            "image": entry.get("image") or "",
+            "status": desired_status,
+            "watched_at": watched_at,
+            "external_id": external_id,
+        })
+    return parsed, None
+
+
+def movie_results(user, parsed):
+    """Ensure parsed movies and return one result per entry."""
+    outcomes = ensure_movie_entries(user, parsed)
+    return [
+        {"source": entry["source"], "media_id": entry["media_id"], "status": outcome.outcome}
+        for entry, outcome in zip(parsed, outcomes, strict=True)
+    ]
+
+
+def parse_show_entries(raw_entries, *, max_items=MAX_BOOTSTRAP_ITEMS):
+    """Validate a shows batch: ``(parsed, None)`` or ``(None, detail)``."""
+    if not isinstance(raw_entries, list) or not raw_entries:
+        return None, "shows must be a non-empty list."
+    if len(raw_entries) > max_items:
+        return None, f"shows must contain at most {max_items} entries."
+
+    parsed = []
+    for index, entry in enumerate(raw_entries):
+        if not isinstance(entry, dict):
+            return None, f"shows[{index}] must be an object."
+        source = str(entry.get("source") or "").strip()
+        media_id = str(entry.get("media_id") or "").strip()
+        if not source or not media_id or not check_source_type(MediaTypes.TV.value, source):
+            return None, f"shows[{index}] has invalid source or media_id."
+        desired_status = _parse_status(entry.get("status"))
+        if desired_status is None:
+            return None, f"shows[{index}].status is invalid."
+        parsed.append({
+            "source": source,
+            "media_id": media_id,
+            "title": str(entry.get("title") or f"CineTrack show {media_id}").strip(),
+            "image": entry.get("image") or "",
+            "status": desired_status,
+        })
+    return parsed, None
+
+
+def show_results(user, parsed):
+    """Ensure parsed shows and return one result per entry."""
+    outcomes = ensure_show_entries(user, parsed)
+    return [
+        {
+            "source": entry["source"],
+            "media_id": entry["media_id"],
+            "status": "created" if outcome.changed else "already_satisfied",
+        }
+        for entry, outcome in zip(parsed, outcomes, strict=True)
+    ]
+
+
 class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
     """Ensure a bounded batch of movie state without provider I/O per item."""
 
@@ -1250,61 +1348,10 @@ class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Ensure a batch of movies exists for the user."""
-        raw_entries = request.data.get("movies")
-        if not isinstance(raw_entries, list) or not raw_entries:
-            return Response({"detail": "movies must be a non-empty list."}, status=HTTP.BAD_REQUEST)
-        if len(raw_entries) > MAX_BOOTSTRAP_ITEMS:
-            return Response({"detail": f"movies must contain at most {MAX_BOOTSTRAP_ITEMS} entries."}, status=HTTP.BAD_REQUEST)
-
-        parsed = []
-        seen_events = set()
-        for index, entry in enumerate(raw_entries):
-            if not isinstance(entry, dict):
-                return Response({"detail": f"movies[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
-            source = str(entry.get("source") or "").strip()
-            media_id = str(entry.get("media_id") or "").strip()
-            if not source or not media_id or not check_source_type(MediaTypes.MOVIE.value, source):
-                return Response({"detail": f"movies[{index}] has invalid source or media_id."}, status=HTTP.BAD_REQUEST)
-            desired_status = _parse_status(entry.get("status"))
-            if desired_status is None:
-                return Response({"detail": f"movies[{index}].status is invalid."}, status=HTTP.BAD_REQUEST)
-            title = str(entry.get("title") or f"CineTrack movie {media_id}").strip()
-            watched_at = external_id = None
-            watch = entry.get("watch")
-            if watch is not None:
-                if not isinstance(watch, dict):
-                    return Response({"detail": f"movies[{index}].watch is invalid."}, status=HTTP.BAD_REQUEST)
-                external_id = str(watch.get("client_event_id") or "").strip()
-                try:
-                    watched_at = try_parse_datetime_input(watch.get("watched_at"))
-                except (TypeError, ValueError):
-                    watched_at = None
-                if not external_id or watched_at is None:
-                    return Response({"detail": f"movies[{index}].watch requires watched_at and client_event_id."}, status=HTTP.BAD_REQUEST)
-                event_key = (source, media_id, external_id)
-                if event_key in seen_events:
-                    return Response({"detail": "movie client_event_id values must be unique per movie in one request."}, status=HTTP.BAD_REQUEST)
-                seen_events.add(event_key)
-            parsed.append({
-                "source": source,
-                "media_id": media_id,
-                "title": title,
-                "image": entry.get("image") or "",
-                "status": desired_status,
-                "watched_at": watched_at,
-                "external_id": external_id,
-            })
-
-        results = []
-        outcomes = ensure_movie_entries(request.user, parsed)
-        for entry, outcome in zip(parsed, outcomes, strict=True):
-            results.append({
-                "source": entry["source"],
-                "media_id": entry["media_id"],
-                "status": outcome.outcome,
-            })
-
-        return Response({"results": results}, status=HTTP.OK)
+        parsed, error = parse_movie_entries(request.data.get("movies"))
+        if error:
+            return Response({"detail": error}, status=HTTP.BAD_REQUEST)
+        return Response({"results": movie_results(request.user, parsed)}, status=HTTP.OK)
 
 
 class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
@@ -1317,41 +1364,10 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
     @batched_activity()
     def post(self, request):
         """Ensure a batch of shows exists for the user."""
-        raw_entries = request.data.get("shows")
-        if not isinstance(raw_entries, list) or not raw_entries:
-            return Response({"detail": "shows must be a non-empty list."}, status=HTTP.BAD_REQUEST)
-        if len(raw_entries) > MAX_BOOTSTRAP_ITEMS:
-            return Response({"detail": f"shows must contain at most {MAX_BOOTSTRAP_ITEMS} entries."}, status=HTTP.BAD_REQUEST)
-
-        parsed = []
-        for index, entry in enumerate(raw_entries):
-            if not isinstance(entry, dict):
-                return Response({"detail": f"shows[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
-            source = str(entry.get("source") or "").strip()
-            media_id = str(entry.get("media_id") or "").strip()
-            if not source or not media_id or not check_source_type(MediaTypes.TV.value, source):
-                return Response({"detail": f"shows[{index}] has invalid source or media_id."}, status=HTTP.BAD_REQUEST)
-            desired_status = _parse_status(entry.get("status"))
-            if desired_status is None:
-                return Response({"detail": f"shows[{index}].status is invalid."}, status=HTTP.BAD_REQUEST)
-            parsed.append({
-                "source": source,
-                "media_id": media_id,
-                "title": str(entry.get("title") or f"CineTrack show {media_id}").strip(),
-                "image": entry.get("image") or "",
-                "status": desired_status,
-            })
-
-        results = []
-        outcomes = ensure_show_entries(request.user, parsed)
-        for entry, outcome in zip(parsed, outcomes, strict=True):
-            results.append({
-                "source": entry["source"],
-                "media_id": entry["media_id"],
-                "status": "created" if outcome.changed else "already_satisfied",
-            })
-
-        return Response({"results": results}, status=HTTP.OK)
+        parsed, error = parse_show_entries(request.data.get("shows"))
+        if error:
+            return Response({"detail": error}, status=HTTP.BAD_REQUEST)
+        return Response({"results": show_results(request.user, parsed)}, status=HTTP.OK)
 
 
 class MediaEpisodeEnsureView(drf_views.APIView):

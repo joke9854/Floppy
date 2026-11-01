@@ -23,6 +23,8 @@ CINETRACK_OPERATIONS = frozenset(
         ("/api/v1/cinetrack/connection/", "GET"),
         ("/api/v1/cinetrack/bootstrap/movies/ensure/", "POST"),
         ("/api/v1/cinetrack/bootstrap/shows/ensure/", "POST"),
+        ("/api/v1/cinetrack/bootstrap/jobs/", "POST"),
+        ("/api/v1/cinetrack/bootstrap/jobs/{job_id}/", "GET"),
         ("/api/v1/cinetrack/crash-reports/", "GET"),
         ("/api/v1/cinetrack/crash-reports/", "POST"),
         (f"{_MEDIA}/episodes/ensure/", "POST"),

@@ -314,6 +314,8 @@ class OpenAPIArtifactTests(SimpleTestCase):
                         "completed",
                     ),
                     "SyncItemTypeEnum": ("movie", "show", "episode"),
+                    "BootstrapJobKindEnum": ("movies", "shows"),
+                    "KindEnum": ("crash", "anr"),
                 },
             },
         )

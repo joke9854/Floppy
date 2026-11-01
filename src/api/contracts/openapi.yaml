@@ -11,6 +11,76 @@ info:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
 paths:
+  /api/v1/cinetrack/bootstrap/jobs/:
+    post:
+      operationId: api_v1_cinetrack_bootstrap_jobs_create
+      description: Queue a bootstrap job.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackBootstrapJobRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackBootstrapJobRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackBootstrapJobRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackBootstrapJob'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed or oversized batch; no job was created.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The job could not be queued; retry later.
+      x-required-scope: watchlist:write
+  /api/v1/cinetrack/bootstrap/jobs/{job_id}/:
+    get:
+      operationId: api_v1_cinetrack_bootstrap_jobs_retrieve
+      description: Return a bootstrap job's state.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{32}$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackBootstrapJob'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Unknown or expired job; resubmit the batch.
+      x-required-scope: watchlist:read
   /api/v1/cinetrack/bootstrap/movies/ensure/:
     post:
       operationId: api_v1_cinetrack_bootstrap_movies_ensure_create
@@ -3900,6 +3970,14 @@ components:
       required:
       - client
       - instance_key
+    BootstrapJobKindEnum:
+      enum:
+      - movies
+      - shows
+      type: string
+      description: |-
+        * `movies` - movies
+        * `shows` - shows
     ChangeFeedResponse:
       type: object
       description: A page of an ordered change feed.
@@ -3933,6 +4011,8 @@ components:
           type: boolean
         cinetrack_bootstrap_v2:
           type: boolean
+        cinetrack_bootstrap_jobs_v1:
+          type: boolean
         episode_sql_pagination:
           type: boolean
         cinetrack_crash_reports_v1:
@@ -3942,12 +4022,96 @@ components:
         cinetrack_characters_v1:
           type: boolean
       required:
+      - cinetrack_bootstrap_jobs_v1
       - cinetrack_bootstrap_v2
       - cinetrack_characters_v1
       - cinetrack_crash_reports_v1
       - cinetrack_episode_events_v1
       - cinetrack_episode_translate_v1
       - episode_sql_pagination
+    CineTrackBootstrapJob:
+      type: object
+      description: A job's state. ``results`` is present once ``status`` is ``done``.
+      properties:
+        job_id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/BootstrapJobKindEnum'
+        status:
+          $ref: '#/components/schemas/CineTrackBootstrapJobStatusEnum'
+        total:
+          type: integer
+        processed:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackBootstrapJobResult'
+      required:
+      - job_id
+      - kind
+      - processed
+      - status
+      - total
+    CineTrackBootstrapJobRequest:
+      type: object
+      description: Exactly one of ``movies`` or ``shows``.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackMovieInput'
+        shows:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackShowInput'
+    CineTrackBootstrapJobResult:
+      type: object
+      description: A job result; ``error`` means this entry's outcome is unknown,
+        resubmit it.
+      properties:
+        source:
+          type: string
+        media_id:
+          type: string
+        client_event_id:
+          type: string
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        stored_season_number:
+          type: integer
+        stored_episode_number:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CineTrackBootstrapJobResultStatusEnum'
+        reason:
+          type: string
+        title:
+          type: string
+      required:
+      - status
+    CineTrackBootstrapJobResultStatusEnum:
+      enum:
+      - created
+      - already_satisfied
+      - error
+      type: string
+      description: |-
+        * `created` - created
+        * `already_satisfied` - already_satisfied
+        * `error` - error
+    CineTrackBootstrapJobStatusEnum:
+      enum:
+      - queued
+      - running
+      - done
+      type: string
+      description: |-
+        * `queued` - queued
+        * `running` - running
+        * `done` - done
     CineTrackBootstrapResponse:
       type: object
       description: The outcomes for a batch of ensured items.

@@ -20,6 +20,7 @@ class CineTrackApiExtensionsSerializer(serializers.Serializer):
 
     cinetrack_episode_events_v1 = serializers.BooleanField()
     cinetrack_bootstrap_v2 = serializers.BooleanField()
+    cinetrack_bootstrap_jobs_v1 = serializers.BooleanField()
     episode_sql_pagination = serializers.BooleanField()
     cinetrack_crash_reports_v1 = serializers.BooleanField()
     cinetrack_episode_translate_v1 = serializers.BooleanField()

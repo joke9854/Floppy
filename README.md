@@ -177,7 +177,7 @@ Floppy retains Yamtrack's core tracking, import, and self-hosting workflows, wit
 Floppy exposes a REST API at `/api/v1` and ships an [MCP server](mcp_server/). Integrations meant for Floppy should target **this repository** and the `ghcr.io/dannyvfilms/floppy` image — upstream Yamtrack does not carry Floppy's API surface, media types, or integration workflows, so "compatible with Yamtrack" and "compatible with Floppy" are not interchangeable claims.
 
 - `/api/docs/` is the offline, read-only API index.
-- `/api/openapi.yaml` is the reviewed, committed 66-operation subset for supported integrations, MCP and CineTrack.
+- `/api/openapi.yaml` is the reviewed, committed 68-operation subset for supported integrations, MCP and CineTrack.
 - `/api/schema/` is the full dynamic diagnostic schema.
 - [Domain model guide](docs/agents/domain_model.md) lists the local vocabulary used by the API.
 - [Third-party tracking client guide](docs/integrations/nuvio-client-guide.md) is what a sync client implements; the [CineTrack integration](docs/integrations/cinetrack.md) page covers the Android app built against this API.

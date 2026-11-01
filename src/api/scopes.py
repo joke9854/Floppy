@@ -199,6 +199,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.cinetrack_character_views.MediaCharactersView": {"GET": _R},
     "api.fork_views_tracking.CineTrackBootstrapMoviesEnsureView": {"POST": _W},
     "api.fork_views_tracking.CineTrackBootstrapShowsEnsureView": {"POST": _W},
+    "api.cinetrack_bootstrap_job_views.CineTrackBootstrapJobsView": {"POST": _W},
+    "api.cinetrack_bootstrap_job_views.CineTrackBootstrapJobDetailView": {"GET": _R},
     "api.fork_views_tracking.MediaEpisodeDropView": {"POST": _W},
     "api.fork_views_tracking.MediaEpisodeBulkView": {"POST": _W},
     "api.fork_views_tracking.TagsView": {"GET": _R, "POST": _W},

@@ -25,6 +25,7 @@ Floppy version:
 | Flag | Enables |
 |---|---|
 | `cinetrack_bootstrap_v2` | Bounded `ensure` batches for the first sync |
+| `cinetrack_bootstrap_jobs_v1` | Large first-sync batches as background jobs |
 | `cinetrack_episode_events_v1` | Explicit episode watch events with exact `watched_at` |
 | `cinetrack_episode_translate_v1` | Episode numbering translation (anime) |
 | `sync_items_v1` | Item snapshot and change feed (Floppy as main tracker) |
@@ -43,6 +44,7 @@ All paths are under `/api/v1/`.
 | `GET cinetrack/connection/` | Preflight: account identity and capabilities |
 | `POST cinetrack/bootstrap/movies/ensure/` | First sync, about 50 movies per request, no synchronous metadata fetch |
 | `POST cinetrack/bootstrap/shows/ensure/` | First sync, about 50 shows per request |
+| `POST cinetrack/bootstrap/jobs/`, `GET cinetrack/bootstrap/jobs/{job_id}/` | First sync as one background job of up to 2000 movies or shows (see below) |
 | `POST media/tv/{source}/{media_id}/episodes/ensure/` | Episode plays as explicit `events[]` (season, episode, `watched_at`, `client_event_id`), about 50 per request |
 | `POST media/tv/{source}/{media_id}/episodes/translate/` | Read-only numbering translation (`from=tracker` or `tmdb`) |
 | `GET media/{type}/{source}/{media_id}/characters/` | Characters for the cast row |
@@ -62,6 +64,30 @@ These operations are listed in `CINETRACK_OPERATIONS` (`src/api/schema_contract.
 and committed in `src/api/contracts/openapi.yaml`, so a change to their request or
 response shape fails the contract test. After a deliberate change, regenerate the file
 with the command in AGENTS.md and ship the matching CineTrack change.
+
+## Bootstrap jobs
+
+With `cinetrack_bootstrap_jobs_v1`, CineTrack can send its whole library once
+instead of in 50-item requests. `POST cinetrack/bootstrap/jobs/` takes the same
+entries as the ensure endpoints, as either `movies` or `shows` (never both), up to
+2000 of them, and answers `202` with a `job_id`. Floppy ensures them on a Celery
+worker in chunks of 50, waiting there for SQLite's writer instead of in a
+request.
+
+`GET cinetrack/bootstrap/jobs/{job_id}/` reports `queued`, `running` (with
+`processed` of `total`) or `done`. Only a `done` job has `results`, one per
+entry in the order sent:
+
+- `created` and `already_satisfied` are exact. Acknowledge those entries.
+- `error` means that entry's chunk failed. Its outcome is unknown, so send it
+  again.
+
+A job is kept for 24 hours and only its owner can read it. A `404` means it is
+unknown or expired. Resubmit the batch; every ensure is idempotent. A `503` on
+submit means the job could not be queued and nothing was written.
+
+The 50-item ensure endpoints stay, and a server without the flag only has
+those.
 
 ## Signing out
 

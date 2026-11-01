@@ -363,6 +363,10 @@ SPECTACULAR_SETTINGS = {
         "LibraryStatusEnum": ("planning", "in_progress", "paused", "dropped", "completed"),
         # Sync item and search-by-ID result types; otherwise collides on "type".
         "SyncItemTypeEnum": ("movie", "show", "episode"),
+        # CineTrack bootstrap job and crash report kinds; otherwise both collide
+        # on "kind".
+        "BootstrapJobKindEnum": ("movies", "shows"),
+        "KindEnum": ("crash", "anr"),
     },
 }
 
