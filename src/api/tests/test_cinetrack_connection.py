@@ -39,6 +39,8 @@ class CineTrackConnectionTests(FloppyApiTestCase):
                 "cinetrack_bootstrap_v2": True,
                 "episode_sql_pagination": True,
                 "cinetrack_crash_reports_v1": True,
+                "cinetrack_episode_translate_v1": True,
+                "cinetrack_characters_v1": True,
             },
         )
 
@@ -47,6 +49,22 @@ class CineTrackConnectionTests(FloppyApiTestCase):
             **self.headers,
         )
         self.assertEqual(preferences.status_code, HTTP.FORBIDDEN)
+
+    def test_probe_and_info_advertise_the_same_cinetrack_flags(self):
+        probe = self.client.get("/api/v1/cinetrack/connection/", **self.headers)
+        info = self.client.get("/api/v1/info/")
+        probe_flags = probe.json()["api_extensions"]
+        info_flags = info.json()["api_extensions"]
+
+        # Every probe flag matches /info, and no cinetrack flag is probe-less.
+        self.assertEqual(
+            probe_flags,
+            {name: info_flags[name] for name in probe_flags},
+        )
+        self.assertLessEqual(
+            {name for name in info_flags if name.startswith("cinetrack_")},
+            set(probe_flags),
+        )
 
     def test_probe_rejects_invalid_credentials(self):
         response = self.client.get(

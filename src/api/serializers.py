@@ -795,6 +795,34 @@ class HistorySerializer(serializers.Serializer):
         }
 
 
+# The one list of fork capabilities. /info returns all of them; the CineTrack
+# connection probe returns its subset from here too.
+API_EXTENSIONS = {
+    "cinetrack_episode_events_v1": True,
+    "cinetrack_bootstrap_v2": True,
+    "episode_sql_pagination": True,
+    "cinetrack_crash_reports_v1": True,
+    "sync_app_connections_v1": True,
+    "sync_changes_coordinates_v1": True,
+    "sync_activities_v1": True,
+    "sync_history_v1": True,
+    "sync_history_remove_v1": True,
+    "sync_ratings_v1": True,
+    "sync_status_v1": True,
+    "watched_state_exact_time_v1": True,
+    "oauth_v1": True,
+    "scrobble_v2": True,
+    "search_id_v1": True,
+    "sync_ids_v1": True,
+    "rate_limits_v1": True,
+    "error_codes_v1": True,
+    "paging_headers_v1": True,
+    "sync_items_v1": True,
+    "cinetrack_episode_translate_v1": True,
+    "cinetrack_characters_v1": True,
+}
+
+
 class InfoSerializer(serializers.Serializer):
     """Serializer for the info endpoint."""
 
@@ -807,30 +835,7 @@ class InfoSerializer(serializers.Serializer):
             "timezone": settings.TIME_ZONE,
             "admin_enabled": settings.ADMIN_ENABLED,
             "track_time": settings.TRACK_TIME,
-            "api_extensions": {
-                "cinetrack_episode_events_v1": True,
-                "cinetrack_bootstrap_v2": True,
-                "episode_sql_pagination": True,
-                "cinetrack_crash_reports_v1": True,
-                "sync_app_connections_v1": True,
-                "sync_changes_coordinates_v1": True,
-                "sync_activities_v1": True,
-                "sync_history_v1": True,
-                "sync_history_remove_v1": True,
-                "sync_ratings_v1": True,
-                "sync_status_v1": True,
-                "watched_state_exact_time_v1": True,
-                "oauth_v1": True,
-                "scrobble_v2": True,
-                "search_id_v1": True,
-                "sync_ids_v1": True,
-                "rate_limits_v1": True,
-                "error_codes_v1": True,
-                "paging_headers_v1": True,
-                "sync_items_v1": True,
-                "cinetrack_episode_translate_v1": True,
-                "cinetrack_characters_v1": True,
-            },
+            "api_extensions": dict(API_EXTENSIONS),
         }
 
 

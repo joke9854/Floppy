@@ -12,14 +12,7 @@ from rest_framework import views as drf_views
 from rest_framework.response import Response
 
 from .contract_serializers import DetailErrorSerializer
-from .serializers import InfoSerializer, serialize_data
-
-CINETRACK_API_EXTENSIONS = {
-    "cinetrack_episode_events_v1": True,
-    "cinetrack_bootstrap_v2": True,
-    "episode_sql_pagination": True,
-    "cinetrack_crash_reports_v1": True,
-}
+from .serializers import API_EXTENSIONS, InfoSerializer, serialize_data
 
 
 class CineTrackApiExtensionsSerializer(serializers.Serializer):
@@ -29,6 +22,14 @@ class CineTrackApiExtensionsSerializer(serializers.Serializer):
     cinetrack_bootstrap_v2 = serializers.BooleanField()
     episode_sql_pagination = serializers.BooleanField()
     cinetrack_crash_reports_v1 = serializers.BooleanField()
+    cinetrack_episode_translate_v1 = serializers.BooleanField()
+    cinetrack_characters_v1 = serializers.BooleanField()
+
+
+# The probe's subset of API_EXTENSIONS, one entry per documented field above.
+CINETRACK_API_EXTENSIONS = {
+    name: API_EXTENSIONS[name] for name in CineTrackApiExtensionsSerializer().fields
+}
 
 
 class CineTrackConnectionSerializer(serializers.Serializer):
