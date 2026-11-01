@@ -12,6 +12,7 @@ on:
     branches:
       - "release"
       - "latest"
+      - "CineTrack-API"
     tags:
       - "v*"
   pull_request:
@@ -28,7 +29,9 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: dannyvfilms/floppy
+  # Each repository publishes to its own owner's package, so a fork's
+  # CineTrack-API builds land in ghcr.io/<owner>/floppy.
+  IMAGE_NAME: ${{ github.repository_owner }}/floppy
   LEGACY_IMAGE_NAME: dannyvfilms/yamtrack
 
 jobs:
@@ -233,9 +236,13 @@ jobs:
           # updates. Drop the second line once traffic to it has died off.
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }}
+            name=${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }},enable=${{ github.repository_owner == 'dannyvfilms' }}
+          # CineTrack-API pushes get an immutable sha-<short> tag and a moving
+          # cinetrack-api tag that the compose files deploy.
           tags: |
             type=ref,event=pr
+            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/CineTrack-API' }}
+            type=raw,value=cinetrack-api,enable=${{ github.ref == 'refs/heads/CineTrack-API' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}

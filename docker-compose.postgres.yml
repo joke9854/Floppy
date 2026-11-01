@@ -1,9 +1,9 @@
 services:
   floppy:
     container_name: floppy
-    # Image defaults to :latest tag (latest commit on the latest branch)
-    # You can also explicitly use :latest, :release, or a version tag
-    image: ghcr.io/dannyvfilms/floppy
+    # CineTrack-API build: :cinetrack-api is the newest push to that branch;
+    # pin :sha-<short> to deploy one exact commit.
+    image: ghcr.io/joke9854/floppy:cinetrack-api
     restart: unless-stopped
     depends_on:
       - db
