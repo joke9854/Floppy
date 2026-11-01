@@ -163,20 +163,22 @@ erase" as one action.
 | Status | Meaning | What to do |
 |---|---|---|
 | `400` | Malformed request | Fix the request; do not retry unchanged |
-| `403` | Credential missing, invalid, revoked, expired, **or** lacking the scope | See below |
+| `401` | `Authorization: Bearer` token is invalid, revoked or expired | Renew it, or ask the user to reconnect |
+| `403` | Credential missing, an `X-API-Key` that is invalid, revoked or expired, **or** lacking the scope | See below |
 | `404` | Unknown or unresolvable item | Record as unresolved; do not retry |
 | `409` | `idempotency_conflict` or `cursor_expired` | See steps 4 and 6 |
 
-**Known limitation.** Floppy returns `403` for both "your credential is dead"
-and "your credential lacks this scope", so status alone cannot tell them apart.
-DRF downgrades authentication failures to `403` unless the authenticator sends a
-challenge, and Floppy's authentication matrix asserts `403` across every
-protected endpoint, so changing it is an API break that has not been made.
+A rejected bearer token answers `401` with `code: authentication_failed` and
+`WWW-Authenticate: Bearer error="invalid_token"`, so a client sending its token
+as `Authorization: Bearer` can tell a dead credential from a missing scope on
+status alone. Prefer that header.
 
-Until it is: on a `403`, re-check the credential against a low-scope endpoint
-such as `GET /api/v1/sync/connections/`. If that also returns `403`, the
-credential is dead and the user should reconnect. If it succeeds, the original
-call needed a scope the token does not carry.
+A client sending `X-API-Key` still gets `403` for both, because Floppy's
+authentication matrix asserts `403` for that header. On a `403`, re-check the
+credential against a low-scope endpoint such as `GET /api/v1/sync/connections/`.
+If that also returns `403`, the credential is dead and the user should
+reconnect. If it succeeds, the original call needed a scope the token does not
+carry.
 
 ## What add-ons cannot do
 

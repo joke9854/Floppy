@@ -445,7 +445,7 @@ class RefreshAndRevokeTests(SignInTestCase):
         # WWW-Authenticate challenge, so DRF reports an authentication failure
         # as 403 across the whole API (see test_nuvio_conformance step 8).
         after = self.client.get(COLLECTION, **bearer(body["access_token"]))
-        self.assertEqual(after.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(after.status_code, HTTP.UNAUTHORIZED)
 
     def test_revoked_refresh_token_cannot_be_redeemed(self):
         """Revoking the refresh token prevents minting new access tokens."""
@@ -471,13 +471,13 @@ class RefreshAndRevokeTests(SignInTestCase):
             expires=timezone.now() - timedelta(seconds=1),
         )
         response = self.client.get(COLLECTION, **bearer(body["access_token"]))
-        self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(response.status_code, HTTP.UNAUTHORIZED)
 
     def test_refresh_token_is_not_an_api_credential(self):
         """Only access tokens authenticate API calls."""
         body = self.sign_in()
         response = self.client.get(COLLECTION, **bearer(body["refresh_token"]))
-        self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(response.status_code, HTTP.UNAUTHORIZED)
 
     def test_deactivated_user_token_is_refused(self):
         """Disabling the account ends API access for its tokens."""
@@ -485,7 +485,7 @@ class RefreshAndRevokeTests(SignInTestCase):
         self.user.is_active = False
         self.user.save()
         response = self.client.get(COLLECTION, **bearer(body["access_token"]))
-        self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(response.status_code, HTTP.UNAUTHORIZED)
 
 
 class DeviceFlowTests(SignInTestCase):
@@ -651,7 +651,7 @@ class ConnectedAppsTests(SignInTestCase):
         self.assertFalse(RefreshToken.objects.filter(user=self.user).exists())
         self.assertTrue(AccessToken.objects.filter(pk=other.pk).exists())
         after = self.client.get(COLLECTION, **bearer(mine["access_token"]))
-        self.assertEqual(after.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(after.status_code, HTTP.UNAUTHORIZED)
 
     def test_revoke_leaves_other_apps_connected(self):
         """Revoking CineTrack does not touch the user's Nuvio sign-in."""
@@ -710,7 +710,7 @@ class AppSessionsTests(SignInTestCase):
             self.client.get(COLLECTION, **bearer(tokens["access_token"])).status_code
             for tokens in (phone, tablet)
         )
-        self.assertEqual(statuses, [HTTP.OK, HTTP.FORBIDDEN])
+        self.assertEqual(statuses, [HTTP.OK, HTTP.UNAUTHORIZED])
         self.assertEqual(len(self.page().context["app_sessions"]), 1)
         # The install's refresh token is revoked, not deleted.
         self.assertEqual(

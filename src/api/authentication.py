@@ -6,7 +6,7 @@ from datetime import timedelta
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import APIException, AuthenticationFailed
 from rest_framework.permissions import BasePermission
 
 from api.scopes import (
@@ -134,6 +134,21 @@ def authenticate_token(raw_token: str):
     return (user, LegacyKeyCredential())
 
 
+class InvalidBearerToken(APIException):
+    """A presented bearer token that is unknown, revoked or expired.
+
+    Answers 401 with an RFC 6750 challenge, so OAuth clients renew or ask the
+    user to reconnect. DRF would downgrade ``AuthenticationFailed`` to 403
+    here, because the request has no challenge when no credential was sent,
+    and missing credentials, API keys and missing scopes stay 403.
+    """
+
+    status_code = 401
+    default_detail = "Invalid token"
+    default_code = "authentication_failed"
+    auth_header = 'Bearer error="invalid_token"'
+
+
 class BearerAuthentication(BaseAuthentication):
     """Bearer or Token Authorization header authentication."""
 
@@ -148,7 +163,10 @@ class BearerAuthentication(BaseAuthentication):
         if len(parts) != 2 or parts[0].lower() not in self.keywords:  # noqa: PLR2004
             return None
         token = parts[1]
-        return authenticate_token(token)
+        try:
+            return authenticate_token(token)
+        except AuthenticationFailed:
+            raise InvalidBearerToken from None
 
 
 class ListenBrainzTokenAuthentication(BaseAuthentication):

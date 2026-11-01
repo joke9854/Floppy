@@ -388,12 +388,24 @@ class NuvioConformanceTests(FloppyApiTestCase):
 
         response = self.client.get(CONNECTIONS, **self.headers)
 
-        # 403, not 401: DRF downgrades an authentication failure when the
-        # authenticator offers no WWW-Authenticate challenge, and Floppy
-        # asserts 403 for every protected endpoint in its authentication
-        # matrix. Noted in the client guide, because it means a client cannot
-        # tell a dead credential from a missing scope on status alone.
+        # 403 for X-API-Key, which the authentication matrix asserts for that
+        # header. The same token sent as a bearer answers 401 (next test).
         self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+
+    def test_19b_a_revoked_bearer_token_answers_401(self):
+        """Step 8: a bearer client can tell a dead credential from a scope."""
+        self.token.revoked_at = timezone.now()
+        self.token.save(update_fields=["revoked_at"])
+
+        response = self.client.get(
+            CONNECTIONS, HTTP_AUTHORIZATION=f"Bearer {self.secret}"
+        )
+
+        self.assertEqual(response.status_code, HTTP.UNAUTHORIZED)
+        self.assertEqual(response.json()["code"], "authentication_failed")
+        self.assertEqual(
+            response["WWW-Authenticate"], 'Bearer error="invalid_token"'
+        )
 
     def test_20_an_expired_token_is_refused(self):
         """Step 8: expiry is enforced server side, not trusted to the client."""

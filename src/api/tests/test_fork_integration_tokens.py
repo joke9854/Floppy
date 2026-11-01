@@ -148,7 +148,13 @@ class IntegrationTokenAuthHeaderTests(FloppyApiTestCase):
                         "api_user_preferences",
                         headers=headers,
                     )
-                    self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+                    # A rejected Authorization header answers 401, X-API-Key 403.
+                    expected = (
+                        HTTP.UNAUTHORIZED
+                        if "HTTP_AUTHORIZATION" in headers
+                        else HTTP.FORBIDDEN
+                    )
+                    self.assertEqual(response.status_code, expected)
         self.token.refresh_from_db()
         self.assertIsNone(self.token.last_used_at)
 
@@ -175,7 +181,7 @@ class IntegrationTokenAuthHeaderTests(FloppyApiTestCase):
         self.assertEqual(response.status_code, HTTP.OK)
 
     def test_revoked_token_is_rejected(self):
-        """Revoked tokens are rejected with 403 Forbidden."""
+        """Revoked tokens are rejected: 403 for X-API-Key, 401 for Bearer."""
         self.token.revoked_at = timezone.now()
         self.token.save(update_fields=["revoked_at"])
 
@@ -195,7 +201,8 @@ class IntegrationTokenAuthHeaderTests(FloppyApiTestCase):
             payload={"action": "start", "media_type": "movie", "ids": {"tmdb": "603"}},
             headers={"HTTP_AUTHORIZATION": f"Bearer {self.raw_token}"},
         )
-        self.assertEqual(res2.status_code, HTTP.FORBIDDEN)
+        self.assertEqual(res2.status_code, HTTP.UNAUTHORIZED)
+        self.assertEqual(res2["WWW-Authenticate"], 'Bearer error="invalid_token"')
 
     def test_expired_token_is_rejected(self):
         """Expired tokens are rejected with 403 Forbidden."""
@@ -226,7 +233,12 @@ class IntegrationTokenAuthHeaderTests(FloppyApiTestCase):
                     payload={"action": "start", "media_type": "movie", "ids": {"tmdb": "603"}},
                     headers=header,
                 )
-                self.assertEqual(response.status_code, HTTP.FORBIDDEN)
+                expected = (
+                    HTTP.UNAUTHORIZED
+                    if "HTTP_AUTHORIZATION" in header
+                    else HTTP.FORBIDDEN
+                )
+                self.assertEqual(response.status_code, expected)
 
     def test_backward_compatibility_legacy_user_token(self):
         """Legacy User.token authenticates via all supported header formats."""
