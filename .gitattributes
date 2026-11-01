@@ -7,3 +7,4 @@
 # Generated artifacts that tests compare byte for byte.
 src/api/contracts/** text eol=lf
 docs/agents/domain_model.md text eol=lf
+src/static/js/libraries/*.min.js text eol=lf
