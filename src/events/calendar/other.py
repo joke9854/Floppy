@@ -1,11 +1,9 @@
 import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from app import config
 from app.models import MediaTypes, Sources
 from app.providers import services
-from events.models import Event
+from events.models import UNKNOWN_RELEASED_DATETIME, Event
 
 from .helpers import date_parser
 
@@ -58,7 +56,7 @@ def process_other(item, events_bulk):
                 )
                 return True
         else:
-            content_datetime = datetime.min.replace(tzinfo=ZoneInfo("UTC"))
+            content_datetime = UNKNOWN_RELEASED_DATETIME
 
         if item.media_type == MediaTypes.MOVIE.value:
             content_number = None
@@ -96,7 +94,7 @@ def process_other(item, events_bulk):
         )
 
     elif item.source == Sources.MANGAUPDATES.value and content_number:
-        content_datetime = datetime.min.replace(tzinfo=ZoneInfo("UTC"))
+        content_datetime = UNKNOWN_RELEASED_DATETIME
         events_bulk.append(
             Event(
                 item=item,

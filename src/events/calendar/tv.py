@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 import requests
 from django.conf import settings
@@ -13,7 +12,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 from app import cache_utils
 from app.models import TV, Item, MediaTypes, Season, Sources, Status
 from app.providers import services, tmdb, tvdb
-from events.models import Event
+from events.models import UNKNOWN_EVENT_DATETIMES, UNKNOWN_UNRELEASED_DATETIME, Event
 from integrations.imports.helpers import find_item_across_buckets
 
 from .helpers import date_parser
@@ -122,15 +121,15 @@ def get_seasons_to_process(tv_item, tv_metadata=None, force_seasons=None):
     ).select_related("item")
 
     seasons_with_events = {event.item.season_number for event in existing_season_events}
-    # Seasons whose events can still change: future air dates (including the
-    # year-9999 unknown-date sentinel) or the datetime.min unknown-date
-    # fallback. TMDB refreshes these via next_episode_season, but sources
-    # without that field (TVDB) rely on this to keep ongoing seasons current.
+    # Seasons whose events can still change: future air dates or unknown,
+    # unreleased ones. TMDB refreshes these via next_episode_season, but
+    # sources without that field (TVDB) rely on this to keep ongoing seasons
+    # current.
     now = timezone.now()
     seasons_with_refreshable_events = {
         event.item.season_number
         for event in existing_season_events
-        if event.datetime >= now or event.datetime.year == 1
+        if event.datetime >= now or event.is_unknown_unreleased
     }
     if force_seasons is not None:
         forced_seasons = {int(season_number) for season_number in force_seasons}
@@ -251,7 +250,9 @@ def reopen_completed_tv_with_new_seasons(tv_item, season_items, events_bulk):
     future_season_numbers = {
         event.item.season_number
         for event in events_bulk
-        if event.item in eligible_season_items and event.datetime >= now
+        if event.item in eligible_season_items
+        and event.datetime >= now
+        and not event.is_unknown_unreleased
     }
     if not future_season_numbers:
         logger.info(
@@ -406,13 +407,14 @@ def process_season_episodes(item, metadata, events_bulk, tv_metadata=None):
     new_items = []
     earliest_release = None
 
+    # (datetime, provider_supplied) per episode. A provider gap keeps the
+    # item's last real date; otherwise it is the unknown/unreleased sentinel.
+    episode_datetimes = {}
     for episode in metadata["episodes"]:
         episode_number = episode["episode_number"]
-        season_number = metadata["season_number"]
-
         episode_datetime = get_episode_datetime(
             episode,
-            season_number,
+            metadata["season_number"],
             episode_number,
             tvmaze_map,
             tvmaze_entry=_get_tvmaze_episode_entry(
@@ -423,6 +425,37 @@ def process_season_episodes(item, metadata, events_bulk, tv_metadata=None):
                 tv_metadata,
             ),
         )
+        provider_supplied = episode_datetime not in UNKNOWN_EVENT_DATETIMES
+        existing_datetime = getattr(
+            existing_episode_items.get(episode_number),
+            "release_datetime",
+            None,
+        )
+        if (
+            not provider_supplied
+            and existing_datetime is not None
+            and existing_datetime.year > MIN_VALID_RELEASE_YEAR
+            and existing_datetime not in UNKNOWN_EVENT_DATETIMES
+        ):
+            episode_datetime = existing_datetime
+            provider_supplied = True
+        episode_datetimes[episode_number] = (episode_datetime, provider_supplied)
+
+    # An undated episode before an aired one has aired too: give its event the
+    # nearest later aired date. Only the undated tail stays unreleased.
+    now = timezone.now()
+    nearest_later_aired = None
+    for episode_number in sorted(episode_datetimes, reverse=True):
+        episode_datetime, provider_supplied = episode_datetimes[episode_number]
+        if provider_supplied and episode_datetime <= now:
+            nearest_later_aired = episode_datetime
+        elif not provider_supplied and nearest_later_aired is not None:
+            episode_datetimes[episode_number] = (nearest_later_aired, False)
+
+    for episode in metadata["episodes"]:
+        episode_number = episode["episode_number"]
+        season_number = metadata["season_number"]
+        episode_datetime, provider_supplied = episode_datetimes[episode_number]
 
         events_bulk.append(
             Event(
@@ -458,8 +491,11 @@ def process_season_episodes(item, metadata, events_bulk, tv_metadata=None):
             existing_episode_items[episode_number] = episode_item
             new_items.append(episode_item)
 
+        # Inferred and sentinel dates never become the item's release date.
         release_datetime = (
-            episode_datetime if episode_datetime.year > MIN_VALID_RELEASE_YEAR else None
+            episode_datetime
+            if provider_supplied and episode_datetime.year > MIN_VALID_RELEASE_YEAR
+            else None
         )
 
         if release_datetime is not None and (
@@ -680,7 +716,7 @@ def get_episode_datetime(
     if tmdb_datetime is not None:
         return tmdb_datetime
 
-    return datetime.min.replace(tzinfo=ZoneInfo("UTC"))
+    return UNKNOWN_UNRELEASED_DATETIME
 
 
 def get_tvmaze_episode_map(tvdb_id):

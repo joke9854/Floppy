@@ -18,7 +18,7 @@ from events.calendar.tv import (
     process_tv,
     process_tv_seasons,
 )
-from events.models import Event
+from events.models import UNKNOWN_UNRELEASED_DATETIME, Event
 from events.tests.calendar.utils import CalendarFixturesMixin
 
 
@@ -460,7 +460,7 @@ class CalendarTVTests(CalendarFixturesMixin, TestCase):
             tvmaze_map={},
         )
 
-        self.assertEqual(result, datetime.datetime.min.replace(tzinfo=ZoneInfo("UTC")))
+        self.assertEqual(result, UNKNOWN_UNRELEASED_DATETIME)
 
     @patch("events.calendar.tv.services.api_request")
     def test_get_tvmaze_response_returns_empty_on_not_found(self, mock_api_request):
@@ -523,6 +523,44 @@ class CalendarTVTests(CalendarFixturesMixin, TestCase):
         )
 
         self.assertEqual(events_bulk, [])
+
+    def test_process_season_episodes_infers_undated_gaps_only_before_aired(self):
+        """Undated gaps inherit the next aired date; the undated tail is unreleased.
+
+        Adapted from dannyvfilms PR #683 (UPSTREAM_PORTS #51/#67). Neither the
+        inferred date nor the sentinel becomes an Item.release_datetime.
+        """
+        events_bulk = []
+        process_season_episodes(
+            self.season_item,
+            {
+                "season_number": self.season_item.season_number,
+                "episodes": [
+                    {"episode_number": 1, "air_date": "2020-01-01"},
+                    {"episode_number": 2},
+                    {"episode_number": 3, "air_date": "2020-01-15"},
+                    {"episode_number": 4},
+                ],
+            },
+            events_bulk,
+        )
+
+        by_number = {event.content_number: event.datetime for event in events_bulk}
+        self.assertEqual(by_number[1], date_parser("2020-01-01"))
+        self.assertEqual(by_number[2], date_parser("2020-01-15"))
+        self.assertEqual(by_number[3], date_parser("2020-01-15"))
+        self.assertEqual(by_number[4], UNKNOWN_UNRELEASED_DATETIME)
+        release_dates = dict(
+            Item.objects.filter(
+                media_id=self.season_item.media_id,
+                source=self.season_item.source,
+                media_type=MediaTypes.EPISODE.value,
+                season_number=self.season_item.season_number,
+            ).values_list("episode_number", "release_datetime"),
+        )
+        self.assertIsNone(release_dates[2])
+        self.assertIsNone(release_dates[4])
+        self.assertEqual(release_dates[3], date_parser("2020-01-15"))
 
     @patch("events.calendar.tv.services.api_request")
     def test_get_tvmaze_response_returns_empty_when_lookup_has_no_id(

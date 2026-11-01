@@ -1741,6 +1741,7 @@ class MediaManager(models.Manager):
                     event
                     for event in getattr(media.item, "prefetched_events", [])
                     if event.datetime > current_time
+                    and not getattr(event, "is_unknown_unreleased", False)
                 ],
                 key=lambda e: e.datetime,
             )

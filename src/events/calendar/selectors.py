@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from app.models import Item, MediaTypes, Sources
 from app.providers import services, tmdb
-from events.models import Event
+from events.models import UNKNOWN_UNRELEASED_QUERY, Event
 
 logger = logging.getLogger(__name__)
 
@@ -197,14 +197,11 @@ def get_tvdb_tv_items_to_include(tv_items):
         item__source=OuterRef("source"),
         item__media_type=MediaTypes.SEASON.value,
     )
-    # Unknown air dates are stored as datetime.min (year 1); future events
-    # include the year-9999 sentinel. Both mean dates may still change.
-    # Use year__lt=1900 (not the exact year=1) to match the sentinel: Django's
-    # __year= lookup is optimized into a bounds check that converts year-1's
-    # lower bound through the DB connection's timezone, which can underflow
-    # datetime.MINYEAR and raise OverflowError for negative UTC offsets.
+    # Future and unknown/unreleased events may still change. The unknown
+    # query matches exact values, so it needs no year lookup (whose bounds
+    # check can underflow for negative UTC offsets).
     refreshable_season_events = season_events.filter(
-        Q(datetime__gte=now) | Q(datetime__year__lt=1900),
+        Q(datetime__gte=now) | UNKNOWN_UNRELEASED_QUERY,
     )
 
     included_tv_rows = list(

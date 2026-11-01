@@ -19,6 +19,29 @@ from app.models import TV, Item, MediaTypes, Season, Sources, Status
 from app.services.item_merge import dedupe_cross_provider_items
 from integrations.anime_mapping import resolve_provider_series_id
 
+# Explicit unknown-date sentinels. Both stay inside the datetime range after
+# conversion to any UTC offset (+-14h), unlike datetime.min/max, which overflow
+# when localized.
+UNKNOWN_RELEASED_DATETIME = datetime(1, 1, 2, 11, 59, 59, 999999, tzinfo=UTC)
+UNKNOWN_UNRELEASED_DATETIME = datetime(9999, 12, 30, 11, 59, 59, 999999, tzinfo=UTC)
+# Values written before the explicit sentinels existed. A legacy year-1 value
+# meant "undated" for TV seasons (not yet aired) and "released, no date" for
+# everything else.
+LEGACY_UNKNOWN_DATETIME = datetime.min.replace(tzinfo=UTC)
+LEGACY_UNKNOWN_UNRELEASED_DATETIMES = (
+    datetime.max.replace(tzinfo=UTC),
+    datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+)
+UNKNOWN_EVENT_DATETIMES = (
+    UNKNOWN_RELEASED_DATETIME,
+    UNKNOWN_UNRELEASED_DATETIME,
+    LEGACY_UNKNOWN_DATETIME,
+    *LEGACY_UNKNOWN_UNRELEASED_DATETIMES,
+)
+UNKNOWN_UNRELEASED_QUERY = Q(
+    datetime__in=(UNKNOWN_UNRELEASED_DATETIME, *LEGACY_UNKNOWN_UNRELEASED_DATETIMES),
+) | Q(item__media_type=MediaTypes.SEASON.value, datetime=LEGACY_UNKNOWN_DATETIME)
+
 # Statuses that represent inactive tracking
 # will be ignored when creating events
 INACTIVE_TRACKING_STATUSES = [
@@ -85,7 +108,7 @@ class EventManager(models.Manager):
             combined_query,
             datetime__gte=start_datetime,
             datetime__lte=end_datetime,
-        ).select_related("item")
+        ).exclude(datetime__in=UNKNOWN_EVENT_DATETIMES).select_related("item")
 
         hidden_item_ids = self.hidden_duplicate_item_ids(user, enabled_types)
         if hidden_item_ids:
@@ -358,13 +381,28 @@ class Event(models.Model):
 
     @property
     def is_max_datetime(self):
-        """Check if the event datetime is sentinel datetime."""
-        max_hour = 23
+        """Compatibility alias for unknown and unreleased events."""
+        return self.is_unknown_unreleased
+
+    @property
+    def is_unknown_released(self):
+        """Return whether this is released content without a known date."""
+        if self.datetime == UNKNOWN_RELEASED_DATETIME:
+            return True
         return (
-            self.datetime.year == SentinelDatetime.YEAR
-            and self.datetime.month == SentinelDatetime.MONTH
-            and self.datetime.day == SentinelDatetime.DAY
-            and self.datetime.hour == max_hour
-            and self.datetime.minute == SentinelDatetime.MINUTE
-            and self.datetime.second == SentinelDatetime.SECOND
+            self.datetime == LEGACY_UNKNOWN_DATETIME
+            and self.item.media_type != MediaTypes.SEASON.value
+        )
+
+    @property
+    def is_unknown_unreleased(self):
+        """Return whether this content has no known release date yet."""
+        if self.datetime in (
+            UNKNOWN_UNRELEASED_DATETIME,
+            *LEGACY_UNKNOWN_UNRELEASED_DATETIMES,
+        ):
+            return True
+        return (
+            self.datetime == LEGACY_UNKNOWN_DATETIME
+            and self.item.media_type == MediaTypes.SEASON.value
         )

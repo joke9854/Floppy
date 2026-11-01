@@ -1251,7 +1251,7 @@ def _untracked_season_next_episode_url(item, seasons, actual_media_type):
     season without a Season row. Untracked seasons are only visible through
     their calendar events (same source as _next_episode_air_date_value).
     """
-    from events.models import Event
+    from events.models import UNKNOWN_UNRELEASED_QUERY, Event
 
     is_dict = isinstance(item, dict)
     media_id = item["media_id"] if is_dict else getattr(item, "media_id", None)
@@ -1273,7 +1273,7 @@ def _untracked_season_next_episode_url(item, seasons, actual_media_type):
             content_number__isnull=False,
         )
         .exclude(item__season_number__in=tracked_season_numbers)
-        .exclude(datetime__year__lt=1900)
+        .exclude(UNKNOWN_UNRELEASED_QUERY)
         .filter(datetime__lte=timezone.now())
         .order_by("item__season_number", "content_number")
         .select_related("item")
@@ -1312,7 +1312,7 @@ def _next_episode_number_for_season_item(item, media):
     if not media_id or not source or season_number is None:
         return None
 
-    from events.models import Event
+    from events.models import UNKNOWN_UNRELEASED_QUERY, Event
 
     event_numbers = Event.objects.filter(
         item__media_id=media_id,
@@ -1321,7 +1321,7 @@ def _next_episode_number_for_season_item(item, media):
         item__season_number=season_number,
         content_number__isnull=False,
         datetime__lte=timezone.now(),
-    ).exclude(datetime__year__lt=1900).values_list("content_number", flat=True)
+    ).exclude(UNKNOWN_UNRELEASED_QUERY).values_list("content_number", flat=True)
     episode_numbers = sorted({int(number) for number in event_numbers})
     if not episode_numbers:
         max_progress = getattr(media, "max_progress", None)

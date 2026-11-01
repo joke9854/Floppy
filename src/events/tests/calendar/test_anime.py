@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from django.test import TestCase
 
 from events.calendar.anime import get_anime_schedule_bulk, process_anime_bulk
+from events.models import UNKNOWN_RELEASED_DATETIME
 from events.tests.calendar.utils import CalendarFixturesMixin
 
 
@@ -285,7 +286,7 @@ class CalendarAnimeTests(CalendarFixturesMixin, TestCase):
         self.assertEqual(len(events_bulk), 1)
         self.assertEqual(
             events_bulk[0].datetime,
-            datetime.datetime.min.replace(tzinfo=ZoneInfo("UTC")),
+            UNKNOWN_RELEASED_DATETIME,
         )
 
     @patch("events.calendar.anime.process_other")

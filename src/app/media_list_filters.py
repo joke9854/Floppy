@@ -813,7 +813,7 @@ def next_episode_for_media(media):
             media_id=item.media_id,
         )
     if media_type == MediaTypes.ANIME.value:
-        from events.models import Event
+        from events.models import UNKNOWN_UNRELEASED_QUERY, Event
 
         progress = int(getattr(media, "progress", 0) or 0)
         event = (
@@ -822,7 +822,7 @@ def next_episode_for_media(media):
                 content_number__gt=progress,
                 datetime__lte=timezone.now(),
             )
-            .exclude(datetime__year__lt=1900)
+            .exclude(UNKNOWN_UNRELEASED_QUERY)
             .order_by("content_number", "datetime")
             .first()
         )
