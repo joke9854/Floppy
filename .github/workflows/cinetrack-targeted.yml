@@ -52,3 +52,34 @@ jobs:
 
       - name: Misplaced absolute-numbered episode repair
         run: uv run --no-sync python src/manage.py test api.tests.test_repair_cinetrack_absolute_episode_plays --exclude-tag network
+
+      - name: Tracking, sync and scrobble endpoints
+        run: uv run --no-sync python src/manage.py test api.tests.test_fork_tracking api.tests.test_sync_writes api.tests.test_sync_items api.tests.test_fork_scrobble --exclude-tag network
+
+      - name: Episode translate, characters and crash reports
+        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_episode_translate api.tests.test_cinetrack_characters api.tests.test_cinetrack_crash_reports --exclude-tag network
+
+      - name: OAuth app sign-in
+        run: uv run --no-sync python src/manage.py test api.tests.test_oauth_app_signin --exclude-tag network
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Install lint dependencies
+        run: uv sync --locked --only-group lint
+
+      - name: Ruff
+        run: uv run --no-sync ruff check src
