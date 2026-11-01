@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,6 +16,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.models.tv import released_episode_numbers
 from users.models import QuickWatchDateChoices
 
 mock_path = Path(__file__).resolve().parent.parent / "mock_data"
@@ -526,6 +527,78 @@ class SeasonStatusTests(TestCase):
         self.assertEqual(episode_numbers, {1, 2, 3})
 
     @patch("app.models.providers.services.get_media_metadata")
+    def test_completed_status_skips_unaired_episodes(self, mock_get_metadata):
+        """Unaired episodes get no watch; the season and show stay in progress.
+
+        Upstream Yamtrack 0c5a104d (UPSTREAM_PORTS #1).
+        """
+        today = timezone.localdate()
+        mock_get_metadata.return_value = {
+            "episodes": [
+                {"episode_number": 1, "air_date": "2020-01-01"},
+                # An undated gap before an aired episode is provider noise.
+                {"episode_number": 2},
+                {"episode_number": 3, "air_date": "2020-01-15"},
+                {"episode_number": 4, "air_date": str(today + timedelta(days=7))},
+                # The undated tail after the last aired episode has not aired.
+                {"episode_number": 5},
+            ],
+            "image": "season_img.jpg",
+        }
+
+        self.season.status = Status.COMPLETED.value
+        self.season.save()
+
+        self.assertEqual(
+            set(self.season.episodes.values_list("item__episode_number", flat=True)),
+            {1, 2, 3},
+        )
+        self.season.refresh_from_db()
+        self.tv.refresh_from_db()
+        self.assertEqual(self.season.status, Status.IN_PROGRESS.value)
+        self.assertEqual(self.tv.status, Status.IN_PROGRESS.value)
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_completed_status_with_nothing_aired_creates_no_history(
+        self,
+        mock_get_metadata,
+    ):
+        """A season with no aired episodes records no watches."""
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        mock_get_metadata.return_value = {
+            "episodes": [
+                {"episode_number": 1, "air_date": str(tomorrow)},
+                {"episode_number": 2},
+            ],
+            "image": "season_img.jpg",
+        }
+
+        self.season.status = Status.COMPLETED.value
+        self.season.save()
+
+        self.assertEqual(self.season.episodes.count(), 0)
+        self.season.refresh_from_db()
+        self.assertEqual(self.season.status, Status.IN_PROGRESS.value)
+
+    def test_released_episode_numbers_treats_an_undated_season_as_aired(self):
+        """Manual and some TVDB seasons carry no dates; they stay completable."""
+        metadata = {"episodes": [{"episode_number": 1}, {"episode_number": 2}]}
+
+        self.assertEqual(released_episode_numbers(metadata), {1, 2})
+
+    def test_released_episode_numbers_ignores_placeholder_years(self):
+        """Year-1 and year-9999 placeholders are unknown dates, not real ones."""
+        metadata = {
+            "episodes": [
+                {"episode_number": 1, "air_date": "2020-01-01"},
+                {"episode_number": 2, "air_date": "9999-12-31"},
+                {"episode_number": 3, "air_date": "0001-01-01"},
+            ],
+        }
+
+        self.assertEqual(released_episode_numbers(metadata), {1})
+
+    @patch("app.models.providers.services.get_media_metadata")
     def test_completed_status_starts_next_season(self, mock_get_metadata):
         """Test completing a season starts the next season automatically."""
         next_season_item = Item.objects.create(
@@ -880,10 +953,11 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
 
         episodes = self.season.get_remaining_eps(self.mock_metadata)
 
-        # Episodes returned in reverse order (3, 2, 1)
-        self.assertIsNone(episodes[0].end_date)  # Episode 3 has no air_date
-        self.assertEqual(episodes[1].end_date, datetime(1994, 9, 29, tzinfo=UTC))
-        self.assertEqual(episodes[2].end_date, datetime(1994, 9, 22, tzinfo=UTC))
+        # Episode 3 has no air_date after the last aired episode, so it is
+        # treated as unaired and skipped; the rest come in reverse order (2, 1).
+        self.assertEqual(len(episodes), 2)
+        self.assertEqual(episodes[0].end_date, datetime(1994, 9, 29, tzinfo=UTC))
+        self.assertEqual(episodes[1].end_date, datetime(1994, 9, 22, tzinfo=UTC))
 
     @patch("app.models.providers.services.get_media_metadata")
     def test_season_completion_with_no_date(self, mock_get_metadata):

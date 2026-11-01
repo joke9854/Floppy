@@ -1,9 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, tag
+from django.utils import timezone
 
 from app.models import (
     TV,
@@ -377,6 +378,54 @@ class TVStatusTests(TestCase):
             related_tv=self.tv,
             status=Status.PLANNING.value,
         )
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_completed_status_leaves_unaired_seasons_unwatched(
+        self,
+        mock_get_metadata,
+    ):
+        """Completing a running show watches only what has aired.
+
+        Upstream Yamtrack 0c5a104d (UPSTREAM_PORTS #1).
+        """
+        next_week = str(timezone.localdate() + timedelta(days=7))
+        mock_get_metadata.return_value = {
+            "max_progress": 4,
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "image": "img1.jpg"},
+                    {"season_number": 2, "image": "img2.jpg"},
+                ],
+            },
+            "season/1": {
+                "image": "http://example.com/image.jpg",
+                "season_number": 1,
+                "episodes": [
+                    {"episode_number": 1, "air_date": "2020-01-01"},
+                    {"episode_number": 2, "air_date": "2020-01-08"},
+                ],
+            },
+            "season/2": {
+                "image": "http://example.com/image.jpg",
+                "season_number": 2,
+                "episodes": [
+                    {"episode_number": 1, "air_date": next_week},
+                    {"episode_number": 2},
+                ],
+            },
+        }
+
+        self.tv.status = Status.COMPLETED.value
+        self.tv.save()
+
+        self.season1.refresh_from_db()
+        self.season2.refresh_from_db()
+        self.tv.refresh_from_db()
+        self.assertEqual(self.season1.status, Status.COMPLETED.value)
+        self.assertEqual(self.season1.episodes.count(), 2)
+        self.assertEqual(self.season2.status, Status.PLANNING.value)
+        self.assertEqual(self.season2.episodes.count(), 0)
+        self.assertEqual(self.tv.status, Status.IN_PROGRESS.value)
 
     @patch("app.models.providers.services.get_media_metadata")
     def test_completed_status_creates_all_seasons(self, mock_get_metadata):

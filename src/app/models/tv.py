@@ -1,4 +1,5 @@
 import logging
+from datetime import date, datetime
 
 from django.conf import settings
 from django.core.validators import (
@@ -32,6 +33,70 @@ logger = logging.getLogger(__name__)
 # (blank date deliberately chosen on the completion form).
 _UNSET_END_DATE = object()
 MIN_VALID_RELEASE_YEAR = 1900
+_YEAR_ONLY_PARTS = 1
+_YEAR_MONTH_PARTS = 2
+
+
+def _episode_air_date(air_date):
+    """Return a provider episode air date as a local date, or None if unknown.
+
+    Partial strings ("2024", "2024-05") resolve to their first day. Placeholder
+    years (before MIN_VALID_RELEASE_YEAR, or the year-9999 sentinel) are unknown.
+    """
+    if isinstance(air_date, datetime):
+        parsed = (
+            timezone.localtime(air_date).date()
+            if timezone.is_aware(air_date)
+            else air_date.date()
+        )
+    elif isinstance(air_date, date):
+        parsed = air_date
+    elif isinstance(air_date, str) and air_date:
+        parts = air_date.split("-")
+        if len(parts) == _YEAR_ONLY_PARTS:
+            air_date = f"{air_date}-01-01"
+        elif len(parts) == _YEAR_MONTH_PARTS:
+            air_date = f"{air_date}-01"
+        try:
+            parsed = date.fromisoformat(air_date[:10])
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.year < MIN_VALID_RELEASE_YEAR or parsed.year == date.max.year:
+        return None
+    return parsed
+
+
+def released_episode_numbers(season_metadata, current_date=None):
+    """Return the episode numbers of a season that have already aired.
+
+    A dated episode is released once its date has passed. An undated episode
+    counts as released when a later episode has already aired (a gap in the
+    provider data), or when the season carries no dates at all (manual and
+    some TVDB seasons), so those seasons can still be completed. Undated
+    episodes after the last aired one are the unannounced tail: unreleased.
+    """
+    current_date = current_date or timezone.localdate()
+    air_dates = {
+        episode["episode_number"]: _episode_air_date(episode.get("air_date"))
+        for episode in season_metadata["episodes"]
+    }
+    if not any(air_dates.values()):
+        return set(air_dates)
+    last_aired = max(
+        (
+            number
+            for number, air_date in air_dates.items()
+            if air_date and air_date <= current_date
+        ),
+        default=0,
+    )
+    return {
+        number
+        for number, air_date in air_dates.items()
+        if (air_date <= current_date if air_date else number < last_aired)
+    }
 
 
 class RewatchAlreadyCompleteError(Exception):
@@ -482,6 +547,8 @@ class TV(Media):
         seasons_to_create = []
         seasons_to_update = []
         episodes_to_create = []
+        current_date = timezone.localdate()
+        tv_completed = True
 
         season_numbers = [
             season["season_number"]
@@ -541,27 +608,41 @@ class TV(Media):
                         "image": season_image,
                     },
                 )
+            # Unaired episodes are not watched: a season with some still to
+            # air stays in progress, one with none aired yet stays planned.
             try:
                 season_instance = Season.objects.get(
                     item=item,
                     user=self.user,
                 )
+                target_status = season_instance.get_completion_status(
+                    season_metadata,
+                    unreleased_only_status=Status.PLANNING.value,
+                    current_date=current_date,
+                )
 
-                if season_instance.status != Status.COMPLETED.value:
-                    season_instance.status = Status.COMPLETED.value
+                if season_instance.status != target_status:
+                    season_instance.status = target_status
                     seasons_to_update.append(season_instance)
 
             except Season.DoesNotExist:
-                seasons_to_create.append(
-                    Season(
-                        item=item,
-                        score=None,
-                        status=Status.COMPLETED.value,
-                        notes="",
-                        related_tv=self,
-                        user=self.user,
-                    ),
+                season_instance = Season(
+                    item=item,
+                    score=None,
+                    notes="",
+                    related_tv=self,
+                    user=self.user,
                 )
+                target_status = season_instance.get_completion_status(
+                    season_metadata,
+                    unreleased_only_status=Status.PLANNING.value,
+                    current_date=current_date,
+                )
+                season_instance.status = target_status
+                seasons_to_create.append(season_instance)
+
+            if target_status != Status.COMPLETED.value:
+                tv_completed = False
 
         bulk_create_with_history(seasons_to_create, Season)
         bulk_update_with_history(seasons_to_update, Season, ["status"])
@@ -574,9 +655,14 @@ class TV(Media):
                 season_instance.get_remaining_eps(
                     season_metadata,
                     end_date=getattr(self, "_pending_end_date", _UNSET_END_DATE),
+                    current_date=current_date,
                 ),
             )
         bulk_create_with_history(episodes_to_create, Episode)
+
+        if not tv_completed:
+            self.status = Status.IN_PROGRESS.value
+            bulk_update_with_history([self], TV, fields=["status"])
 
     def _mark_in_progress_seasons_as_dropped(self):
         """Mark all in-progress seasons as dropped."""
@@ -830,9 +916,16 @@ class Season(Media):
                         self.item.source,
                         [self.item.season_number],
                     )
+                    current_date = timezone.localdate()
+                    target_status = self.get_completion_status(
+                        season_metadata,
+                        unreleased_only_status=Status.IN_PROGRESS.value,
+                        current_date=current_date,
+                    )
                     episodes_to_create = self.get_remaining_eps(
                         season_metadata,
                         end_date=getattr(self, "_pending_end_date", _UNSET_END_DATE),
+                        current_date=current_date,
                     )
                     if episodes_to_create:
                         bulk_create_with_history(
@@ -840,19 +933,32 @@ class Season(Media):
                             Episode,
                         )
 
-                    # Completing the season ends any pass it was in.
-                    if self.rewatch_started_at is not None:
-                        self.rewatch_started_at = None
-                        self._invalidate_episode_stats()
-                        bulk_update_with_history(
-                            [self],
-                            Season,
-                            fields=["rewatch_started_at"],
-                        )
+                    if target_status != Status.COMPLETED.value:
+                        # Episodes still to air: the aired ones are watched,
+                        # but the season (and show) stay in progress.
+                        self.status = target_status
+                        bulk_update_with_history([self], Season, fields=["status"])
+                        if self.related_tv.status != Status.IN_PROGRESS.value:
+                            self.related_tv.status = Status.IN_PROGRESS.value
+                            bulk_update_with_history(
+                                [self.related_tv],
+                                TV,
+                                fields=["status"],
+                            )
+                    else:
+                        # Completing the season ends any pass it was in.
+                        if self.rewatch_started_at is not None:
+                            self.rewatch_started_at = None
+                            self._invalidate_episode_stats()
+                            bulk_update_with_history(
+                                [self],
+                                Season,
+                                fields=["rewatch_started_at"],
+                            )
 
-                    self.related_tv._handle_completed_season(
-                        self.item.season_number,
-                    )
+                        self.related_tv._handle_completed_season(
+                            self.item.season_number,
+                        )
                 except (
                     providers.services.ProviderAPIError,
                     RequestException,
@@ -1498,8 +1604,10 @@ class Season(Media):
 
         return tv
 
-    def get_remaining_eps(self, season_metadata, end_date=_UNSET_END_DATE):
-        """Return episodes needed to complete a season."""
+    def _latest_watched_episode_number(self):
+        """Return the highest episode number watched in the current pass."""
+        if self.pk is None:
+            return 0
         plays = Episode.objects.filter(related_season=self)
         started_on = self.pass_started_on
         if started_on is not None:
@@ -1507,12 +1615,46 @@ class Season(Media):
                 models.Q(end_date__gte=started_on)
                 | models.Q(end_date__isnull=True, created_at__gte=started_on),
             )
-        latest_watched_ep_num = plays.aggregate(
-            latest_watched_ep_num=Max("item__episode_number"),
-        )["latest_watched_ep_num"]
+        return (
+            plays.aggregate(
+                latest_watched_ep_num=Max("item__episode_number"),
+            )["latest_watched_ep_num"]
+            or 0
+        )
 
-        if latest_watched_ep_num is None:
-            latest_watched_ep_num = 0
+    def get_completion_status(
+        self,
+        season_metadata,
+        unreleased_only_status,
+        current_date=None,
+    ):
+        """Return the status a completion leaves this season in.
+
+        COMPLETED when nothing unaired remains; IN_PROGRESS when something has
+        been or will now be watched; otherwise unreleased_only_status.
+        """
+        latest_watched_ep_num = self._latest_watched_episode_number()
+        released = released_episode_numbers(season_metadata, current_date)
+        remaining = [
+            episode["episode_number"]
+            for episode in season_metadata["episodes"]
+            if episode["episode_number"] > latest_watched_ep_num
+        ]
+        if all(number in released for number in remaining):
+            return Status.COMPLETED.value
+        if latest_watched_ep_num > 0 or any(number in released for number in remaining):
+            return Status.IN_PROGRESS.value
+        return unreleased_only_status
+
+    def get_remaining_eps(
+        self,
+        season_metadata,
+        end_date=_UNSET_END_DATE,
+        current_date=None,
+    ):
+        """Return episodes needed to complete a season, skipping unaired ones."""
+        latest_watched_ep_num = self._latest_watched_episode_number()
+        released = released_episode_numbers(season_metadata, current_date)
 
         episodes_to_create = []
 
@@ -1523,6 +1665,8 @@ class Season(Media):
         for episode in reversed(season_metadata["episodes"]):
             if episode["episode_number"] <= latest_watched_ep_num:
                 break
+            if episode["episode_number"] not in released:
+                continue
 
             item = self.get_episode_item(episode["episode_number"], season_metadata)
 
