@@ -14,6 +14,40 @@ SCHEMA_REGENERATION_COMMAND = (
     "--fail-on-warn --validate --file src/api/contracts/openapi.yaml"
 )
 
+_MEDIA = "/api/v1/media/{media_type}/{source}/{media_id}"
+
+# Operations the CineTrack Android app calls. Committing them means any change
+# to their request or response shape fails the contract test.
+CINETRACK_OPERATIONS = frozenset(
+    {
+        ("/api/v1/cinetrack/connection/", "GET"),
+        ("/api/v1/cinetrack/bootstrap/movies/ensure/", "POST"),
+        ("/api/v1/cinetrack/bootstrap/shows/ensure/", "POST"),
+        ("/api/v1/cinetrack/crash-reports/", "GET"),
+        ("/api/v1/cinetrack/crash-reports/", "POST"),
+        (f"{_MEDIA}/episodes/ensure/", "POST"),
+        (f"{_MEDIA}/episodes/translate/", "POST"),
+        (f"{_MEDIA}/characters/", "GET"),
+        ("/api/v1/health/", "GET"),
+        ("/api/v1/scrobble/", "POST"),
+        ("/api/v1/search/id/", "GET"),
+        ("/api/v1/sync/activities/", "GET"),
+        ("/api/v1/sync/changes/", "GET"),
+        ("/api/v1/sync/conflicts/", "GET"),
+        ("/api/v1/sync/conflicts/{conflict_id}/resolve/", "POST"),
+        ("/api/v1/sync/connections/", "GET"),
+        ("/api/v1/sync/connections/", "POST"),
+        ("/api/v1/sync/connections/{connection}/", "DELETE"),
+        ("/api/v1/sync/history/", "POST"),
+        ("/api/v1/sync/history/remove/", "POST"),
+        ("/api/v1/sync/items/changes/", "GET"),
+        ("/api/v1/sync/items/snapshot/", "GET"),
+        ("/api/v1/sync/progress-changes/", "GET"),
+        ("/api/v1/sync/ratings/", "POST"),
+        ("/api/v1/sync/status/", "POST"),
+    }
+)
+
 VERIFIED_OPERATIONS = frozenset(
     {(route.path, route.method.upper()) for route in MCP_HTTP_MANIFEST}
     | {
@@ -21,14 +55,16 @@ VERIFIED_OPERATIONS = frozenset(
         ("/apis/listenbrainz/1/submit-listens/", "POST"),
         ("/apis/listenbrainz/1/validate-token/", "GET"),
     }
+    | CINETRACK_OPERATIONS
 )
 
 STATIC_SPECTACULAR_SETTINGS = {
-    "TITLE": "Floppy verified MCP and grounding API",
+    "TITLE": "Floppy verified MCP, CineTrack and grounding API",
     "DESCRIPTION": (
-        "Verified consumer subset covering MCP HTTP operations, public grounding "
-        "information, and ListenBrainz-compatible authentication. The full "
-        "diagnostic API schema remains available at /api/schema/."
+        "Verified consumer subset covering MCP HTTP operations, the CineTrack "
+        "app's tracking and sync operations, public grounding information, and "
+        "ListenBrainz-compatible authentication. The full diagnostic API schema "
+        "remains available at /api/schema/."
     ),
     "VERSION": "1.0.0",
     "COMPONENT_SPLIT_PATCH": False,
@@ -449,7 +485,6 @@ EXPECTED_SCHEMA_ERRORS: frozenset[SchemaFinding] = frozenset(
         ("api.fork_views_users.UserTokenRegenerateView", "serializer-unresolved"),
         ("api.views.CalendarUpdateView", "serializer-unresolved"),
         ("api.views.CalendarView", "serializer-unresolved"),
-        ("api.views.HealthView", "serializer-unresolved"),
         ("api.views.ListDetailView", "serializer-unresolved"),
         ("api.views.ListItemView", "serializer-unresolved"),
         ("api.views.ListItemsView", "serializer-unresolved"),

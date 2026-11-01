@@ -44,8 +44,8 @@ jobs:
       - name: Scope map coverage
         run: uv run --no-sync python src/manage.py test api.tests.test_fork_scope_enforcement.ScopeMapCoverageTests --exclude-tag network
 
-      - name: OpenAPI coverage of CineTrack routes
-        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_openapi --exclude-tag network
+      - name: OpenAPI coverage and committed contract
+        run: uv run --no-sync python src/manage.py test api.tests.test_cinetrack_openapi app.tests.test_api_contracts --exclude-tag network
 
       - name: Duplicate-play report and cleanup
         run: uv run --no-sync python src/manage.py test app.tests.test_report_cinetrack_duplicate_plays app.tests.test_dedupe_cinetrack_movie_plays --exclude-tag network

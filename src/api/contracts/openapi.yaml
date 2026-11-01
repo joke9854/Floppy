@@ -1,16 +1,264 @@
 openapi: 3.0.3
 info:
-  title: Floppy verified MCP and grounding API
+  title: Floppy verified MCP, CineTrack and grounding API
   version: 1.0.0
-  description: Verified consumer subset covering MCP HTTP operations, public grounding
-    information, and ListenBrainz-compatible authentication. The full diagnostic API
-    schema remains available at /api/schema/.
+  description: Verified consumer subset covering MCP HTTP operations, the CineTrack
+    app's tracking and sync operations, public grounding information, and ListenBrainz-compatible
+    authentication. The full diagnostic API schema remains available at /api/schema/.
   contact:
     url: https://github.com/dannyvfilms/Floppy/issues
   license:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
 paths:
+  /api/v1/cinetrack/bootstrap/movies/ensure/:
+    post:
+      operationId: api_v1_cinetrack_bootstrap_movies_ensure_create
+      description: Ensure a batch of movies exists for the user.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackMoviesEnsureRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackMoviesEnsureRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackMoviesEnsureRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackBootstrapResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed or oversized batch; nothing was written.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Episode metadata could not be fetched; nothing was written.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: client_event_id already belongs to another event.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The batch could not be written; retry is safe.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Database busy; nothing was written. Retry after Retry-After
+            seconds.
+      x-required-scope: watchlist:write
+  /api/v1/cinetrack/bootstrap/shows/ensure/:
+    post:
+      operationId: api_v1_cinetrack_bootstrap_shows_ensure_create
+      description: Ensure a batch of shows exists for the user.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackShowsEnsureRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackShowsEnsureRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackShowsEnsureRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackBootstrapResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed or oversized batch; nothing was written.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Episode metadata could not be fetched; nothing was written.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: client_event_id already belongs to another event.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The batch could not be written; retry is safe.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Database busy; nothing was written. Retry after Retry-After
+            seconds.
+      x-required-scope: watchlist:write
+  /api/v1/cinetrack/connection/:
+    get:
+      operationId: api_v1_cinetrack_connection_retrieve
+      description: Return safe identity and capability information for this remote.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackConnection'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Missing or invalid API key.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Token lacks the watchlist:read scope.
+      x-required-scope: watchlist:read
+  /api/v1/cinetrack/crash-reports/:
+    get:
+      operationId: api_v1_cinetrack_crash_reports_retrieve
+      description: List the caller's own reports, newest received first.
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Reports to return, 1-500 (default 100).
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackCrashReportList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Invalid limit.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Missing or invalid API key.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Token lacks the watchlist:read scope.
+      x-required-scope: watchlist:read
+    post:
+      operationId: api_v1_cinetrack_crash_reports_create
+      description: Store a crash report once per (account, report_id).
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackCrashReport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackCrashReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackCrashReport'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackCrashReportResult'
+          description: Report id was already received; nothing changed.
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackCrashReportResult'
+          description: Report stored.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Invalid report fields.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Missing or invalid API key.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Token lacks the watchlist:write scope.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Too many crash reports.
+      x-required-scope: watchlist:write
   /api/v1/discover/:
     get:
       operationId: api_v1_discover_retrieve
@@ -41,6 +289,26 @@ paths:
                       type: object
                       additionalProperties: true
           description: ''
+  /api/v1/health/:
+    get:
+      operationId: api_v1_health_retrieve
+      description: Check API health status.
+      tags:
+      - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthApiResponse'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthApiResponse'
+          description: ''
+      x-required-scope: any
   /api/v1/history/:
     get:
       operationId: listHistory
@@ -1801,6 +2069,197 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+  /api/v1/media/{media_type}/{source}/{media_id}/characters/:
+    get:
+      operationId: api_v1_media_characters_retrieve
+      description: Return the title's characters, or an empty list with a reason.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackCharactersResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Unsupported media type or source.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: TMDB or TVDB could not be reached.
+      x-required-scope: watchlist:read
+  /api/v1/media/{media_type}/{source}/{media_id}/episodes/ensure/:
+    post:
+      operationId: api_v1_media_episodes_ensure_create
+      description: Ensure a batch of episode watch events exists for the user.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - tv
+        description: Episode-level operations are only supported for `tv` media.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeEnsureRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeEnsureRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeEnsureRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackBootstrapResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed or oversized batch; nothing was written.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Episode metadata could not be fetched; nothing was written.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: client_event_id already belongs to another event.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The batch could not be written; retry is safe.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Database busy; nothing was written. Retry after Retry-After
+            seconds.
+      x-required-scope: watchlist:write
+  /api/v1/media/{media_type}/{source}/{media_id}/episodes/translate/:
+    post:
+      operationId: api_v1_media_episodes_translate_create
+      description: Translate episode coordinates between providers.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - tv
+        description: Episode-level operations are only supported for `tv` media.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeTranslateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeTranslateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CineTrackEpisodeTranslateRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CineTrackEpisodeTranslateResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed request.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Episode metadata could not be fetched.
+      x-required-scope: watchlist:read
   /api/v1/media/{media_type}/{source}/{media_id}/history/{consumption_id}/:
     patch:
       operationId: updateMediaConsumption
@@ -2249,6 +2708,160 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+  /api/v1/scrobble/:
+    post:
+      operationId: api_v1_scrobble_create
+      description: Record a playback start/pause/stop event from a third-party client.
+        Movies are identified by tmdb/imdb id; episodes additionally require season_number/episode_number.
+        Anime clients may add an anidb id to pin the exact MyAnimeList cour. 'start'
+        only updates the live Now Playing card; 'pause' also saves the resume position;
+        'stop' persists a durable watch/progress update. A stop counts as watched
+        once progress reaches the user's threshold (scrobble_watched_percent in /user/preferences/,
+        80% by default); below it, only the resume position is kept. Rewatches are
+        recorded as new plays; the same play sent twice is reported as a duplicate.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              - media_type
+              - ids
+              properties:
+                action:
+                  type: string
+                  enum:
+                  - start
+                  - pause
+                  - stop
+                media_type:
+                  type: string
+                  enum:
+                  - movie
+                  - episode
+                ids:
+                  type: object
+                  description: At least one of tmdb/imdb/tvdb is required.
+                  properties:
+                    tmdb:
+                      type: string
+                      nullable: true
+                    imdb:
+                      type: string
+                      nullable: true
+                    tvdb:
+                      type: string
+                      nullable: true
+                    anidb:
+                      type: string
+                      nullable: true
+                      description: 'Optional, and never sufficient on its own. When
+                        the user''s Anime library stores flat MyAnimeList rows, this
+                        names the exact cour instead of inferring one from the season
+                        and episode numbers. It selects the entry, not the library
+                        shape: that follows the user''s Anime Provider and stays with
+                        the show once it is tracked.'
+                title:
+                  type: string
+                  nullable: true
+                series_title:
+                  type: string
+                  nullable: true
+                  description: Required (in effect) for media_type 'episode' to power
+                    live-card display and title search fallback.
+                season_number:
+                  type: integer
+                  nullable: true
+                  description: Required for media_type 'episode'.
+                episode_number:
+                  type: integer
+                  nullable: true
+                  description: Required for media_type 'episode'.
+                position_seconds:
+                  type: integer
+                  nullable: true
+                duration_seconds:
+                  type: integer
+                  nullable: true
+                progress:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  nullable: true
+                  description: Percent watched. Optional; derived from position_seconds/duration_seconds
+                    when omitted.
+                completed:
+                  type: boolean
+                  nullable: true
+                  description: Only used by 'stop'. Overrides the watched threshold
+                    when given.
+                played_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Only used by 'stop'. Defaults to the exact time the
+                    server receives the event.
+                score:
+                  type: number
+                  nullable: true
+                  description: Only used by 'stop', for media_type 'episode'. Sets
+                    the user's rating (0-10) on the episode.
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                    - start
+                    - pause
+                    - scrobble
+                    description: '''scrobble'' when a stop counted as watched; ''pause''
+                      for a pause or a stop below the threshold.'
+                  progress:
+                    type: number
+                    nullable: true
+                  watched:
+                    type: boolean
+                  duplicate:
+                    type: boolean
+                    nullable: true
+                    description: 'For a watched movie or episode: true when the play
+                      matched one already stored and nothing new was recorded. Null
+                      when not applicable.'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                  errors:
+                    type: string
+          description: ''
+      x-required-scope: scrobble:write
   /api/v1/search/{media_type}/:
     get:
       operationId: searchMedia
@@ -2348,6 +2961,63 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: ''
       x-required-scope: catalog:read
+  /api/v1/search/id/:
+    get:
+      operationId: api_v1_search_id_retrieve
+      description: Look up an item by exactly one external id. IMDb and TVDB ids are
+        matched against items Floppy already stores, then against TMDB; a TMDB id
+        needs 'type' (movie or show), since TMDB reuses numbers across them. An IMDb
+        or TVDB episode id returns the episode with its show's id and coordinates.
+      parameters:
+      - in: query
+        name: imdb
+        schema:
+          type: string
+        description: An IMDb id (tt...).
+      - in: query
+        name: tmdb
+        schema:
+          type: string
+        description: A TMDB id; needs type.
+      - in: query
+        name: tvdb
+        schema:
+          type: string
+        description: A TVDB id.
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - episode
+          - movie
+          - show
+        description: Only return this kind of item.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchIdResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: catalog:read
   /api/v1/statistics/overview/:
     get:
       operationId: api_v1_statistics_overview_retrieve
@@ -2374,6 +3044,496 @@ paths:
                     type: object
                     additionalProperties: true
           description: ''
+  /api/v1/sync/activities/:
+    get:
+      operationId: api_v1_sync_activities_retrieve
+      description: Return the last-changed time per area, ISO-8601 UTC, or null.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncActivities'
+          description: ''
+      x-required-scope: sync:read
+  /api/v1/sync/changes/:
+    get:
+      operationId: api_v1_sync_changes_retrieve
+      description: |-
+        Return changes after a cursor, in server order.
+
+        The cursor is a server sequence, which is allocated at commit time, so
+        paginating by it cannot skip a change that committed late.
+      parameters:
+      - in: query
+        name: connection
+        schema:
+          type: string
+        description: '`connection` value from `POST /sync/connections/`. Naming it
+          records the cursor as this connection''s applied position.'
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+        description: Return changes after this sequence; defaults to 0.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Maximum changes per page; defaults to 100, maximum 500.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeFeedResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: '`cursor` or `limit` is not an integer.'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorExpired'
+          description: The cursor was compacted away; take a fresh snapshot.
+      x-required-scope: sync:read
+  /api/v1/sync/conflicts/:
+    get:
+      operationId: api_v1_sync_conflicts_retrieve
+      description: Return open conflicts.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncConflictListResponse'
+          description: ''
+      x-required-scope: sync:read
+  /api/v1/sync/conflicts/{conflict_id}/resolve/:
+    post:
+      operationId: api_v1_sync_conflicts_resolve_create
+      description: Resolve a conflict, creating a new revision.
+      parameters:
+      - in: path
+        name: conflict_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncConflictResolveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncConflictResolveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncConflictResolveRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchedStateResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Invalid body.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No open conflict with that id.
+      x-required-scope: sync:write
+  /api/v1/sync/connections/:
+    get:
+      operationId: api_v1_sync_connections_retrieve
+      description: Return connections, their directions, and unavailable capabilities.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncConnectionListResponse'
+          description: ''
+      x-required-scope: sync:read
+    post:
+      operationId: api_v1_sync_connections_create
+      description: |-
+        Register this app as a pull client of the change feeds.
+
+        Turns the user's change log on, because changes are only recorded while
+        a connection is operational. The binding is pull-only: it is approved
+        for the Floppy-to-client direction and for no capability, so the
+        outbound delivery engine has nothing to write to it.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppConnectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppConnectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppConnectionRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConnection'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConnection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Invalid body.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Connection stopped by an administrator.
+      x-required-scope: sync:read
+  /api/v1/sync/connections/{connection}/:
+    delete:
+      operationId: api_v1_sync_connections_destroy
+      description: |-
+        Stop recording changes for an app connection.
+
+        Only the caller's own app connections are addressable; provider
+        bindings are managed in the web UI and answer 404 here, as does
+        another user's connection.
+      parameters:
+      - in: path
+        name: connection
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: Connection removed.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No such app connection for this account.
+      x-required-scope: sync:read
+  /api/v1/sync/history/:
+    post:
+      operationId: api_v1_sync_history_create
+      description: Store a mixed batch of plays; every input gets one result.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncHistoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncHistoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncHistoryRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncHistoryResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed request or limits exceeded; nothing was written.
+      x-required-scope: watchlist:write
+  /api/v1/sync/history/remove/:
+    post:
+      operationId: api_v1_sync_history_remove_create
+      description: Remove the plays each item selects; every input gets one result.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRemoveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncRemoveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncRemoveRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncItemsResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed request or limits exceeded; nothing was written.
+      x-required-scope: watchlist:write
+  /api/v1/sync/items/changes/:
+    get:
+      operationId: api_v1_sync_items_changes_retrieve
+      description: 'Items that changed after ''cursor'', oldest change first, each
+        with its whole current state. An item that changed several times appears once,
+        at its latest position. ''in_library: false'' means it was removed. Changes
+        are recorded while the account has an active app sync connection; start from
+        a snapshot''s cursor.'
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+        description: Last cursor seen; 0 for all.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: 1-500, default 200.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncItemsChanges'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: sync:read
+  /api/v1/sync/items/snapshot/:
+    get:
+      operationId: api_v1_sync_items_snapshot_retrieve
+      description: The full sync state of the library, ordered by Floppy's item id.
+        Start without 'after', then pass 'next_after' until it is null. Keep 'cursor'
+        from the first page and then follow /sync/items/changes/ from it, so nothing
+        that changes while paging is missed. Needs an active app sync connection (POST
+        /sync/connections/) for the changes feed to be kept.
+      parameters:
+      - in: query
+        name: after
+        schema:
+          type: integer
+        description: Item id to continue after.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: 1-500, default 200.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncItemsSnapshot'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: sync:read
+  /api/v1/sync/progress-changes/:
+    get:
+      operationId: api_v1_sync_progress_changes_retrieve
+      description: Return progress changes after a cursor, in server order.
+      parameters:
+      - in: query
+        name: connection
+        schema:
+          type: string
+        description: '`connection` value from `POST /sync/connections/`. Naming it
+          records the cursor as this connection''s applied position.'
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+        description: Return changes after this sequence; defaults to 0.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Maximum changes per page; defaults to 100, maximum 500.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressChangeFeedResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: '`cursor` or `limit` is not an integer.'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorExpired'
+          description: The cursor was compacted away; read a fresh snapshot.
+      x-required-scope: sync:read
+  /api/v1/sync/ratings/:
+    post:
+      operationId: api_v1_sync_ratings_create
+      description: Apply each score; every input gets one result.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRatingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncRatingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncRatingsRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncItemsResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed request or limits exceeded; nothing was written.
+      x-required-scope: watchlist:write
+  /api/v1/sync/status/:
+    post:
+      operationId: api_v1_sync_status_create
+      description: Create or update each item's status; every input gets one result.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncStatusRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncStatusRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncStatusRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncItemsResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Malformed request or limits exceeded; nothing was written.
+      x-required-scope: watchlist:write
   /api/v1/tags/:
     get:
       operationId: api_v1_tags_retrieve
@@ -2697,6 +3857,548 @@ paths:
       x-required-scope: any
 components:
   schemas:
+    AppConnection:
+      type: object
+      description: A registered app connection and where its cursor should start.
+      properties:
+        connection:
+          type: string
+          description: Pass as `connection` when pulling the change feeds.
+        client:
+          type: string
+        instance_key:
+          type: string
+        oldest_sequence:
+          type: integer
+          nullable: true
+        newest_sequence:
+          type: integer
+          description: Start the cursor here after taking a full snapshot.
+      required:
+      - client
+      - connection
+      - instance_key
+      - newest_sequence
+      - oldest_sequence
+    AppConnectionRequest:
+      type: object
+      description: Body for registering an app as a pull client.
+      properties:
+        client:
+          type: string
+          description: Short client slug, for example `cinetrack`.
+          pattern: ^[a-z0-9_-]{1,32}$
+        instance_key:
+          type: string
+          description: Stable per-install identifier, chosen by the client.
+          maxLength: 128
+          minLength: 1
+        label:
+          type: string
+          description: Display name; defaults to the client slug.
+          maxLength: 255
+      required:
+      - client
+      - instance_key
+    ChangeFeedResponse:
+      type: object
+      description: A page of an ordered change feed.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatchedStateChange'
+        next_cursor:
+          type: integer
+          description: Pass as `cursor` to fetch the next page.
+        has_more:
+          type: boolean
+        oldest_sequence:
+          type: integer
+          nullable: true
+        newest_sequence:
+          type: integer
+          nullable: true
+      required:
+      - has_more
+      - newest_sequence
+      - next_cursor
+      - oldest_sequence
+      - results
+    CineTrackApiExtensions:
+      type: object
+      description: Fork capabilities; clients must discover these, never infer them.
+      properties:
+        cinetrack_episode_events_v1:
+          type: boolean
+        cinetrack_bootstrap_v2:
+          type: boolean
+        episode_sql_pagination:
+          type: boolean
+        cinetrack_crash_reports_v1:
+          type: boolean
+        cinetrack_episode_translate_v1:
+          type: boolean
+        cinetrack_characters_v1:
+          type: boolean
+      required:
+      - cinetrack_bootstrap_v2
+      - cinetrack_characters_v1
+      - cinetrack_crash_reports_v1
+      - cinetrack_episode_events_v1
+      - cinetrack_episode_translate_v1
+      - episode_sql_pagination
+    CineTrackBootstrapResponse:
+      type: object
+      description: The outcomes for a batch of ensured items.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackBootstrapResult'
+      required:
+      - results
+    CineTrackBootstrapResult:
+      type: object
+      description: The outcome for one ensured item.
+      properties:
+        source:
+          type: string
+        media_id:
+          type: string
+        client_event_id:
+          type: string
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        stored_season_number:
+          type: integer
+        stored_episode_number:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CineTrackBootstrapResultStatusEnum'
+        reason:
+          type: string
+        title:
+          type: string
+      required:
+      - status
+    CineTrackBootstrapResultStatusEnum:
+      enum:
+      - created
+      - already_satisfied
+      - not_found
+      - metadata_unavailable
+      type: string
+      description: |-
+        * `created` - created
+        * `already_satisfied` - already_satisfied
+        * `not_found` - not_found
+        * `metadata_unavailable` - metadata_unavailable
+    CineTrackCharacter:
+      type: object
+      description: One on-screen character with its TVDB pictures.
+      properties:
+        name:
+          type: string
+        person_name:
+          type: string
+        person_id:
+          type: string
+        character_image:
+          type: string
+          nullable: true
+        person_image:
+          type: string
+          nullable: true
+        sort:
+          type: integer
+          nullable: true
+      required:
+      - character_image
+      - name
+      - person_id
+      - person_image
+      - person_name
+      - sort
+    CineTrackCharactersResponse:
+      type: object
+      description: Characters of one title; ``reason`` explains an empty list.
+      properties:
+        tvdb_id:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackCharacter'
+      required:
+      - characters
+      - tvdb_id
+    CineTrackConnection:
+      type: object
+      description: Safe identity and capability answer of the connection probe.
+      properties:
+        authenticated:
+          type: boolean
+        account_id:
+          type: string
+          description: Opaque, stable per account; not a username.
+        user:
+          type: string
+          description: Deprecated alias of account_id.
+        username:
+          type: string
+          description: Display name for the client UI only; never an account identity.
+        server_version:
+          type: string
+          nullable: true
+        api_extensions:
+          $ref: '#/components/schemas/CineTrackApiExtensions'
+      required:
+      - account_id
+      - api_extensions
+      - authenticated
+      - server_version
+      - user
+      - username
+    CineTrackCrashReport:
+      type: object
+      description: Sanitized crash or ANR report.
+      properties:
+        report_id:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key.
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        occurred_at:
+          type: string
+          format: date-time
+          description: ISO-8601 datetime with timezone; stored exactly.
+        app_version:
+          type: string
+          maxLength: 64
+        version_code:
+          type: integer
+          minimum: 0
+        build_type:
+          type: string
+          maxLength: 32
+        android_sdk:
+          type: integer
+        device_model:
+          type: string
+          maxLength: 128
+        exception_class:
+          type: string
+          maxLength: 256
+        thread:
+          type: string
+          maxLength: 128
+        stack_trace:
+          type: string
+          maxLength: 65536
+      required:
+      - android_sdk
+      - app_version
+      - build_type
+      - device_model
+      - kind
+      - occurred_at
+      - report_id
+      - stack_trace
+      - version_code
+    CineTrackCrashReportItem:
+      type: object
+      description: One stored report as its owner reads it back.
+      properties:
+        report_id:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key.
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        occurred_at:
+          type: string
+          format: date-time
+          description: ISO-8601 datetime with timezone; stored exactly.
+        app_version:
+          type: string
+          maxLength: 64
+        version_code:
+          type: integer
+          minimum: 0
+        build_type:
+          type: string
+          maxLength: 32
+        android_sdk:
+          type: integer
+        device_model:
+          type: string
+          maxLength: 128
+        exception_class:
+          type: string
+          maxLength: 256
+        thread:
+          type: string
+          maxLength: 128
+        stack_trace:
+          type: string
+          maxLength: 65536
+        received_at:
+          type: string
+          format: date-time
+      required:
+      - android_sdk
+      - app_version
+      - build_type
+      - device_model
+      - kind
+      - occurred_at
+      - received_at
+      - report_id
+      - stack_trace
+      - version_code
+    CineTrackCrashReportList:
+      type: object
+      description: The caller's reports, newest received first.
+      properties:
+        count:
+          type: integer
+          description: All reports stored for this account.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackCrashReportItem'
+      required:
+      - count
+      - results
+    CineTrackCrashReportResult:
+      type: object
+      description: Outcome of a crash-report upload.
+      properties:
+        report_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/CineTrackCrashReportResultStatusEnum'
+      required:
+      - report_id
+      - status
+    CineTrackCrashReportResultStatusEnum:
+      enum:
+      - created
+      - already_received
+      type: string
+      description: |-
+        * `created` - created
+        * `already_received` - already_received
+    CineTrackEpisodeCoordinate:
+      type: object
+      description: A season and episode number pair.
+      properties:
+        season:
+          type: integer
+        episode:
+          type: integer
+      required:
+      - episode
+      - season
+    CineTrackEpisodeEnsureRequest:
+      type: object
+      description: A batch of episode watch events to ensure.
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackEpisodeEventInput'
+        library_media_type:
+          type: string
+      required:
+      - events
+    CineTrackEpisodeEventInput:
+      type: object
+      description: One episode watch event to ensure.
+      properties:
+        season_number:
+          type: integer
+          minimum: 0
+        episode_number:
+          type: integer
+          minimum: 1
+        watched_at:
+          type: string
+          format: date-time
+        client_event_id:
+          type: string
+          format: uuid
+      required:
+      - client_event_id
+      - episode_number
+      - season_number
+      - watched_at
+    CineTrackEpisodeTranslateInput:
+      type: object
+      description: One episode coordinate to translate between providers.
+      properties:
+        season:
+          type: integer
+          minimum: 0
+        episode:
+          type: integer
+          minimum: 1
+        watched_at:
+          type: string
+          format: date-time
+      required:
+      - episode
+      - season
+    CineTrackEpisodeTranslateRequest:
+      type: object
+      description: A batch of episode coordinates to translate.
+      properties:
+        from:
+          allOf:
+          - $ref: '#/components/schemas/FromEnum'
+          description: |-
+            Numbering of the submitted episodes: a tracker's own or TMDB's.
+
+            * `tracker` - tracker
+            * `tmdb` - tmdb
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackEpisodeTranslateInput'
+      required:
+      - episodes
+      - from
+    CineTrackEpisodeTranslateResponse:
+      type: object
+      description: The translations for a batch of episode coordinates.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackEpisodeTranslateResult'
+      required:
+      - results
+    CineTrackEpisodeTranslateResult:
+      type: object
+      description: The translation of one episode coordinate.
+      properties:
+        season:
+          type: integer
+        episode:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CineTrackEpisodeTranslateResultStatusEnum'
+        tmdb:
+          allOf:
+          - $ref: '#/components/schemas/CineTrackEpisodeCoordinate'
+          nullable: true
+        absolute:
+          type: integer
+          nullable: true
+        tvdb:
+          allOf:
+          - $ref: '#/components/schemas/CineTrackEpisodeCoordinate'
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+      required:
+      - absolute
+      - episode
+      - reason
+      - season
+      - status
+      - tmdb
+      - tvdb
+    CineTrackEpisodeTranslateResultStatusEnum:
+      enum:
+      - same
+      - translated
+      - not_found
+      - metadata_unavailable
+      type: string
+      description: |-
+        * `same` - same
+        * `translated` - translated
+        * `not_found` - not_found
+        * `metadata_unavailable` - metadata_unavailable
+    CineTrackMovieInput:
+      type: object
+      description: One movie state assertion in a CineTrack bootstrap batch.
+      properties:
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+        status: {}
+        watch:
+          allOf:
+          - $ref: '#/components/schemas/CineTrackMovieWatchInput'
+          nullable: true
+      required:
+      - media_id
+      - source
+    CineTrackMovieWatchInput:
+      type: object
+      description: One exact historical movie-watch event.
+      properties:
+        watched_at:
+          type: string
+          format: date-time
+        client_event_id:
+          type: string
+          maxLength: 255
+      required:
+      - client_event_id
+      - watched_at
+    CineTrackMoviesEnsureRequest:
+      type: object
+      description: A batch of movies to ensure.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackMovieInput'
+      required:
+      - movies
+    CineTrackShowInput:
+      type: object
+      description: One show to ensure, identified by provider IDs.
+      properties:
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+        status: {}
+      required:
+      - media_id
+      - source
+    CineTrackShowsEnsureRequest:
+      type: object
+      description: A batch of shows to ensure.
+      properties:
+        shows:
+          type: array
+          items:
+            $ref: '#/components/schemas/CineTrackShowInput'
+      required:
+      - shows
     CompleteEpisodeResponse:
       type: object
       description: Episode detail uses the same envelope with numbers inside details.
@@ -3120,6 +4822,25 @@ components:
       - score
       - start_date
       - status
+    CursorExpired:
+      type: object
+      description: Body of a 409 when the client's cursor was compacted away.
+      properties:
+        code:
+          type: string
+          description: Always `cursor_expired`.
+        detail:
+          type: string
+        oldest_sequence:
+          type: integer
+        newest_sequence:
+          type: integer
+          nullable: true
+      required:
+      - code
+      - detail
+      - newest_sequence
+      - oldest_sequence
     DetailError:
       type: object
       description: Shared API error body.
@@ -3164,6 +4885,24 @@ components:
       - guest_stars
       - runtime
       - season_number
+    ExternalIds:
+      type: object
+      description: External ids that name an item instead of source + media_id.
+      properties:
+        tmdb:
+          type: string
+        imdb:
+          type: string
+        tvdb:
+          type: string
+    FromEnum:
+      enum:
+      - tracker
+      - tmdb
+      type: string
+      description: |-
+        * `tracker` - tracker
+        * `tmdb` - tmdb
     GameDetails:
       type: object
       description: Game detail fields plus the provider-owned game-lengths record.
@@ -3172,6 +4911,51 @@ components:
           allOf:
           - $ref: '#/components/schemas/ProviderGameLengths'
           nullable: true
+    HealthApiResponse:
+      type: object
+      description: Overall health plus each plugin's result, keyed by plugin name.
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthApiResponseStatusEnum'
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HealthCheckApi'
+      required:
+      - checks
+      - status
+      - timestamp
+    HealthApiResponseStatusEnum:
+      enum:
+      - ok
+      - unavailable
+      type: string
+      description: |-
+        * `ok` - ok
+        * `unavailable` - unavailable
+    HealthCheckApi:
+      type: object
+      description: One health-check plugin's result.
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthCheckApiStatusEnum'
+        error:
+          type: string
+          nullable: true
+      required:
+      - error
+      - status
+    HealthCheckApiStatusEnum:
+      enum:
+      - ok
+      - error
+      type: string
+      description: |-
+        * `ok` - ok
+        * `error` - error
     HltbGameLength:
       type: object
       description: Full persisted HLTB game-length detail.
@@ -3282,6 +5066,28 @@ components:
       - timezone
       - track_time
       - version
+    KindEnum:
+      enum:
+      - crash
+      - anr
+      type: string
+      description: |-
+        * `crash` - crash
+        * `anr` - anr
+    LibraryStatusEnum:
+      enum:
+      - planning
+      - in_progress
+      - paused
+      - dropped
+      - completed
+      type: string
+      description: |-
+        * `planning` - planning
+        * `in_progress` - in_progress
+        * `paused` - paused
+        * `dropped` - dropped
+        * `completed` - completed
     ListenBrainzError:
       type: object
       description: ListenBrainz-compatible error body.
@@ -3378,6 +5184,25 @@ components:
       - air_date
       - episode_number
       - season_number
+    NullEnum:
+      enum:
+      - null
+    OutcomeEnum:
+      enum:
+      - created
+      - already_satisfied
+      - not_found
+      - metadata_unavailable
+      - conflict
+      - failed
+      type: string
+      description: |-
+        * `created` - created
+        * `already_satisfied` - already_satisfied
+        * `not_found` - not_found
+        * `metadata_unavailable` - metadata_unavailable
+        * `conflict` - conflict
+        * `failed` - failed
     Pagination:
       type: object
       description: Stable limit/offset response metadata.
@@ -3402,6 +5227,75 @@ components:
       - offset
       - previous
       - total
+    ProgressChange:
+      type: object
+      description: One entry in the resume-progress change feed.
+      properties:
+        sequence:
+          type: integer
+        kind:
+          type: string
+        position_seconds:
+          type: number
+          format: double
+          nullable: true
+        duration_seconds:
+          type: number
+          format: double
+          nullable: true
+        completed:
+          type: boolean
+          nullable: true
+        media_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+          nullable: true
+        origin_key:
+          type: string
+          nullable: true
+        correlation_id:
+          type: string
+      required:
+      - completed
+      - correlation_id
+      - duration_seconds
+      - kind
+      - media_id
+      - media_type
+      - origin_key
+      - position_seconds
+      - sequence
+      - source
+    ProgressChangeFeedResponse:
+      type: object
+      description: A page of the resume-progress change feed.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressChange'
+        next_cursor:
+          type: integer
+          description: Pass as `cursor` to fetch the next page.
+        has_more:
+          type: boolean
+        oldest_sequence:
+          type: integer
+          nullable: true
+        newest_sequence:
+          type: integer
+          nullable: true
+      required:
+      - has_more
+      - newest_sequence
+      - next_cursor
+      - oldest_sequence
+      - results
     ProviderGameLengths:
       type: object
       description: Full persisted game-length payload, as returned on the detail endpoint.
@@ -3442,6 +5336,43 @@ components:
       required:
       - pagination
       - results
+    SearchIdResponse:
+      type: object
+      description: Every item the id names; empty when it names nothing.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchIdResult'
+      required:
+      - results
+    SearchIdResult:
+      type: object
+      description: One item an external id names.
+      properties:
+        type:
+          $ref: '#/components/schemas/SyncItemTypeEnum'
+        source:
+          type: string
+        media_id:
+          type: string
+          description: For an episode, its show's id.
+        title:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+      required:
+      - media_id
+      - source
+      - title
+      - type
+      - year
     SearchResult:
       type: object
       description: Fields guaranteed by every provider search result.
@@ -3503,6 +5434,649 @@ components:
         * `ready` - ready
         * `pending` - pending
         * `unavailable` - unavailable
+    SyncActivities:
+      type: object
+      description: When each area of the account last changed.
+      properties:
+        all:
+          type: string
+          format: date-time
+          nullable: true
+        watched:
+          type: string
+          format: date-time
+          nullable: true
+        playback:
+          type: string
+          format: date-time
+          nullable: true
+        library:
+          type: string
+          format: date-time
+          nullable: true
+        lists:
+          type: string
+          format: date-time
+          nullable: true
+        collection:
+          type: string
+          format: date-time
+          nullable: true
+        removed:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - all
+      - collection
+      - library
+      - lists
+      - playback
+      - removed
+      - watched
+    SyncCheckpoint:
+      type: object
+      description: Where one connection has got to for one resource and direction.
+      properties:
+        resource:
+          type: string
+        direction:
+          type: string
+        last_sequence:
+          type: integer
+        behind_by:
+          type: integer
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - behind_by
+      - direction
+      - last_sequence
+      - resource
+      - updated_at
+    SyncConflict:
+      type: object
+      description: One open disagreement waiting for a person.
+      properties:
+        id:
+          type: integer
+        reason:
+          type: string
+        media_id:
+          type: string
+        source:
+          type: string
+        media_type:
+          type: string
+        client_kind:
+          type: string
+        local:
+          description: Snapshot of Floppy's state.
+        remote:
+          description: Snapshot of the connection's state.
+        base:
+          description: Snapshot both sides last agreed on.
+        occurrence_count:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - base
+      - client_kind
+      - id
+      - local
+      - media_id
+      - media_type
+      - occurrence_count
+      - reason
+      - remote
+      - source
+      - updated_at
+    SyncConflictListResponse:
+      type: object
+      description: Open conflicts.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncConflict'
+      required:
+      - results
+    SyncConflictResolveRequest:
+      type: object
+      description: Body for resolving a conflict.
+      properties:
+        watched:
+          type: boolean
+          description: Must be a JSON boolean.
+        play_count:
+          type: integer
+          nullable: true
+      required:
+      - watched
+    SyncConnectionListResponse:
+      type: object
+      description: All connections of the caller.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncConnectionStatus'
+      required:
+      - results
+    SyncConnectionStatus:
+      type: object
+      description: Health and capabilities of one connection.
+      properties:
+        id:
+          type: integer
+        client_kind:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+        directions:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        unavailable_capabilities:
+          type: array
+          items:
+            type: string
+          description: Approved capabilities the adapter cannot provide.
+        origin_key:
+          type: string
+          description: Pass as `connection` when pulling a change feed.
+        last_reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_message:
+          type: string
+          nullable: true
+        pending_deliveries:
+          type: integer
+        failed_deliveries:
+          type: integer
+        open_conflicts:
+          type: integer
+        unresolved_references:
+          type: integer
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCheckpoint'
+      required:
+      - capabilities
+      - checkpoints
+      - client_kind
+      - directions
+      - failed_deliveries
+      - id
+      - label
+      - last_error_message
+      - last_reconciled_at
+      - open_conflicts
+      - origin_key
+      - pending_deliveries
+      - status
+      - unavailable_capabilities
+      - unresolved_references
+    SyncHistoryEpisode:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        season_number:
+          type: integer
+          minimum: 0
+        episode_number:
+          type: integer
+          minimum: 1
+        watched_at:
+          type: string
+          format: date-time
+        client_event_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+      required:
+      - client_event_id
+      - episode_number
+      - season_number
+      - watched_at
+    SyncHistoryMovie:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        watched_at:
+          type: string
+          format: date-time
+        client_event_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+        title:
+          type: string
+      required:
+      - client_event_id
+      - watched_at
+    SyncHistoryRequest:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncHistoryMovie'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncHistoryEpisode'
+    SyncHistoryResponse:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncHistoryResult'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - counts
+      - results
+    SyncHistoryResult:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        client_event_id:
+          type: string
+        type:
+          $ref: '#/components/schemas/SyncHistoryResultTypeEnum'
+        outcome:
+          $ref: '#/components/schemas/OutcomeEnum'
+        stored_season_number:
+          type: integer
+        stored_episode_number:
+          type: integer
+        reason:
+          type: string
+        title:
+          type: string
+        ids:
+          allOf:
+          - $ref: '#/components/schemas/ExternalIds'
+          description: The ids of an entry they did not match.
+      required:
+      - client_event_id
+      - outcome
+      - type
+    SyncHistoryResultTypeEnum:
+      enum:
+      - movie
+      - episode
+      type: string
+      description: |-
+        * `movie` - movie
+        * `episode` - episode
+    SyncItem:
+      type: object
+      description: The whole sync state of one movie, episode or show.
+      properties:
+        sequence:
+          type: integer
+          description: Only in the changes feed.
+        type:
+          $ref: '#/components/schemas/SyncItemTypeEnum'
+        source:
+          type: string
+        media_id:
+          type: string
+          description: For an episode, its show's id.
+        title:
+          type: string
+          description: The item's title (for an episode, the episode's), so an app
+            can list an item it has not seen before.
+        season_number:
+          type: integer
+          nullable: true
+        episode_number:
+          type: integer
+          nullable: true
+        ids:
+          type: object
+          additionalProperties:
+            type: string
+        in_library:
+          type: boolean
+          description: 'False once the item has no plays and no library entry left:
+            the app should remove it.'
+        status:
+          nullable: true
+          description: |-
+            Movies and shows; null for episodes.
+
+            * `planning` - planning
+            * `in_progress` - in_progress
+            * `paused` - paused
+            * `dropped` - dropped
+            * `completed` - completed
+          oneOf:
+          - $ref: '#/components/schemas/LibraryStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        score:
+          type: string
+          nullable: true
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncPlay'
+          description: Every play, oldest first.
+      required:
+      - episode_number
+      - ids
+      - in_library
+      - media_id
+      - plays
+      - score
+      - season_number
+      - source
+      - status
+      - title
+      - type
+    SyncItemResult:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        type:
+          $ref: '#/components/schemas/SyncItemTypeEnum'
+        source:
+          type: string
+        media_id:
+          type: string
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        client_event_id:
+          type: string
+        outcome:
+          type: string
+        removed_count:
+          type: integer
+        reason:
+          type: string
+        ids:
+          allOf:
+          - $ref: '#/components/schemas/ExternalIds'
+          description: The ids of an entry they did not match.
+      required:
+      - media_id
+      - outcome
+      - source
+      - type
+    SyncItemTypeEnum:
+      enum:
+      - movie
+      - show
+      - episode
+      type: string
+      description: |-
+        * `movie` - movie
+        * `show` - show
+        * `episode` - episode
+    SyncItemsChanges:
+      type: object
+      description: Items that changed after a cursor, in order.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncItem'
+        cursor:
+          type: integer
+          description: Pass as 'cursor' next time.
+        has_more:
+          type: boolean
+      required:
+      - cursor
+      - has_more
+      - results
+    SyncItemsResponse:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncItemResult'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - counts
+      - results
+    SyncItemsSnapshot:
+      type: object
+      description: One page of the full snapshot.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncItem'
+        next_after:
+          type: integer
+          nullable: true
+          description: Pass as 'after' for the next page; null on the last page.
+        cursor:
+          type: integer
+          description: The changes-feed position when this page was read. Keep the
+            value from the first page and follow the feed from it.
+      required:
+      - cursor
+      - next_after
+      - results
+    SyncPlay:
+      type: object
+      description: One play of an item.
+      properties:
+        key:
+          type: string
+          description: Floppy's id for the play. It can change when Floppy reorganises
+            storage; match plays by watched_at.
+        watched_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The exact instant, to the microsecond as stored.
+        client_event_id:
+          type: string
+          nullable: true
+          description: The id the app sent when it recorded the play, when known.
+      required:
+      - client_event_id
+      - key
+      - watched_at
+    SyncRatingEpisode:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,2}(?:\.\d{0,1})?$
+          nullable: true
+        season_number:
+          type: integer
+          minimum: 0
+        episode_number:
+          type: integer
+          minimum: 1
+      required:
+      - episode_number
+      - score
+      - season_number
+    SyncRatingMedia:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,2}(?:\.\d{0,1})?$
+          nullable: true
+      required:
+      - score
+    SyncRatingsRequest:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRatingMedia'
+        shows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRatingMedia'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRatingEpisode'
+    SyncRemoveEpisode:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        client_event_id:
+          type: string
+          maxLength: 255
+        watched_at:
+          type: string
+          format: date-time
+        all:
+          type: boolean
+        season_number:
+          type: integer
+          minimum: 0
+        episode_number:
+          type: integer
+          minimum: 1
+      required:
+      - episode_number
+      - season_number
+    SyncRemoveMovie:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        client_event_id:
+          type: string
+          maxLength: 255
+        watched_at:
+          type: string
+          format: date-time
+        all:
+          type: boolean
+    SyncRemoveRequest:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRemoveMovie'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRemoveEpisode'
+    SyncStatusItem:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        source:
+          type: string
+          description: Required unless ids is given.
+        media_id:
+          type: string
+          description: Required unless ids is given.
+        ids:
+          $ref: '#/components/schemas/ExternalIds'
+        status:
+          $ref: '#/components/schemas/LibraryStatusEnum'
+        title:
+          type: string
+      required:
+      - status
+    SyncStatusRequest:
+      type: object
+      description: Request or response shape for the sync write endpoints.
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncStatusItem'
+        shows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncStatusItem'
     TrackMediaRequest:
       type: object
       description: Accepted provider, manual-item, and tracking fields.
@@ -3700,6 +6274,123 @@ components:
         image_url:
           type: string
           format: uri
+    WatchedStateChange:
+      type: object
+      description: One entry in the watched-state change feed.
+      properties:
+        sequence:
+          type: integer
+        revision:
+          type: integer
+        previous_revision:
+          type: integer
+          nullable: true
+        kind:
+          type: string
+        watched:
+          type: boolean
+          nullable: true
+        play_count:
+          type: integer
+          nullable: true
+        watched_at:
+          type: string
+          format: date-time
+          nullable: true
+        media_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+          nullable: true
+        season_number:
+          type: integer
+          nullable: true
+          description: Null for anything that is not an episode.
+        episode_number:
+          type: integer
+          nullable: true
+        origin_kind:
+          type: string
+        correlation_id:
+          type: string
+      required:
+      - correlation_id
+      - episode_number
+      - kind
+      - media_id
+      - media_type
+      - origin_kind
+      - play_count
+      - previous_revision
+      - revision
+      - season_number
+      - sequence
+      - source
+      - watched
+      - watched_at
+    WatchedStateProvenance:
+      type: object
+      description: Who last changed a watched state, and when.
+      properties:
+        origin_kind:
+          type: string
+          description: Explicit and inferred changes stay distinguishable.
+        origin_key:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - origin_key
+      - origin_kind
+      - updated_at
+    WatchedStateResponse:
+      type: object
+      description: Canonical watched state of one item.
+      properties:
+        media_id:
+          type: string
+        source:
+          type: string
+        media_type:
+          type: string
+        watched:
+          type: boolean
+        play_count:
+          type: integer
+        first_watched_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_watched_at:
+          type: string
+          format: date-time
+          nullable: true
+        revision:
+          type: integer
+          description: Monotonic per-item revision; usable as `If-Match` on PUT.
+        conflicted:
+          type: boolean
+        provenance:
+          allOf:
+          - $ref: '#/components/schemas/WatchedStateProvenance'
+          nullable: true
+          description: Null when the item has never had a recorded state.
+      required:
+      - conflicted
+      - first_watched_at
+      - last_watched_at
+      - media_id
+      - media_type
+      - play_count
+      - provenance
+      - revision
+      - source
+      - watched
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

@@ -1,6 +1,10 @@
 """The CineTrack endpoints are fully described in the dynamic OpenAPI schema."""
 
+import yaml
+from django.conf import settings
 from django.urls import reverse
+
+from api.schema_contract import CINETRACK_OPERATIONS
 
 from .base import FloppyApiTestCase
 
@@ -61,3 +65,15 @@ class CineTrackOpenApiTests(FloppyApiTestCase):
                     "schema"
                 ]["$ref"]
                 self.assertIn("detail", self._component(error)["properties"])
+
+    def test_committed_contract_covers_cinetrack_operations(self):
+        contract = yaml.safe_load(
+            (settings.BASE_DIR / "api" / "contracts" / "openapi.yaml").read_bytes()
+        )
+        committed = {
+            (path, method.upper())
+            for path, operations in contract["paths"].items()
+            for method in operations
+        }
+
+        self.assertLessEqual(CINETRACK_OPERATIONS, committed)

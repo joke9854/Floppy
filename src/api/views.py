@@ -286,6 +286,21 @@ class MediaTypeChangesHistoryDetailView(drf_views.APIView):
             )
 
 
+class HealthCheckApiSerializer(serializers.Serializer):
+    """One health-check plugin's result."""
+
+    status = serializers.ChoiceField(choices=["ok", "error"])
+    error = serializers.CharField(allow_null=True)
+
+
+class HealthApiResponseSerializer(serializers.Serializer):
+    """Overall health plus each plugin's result, keyed by plugin name."""
+
+    status = serializers.ChoiceField(choices=["ok", "unavailable"])
+    timestamp = serializers.DateTimeField()
+    checks = serializers.DictField(child=HealthCheckApiSerializer())
+
+
 # /api/v1/health/
 class HealthView(CheckMixin, drf_views.APIView):
     """Health check view."""
@@ -293,6 +308,9 @@ class HealthView(CheckMixin, drf_views.APIView):
     authentication_classes = []
     permission_classes = []
 
+    @extend_schema(
+        responses={200: HealthApiResponseSerializer, 500: HealthApiResponseSerializer}
+    )
     def get(self, request):
         """Check API health status."""
         # FORK: django-health-check 3.x — run_check() populates each plugin's
