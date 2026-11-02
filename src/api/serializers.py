@@ -2,6 +2,7 @@ import copy
 
 from django.conf import settings
 from django.utils.timezone import now
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from app import helpers as app_helpers
@@ -45,6 +46,7 @@ from .helpers import (
 )
 
 
+@extend_schema_field(str)
 class ItemIdField(serializers.Field):
     """Custom field to generate item_id string."""
 
@@ -52,6 +54,7 @@ class ItemIdField(serializers.Field):
         return build_item_id(item)
 
 
+@extend_schema_field({"type": "string", "nullable": True})
 class ParentIdField(serializers.Field):
     """Custom field to generate parent_id string for seasons and episodes."""
 
@@ -125,14 +128,14 @@ class ItemSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     ids = serializers.SerializerMethodField()
 
-    def get_media_id(self, obj):
+    def get_media_id(self, obj) -> str | None:
         """Return media_id preserving alphanumeric provider IDs."""
         media_id = getattr(obj, "media_id", None)
         if media_id is None:
             return None
         return str(media_id)
 
-    def get_url(self, obj):
+    def get_url(self, obj) -> str | None:
         """Return the Floppy detail URL for this item, or None."""
         if not getattr(obj, "media_id", None):
             return None
@@ -141,7 +144,7 @@ class ItemSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
-    def get_ids(self, obj):
+    def get_ids(self, obj) -> dict:
         """Return the item's resolved external provider ids."""
         return build_provider_ids(obj)
 

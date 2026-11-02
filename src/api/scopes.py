@@ -99,6 +99,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views.CollectionView": {"GET": _R, "POST": _W},
     "api.fork_views.CollectionEntryView": {"GET": _R, "PATCH": _W, "DELETE": _W},
     "api.fork_views.MediaProgressView": {"POST": "progress:write"},
+    "api.fork_views.MediaSeasonProgressView": {"POST": "progress:write"},
     "api.fork_views.TaskStatusView": {"GET": ANY_SCOPE},
     "api.fork_views_discover.CollectionStatusView": {"GET": _R},
     "api.fork_views_discover.CollectionSeasonView": {"DELETE": _W},

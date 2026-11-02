@@ -7,6 +7,9 @@ from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -17,6 +20,8 @@ from integrations.upload_staging import (
     stage_uploaded_file,
 )
 from users.models import ImportModeChoices
+
+from .contract_serializers import DetailErrorSerializer, TaskQueuedSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,51 @@ def _resolve_mode(request):
     return mode
 
 
+class ImportRequestSerializer(serializers.Serializer):
+    """Username for username services, or an upload for file services."""
+
+    username = serializers.CharField(required=False)
+    file = serializers.FileField(required=False)
+    mode = serializers.CharField(
+        required=False, help_text="Import mode; defaults to the user's setting."
+    )
+
+
+class ImportErrorSerializer(DetailErrorSerializer):
+    """Import error, with accepted modes or services where relevant."""
+
+    choices = serializers.ListField(child=serializers.CharField(), required=False)
+    services = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class ImportRunSerializer(serializers.Serializer):
+    """One past import run."""
+
+    source = serializers.CharField(allow_null=True)
+    status = serializers.CharField(allow_null=True)
+    date = serializers.DateTimeField(allow_null=True)
+    summary = serializers.CharField(allow_blank=True, allow_null=True)
+    errors = serializers.JSONField(allow_null=True)
+
+
+class ImportScheduleSerializer(serializers.Serializer):
+    """One recurring import schedule."""
+
+    source = serializers.CharField(allow_null=True)
+    username = serializers.CharField(allow_blank=True, allow_null=True)
+    last_run = serializers.DateTimeField(allow_null=True)
+    next_run = serializers.DateTimeField(allow_null=True)
+    schedule = serializers.CharField(allow_null=True)
+    mode = serializers.CharField(allow_null=True)
+
+
+class ImportActivitySerializer(serializers.Serializer):
+    """Recent import runs and recurring schedules."""
+
+    results = ImportRunSerializer(many=True)
+    schedules = ImportScheduleSerializer(many=True)
+
+
 # /api/v1/imports/[service]/
 class ImportDispatchView(drf_views.APIView):
     """Queue a one-off import for a service (mirrors the web import forms).
@@ -66,6 +116,16 @@ class ImportDispatchView(drf_views.APIView):
 
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
+    @extend_schema(
+        request=ImportRequestSerializer,
+        responses={
+            202: TaskQueuedSerializer,
+            400: ImportErrorSerializer,
+            404: ImportErrorSerializer,
+            503: DetailErrorSerializer,
+            507: DetailErrorSerializer,
+        },
+    )
     def post(self, request, service):
         """Dispatch the import task for the service."""
         mode = _resolve_mode(request)
@@ -140,6 +200,11 @@ class ImportDispatchView(drf_views.APIView):
 class ImportActivityView(drf_views.APIView):
     """Recent import task history (mirrors the web import activity panel)."""
 
+    @extend_schema(
+        responses={
+            200: ImportActivitySerializer,
+        },
+    )
     def get(self, request):
         """Return the user's recent import task results and schedules."""
         data = request.user.get_import_tasks()
@@ -174,6 +239,7 @@ class ImportActivityView(drf_views.APIView):
 class ExportCsvView(drf_views.APIView):
     """Stream the user's library as CSV (mirrors the web export)."""
 
+    @extend_schema(responses={(200, "text/csv"): OpenApiTypes.STR})
     def get(self, request):
         """Stream the CSV backup.
 
@@ -215,6 +281,7 @@ class ExportCsvView(drf_views.APIView):
 class ExportTemplateView(drf_views.APIView):
     """Download the sample import-template CSV."""
 
+    @extend_schema(responses={(200, "text/csv"): OpenApiTypes.STR})
     def get(self, _request):
         """Return the template CSV content."""
         content = exports.generate_sample_template()

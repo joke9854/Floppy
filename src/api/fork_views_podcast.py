@@ -5,6 +5,8 @@ import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.core.cache import cache
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -17,6 +19,11 @@ from app.providers import pocketcasts, services
 from app.services import podcast_import
 from integrations import podcast_rss
 
+from .contract_serializers import (
+    DetailErrorSerializer,
+    PaginationSerializer,
+    TrackedMediaResponseSerializer,
+)
 from .helpers import (
     get_media_status,
     make_page_url,
@@ -80,10 +87,138 @@ def _bind_show_form(data, instance, show):
     return PodcastShowTrackerForm(merged, instance=instance)
 
 
+class PodcastTrackerSerializer(serializers.Serializer):
+    """The caller's tracker for a show."""
+
+    status = serializers.CharField()
+    score = serializers.CharField(
+        allow_null=True, help_text="Decimal score on the 0-10 scale."
+    )
+    start_date = serializers.DateTimeField(allow_null=True)
+    end_date = serializers.DateTimeField(allow_null=True)
+    notes = serializers.CharField(allow_blank=True, allow_null=True)
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class PodcastShowSerializer(serializers.Serializer):
+    """A podcast show with the caller's tracker."""
+
+    id = serializers.IntegerField()
+    podcast_uuid = serializers.CharField(allow_null=True)
+    source = serializers.CharField()
+    title = serializers.CharField()
+    author = serializers.CharField(allow_blank=True, allow_null=True)
+    image = serializers.CharField(allow_blank=True, allow_null=True)
+    description = serializers.CharField(allow_blank=True, allow_null=True)
+    genres = serializers.JSONField()
+    language = serializers.CharField(allow_blank=True, allow_null=True)
+    rss_feed_url = serializers.CharField(allow_blank=True, allow_null=True)
+    website_url = serializers.CharField(allow_blank=True, allow_null=True)
+    tracker = PodcastTrackerSerializer(allow_null=True)
+
+
+class PodcastShowEnvelopeSerializer(serializers.Serializer):
+    """Paginated show trackers."""
+
+    pagination = PaginationSerializer()
+    results = PodcastShowSerializer(many=True)
+
+
+class PodcastTrackerRequestSerializer(serializers.Serializer):
+    """Tracker fields to set; omitted fields keep their value."""
+
+    score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, required=False, allow_null=True
+    )
+    status = serializers.CharField(required=False)
+    start_date = serializers.DateTimeField(required=False, allow_null=True)
+    end_date = serializers.DateTimeField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class PodcastShowTrackRequestSerializer(PodcastTrackerRequestSerializer):
+    """Show to track, by Floppy id or iTunes id, plus tracker fields."""
+
+    show_id = serializers.IntegerField(required=False)
+    itunes_id = serializers.CharField(required=False)
+
+
+class PodcastFeedEpisodeSerializer(serializers.Serializer):
+    """An episode read from the show's RSS feed."""
+
+    title = serializers.CharField(allow_blank=True)
+    published = serializers.CharField(allow_null=True)
+    duration = serializers.CharField(allow_blank=True, allow_null=True)
+    duration_seconds = serializers.IntegerField(allow_null=True)
+    episode_number = serializers.IntegerField(allow_null=True)
+    season_number = serializers.IntegerField(allow_null=True)
+    website_url = serializers.CharField(allow_blank=True, allow_null=True)
+
+
+class PodcastFeedEpisodeEnvelopeSerializer(serializers.Serializer):
+    """Paginated feed episodes."""
+
+    pagination = PaginationSerializer()
+    results = PodcastFeedEpisodeSerializer(many=True)
+
+
+class PodcastLookupSerializer(serializers.Serializer):
+    """Preview of an iTunes podcast before importing it."""
+
+    itunes_id = serializers.CharField()
+    title = serializers.CharField(allow_blank=True)
+    author = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(allow_blank=True)
+    genres = serializers.JSONField()
+    language = serializers.CharField(allow_blank=True)
+    rss_feed_url = serializers.CharField(allow_blank=True)
+    website_url = serializers.CharField(allow_blank=True)
+    show_id = serializers.IntegerField(
+        allow_null=True, help_text="Existing show an import would reuse."
+    )
+    episodes = PodcastFeedEpisodeEnvelopeSerializer()
+
+
+class PodcastShowEpisodesSerializer(serializers.Serializer):
+    """Paginated show episodes in the web episode-list shape."""
+
+    pagination = PaginationSerializer()
+    results = serializers.ListField(child=serializers.DictField())
+
+
+class PodcastMarkAllPlayedSerializer(serializers.Serializer):
+    """Number of episodes marked played."""
+
+    marked_played = serializers.IntegerField()
+
+
+class PodcastEpisodePlayRequestSerializer(serializers.Serializer):
+    """A completed episode play; identify the episode by id or uuid."""
+
+    show_id = serializers.IntegerField()
+    episode_id = serializers.IntegerField(required=False)
+    episode_uuid = serializers.CharField(required=False)
+    end_date = serializers.DateTimeField(required=False)
+
+
+class PodcastEpisodePlaySerializer(TrackedMediaResponseSerializer):
+    """The recorded play; `duplicate` marks a repeat within five minutes."""
+
+    duplicate = serializers.BooleanField()
+
+
 # /api/v1/podcasts/shows/
 class PodcastShowsView(drf_views.APIView):
     """List tracked shows or start tracking one."""
 
+    @extend_schema(
+        responses={
+            200: PodcastShowEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Return the caller's show trackers."""
         limit, offset, err = parse_limit_offset(request)
@@ -98,6 +233,14 @@ class PodcastShowsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=PodcastShowTrackRequestSerializer,
+        responses={
+            201: PodcastShowSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Track a show by show_id, or import+track one by itunes_id.
 
@@ -211,6 +354,14 @@ class PodcastLookupView(drf_views.APIView):
             for episode in episodes
         ]
 
+    @extend_schema(
+        responses={
+            200: PodcastLookupSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, itunes_id):
         """Return iTunes + RSS metadata for the given collection id."""
         limit, offset, err = parse_limit_offset(request)
@@ -268,6 +419,13 @@ class PodcastShowDetailView(drf_views.APIView):
     def _get_show(self, show_id):
         return PodcastShow.objects.filter(id=show_id).first()
 
+    @extend_schema(
+        operation_id="retrievePodcastShow",
+        responses={
+            200: PodcastShowSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, show_id):
         """Return the show and the caller's tracker."""
         show = self._get_show(show_id)
@@ -279,6 +437,14 @@ class PodcastShowDetailView(drf_views.APIView):
         ).first()
         return Response(_serialize_show(show, tracker), status=HTTP.OK)
 
+    @extend_schema(
+        request=PodcastTrackerRequestSerializer,
+        responses={
+            200: PodcastShowSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, show_id):
         """Update the caller's tracker (creates one if missing)."""
         show = self._get_show(show_id)
@@ -300,6 +466,12 @@ class PodcastShowDetailView(drf_views.APIView):
         tracker.save()
         return Response(_serialize_show(show, tracker), status=HTTP.OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, show_id):
         """Remove the caller's tracker (mirrors podcast_show_delete)."""
         show = self._get_show(show_id)
@@ -329,6 +501,13 @@ class PodcastShowEpisodesView(drf_views.APIView):
     pagination contract.
     """
 
+    @extend_schema(
+        responses={
+            200: PodcastShowEpisodesSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, show_id):
         """Return catalog episodes with play state (limit/offset params)."""
         if not PodcastShow.objects.filter(id=show_id).exists():
@@ -403,6 +582,13 @@ class PodcastMarkAllPlayedView(drf_views.APIView):
     this request performs a network fetch and can take several seconds.
     """
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: PodcastMarkAllPlayedSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, show_id):
         """Mark all episodes played; returns the number marked."""
         show = PodcastShow.objects.filter(id=show_id).first()
@@ -419,6 +605,15 @@ class PodcastMarkAllPlayedView(drf_views.APIView):
 class PodcastEpisodePlayView(drf_views.APIView):
     """Record a completed podcast episode play."""
 
+    @extend_schema(
+        request=PodcastEpisodePlayRequestSerializer,
+        responses={
+            200: PodcastEpisodePlaySerializer,
+            201: PodcastEpisodePlaySerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Add a completed play.
 

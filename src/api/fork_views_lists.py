@@ -5,6 +5,8 @@ import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -18,6 +20,8 @@ from lists.models import (
 )
 from lists.views_add_reorder import apply_full_order, apply_reorder_action
 from lists.views_recommendations import get_or_create_recommendation_item
+
+from .contract_serializers import DetailErrorSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +54,143 @@ def _serialize_smart_rules(custom_list):
     }
 
 
+class ListSmartRulesSerializer(serializers.Serializer):
+    """Smart-list rules and current membership size."""
+
+    is_smart = serializers.BooleanField()
+    smart_media_types = serializers.ListField(child=serializers.CharField())
+    smart_excluded_media_types = serializers.ListField(child=serializers.CharField())
+    smart_filters = serializers.DictField()
+    items_count = serializers.IntegerField()
+
+
+class ListSmartRulesUpdateSerializer(ListSmartRulesSerializer):
+    """Smart-list rules after the change, with the normalized payload."""
+
+    rules = serializers.DictField()
+
+
+class ListSmartRulesRequestSerializer(serializers.Serializer):
+    """Smart-list rules in the web form's shape.
+
+    Besides `media_types`, any smart filter key (status, rating, genre, year,
+    completed date range, ...) is accepted; omitted filters reset to defaults.
+    """
+
+    media_types = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
+
+
+class ListItemsCountSerializer(serializers.Serializer):
+    """Number of items in the list after a sync."""
+
+    items_count = serializers.IntegerField()
+
+
+class ListCollaboratorsSerializer(serializers.Serializer):
+    """List owner and collaborators by username."""
+
+    owner = serializers.CharField()
+    collaborators = serializers.ListField(child=serializers.CharField())
+
+
+class ListCollaboratorsRequestSerializer(serializers.Serializer):
+    """Usernames that replace the collaborator set."""
+
+    usernames = serializers.ListField(child=serializers.CharField())
+
+
+class ListCollaboratorsUpdateSerializer(serializers.Serializer):
+    """Collaborators after the change."""
+
+    collaborators = serializers.ListField(child=serializers.CharField())
+
+
+class ListCollaboratorsMissingSerializer(DetailErrorSerializer):
+    """Usernames that do not exist."""
+
+    missing = serializers.ListField(child=serializers.CharField())
+
+
+class ListItemReorderRequestSerializer(serializers.Serializer):
+    """Move one item within the custom order."""
+
+    item_id = serializers.IntegerField()
+    action = serializers.CharField(help_text="`first`, `back`, `next` or `last`.")
+
+
+class ListItemsOrderRequestSerializer(serializers.Serializer):
+    """Full custom order as item ids."""
+
+    item_ids = serializers.ListField(child=serializers.IntegerField())
+
+
+class ListRecommendationSerializer(serializers.Serializer):
+    """A pending recommendation for a list."""
+
+    id = serializers.IntegerField()
+    item_id = serializers.IntegerField()
+    title = serializers.CharField()
+    media_type = serializers.CharField()
+    recommended_by = serializers.CharField(allow_null=True)
+    note = serializers.CharField(allow_blank=True)
+    date_recommended = serializers.DateTimeField()
+
+
+class ListRecommendationListSerializer(serializers.Serializer):
+    """Pending recommendations."""
+
+    results = ListRecommendationSerializer(many=True)
+
+
+class ListRecommendationRequestSerializer(serializers.Serializer):
+    """Media to recommend for a list."""
+
+    media_id = serializers.CharField()
+    media_type = serializers.CharField()
+    source = serializers.CharField()
+    season_number = serializers.IntegerField(required=False)
+    episode_number = serializers.IntegerField(required=False)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+
+class ListRecommendationDecisionSerializer(serializers.Serializer):
+    """Outcome of a decision; `added` is present on approval."""
+
+    approved = serializers.BooleanField()
+    added = serializers.BooleanField(required=False)
+
+
+class ListActivitySerializer(serializers.Serializer):
+    """One list activity entry."""
+
+    id = serializers.IntegerField()
+    activity_type = serializers.CharField()
+    user = serializers.CharField(allow_null=True)
+    item_id = serializers.IntegerField(allow_null=True)
+    item_title = serializers.CharField(allow_null=True)
+    details = serializers.JSONField()
+    timestamp = serializers.DateTimeField()
+
+
+class ListActivityListSerializer(serializers.Serializer):
+    """The 100 most recent list activity entries."""
+
+    results = ListActivitySerializer(many=True)
+
+
 # /api/v1/lists/[list_id]/smart-rules/
 class ListSmartRulesView(drf_views.APIView):
     """Read or replace a smart list's rules (mirrors smart_rules_update)."""
 
+    @extend_schema(
+        responses={
+            200: ListSmartRulesSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Return the list's smart configuration."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -61,6 +198,15 @@ class ListSmartRulesView(drf_views.APIView):
             return error
         return Response(_serialize_smart_rules(custom_list), status=HTTP.OK)
 
+    @extend_schema(
+        request=ListSmartRulesRequestSerializer,
+        responses={
+            200: ListSmartRulesUpdateSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def put(self, request, list_id):
         """Replace the smart rules and re-sync membership."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -100,6 +246,15 @@ class ListSmartRulesView(drf_views.APIView):
 class ListSmartSyncView(drf_views.APIView):
     """Re-sync a smart list's membership from its rules."""
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: ListItemsCountSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, list_id):
         """Run sync_smart_items and return the resulting count."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -121,6 +276,13 @@ class ListSmartSyncView(drf_views.APIView):
 class ListCollaboratorsView(drf_views.APIView):
     """Read or replace a list's collaborators."""
 
+    @extend_schema(
+        responses={
+            200: ListCollaboratorsSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Return collaborator usernames."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -136,6 +298,15 @@ class ListCollaboratorsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=ListCollaboratorsRequestSerializer,
+        responses={
+            200: ListCollaboratorsUpdateSerializer,
+            404: ListCollaboratorsMissingSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+        },
+    )
     def put(self, request, list_id):
         """Replace the collaborator set with the given usernames."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -187,6 +358,15 @@ class ListCollaboratorsView(drf_views.APIView):
 class ListItemsReorderView(drf_views.APIView):
     """Move a single item within the list's custom order."""
 
+    @extend_schema(
+        request=ListItemReorderRequestSerializer,
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, list_id):
         """Apply a first/back/next/last move (mirrors reorder_list_item)."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -209,6 +389,15 @@ class ListItemsReorderView(drf_views.APIView):
 class ListItemsOrderView(drf_views.APIView):
     """Replace the list's custom order with an ordered item-id list."""
 
+    @extend_schema(
+        request=ListItemsOrderRequestSerializer,
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def put(self, request, list_id):
         """Apply the full order (mirrors reorder_list_items_all)."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -242,6 +431,13 @@ def _serialize_recommendation(recommendation):
 class ListRecommendationsView(drf_views.APIView):
     """List pending recommendations or submit a new one."""
 
+    @extend_schema(
+        responses={
+            200: ListRecommendationListSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Return pending recommendations (owner/collaborators only)."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -256,6 +452,16 @@ class ListRecommendationsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=ListRecommendationRequestSerializer,
+        responses={
+            201: ListRecommendationSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+            502: DetailErrorSerializer,
+        },
+    )
     def post(self, request, list_id):
         """Submit a recommendation (mirrors submit_recommendation, auth only)."""
         custom_list = (
@@ -332,6 +538,15 @@ class ListRecommendationsView(drf_views.APIView):
 class ListRecommendationDecisionView(drf_views.APIView):
     """Approve or deny a recommendation (mirrors the web decision views)."""
 
+    @extend_schema(
+        operation_id="decideListRecommendation",
+        request=None,
+        responses={
+            200: ListRecommendationDecisionSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, list_id, recommendation_id, decision):
         """Apply the decision; approval adds the item to the list."""
         custom_list, error = _get_editable_list(request, list_id)
@@ -387,6 +602,13 @@ class ListRecommendationDecisionView(drf_views.APIView):
 class ListActivityView(drf_views.APIView):
     """Activity log for a list (owner/collaborators only)."""
 
+    @extend_schema(
+        responses={
+            200: ListActivityListSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Return the 100 most recent activity entries."""
         custom_list, error = _get_editable_list(request, list_id)

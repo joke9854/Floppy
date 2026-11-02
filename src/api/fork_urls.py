@@ -152,7 +152,7 @@ urlpatterns = [
     ),
     re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/progress/?$",
-        fork_views.MediaProgressView.as_view(),
+        fork_views.MediaSeasonProgressView.as_view(),
         name="api_media_season_progress",
     ),
     re_path(

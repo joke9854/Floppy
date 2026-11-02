@@ -14,7 +14,11 @@ from rest_framework.response import Response
 from app.forms import CollectionEntryForm
 from app.models import BasicMedia, CollectionEntry, Item, MediaTypes
 
-from .contract_serializers import DetailErrorSerializer, PaginationSerializer
+from .contract_serializers import (
+    DetailErrorSerializer,
+    PaginationSerializer,
+    TrackedMediaResponseSerializer,
+)
 from .fork_serializers import CollectionEntrySerializer
 from .helpers import paginate_data, parse_limit_offset
 from .serializers import ItemSerializer, serialize_data
@@ -35,8 +39,20 @@ def _resolve_user_media(user, media_id, media_type, source, season_number=None):
     return results[0] if results else None
 
 
+class MediaProgressRequestSerializer(serializers.Serializer):
+    """Progress step to apply."""
+
+    operation = serializers.CharField(help_text="`increase` or `decrease`.")
+
+
+_PROGRESS_RESPONSES = {
+    200: TrackedMediaResponseSerializer,
+    400: DetailErrorSerializer,
+    404: DetailErrorSerializer,
+}
+
+
 # /api/v1/media/[media_type]/[source]/[media_id]/progress/
-# /api/v1/media/[media_type]/[source]/[media_id]/[season_number]/progress/
 class MediaProgressView(drf_views.APIView):
     """Increase or decrease progress on a tracked media item.
 
@@ -45,6 +61,11 @@ class MediaProgressView(drf_views.APIView):
     progress counter with the same model-level semantics.
     """
 
+    @extend_schema(
+        operation_id="updateMediaProgress",
+        request=MediaProgressRequestSerializer,
+        responses=_PROGRESS_RESPONSES,
+    )
     def post(
         self,
         request,
@@ -88,6 +109,20 @@ class MediaProgressView(drf_views.APIView):
             prefetch_related_objects([media], "episodes")
 
         return Response(serialize_data(media), status=HTTP.OK)
+
+
+# /api/v1/media/[media_type]/[source]/[media_id]/[season_number]/progress/
+class MediaSeasonProgressView(MediaProgressView):
+    """Season route of MediaProgressView, split out for its own operation id."""
+
+    @extend_schema(
+        operation_id="updateMediaSeasonProgress",
+        request=MediaProgressRequestSerializer,
+        responses=_PROGRESS_RESPONSES,
+    )
+    def post(self, request, media_type, source, media_id, season_number=None):
+        """Apply an increase/decrease operation to the tracked media."""
+        return super().post(request, media_type, source, media_id, season_number)
 
 
 class CollectionItemSerializer(ItemSerializer):
@@ -291,6 +326,7 @@ class CollectionEntryView(drf_views.APIView):
             return None
 
     @extend_schema(
+        operation_id="retrieveCollectionEntry",
         responses={
             200: CollectionEntryResponseSerializer,
             404: OpenApiResponse(
@@ -355,6 +391,15 @@ class CollectionEntryView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        responses={
+            204: None,
+            404: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Collection entry not found.",
+            ),
+        },
+    )
     def delete(self, request, entry_id):
         """Remove an entry from the collection (mirrors collection_remove)."""
         entry = self._get_entry(request, entry_id)
@@ -367,6 +412,17 @@ class CollectionEntryView(drf_views.APIView):
         return Response(status=HTTP.NO_CONTENT)
 
 
+class TaskStatusSerializer(serializers.Serializer):
+    """State of a background task; PENDING until a result is stored."""
+
+    task_id = serializers.CharField()
+    task_name = serializers.CharField(required=False, allow_null=True)
+    status = serializers.CharField()
+    date_created = serializers.DateTimeField(required=False, allow_null=True)
+    date_done = serializers.DateTimeField(required=False, allow_null=True)
+    result = serializers.CharField(required=False, allow_null=True)
+
+
 # /api/v1/tasks/[task_id]/
 class TaskStatusView(drf_views.APIView):
     """Report the status of a Celery task dispatched by an API endpoint.
@@ -376,6 +432,7 @@ class TaskStatusView(drf_views.APIView):
     belong to other users 404. Tasks with no stored result yet report PENDING.
     """
 
+    @extend_schema(responses={200: TaskStatusSerializer, 404: DetailErrorSerializer})
     def get(self, request, task_id):
         """Return the current state of the task."""
         record = TaskResult.objects.filter(task_id=task_id).first()

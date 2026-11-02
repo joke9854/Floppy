@@ -5,6 +5,7 @@ from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.apps import apps
 from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -55,10 +56,97 @@ def _get_owned_tracked_item(user, item_id):
     return item
 
 
+class ItemImageRequestSerializer(serializers.Serializer):
+    """New artwork URL for the item."""
+
+    image_url = serializers.CharField()
+
+
+class ItemImageSerializer(serializers.Serializer):
+    """The item's artwork after the change."""
+
+    id = serializers.IntegerField()
+    image = serializers.CharField()
+
+
+class ItemMetadataSerializer(serializers.Serializer):
+    """Normalized metadata projection for an item."""
+
+    identity = serializers.DictField()
+    attribution = serializers.DictField()
+    freshness = serializers.JSONField()
+    fields = serializers.DictField()
+    authorship = serializers.CharField()
+
+
+# Accepted keys are app.custom_metadata field specs, which vary by media type.
+_METADATA_OVERRIDE_REQUEST = {
+    "application/json": {
+        "type": "object",
+        "additionalProperties": True,
+        "description": "Manual metadata fields such as title, synopsis or genres.",
+    },
+}
+
+
+class ItemMetadataUpdateSerializer(serializers.Serializer):
+    """Fields changed by a metadata override."""
+
+    id = serializers.IntegerField()
+    updated_fields = serializers.ListField(child=serializers.CharField())
+
+
+class ProviderPreferenceSerializer(serializers.Serializer):
+    """Preferred metadata provider and the available choices."""
+
+    provider = serializers.CharField(allow_null=True)
+    available_providers = serializers.ListField(child=serializers.CharField())
+
+
+class ProviderPreferenceRequestSerializer(serializers.Serializer):
+    """Metadata provider to prefer."""
+
+    provider = serializers.CharField()
+
+
+class ProviderPreferenceUpdateSerializer(serializers.Serializer):
+    """Preferred provider after the change."""
+
+    provider = serializers.CharField()
+
+
+class ProviderPreferenceErrorSerializer(DetailErrorSerializer):
+    """Unavailable provider, with the allowed choices."""
+
+    available_providers = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
+
+
+class EpisodeScoreRequestSerializer(serializers.Serializer):
+    """New episode score on the raw 0-10 scale, or null to clear it."""
+
+    score = serializers.DecimalField(max_digits=3, decimal_places=1, allow_null=True)
+
+
+class EpisodeScoreSerializer(serializers.Serializer):
+    """The episode's score after the change."""
+
+    score = serializers.CharField(allow_null=True)
+
+
 # /api/v1/metadata/items/[item_id]/image/
 class ItemImageView(drf_views.APIView):
     """Override the stored image URL for a tracked item."""
 
+    @extend_schema(
+        request=ItemImageRequestSerializer,
+        responses={
+            200: ItemImageSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, item_id):
         """Set the item's image URL (mirrors web update_item_image)."""
         item = _get_owned_tracked_item(request.user, item_id)
@@ -88,6 +176,12 @@ class ItemImageView(drf_views.APIView):
 class ItemMetadataView(drf_views.APIView):
     """Read a normalized projection, or override custom metadata."""
 
+    @extend_schema(
+        responses={
+            200: ItemMetadataSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, item_id):
         """Return the normalized projection with attribution and freshness."""
         item = _get_owned_tracked_item(request.user, item_id)
@@ -99,6 +193,14 @@ class ItemMetadataView(drf_views.APIView):
 
         return Response(project_item_metadata(item), status=HTTP.OK)
 
+    @extend_schema(
+        request=_METADATA_OVERRIDE_REQUEST,
+        responses={
+            200: ItemMetadataUpdateSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, item_id):
         """Apply custom-metadata overrides (mirrors update_manual_item_metadata)."""
         item = _get_owned_tracked_item(request.user, item_id)
@@ -145,7 +247,14 @@ class MediaProviderPreferenceView(drf_views.APIView):
             lookup["library_media_type"] = MediaTypes.ANIME.value
         return Item.objects.filter(**lookup).first()
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: ProviderPreferenceSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Return the current provider preference and available options."""
         if not check_valid_type(media_type):
@@ -175,7 +284,15 @@ class MediaProviderPreferenceView(drf_views.APIView):
             status=HTTP.OK,
         )
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=ProviderPreferenceRequestSerializer,
+        responses={
+            200: ProviderPreferenceUpdateSerializer,
+            400: ProviderPreferenceErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def put(self, request, media_type, source, media_id):
         """Set the provider override (mirrors update_metadata_provider_preference)."""
         if not check_valid_type(media_type):
@@ -231,7 +348,12 @@ class MediaEpisodeScoreView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
-        responses={404: DetailErrorSerializer},
+        request=EpisodeScoreRequestSerializer,
+        responses={
+            200: EpisodeScoreSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
     )
     def patch(
         self,

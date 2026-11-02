@@ -215,6 +215,13 @@ class ConsumptionResponseSerializer(serializers.Serializer):
     notes = serializers.CharField(allow_blank=True, allow_null=True)
 
 
+class ConsumptionEnvelopeSerializer(serializers.Serializer):
+    """Paginated consumption history."""
+
+    pagination = PaginationSerializer()
+    results = ConsumptionResponseSerializer(many=True)
+
+
 class MediaTypeStatusSerializer(serializers.Serializer):
     """Whether the media type of this item is enabled for the user."""
 
@@ -329,3 +336,118 @@ class ListenBrainzTokenSerializer(serializers.Serializer):
     message = serializers.CharField()
     valid = serializers.BooleanField()
     user_name = serializers.CharField()
+
+
+class DetailMessageSerializer(serializers.Serializer):
+    """Informational body carrying only a human-readable `detail`."""
+
+    detail = serializers.CharField()
+
+
+class ListUserSerializer(serializers.Serializer):
+    """Owner or collaborator of a custom list."""
+
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+
+
+class ListResponseSerializer(serializers.Serializer):
+    """Exact ListSerializer representation of a custom list."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_null=True)
+    owner = ListUserSerializer()
+    collaborators = ListUserSerializer(many=True)
+    items_count = serializers.IntegerField()
+    latest_update = serializers.DateTimeField(allow_null=True)
+    is_public = serializers.BooleanField()
+    public_slug = serializers.CharField(allow_null=True)
+    allow_recommendations = serializers.BooleanField()
+    items = serializers.JSONField(
+        required=False,
+        help_text="Tracked-media page (`pagination`, `results`) or an array.",
+    )
+
+
+class ListEnvelopeSerializer(serializers.Serializer):
+    """Paginated custom lists."""
+
+    pagination = PaginationSerializer()
+    results = ListResponseSerializer(many=True)
+
+
+class ListUpdateRequestSerializer(serializers.Serializer):
+    """Custom list fields to change; omitted fields keep their value."""
+
+    name = serializers.CharField(required=False)
+    description = serializers.CharField(required=False, allow_blank=True)
+    collaborators = serializers.ListField(
+        child=serializers.IntegerField(), required=False
+    )
+    is_public = serializers.BooleanField(required=False)
+    allow_recommendations = serializers.BooleanField(required=False)
+    public_slug = serializers.CharField(required=False, allow_blank=True)
+
+
+class ListCreateRequestSerializer(ListUpdateRequestSerializer):
+    """New custom list."""
+
+    name = serializers.CharField()
+
+
+class ListMembershipSerializer(serializers.Serializer):
+    """One list an item belongs to."""
+
+    list_id = serializers.IntegerField()
+    list_item_id = serializers.IntegerField(allow_null=True)
+
+
+class ListMembershipEnvelopeSerializer(serializers.Serializer):
+    """Paginated list memberships of an item."""
+
+    pagination = PaginationSerializer()
+    results = ListMembershipSerializer(many=True)
+
+
+class ListMembershipRequestSerializer(serializers.Serializer):
+    """Optional hint for resolving the item being added to a list."""
+
+    library_media_type = serializers.CharField(required=False)
+
+
+class ChangesHistoryChangeSerializer(serializers.Serializer):
+    """One changed field in a history record."""
+
+    field = serializers.CharField()
+    old_value = serializers.JSONField(allow_null=True)
+    new_value = serializers.JSONField(allow_null=True)
+
+
+class ChangesHistoryEntryResponseSerializer(serializers.Serializer):
+    """Exact ChangesHistoryEntrySerializer representation."""
+
+    id = serializers.IntegerField(allow_null=True)
+    item_id = serializers.CharField(allow_null=True)
+    timestamp = serializers.DateTimeField(allow_null=True)
+    changes = ChangesHistoryChangeSerializer(many=True)
+
+
+class ChangesHistoryEnvelopeSerializer(serializers.Serializer):
+    """Paginated changes history."""
+
+    pagination = PaginationSerializer()
+    results = ChangesHistoryEntryResponseSerializer(many=True)
+
+
+class TrackedMediaPageSerializer(TrackedMediaEnvelopeSerializer):
+    """Tracked-media page plus whether the media type is enabled."""
+
+    media_type_status = MediaTypeStatusSerializer()
+
+
+class TaskQueuedSerializer(serializers.Serializer):
+    """A background task was queued; poll /api/v1/tasks/{task_id}/."""
+
+    task_id = serializers.CharField()

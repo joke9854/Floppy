@@ -9,6 +9,8 @@ from http import HTTPStatus as HTTP  # noqa: N814
 from django.db.models import Model
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -17,6 +19,8 @@ from app.statistics_views import (
     _get_predefined_range_date_strings,
     _identify_predefined_range,
 )
+
+from .contract_serializers import DetailErrorSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +130,39 @@ def _resolve_range(request):
     return start_date, end_date, range_name, None
 
 
+class StatisticsRangeSerializer(serializers.Serializer):
+    """The date range the statistics cover."""
+
+    start_date = serializers.DateTimeField(allow_null=True)
+    end_date = serializers.DateTimeField(allow_null=True)
+    range_name = serializers.CharField(allow_null=True)
+
+
+class StatisticsOverviewSerializer(serializers.Serializer):
+    """The web dashboard's statistics payload for a range."""
+
+    range = StatisticsRangeSerializer()
+    statistics = serializers.DictField()
+
+
+class StatisticsRefreshRequestSerializer(serializers.Serializer):
+    """Predefined range to recompute."""
+
+    range_name = serializers.CharField()
+
+
+class StatisticsRefreshSerializer(serializers.Serializer):
+    """The refresh was scheduled."""
+
+    scheduled = serializers.BooleanField()
+
+
+class StatisticsRangeErrorSerializer(DetailErrorSerializer):
+    """Missing or unknown range, with the accepted names."""
+
+    choices = serializers.ListField(child=serializers.CharField())
+
+
 # /api/v1/statistics/overview/
 class StatisticsOverviewView(drf_views.APIView):
     """The full statistics payload the web dashboard renders.
@@ -135,6 +172,12 @@ class StatisticsOverviewView(drf_views.APIView):
     per-domain (video/music/podcast/reading/game) breakdowns.
     """
 
+    @extend_schema(
+        responses={
+            200: StatisticsOverviewSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Return statistics for the date range (default: user's preference)."""
         start_date, end_date, range_name, error = _resolve_range(request)
@@ -163,6 +206,13 @@ class StatisticsOverviewView(drf_views.APIView):
 class StatisticsRefreshView(drf_views.APIView):
     """Force a statistics-cache refresh (mirrors web refresh_statistics)."""
 
+    @extend_schema(
+        request=StatisticsRefreshRequestSerializer,
+        responses={
+            202: StatisticsRefreshSerializer,
+            400: StatisticsRangeErrorSerializer,
+        },
+    )
     def post(self, request):
         """Invalidate and rebuild the given predefined range."""
         range_name = request.data.get("range_name")

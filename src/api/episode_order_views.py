@@ -9,18 +9,29 @@ from app.episode_order_views import available_orders, owned_tv, selected_order
 from app.models import EpisodeOrder
 from app.services import episode_ordering
 
+from .contract_serializers import DetailErrorSerializer
+
 
 class EpisodeOrderView(APIView):
     """List provider orders and apply an explicit history reconciliation."""
 
-    @extend_schema(responses=OpenApiTypes.OBJECT)
+    @extend_schema(
+        responses={200: OpenApiTypes.OBJECT, 404: DetailErrorSerializer},
+    )
     def get(self, request, tv_id):
         """Return currently available provider orders for one tracked show."""
         tv = owned_tv(request.user, tv_id)
         orders, errors = available_orders(tv, request.user)
         return Response({"active": tv.active_episode_order_id, "orders": orders, "errors": errors})
 
-    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
+    @extend_schema(
+        request=OpenApiTypes.OBJECT,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, tv_id):
         """Preview or apply an order change using stable provider identities."""
         tv = owned_tv(request.user, tv_id)

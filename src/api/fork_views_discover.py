@@ -3,6 +3,8 @@
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -23,15 +25,110 @@ from app.models import (
 )
 from users.home_screen import build_home_page_groups
 
+from .contract_serializers import DetailErrorSerializer
 from .serializers import serialize_data
 
 logger = logging.getLogger(__name__)
+
+
+class CollectionStatusSerializer(serializers.Serializer):
+    """Whether the caller has collection data for an item."""
+
+    item_id = serializers.IntegerField()
+    has_collection_data = serializers.BooleanField()
+
+
+class CollectionSeasonDeleteSerializer(serializers.Serializer):
+    """Number of collected episode entries removed."""
+
+    deleted = serializers.IntegerField()
+
+
+class DiscoverRowsSerializer(serializers.Serializer):
+    """Discover rows for a media type."""
+
+    media_type = serializers.CharField()
+    show_more = serializers.BooleanField()
+    rows = serializers.ListField(child=serializers.DictField())
+
+
+class DiscoverRefreshRequestSerializer(serializers.Serializer):
+    """Discover rows to rebuild."""
+
+    media_type = serializers.CharField(required=False)
+    show_more = serializers.BooleanField(required=False)
+
+
+class DiscoverRefreshSerializer(serializers.Serializer):
+    """Discover rows queued for rebuilding."""
+
+    media_type = serializers.CharField()
+    show_more = serializers.BooleanField()
+
+
+class DiscoverHiddenItemSerializer(serializers.Serializer):
+    """An item hidden from Discover."""
+
+    item_id = serializers.IntegerField()
+    title = serializers.CharField()
+    media_type = serializers.CharField()
+    hidden_at = serializers.DateTimeField()
+
+
+class DiscoverHiddenListSerializer(serializers.Serializer):
+    """Items hidden from Discover."""
+
+    results = DiscoverHiddenItemSerializer(many=True)
+
+
+class DiscoverHiddenRequestSerializer(serializers.Serializer):
+    """Hide or unhide an item."""
+
+    item_id = serializers.IntegerField()
+    action = serializers.CharField(help_text="`hide` or `unhide`.")
+
+
+class DiscoverHiddenResultSerializer(serializers.Serializer):
+    """Hidden state of an item after the change."""
+
+    item_id = serializers.IntegerField()
+    hidden = serializers.BooleanField()
+
+
+class HomeRowSerializer(serializers.Serializer):
+    """One Home row with its serialized cards."""
+
+    row_id = serializers.CharField(allow_null=True)
+    title = serializers.CharField(allow_null=True)
+    summary = serializers.CharField(allow_null=True)
+    total = serializers.IntegerField(allow_null=True)
+    items = serializers.ListField(child=serializers.DictField())
+
+
+class HomeGroupSerializer(serializers.Serializer):
+    """Home rows for one media type."""
+
+    media_type = serializers.CharField()
+    label = serializers.CharField()
+    rows = HomeRowSerializer(many=True)
+
+
+class HomeSerializer(serializers.Serializer):
+    """Home screen groups."""
+
+    groups = HomeGroupSerializer(many=True)
 
 
 # /api/v1/collection/status/[item_id]/
 class CollectionStatusView(drf_views.APIView):
     """Report whether an item has a collection entry (mirrors the web API)."""
 
+    @extend_schema(
+        responses={
+            200: CollectionStatusSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, item_id):
         """Return has_collection_data for the item."""
         item = Item.objects.filter(id=item_id).first()
@@ -51,6 +148,12 @@ class CollectionStatusView(drf_views.APIView):
 class CollectionSeasonView(drf_views.APIView):
     """Remove Sonarr-backed collected episode rows for a season."""
 
+    @extend_schema(
+        responses={
+            200: CollectionSeasonDeleteSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, season_item_id):
         """Delete the season's collected episode entries (mirrors web view)."""
         season_item = Item.objects.filter(
@@ -83,6 +186,11 @@ class CollectionSeasonView(drf_views.APIView):
 class DiscoverRowsView(drf_views.APIView):
     """Discover rows for a media type (mirrors the web Discover page data)."""
 
+    @extend_schema(
+        responses={
+            200: DiscoverRowsSerializer,
+        },
+    )
     def get(self, request):
         """Return the cached Discover rows for the media type."""
         media_type = _resolve_discover_media_type_for_user(
@@ -110,6 +218,12 @@ class DiscoverRowsView(drf_views.APIView):
 class DiscoverRefreshView(drf_views.APIView):
     """Invalidate and queue a Discover refresh (mirrors refresh_discover)."""
 
+    @extend_schema(
+        request=DiscoverRefreshRequestSerializer,
+        responses={
+            202: DiscoverRefreshSerializer,
+        },
+    )
     def post(self, request):
         """Queue a background rebuild for the media type's Discover tab."""
         media_type = _resolve_discover_media_type_for_user(
@@ -145,6 +259,11 @@ class DiscoverRefreshView(drf_views.APIView):
 class DiscoverHiddenView(drf_views.APIView):
     """List or toggle items hidden from Discover."""
 
+    @extend_schema(
+        responses={
+            200: DiscoverHiddenListSerializer,
+        },
+    )
     def get(self, request):
         """Return the user's hidden Discover entries."""
         entries = _discover_hidden_entries(request.user)
@@ -163,6 +282,14 @@ class DiscoverHiddenView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=DiscoverHiddenRequestSerializer,
+        responses={
+            200: DiscoverHiddenResultSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Hide or unhide an item (mirrors discover_toggle_hidden)."""
         action = request.data.get("action")
@@ -205,6 +332,12 @@ class DiscoverHiddenView(drf_views.APIView):
 class HomeView(drf_views.APIView):
     """The user's home rows — the same groups the web home page renders."""
 
+    @extend_schema(
+        responses={
+            200: HomeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Return home groups with serialized row items."""
         try:

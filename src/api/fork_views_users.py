@@ -140,6 +140,73 @@ class UserPreferencesInvalidChoiceSerializer(serializers.Serializer):
     )
 
 
+class UserSidebarSerializer(serializers.Serializer):
+    """Enabled state per sidebar media type."""
+
+    media_types = serializers.DictField(child=serializers.BooleanField())
+
+
+class UserSidebarUpdateResponseSerializer(serializers.Serializer):
+    """User fields changed by a sidebar update."""
+
+    updated_fields = serializers.ListField(child=serializers.CharField())
+
+
+class UserNotificationsSerializer(serializers.Serializer):
+    """Notification settings."""
+
+    notification_urls = serializers.CharField(allow_blank=True)
+    daily_digest_enabled = serializers.BooleanField()
+    release_notifications_enabled = serializers.BooleanField()
+
+
+class UserNotificationsUpdateSerializer(UserNotificationsSerializer):
+    """Notification settings to change; omitted fields keep their value."""
+
+    notification_urls = serializers.CharField(allow_blank=True, required=False)
+    daily_digest_enabled = serializers.BooleanField(required=False)
+    release_notifications_enabled = serializers.BooleanField(required=False)
+
+
+class NotificationExclusionSerializer(serializers.Serializer):
+    """An item excluded from notifications."""
+
+    item_id = serializers.IntegerField()
+    title = serializers.CharField()
+    media_type = serializers.CharField()
+
+
+class NotificationExclusionListSerializer(serializers.Serializer):
+    """Items excluded from notifications."""
+
+    results = NotificationExclusionSerializer(many=True)
+
+
+class NotificationExclusionRequestSerializer(serializers.Serializer):
+    """Item to add to or remove from the exclusion list."""
+
+    item_id = serializers.IntegerField()
+
+
+class NotificationExclusionResultSerializer(serializers.Serializer):
+    """Exclusion state of an item after the change."""
+
+    item_id = serializers.IntegerField()
+    excluded = serializers.BooleanField()
+
+
+class NotificationTestResponseSerializer(serializers.Serializer):
+    """Result of sending a test notification."""
+
+    sent = serializers.BooleanField()
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    """The newly issued API token."""
+
+    token = serializers.CharField()
+
+
 # /api/v1/user/preferences/
 class UserPreferencesView(drf_views.APIView):
     """Read or update user preferences (mirrors the web preferences page)."""
@@ -252,6 +319,7 @@ class UserPreferencesView(drf_views.APIView):
 class UserSidebarView(drf_views.APIView):
     """Read or update media-type visibility (mirrors the sidebar page)."""
 
+    @extend_schema(responses={200: UserSidebarSerializer})
     def get(self, request):
         """Return the enabled state per media type."""
         return Response(
@@ -268,6 +336,14 @@ class UserSidebarView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=UserSidebarSerializer,
+        responses={
+            200: UserSidebarUpdateResponseSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+        },
+    )
     def put(self, request):
         """Set the enabled state for the provided media types."""
         user = request.user
@@ -310,6 +386,7 @@ class UserSidebarView(drf_views.APIView):
 class UserNotificationsView(drf_views.APIView):
     """Read or update notification settings (mirrors the web page)."""
 
+    @extend_schema(responses={200: UserNotificationsSerializer})
     def get(self, request):
         """Return notification settings and excluded items."""
         return Response(
@@ -323,6 +400,10 @@ class UserNotificationsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=UserNotificationsUpdateSerializer,
+        responses={200: UserNotificationsSerializer, 400: DetailErrorSerializer},
+    )
     def patch(self, request):
         """Update notification settings via the web form's validation."""
         data = {
@@ -353,6 +434,7 @@ class UserNotificationsView(drf_views.APIView):
 class UserNotificationExclusionsView(drf_views.APIView):
     """Manage the notification exclusion list."""
 
+    @extend_schema(responses={200: NotificationExclusionListSerializer})
     def get(self, request):
         """Return excluded items."""
         return Response(
@@ -369,6 +451,13 @@ class UserNotificationExclusionsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=NotificationExclusionRequestSerializer,
+        responses={
+            200: NotificationExclusionResultSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Exclude an item from notifications."""
         item = Item.objects.filter(id=request.data.get("item_id")).first()
@@ -377,6 +466,13 @@ class UserNotificationExclusionsView(drf_views.APIView):
         request.user.notification_excluded_items.add(item)
         return Response({"item_id": item.id, "excluded": True}, status=HTTP.OK)
 
+    @extend_schema(
+        request=NotificationExclusionRequestSerializer,
+        responses={
+            200: NotificationExclusionResultSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request):
         """Remove an item from the exclusion list."""
         item = Item.objects.filter(id=request.data.get("item_id")).first()
@@ -390,6 +486,14 @@ class UserNotificationExclusionsView(drf_views.APIView):
 class UserNotificationTestView(drf_views.APIView):
     """Send a test notification (mirrors the web test_notification view)."""
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: NotificationTestResponseSerializer,
+            400: DetailErrorSerializer,
+            502: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Send the test message to all configured Apprise URLs."""
         # Imported here, not at module scope: apprise loads its whole notification
@@ -442,6 +546,7 @@ class UserTokenRegenerateView(drf_views.APIView):
     it must be updated.
     """
 
+    @extend_schema(request=None, responses={200: TokenResponseSerializer})
     def post(self, request):
         """Regenerate and return the new token once."""
         request.user.regenerate_token()

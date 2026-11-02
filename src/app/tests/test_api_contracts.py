@@ -974,12 +974,14 @@ class SchemaFindingContractTests(SimpleTestCase):
         self.assertNotEqual(two_routes, three_routes)
 
     def test_baseline_failure_names_changed_pair_and_regeneration_command(self):
-        removed = min(EXPECTED_SCHEMA_ERRORS)
+        removed = ("api.views.ExampleView", "serializer-unresolved")
         added = (f"{removed[0]}Changed", removed[1])
-        mutated = (EXPECTED_SCHEMA_ERRORS - {removed}) | {added}
 
-        with self.assertRaises(AssertionError) as caught:
-            assert_schema_findings(mutated, EXPECTED_SCHEMA_WARNINGS)
+        with (
+            patch("api.schema_contract.EXPECTED_SCHEMA_ERRORS", frozenset({removed})),
+            self.assertRaises(AssertionError) as caught,
+        ):
+            assert_schema_findings({added}, EXPECTED_SCHEMA_WARNINGS)
 
         message = str(caught.exception)
         self.assertIn(f"+ {added!r}", message)
@@ -987,8 +989,8 @@ class SchemaFindingContractTests(SimpleTestCase):
         self.assertIn(SCHEMA_REGENERATION_COMMAND, message)
 
     def test_reviewed_baseline_has_expected_unique_counts(self):
-        self.assertEqual(len(EXPECTED_SCHEMA_ERRORS), 78)
-        self.assertEqual(len(EXPECTED_SCHEMA_WARNINGS), 18)
+        self.assertEqual(len(EXPECTED_SCHEMA_ERRORS), 0)
+        self.assertEqual(len(EXPECTED_SCHEMA_WARNINGS), 0)
 
     def test_generated_schema_findings_match_reviewed_baseline(self):
         contract = generate_schema_contract()

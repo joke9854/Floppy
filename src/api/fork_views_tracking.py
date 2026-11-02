@@ -38,7 +38,13 @@ from app.services.sync_items import refresh_sync_items
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
-from .contract_serializers import DetailErrorSerializer, PaginationSerializer
+from .contract_serializers import (
+    ConsumptionResponseSerializer,
+    DetailErrorSerializer,
+    PaginationSerializer,
+    TaskQueuedSerializer,
+    TrackedMediaResponseSerializer,
+)
 from .helpers import (
     MEDIA_TYPE_MODEL_MAP,
     apply_episode_score,
@@ -74,6 +80,35 @@ def _tv_route_error(media_type, source):
     return None
 
 
+class EpisodeWatchRequestSerializer(serializers.Serializer):
+    """Optional details for an episode play."""
+
+    end_date = serializers.DateTimeField(
+        required=False, help_text="Defaults to the current server time."
+    )
+    score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, required=False, allow_null=True
+    )
+    library_media_type = serializers.CharField(required=False)
+
+
+class EpisodeDropRequestSerializer(serializers.Serializer):
+    """Optional hint for resolving the show."""
+
+    library_media_type = serializers.CharField(required=False)
+
+
+class MovieWatchRequestSerializer(serializers.Serializer):
+    """Optional details for a movie play."""
+
+    end_date = serializers.DateTimeField(
+        required=False, help_text="Defaults to the current server time."
+    )
+    external_id = serializers.CharField(
+        required=False, help_text="Client play id; repeats are idempotent."
+    )
+
+
 # /api/v1/media/tv/[source]/[media_id]/[season_number]/episodes/[episode_number]/watch/
 class MediaEpisodeWatchView(drf_views.APIView):
     """Add or remove a watch (play) for an episode.
@@ -85,7 +120,12 @@ class MediaEpisodeWatchView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
-        responses={404: DetailErrorSerializer},
+        request=EpisodeWatchRequestSerializer,
+        responses={
+            201: TrackedMediaResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
     )
     def post(
         self,
@@ -172,7 +212,10 @@ class MediaEpisodeWatchView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
-        responses={404: DetailErrorSerializer},
+        responses={
+            204: None,
+            404: DetailErrorSerializer,
+        },
     )
     def delete(
         self,
@@ -250,7 +293,16 @@ class MediaMovieWatchView(drf_views.APIView):
     replay the same event.
     """
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=MovieWatchRequestSerializer,
+        responses={
+            200: ConsumptionResponseSerializer,
+            201: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request, media_type, source, media_id):
         """Record a watch (play) for the movie."""
         if media_type != MediaTypes.MOVIE.value:
@@ -293,7 +345,14 @@ class MediaMovieWatchView(drf_views.APIView):
             status=status_code,
         )
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id):
         """Remove a watch (play) of the movie.
 
@@ -489,7 +548,11 @@ class MediaEpisodeDropView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
-        responses={404: DetailErrorSerializer},
+        request=EpisodeDropRequestSerializer,
+        responses={
+            201: TrackedMediaResponseSerializer,
+            404: DetailErrorSerializer,
+        },
     )
     def post(
         self,
@@ -554,10 +617,61 @@ def _serialize_tag(tag, item_count=None):
     return payload
 
 
+class TagSerializer(serializers.Serializer):
+    """A user tag; list responses add `item_count`."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    item_count = serializers.IntegerField(required=False)
+
+
+class TagListSerializer(serializers.Serializer):
+    """User tags."""
+
+    results = TagSerializer(many=True)
+
+
+class TagRequestSerializer(serializers.Serializer):
+    """Tag name."""
+
+    name = serializers.CharField()
+
+
+class MediaTagsRequestSerializer(serializers.Serializer):
+    """Tag ids that replace the media's tags."""
+
+    tag_ids = serializers.ListField(child=serializers.IntegerField())
+
+
+class EpisodeBulkPlaysRequestSerializer(serializers.Serializer):
+    """A season/episode range of plays to spread over a date range."""
+
+    start_date = serializers.CharField()
+    end_date = serializers.CharField()
+    first_season_number = serializers.IntegerField()
+    first_episode_number = serializers.IntegerField()
+    last_season_number = serializers.IntegerField()
+    last_episode_number = serializers.IntegerField()
+    write_mode = serializers.CharField(
+        required=False, help_text="`add` (default) or `replace`."
+    )
+    distribution_mode = serializers.CharField(
+        required=False, help_text="`even` (default) or `air_date`."
+    )
+    identity_media_type = serializers.CharField(required=False)
+    library_media_type = serializers.CharField(required=False)
+
+
 # /api/v1/tags/
 class TagsView(drf_views.APIView):
     """List or create the user's tags."""
 
+    @extend_schema(
+        responses={
+            200: TagListSerializer,
+        },
+    )
     def get(self, request):
         """Return all tags for the user with item counts."""
         tags = Tag.objects.filter(user=request.user).annotate(
@@ -568,6 +682,14 @@ class TagsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=TagRequestSerializer,
+        responses={
+            201: TagSerializer,
+            400: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Create a tag (names are unique per user, case-insensitive)."""
         name = " ".join((request.data.get("name") or "").split())
@@ -592,6 +714,15 @@ class TagDetailView(drf_views.APIView):
     def _get_tag(self, request, tag_id):
         return Tag.objects.filter(id=tag_id, user=request.user).first()
 
+    @extend_schema(
+        request=TagRequestSerializer,
+        responses={
+            200: TagSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, tag_id):
         """Rename the tag."""
         tag = self._get_tag(request, tag_id)
@@ -616,6 +747,12 @@ class TagDetailView(drf_views.APIView):
         tag.save()
         return Response(_serialize_tag(tag), status=HTTP.OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, tag_id):
         """Delete the tag and its item associations."""
         tag = self._get_tag(request, tag_id)
@@ -632,7 +769,14 @@ class MediaTagsView(drf_views.APIView):
     def _get_item(self, media_type, source, media_id):
         return resolve_item_queryset(media_id, source, media_type).first()
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: TagListSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Return the user's tags applied to this item."""
         if not check_valid_type(media_type):
@@ -649,7 +793,15 @@ class MediaTagsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=MediaTagsRequestSerializer,
+        responses={
+            200: TagListSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def put(self, request, media_type, source, media_id):
         """Replace the user's tags on this item with the given tag ids."""
         if not check_valid_type(media_type):
@@ -877,7 +1029,15 @@ class HistoryView(drf_views.APIView):
 class HistoryRecordView(drf_views.APIView):
     """Delete a consumption-history record (mirrors the web history delete)."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, history_id):
         """Delete the record; play-per-instance types delete the play itself."""
         if media_type not in MEDIA_TYPE_MODEL_MAP:
@@ -913,7 +1073,14 @@ class MediaEpisodeBulkView(drf_views.APIView):
     task_id that can be polled at /api/v1/tasks/{task_id}.
     """
 
-    @extend_schema(parameters=[MEDIA_TYPE_TV_ONLY_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_TV_ONLY_PARAM],
+        request=EpisodeBulkPlaysRequestSerializer,
+        responses={
+            202: TaskQueuedSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def post(self, request, media_type, source, media_id):
         """Queue the bulk play range for the media."""
         if media_type != MediaTypes.TV.value:

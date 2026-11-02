@@ -64,14 +64,27 @@ from .changes_history_processor import (
     get_changes_history_entry,
 )
 from .contract_serializers import (
+    ChangesHistoryEntryResponseSerializer,
+    ChangesHistoryEnvelopeSerializer,
     CompleteEpisodeResponseSerializer,
     CompleteGameResponseSerializer,
     CompleteMediaResponseSerializer,
+    ConsumptionEnvelopeSerializer,
     ConsumptionResponseSerializer,
     DetailErrorSerializer,
+    DetailMessageSerializer,
+    ListCreateRequestSerializer,
+    ListEnvelopeSerializer,
+    ListMembershipEnvelopeSerializer,
+    ListMembershipRequestSerializer,
+    ListMembershipSerializer,
+    ListResponseSerializer,
+    ListUpdateRequestSerializer,
     MediaUpdateRequestSerializer,
+    PaginationSerializer,
     SearchEnvelopeSerializer,
     TrackedMediaEnvelopeSerializer,
+    TrackedMediaPageSerializer,
     TrackedMediaResponseSerializer,
     TrackedMediaUpdateRequestSerializer,
     TrackMediaRequestSerializer,
@@ -108,6 +121,7 @@ from .serializers import (
     CompleteEpisodeSerializer,
     CompleteMediaSerializer,
     EpisodeSerializer,
+    EventSerializer,
     HealthResponseSerializer,
     HistorySerializer,
     InfoSerializer,
@@ -169,10 +183,60 @@ def _resolve_api_episode_coordinate(
 # TODO: Review children endpoints performance and avoid repeated list lookups per item.
 
 
+class CalendarEnvelopeSerializer(serializers.Serializer):
+    """Paginated calendar events."""
+
+    pagination = PaginationSerializer()
+    results = EventSerializer(many=True)
+
+
+class StatisticsResponseSerializer(serializers.Serializer):
+    """User statistics for the requested date range."""
+
+    start_date = serializers.DateTimeField(allow_null=True)
+    end_date = serializers.DateTimeField(allow_null=True)
+    media_count = serializers.JSONField()
+    activity_data = serializers.JSONField()
+    media_type_distribution = serializers.JSONField()
+    score_distribution = serializers.JSONField()
+    top_rated = serializers.ListField(child=serializers.DictField())
+    status_distribution = serializers.JSONField()
+    status_pie_chart_data = serializers.JSONField()
+    timeline = serializers.DictField(
+        child=serializers.ListField(child=serializers.DictField()),
+        help_text="Timeline entries keyed by month.",
+    )
+
+
+# Provider recommendations are passed through as the provider returns them.
+RECOMMENDATIONS_RESPONSE = {
+    "type": "array",
+    "items": {"type": "object", "additionalProperties": True},
+}
+
+# A list item resolves to the media, season or episode detail response.
+LIST_ITEM_DETAIL_RESPONSE = PolymorphicProxySerializer(
+    component_name="ListItemDetailResponse",
+    serializers=[
+        CompleteMediaResponseSerializer,
+        CompleteGameResponseSerializer,
+        CompleteEpisodeResponseSerializer,
+    ],
+    resource_type_field_name=None,
+)
+
+
 # /api/v1/calendar/
 class CalendarView(drf_views.APIView):
     """Calendar view."""
 
+    @extend_schema(
+        responses={
+            200: CalendarEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Retrieve calendar events for the authenticated user."""
         start_date = request.GET.get("start_date")
@@ -222,6 +286,12 @@ class CalendarView(drf_views.APIView):
 class CalendarUpdateView(drf_views.APIView):
     """Update calendar view."""
 
+    @extend_schema(
+        request=None,
+        responses={
+            202: DetailMessageSerializer,
+        },
+    )
     def post(self, request):
         """Trigger calendar events update for the authenticated user."""
         tasks.reload_calendar.delay(request.user)
@@ -235,7 +305,14 @@ class CalendarUpdateView(drf_views.APIView):
 class MediaTypeChangesHistoryDetailView(drf_views.APIView):
     """Changes history record view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_COMPLETE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_COMPLETE_PARAM],
+        responses={
+            200: ChangesHistoryEntryResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, history_id):
         """Retrieve the changes history record for a specific media."""
         if not check_valid_type(media_type, complete=True):
@@ -261,7 +338,14 @@ class MediaTypeChangesHistoryDetailView(drf_views.APIView):
                 status=HTTP.NOT_FOUND,
             )
 
-    @extend_schema(parameters=[MEDIA_TYPE_COMPLETE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_COMPLETE_PARAM],
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, history_id):
         """Delete the changes history record for a specific media."""
         if not check_valid_type(media_type, complete=True):
@@ -369,6 +453,13 @@ class InfoView(drf_views.APIView):
 class ListsView(drf_views.APIView):
     """Lists view."""
 
+    @extend_schema(
+        responses={
+            200: ListEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Retrieve the lists for the authenticated user."""
         user = request.user
@@ -401,6 +492,15 @@ class ListsView(drf_views.APIView):
         paginated_data["results"] = serialized_data
         return Response(paginated_data, status=HTTP.OK)
 
+    @extend_schema(
+        request=ListCreateRequestSerializer,
+        responses={
+            201: ListResponseSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Create a new custom list for the authenticated user."""
         if getattr(request.auth, "writable_list_ids", None):
@@ -499,6 +599,13 @@ class ListsView(drf_views.APIView):
 class ListDetailView(drf_views.APIView):
     """List detail view."""
 
+    @extend_schema(
+        responses={
+            204: None,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, list_id):
         """Delete a specific custom list."""
         user = request.user
@@ -522,6 +629,15 @@ class ListDetailView(drf_views.APIView):
         custom_list.delete()
         return Response(status=HTTP.NO_CONTENT)
 
+    @extend_schema(
+        operation_id="retrieveList",
+        responses={
+            200: ListResponseSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Retrieve details and paginated items of a specific list."""
         user = request.user
@@ -561,6 +677,15 @@ class ListDetailView(drf_views.APIView):
 
         return Response(serialized_list, status=HTTP.OK)
 
+    @extend_schema(
+        request=ListUpdateRequestSerializer,
+        responses={
+            200: ListResponseSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, list_id):
         """Update a specific custom list."""
         user = request.user
@@ -648,6 +773,14 @@ class ListDetailView(drf_views.APIView):
 class ListItemsView(drf_views.APIView):
     """List items view."""
 
+    @extend_schema(
+        responses={
+            200: TrackedMediaEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id):
         """Get items of a list."""
         user = request.user
@@ -692,6 +825,13 @@ class ListItemsView(drf_views.APIView):
 class ListItemView(drf_views.APIView):
     """List item detail view."""
 
+    @extend_schema(
+        responses={
+            204: None,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, list_id, item_id):
         """Delete an item from a list."""
         user = request.user
@@ -728,6 +868,16 @@ class ListItemView(drf_views.APIView):
         list_item.delete()
         return Response(status=HTTP.NO_CONTENT)
 
+    @extend_schema(
+        operation_id="retrieveListItem",
+        responses={
+            200: LIST_ITEM_DETAIL_RESPONSE,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, list_id, item_id):
         """Get details of a list item."""
         user = request.user
@@ -880,7 +1030,10 @@ class MediaListView(drf_views.APIView):
     @extend_schema(
         parameters=MEDIA_LIST_ROOT_PARAMS,
         operation_id="listTrackedMedia",
-        responses={200: TrackedMediaEnvelopeSerializer},
+        responses={
+            200: TrackedMediaEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
     )
     def get(self, request):
         """Retrieve the filtered media list for the authenticated user."""
@@ -896,7 +1049,10 @@ class MediaTypeListView(drf_views.APIView):
     @extend_schema(
         parameters=[MEDIA_TYPE_COMPLETE_PARAM, *MEDIA_LIST_FILTER_PARAMS],
         operation_id="listTrackedMediaByType",
-        responses={200: TrackedMediaEnvelopeSerializer},
+        responses={
+            200: TrackedMediaEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
     )
     def get(self, request, media_type):
         """Retrieve the filtered media list of a specific media type."""
@@ -1125,7 +1281,16 @@ class MediaDetailView(drf_views.APIView):
 
     serializer_class = MediaSerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="deleteMedia",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id):
         """Delete a tracked media item and all its consumptions."""
         user = request.user
@@ -1534,7 +1699,14 @@ class MediaDetailView(drf_views.APIView):
 class MediaChangesHistoryView(drf_views.APIView):
     """Media changes history view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: ChangesHistoryEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Retrieve changes history timeline entries for a specific media."""
         limit, offset, err = parse_limit_offset(request)
@@ -1591,7 +1763,15 @@ class MediaConsumptionHistoryView(drf_views.APIView):
 
     serializer_class = HistorySerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: ConsumptionEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Retrieve the history timeline for a specific media."""
         limit, offset, err = parse_limit_offset(request)
@@ -1668,7 +1848,15 @@ class MediaConsumptionEntryDetailView(drf_views.APIView):
 
     serializer_class = HistorySerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id, consumption_id):
         """Delete a specific consumption history entry for a specific media."""
         if not check_valid_type(media_type):
@@ -1720,7 +1908,16 @@ class MediaConsumptionEntryDetailView(drf_views.APIView):
 
         return Response(status=HTTP.NO_CONTENT)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="retrieveMediaConsumption",
+        responses={
+            200: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, consumption_id):
         """Retrieve a specific consumption history entry for a specific media."""
         if not check_valid_type(media_type):
@@ -1869,7 +2066,13 @@ class MediaConsumptionEntryDetailView(drf_views.APIView):
 class MediaListsView(drf_views.APIView):
     """Media lists view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: ListMembershipEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Retrieve the lists that a specific media is in."""
         user = request.user
@@ -1902,7 +2105,15 @@ class MediaListsView(drf_views.APIView):
 class MediaListDetailView(drf_views.APIView):
     """Media list detail view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id, list_id):
         """Remove a specific media from a specific list."""
         user = request.user
@@ -1954,7 +2165,18 @@ class MediaListDetailView(drf_views.APIView):
         list_item.delete()
         return Response(status=HTTP.NO_CONTENT)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=ListMembershipRequestSerializer,
+        responses={
+            200: ListMembershipSerializer(many=True),
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
     def put(self, request, media_type, source, media_id, list_id):
         """Add a specific media to a specific list."""
         user = request.user
@@ -2035,7 +2257,14 @@ class MediaRecommendationsView(drf_views.APIView):
 
     serializer_class = MediaSerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: RECOMMENDATIONS_RESPONSE,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Retrieve recommendations for a specific media."""
         if not check_valid_type(media_type):
@@ -2083,7 +2312,14 @@ class MediaRecommendationsView(drf_views.APIView):
 class MediaSeasonsView(drf_views.APIView):
     """Media seasons view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: TrackedMediaPageSerializer,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id):
         """Retrieve the history timeline for a specific media."""
         user = request.user
@@ -2267,7 +2503,16 @@ class MediaSeasonsView(drf_views.APIView):
 class MediaSyncView(drf_views.APIView):
     """Sync media view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=None,
+        responses={
+            202: DetailMessageSerializer,
+            400: DetailErrorSerializer,
+            429: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def post(self, request, media_type, source, media_id):  # FORK: was `_`
         """Trigger sync of metadata from provider (non-manual sources only)."""
         if not check_valid_type(media_type):
@@ -2398,7 +2643,16 @@ class MediaSeasonDetailView(drf_views.APIView):
 
     serializer_class = MediaSerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="deleteMediaSeason",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id, season_number):
         """Delete a tracked season item for the authenticated user."""
         user = request.user
@@ -2606,7 +2860,17 @@ class MediaSeasonDetailView(drf_views.APIView):
         )
         return Response(serialized, status=HTTP.OK)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="updateMediaSeason",
+        request=MediaUpdateRequestSerializer,
+        responses={
+            200: CompleteMediaResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, media_type, source, media_id, season_number):
         """Update a tracked season item."""
         user = request.user
@@ -2730,7 +2994,15 @@ class MediaSeasonDetailView(drf_views.APIView):
 class MediaSeasonChangesHistoryView(drf_views.APIView):
     """Changes history season view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="listMediaSeasonChangesHistory",
+        responses={
+            200: ChangesHistoryEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number):
         """Retrieve changes history timeline entries for a season."""
         limit, offset, err = parse_limit_offset(request)
@@ -2795,7 +3067,14 @@ class MediaSeasonChangesHistoryView(drf_views.APIView):
 class MediaSeasonEpisodesView(drf_views.APIView):
     """Season episodes view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        responses={
+            200: TrackedMediaPageSerializer,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number):
         """Retrieve the episodes for a specific season of a tv serie."""
         user = request.user
@@ -2913,7 +3192,15 @@ class MediaSeasonConsumptionHistoryView(drf_views.APIView):
 
     serializer_class = HistorySerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="listMediaSeasonConsumptions",
+        responses={
+            200: ConsumptionEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number):
         """Retrieve the history timeline for a specific season of a tv serie."""
         limit, offset, err = parse_limit_offset(request)
@@ -2988,7 +3275,16 @@ class MediaSeasonConsumptionEntryDetailView(drf_views.APIView):
 
     serializer_class = HistorySerializer
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="deleteMediaSeasonConsumption",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def delete(
         self,
         request,
@@ -3049,7 +3345,16 @@ class MediaSeasonConsumptionEntryDetailView(drf_views.APIView):
 
         return Response(status=HTTP.NO_CONTENT)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="retrieveMediaSeasonConsumption",
+        responses={
+            200: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number, consumption_id):
         """Retrieve a specific consumption history entry for a specific season."""
         if not check_valid_type(media_type):
@@ -3104,7 +3409,17 @@ class MediaSeasonConsumptionEntryDetailView(drf_views.APIView):
         )
         return Response(serialized_data, status=HTTP.OK)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="updateMediaSeasonConsumption",
+        request=MediaUpdateRequestSerializer,
+        responses={
+            200: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def patch(
         self,
         request,
@@ -3197,7 +3512,14 @@ class MediaSeasonConsumptionEntryDetailView(drf_views.APIView):
 class MediaSeasonListsView(drf_views.APIView):
     """Season lists view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="listMediaSeasonLists",
+        responses={
+            200: ListMembershipEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number):
         """Retrieve the lists that a specific season is in."""
         user = request.user
@@ -3244,7 +3566,16 @@ class MediaSeasonListsView(drf_views.APIView):
 class MediaSeasonListDetailView(drf_views.APIView):
     """Season list detail view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="removeMediaSeasonFromList",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, media_type, source, media_id, season_number, list_id):
         """Remove a specific season from a specific list."""
         user = request.user
@@ -3305,7 +3636,19 @@ class MediaSeasonListDetailView(drf_views.APIView):
         list_item.delete()
         return Response(status=HTTP.NO_CONTENT)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="addMediaSeasonToList",
+        request=ListMembershipRequestSerializer,
+        responses={
+            200: ListMembershipSerializer(many=True),
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
     def put(self, request, media_type, source, media_id, season_number, list_id):
         """Add a specific season to a specific list."""
         user = request.user
@@ -3400,7 +3743,17 @@ class MediaSeasonSyncView(drf_views.APIView):
     """Sync season."""
 
     # FORK: request arg was `_` upstream
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="syncMediaSeason",
+        request=None,
+        responses={
+            202: DetailMessageSerializer,
+            400: DetailErrorSerializer,
+            429: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def post(self, request, media_type, source, media_id, season_number):
         """Trigger sync of metadata from provider (non-manual sources only)."""
         # TODO: see if it can be simplified reducing the number of return statements
@@ -3599,7 +3952,13 @@ class MediaEpisodeDetailView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={204: None, 404: DetailErrorSerializer},
+        operation_id="deleteMediaEpisode",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def delete(
         self,
@@ -3796,7 +4155,14 @@ class MediaEpisodeDetailView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="updateMediaEpisode",
+        request=MediaUpdateRequestSerializer,
+        responses={
+            200: CompleteEpisodeResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def patch(
         self,
@@ -3968,7 +4334,12 @@ class MediaEpisodeChangesHistoryView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="listMediaEpisodeChangesHistory",
+        responses={
+            200: ChangesHistoryEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
     )
     def get(self, request, media_type, source, media_id, season_number, episode_number):
         """Retrieve changes history timeline entries for a specific episode."""
@@ -4050,7 +4421,12 @@ class MediaEpisodeConsumptionHistoryView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="listMediaEpisodeConsumptions",
+        responses={
+            200: ConsumptionEnvelopeSerializer,
+            400: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def get(self, request, media_type, source, media_id, season_number, episode_number):
         """Retrieve the history timeline for a specific episode of a tv serie."""
@@ -4140,7 +4516,13 @@ class MediaEpisodeConsumptionEntryDetailView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="deleteMediaEpisodeConsumption",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def delete(
         self,
@@ -4214,7 +4596,13 @@ class MediaEpisodeConsumptionEntryDetailView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="retrieveMediaEpisodeConsumption",
+        responses={
+            200: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def get(
         self,
@@ -4290,7 +4678,14 @@ class MediaEpisodeConsumptionEntryDetailView(drf_views.APIView):
 
     @extend_schema(
         parameters=[MEDIA_TYPE_PARAM],
-        responses={404: DetailErrorSerializer},
+        operation_id="updateMediaEpisodeConsumption",
+        request=MediaUpdateRequestSerializer,
+        responses={
+            200: ConsumptionResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
     )
     def patch(
         self,
@@ -4394,7 +4789,14 @@ class MediaEpisodeConsumptionEntryDetailView(drf_views.APIView):
 class MediaEpisodeListsView(drf_views.APIView):
     """Episode lists view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="listMediaEpisodeLists",
+        responses={
+            200: ListMembershipEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request, media_type, source, media_id, season_number, episode_number):
         """Retrieve the lists that a specific season is in."""
         user = request.user
@@ -4442,7 +4844,16 @@ class MediaEpisodeListsView(drf_views.APIView):
 class MediaEpisodeListDetailView(drf_views.APIView):
     """Episode list detail view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="removeMediaEpisodeFromList",
+        responses={
+            204: None,
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(
         self,
         request,
@@ -4513,7 +4924,19 @@ class MediaEpisodeListDetailView(drf_views.APIView):
         list_item.delete()
         return Response(status=HTTP.NO_CONTENT)
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="addMediaEpisodeToList",
+        request=ListMembershipRequestSerializer,
+        responses={
+            200: ListMembershipSerializer(many=True),
+            400: DetailErrorSerializer,
+            403: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            409: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
     def put(
         self,
         request,
@@ -4618,7 +5041,17 @@ class MediaEpisodeListDetailView(drf_views.APIView):
 class MediaEpisodeSyncView(drf_views.APIView):
     """Sync episode view."""
 
-    @extend_schema(parameters=[MEDIA_TYPE_PARAM])
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        operation_id="syncMediaEpisode",
+        request=None,
+        responses={
+            202: DetailMessageSerializer,
+            400: DetailErrorSerializer,
+            429: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+        },
+    )
     def post(
         self,
         request,
@@ -4841,6 +5274,12 @@ class SearchProviderView(drf_views.APIView):
 class StatisticsView(drf_views.APIView):
     """Statistics view."""
 
+    @extend_schema(
+        responses={
+            200: StatisticsResponseSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Retrieve statistics for the authenticated user."""
         # TODO: Possibly don't use WebUI needed statistics but compute them for API

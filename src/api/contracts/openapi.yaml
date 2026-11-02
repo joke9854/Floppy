@@ -1228,6 +1228,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaEnvelope'
           description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
       x-required-scope: watchlist:read
   /api/v1/media/{media_type}/:
     get:
@@ -1454,6 +1460,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TrackedMediaEnvelope'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
           description: ''
       x-required-scope: watchlist:read
     post:
@@ -1752,6 +1764,24 @@ paths:
       responses:
         '204':
           description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/:
     get:
       operationId: retrieveMediaSeason
@@ -1880,6 +1910,24 @@ paths:
       responses:
         '204':
           description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/:
     get:
       operationId: retrieveMediaEpisode
@@ -2020,7 +2068,19 @@ paths:
       responses:
         '204':
           description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
           content:
             application/json:
               schema:

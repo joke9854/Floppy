@@ -7,6 +7,8 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -29,6 +31,12 @@ from app.services.music import sync_artist_discography
 from app.services.music_scrobble import dedupe_artist_albums
 from app.tasks_bulk_plays import bulk_music_plays_task
 
+from .contract_serializers import (
+    DetailErrorSerializer,
+    PaginationSerializer,
+    TaskQueuedSerializer,
+    TrackedMediaResponseSerializer,
+)
 from .helpers import paginate_data, parse_limit_offset, try_parse_datetime_input
 from .serializers import serialize_data
 
@@ -117,10 +125,173 @@ def _invalidate_music_score_days(user, day_keys, reason):
         )
 
 
+class MusicTrackerSerializer(serializers.Serializer):
+    """The caller's tracker for an artist or album."""
+
+    status = serializers.CharField()
+    score = serializers.CharField(
+        allow_null=True, help_text="Decimal score on the 0-10 scale."
+    )
+    start_date = serializers.DateTimeField(allow_null=True)
+    end_date = serializers.DateTimeField(allow_null=True)
+    notes = serializers.CharField(allow_blank=True, allow_null=True)
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class MusicAlbumSerializer(serializers.Serializer):
+    """An album with the caller's tracker."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    musicbrainz_release_id = serializers.CharField(allow_null=True)
+    musicbrainz_release_group_id = serializers.CharField(allow_null=True)
+    artist_id = serializers.IntegerField(allow_null=True)
+    artist_name = serializers.CharField(allow_null=True)
+    release_date = serializers.DateField(allow_null=True)
+    release_type = serializers.CharField(allow_blank=True, allow_null=True)
+    image = serializers.CharField(allow_blank=True, allow_null=True)
+    genres = serializers.JSONField()
+    tracker = MusicTrackerSerializer(allow_null=True)
+
+
+class MusicArtistSerializer(serializers.Serializer):
+    """An artist with the caller's tracker; detail responses add `albums`."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    musicbrainz_id = serializers.CharField(allow_null=True)
+    image = serializers.CharField(allow_blank=True, allow_null=True)
+    country = serializers.CharField(allow_blank=True, allow_null=True)
+    genres = serializers.JSONField()
+    artist_type = serializers.CharField(allow_blank=True, allow_null=True)
+    discography_synced_at = serializers.DateTimeField(allow_null=True)
+    tracker = MusicTrackerSerializer(allow_null=True)
+    albums = MusicAlbumSerializer(many=True, required=False)
+
+
+class MusicArtistEnvelopeSerializer(serializers.Serializer):
+    """Paginated artist trackers."""
+
+    pagination = PaginationSerializer()
+    results = MusicArtistSerializer(many=True)
+
+
+class MusicAlbumEnvelopeSerializer(serializers.Serializer):
+    """Paginated album trackers."""
+
+    pagination = PaginationSerializer()
+    results = MusicAlbumSerializer(many=True)
+
+
+class MusicTrackerRequestSerializer(serializers.Serializer):
+    """Tracker fields to set; omitted fields keep their value."""
+
+    score = serializers.DecimalField(
+        max_digits=3, decimal_places=1, required=False, allow_null=True
+    )
+    status = serializers.CharField(required=False)
+    start_date = serializers.DateTimeField(required=False, allow_null=True)
+    end_date = serializers.DateTimeField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class MusicArtistTrackRequestSerializer(MusicTrackerRequestSerializer):
+    """Artist to track, by Floppy id or MusicBrainz id, plus tracker fields."""
+
+    artist_id = serializers.IntegerField(required=False)
+    musicbrainz_id = serializers.CharField(required=False)
+
+
+class MusicAlbumTrackRequestSerializer(MusicTrackerRequestSerializer):
+    """Album to track plus tracker fields."""
+
+    album_id = serializers.IntegerField()
+
+
+class MusicArtistSyncResponseSerializer(serializers.Serializer):
+    """Albums refreshed by a discography sync."""
+
+    synced_albums = serializers.IntegerField()
+
+
+class MusicDeletedPlaysSerializer(serializers.Serializer):
+    """Number of plays removed."""
+
+    deleted_plays = serializers.IntegerField()
+
+
+class MusicAlbumTrackSerializer(serializers.Serializer):
+    """A track on an album with the caller's play state."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    track_number = serializers.IntegerField(allow_null=True)
+    disc_number = serializers.IntegerField(allow_null=True)
+    duration_ms = serializers.IntegerField(allow_null=True)
+    musicbrainz_recording_id = serializers.CharField(allow_null=True)
+    music_id = serializers.IntegerField(allow_null=True)
+    last_played = serializers.DateTimeField(allow_null=True)
+    play_count = serializers.IntegerField()
+    score = serializers.CharField(allow_null=True)
+
+
+class MusicAlbumTracksSerializer(serializers.Serializer):
+    """Tracks on an album."""
+
+    results = MusicAlbumTrackSerializer(many=True)
+
+
+class MusicSongPlayRequestSerializer(serializers.Serializer):
+    """A song play to record."""
+
+    album_id = serializers.IntegerField()
+    track_id = serializers.IntegerField(required=False)
+    end_date = serializers.DateTimeField(required=False)
+    recording_id = serializers.CharField(required=False)
+
+
+class MusicTrackScoreRequestSerializer(serializers.Serializer):
+    """New score for a track, or null to clear it."""
+
+    score = serializers.DecimalField(max_digits=3, decimal_places=1, allow_null=True)
+
+
+class MusicTrackScoreSerializer(serializers.Serializer):
+    """The track's score after the change."""
+
+    score = serializers.CharField(allow_null=True)
+
+
+class MusicBulkPlaysRequestSerializer(serializers.Serializer):
+    """A disc/track range of plays to spread over a date range."""
+
+    context_kind = serializers.CharField(help_text="`artist` or `album`.")
+    context_id = serializers.IntegerField()
+    start_date = serializers.CharField()
+    end_date = serializers.CharField()
+    first_disc_number = serializers.IntegerField()
+    first_track_number = serializers.IntegerField()
+    last_disc_number = serializers.IntegerField()
+    last_track_number = serializers.IntegerField()
+    write_mode = serializers.CharField(
+        required=False, help_text="`add` (default) or `replace`."
+    )
+    distribution_mode = serializers.CharField(
+        required=False, help_text="`even` (default) or `air_date`."
+    )
+
+
 # /api/v1/music/artists/
 class MusicArtistsView(drf_views.APIView):
     """List tracked artists or start tracking one."""
 
+    @extend_schema(
+        responses={
+            200: MusicArtistEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Return the caller's artist trackers."""
         limit, offset, err = parse_limit_offset(request)
@@ -135,6 +306,15 @@ class MusicArtistsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=MusicArtistTrackRequestSerializer,
+        responses={
+            201: MusicArtistSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+            502: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Track an artist by artist_id or musicbrainz_id (mirrors artist_save)."""
         artist = None
@@ -190,6 +370,13 @@ class MusicArtistDetailView(drf_views.APIView):
     def _get_artist(self, artist_id):
         return Artist.objects.filter(id=artist_id).first()
 
+    @extend_schema(
+        operation_id="retrieveMusicArtist",
+        responses={
+            200: MusicArtistSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, artist_id):
         """Return the artist, tracker, and album summaries."""
         artist = self._get_artist(artist_id)
@@ -204,6 +391,14 @@ class MusicArtistDetailView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=MusicTrackerRequestSerializer,
+        responses={
+            200: MusicArtistSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, artist_id):
         """Update the caller's tracker (creates one if missing)."""
         artist = self._get_artist(artist_id)
@@ -238,6 +433,12 @@ class MusicArtistDetailView(drf_views.APIView):
             )
         return Response(_serialize_artist(artist, tracker), status=HTTP.OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, artist_id):
         """Remove the caller's tracker (mirrors artist_delete)."""
         artist = self._get_artist(artist_id)
@@ -260,6 +461,14 @@ class MusicArtistDetailView(drf_views.APIView):
 class MusicArtistSyncView(drf_views.APIView):
     """Force a discography sync for an artist (mirrors the web sync view)."""
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: MusicArtistSyncResponseSerializer,
+            404: DetailErrorSerializer,
+            502: DetailErrorSerializer,
+        },
+    )
     def post(self, _request, artist_id):
         """Sync albums from MusicBrainz; returns the synced album count."""
         artist = Artist.objects.filter(id=artist_id).first()
@@ -281,6 +490,12 @@ class MusicArtistSyncView(drf_views.APIView):
 class MusicArtistPlaysView(drf_views.APIView):
     """Delete all of the caller's plays for an artist."""
 
+    @extend_schema(
+        responses={
+            200: MusicDeletedPlaysSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, artist_id):
         """Remove every Music play for the artist's albums."""
         artist = Artist.objects.filter(id=artist_id).first()
@@ -296,6 +511,12 @@ class MusicArtistPlaysView(drf_views.APIView):
 class MusicAlbumsView(drf_views.APIView):
     """List tracked albums or start tracking one."""
 
+    @extend_schema(
+        responses={
+            200: MusicAlbumEnvelopeSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def get(self, request):
         """Return the caller's album trackers."""
         limit, offset, err = parse_limit_offset(request)
@@ -311,6 +532,14 @@ class MusicAlbumsView(drf_views.APIView):
             status=HTTP.OK,
         )
 
+    @extend_schema(
+        request=MusicAlbumTrackRequestSerializer,
+        responses={
+            201: MusicAlbumSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Track an album by album_id (mirrors album_save)."""
         album_id = request.data.get("album_id")
@@ -350,6 +579,13 @@ class MusicAlbumDetailView(drf_views.APIView):
     def _get_album(self, album_id):
         return Album.objects.filter(id=album_id).select_related("artist").first()
 
+    @extend_schema(
+        operation_id="retrieveMusicAlbum",
+        responses={
+            200: MusicAlbumSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, album_id):
         """Return the album and the caller's tracker."""
         album = self._get_album(album_id)
@@ -358,6 +594,14 @@ class MusicAlbumDetailView(drf_views.APIView):
         tracker = AlbumTracker.objects.filter(user=request.user, album=album).first()
         return Response(_serialize_album(album, tracker), status=HTTP.OK)
 
+    @extend_schema(
+        request=MusicTrackerRequestSerializer,
+        responses={
+            200: MusicAlbumSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, album_id):
         """Update the caller's tracker (creates one if missing)."""
         album = self._get_album(album_id)
@@ -392,6 +636,12 @@ class MusicAlbumDetailView(drf_views.APIView):
             )
         return Response(_serialize_album(album, tracker), status=HTTP.OK)
 
+    @extend_schema(
+        responses={
+            204: None,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, album_id):
         """Remove the caller's tracker (mirrors album_delete)."""
         album = self._get_album(album_id)
@@ -411,6 +661,12 @@ class MusicAlbumDetailView(drf_views.APIView):
 class MusicAlbumTracksView(drf_views.APIView):
     """Tracklist for an album with the caller's play state."""
 
+    @extend_schema(
+        responses={
+            200: MusicAlbumTracksSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def get(self, request, album_id):
         """Return catalog tracks plus the user's Music entry per track."""
         album = Album.objects.filter(id=album_id).first()
@@ -451,6 +707,12 @@ class MusicAlbumTracksView(drf_views.APIView):
 class MusicAlbumPlaysView(drf_views.APIView):
     """Delete all of the caller's plays for an album."""
 
+    @extend_schema(
+        responses={
+            200: MusicDeletedPlaysSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def delete(self, request, album_id):
         """Remove every Music play for the album."""
         album = Album.objects.filter(id=album_id).first()
@@ -466,6 +728,14 @@ class MusicAlbumPlaysView(drf_views.APIView):
 class MusicSongPlayView(drf_views.APIView):
     """Record a listen for a song (mirrors web song_save)."""
 
+    @extend_schema(
+        request=MusicSongPlayRequestSerializer,
+        responses={
+            201: TrackedMediaResponseSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Add a play for a track on an album."""
         album_id = request.data.get("album_id")
@@ -513,6 +783,14 @@ class MusicSongPlayView(drf_views.APIView):
 class MusicTrackScoreView(drf_views.APIView):
     """Set or clear the score on a Music play row."""
 
+    @extend_schema(
+        request=MusicTrackScoreRequestSerializer,
+        responses={
+            200: MusicTrackScoreSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
     def patch(self, request, music_id):
         """Update the score (raw 0-10 scale; null clears)."""
         music = Music.objects.filter(id=music_id, user=request.user).first()
@@ -552,6 +830,13 @@ class MusicBulkPlaysView(drf_views.APIView):
     season/episode numbering. Returns 202 with a pollable task_id.
     """
 
+    @extend_schema(
+        request=MusicBulkPlaysRequestSerializer,
+        responses={
+            202: TaskQueuedSerializer,
+            400: DetailErrorSerializer,
+        },
+    )
     def post(self, request):
         """Queue bulk plays for an artist or album context."""
         context_kind = (request.data.get("context_kind") or "").strip()
