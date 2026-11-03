@@ -190,25 +190,111 @@ class CalendarEnvelopeSerializer(serializers.Serializer):
     results = EventSerializer(many=True)
 
 
+class ActivityDaySerializer(serializers.Serializer):
+    """One day cell of the activity calendar."""
+
+    date = serializers.DateField()
+    count = serializers.IntegerField()
+    level = serializers.IntegerField(help_text="Heat level, 0 to 4.")
+
+
+class ActivityStatsSerializer(serializers.Serializer):
+    """Activity calendar summary."""
+
+    most_active_day = serializers.CharField(allow_null=True)
+    most_active_day_percentage = serializers.IntegerField()
+    current_streak = serializers.IntegerField()
+    longest_streak = serializers.IntegerField()
+    longest_streak_start = serializers.DateField(allow_null=True)
+    longest_streak_end = serializers.DateField(allow_null=True)
+
+
+class ActivityDataSerializer(serializers.Serializer):
+    """Activity calendar (``app.stats_activity.get_activity_data``)."""
+
+    calendar_weeks = serializers.ListField(child=ActivityDaySerializer(many=True))
+    months = serializers.ListField(
+        child=serializers.ListField(child=serializers.JSONField()),
+        help_text="`[month label, week count]` pairs; the label is empty for "
+        "months spanning a single week.",
+    )
+    weekday_labels = serializers.ListField(child=serializers.CharField())
+    stats = ActivityStatsSerializer()
+
+
+class PieChartDatasetSerializer(serializers.Serializer):
+    """Values and colours of one pie chart."""
+
+    data = serializers.ListField(child=serializers.IntegerField())
+    backgroundColor = serializers.ListField(child=serializers.CharField())  # noqa: N815
+
+
+class PieChartSerializer(serializers.Serializer):
+    """Chart.js pie chart data."""
+
+    labels = serializers.ListField(child=serializers.CharField())
+    datasets = PieChartDatasetSerializer(many=True)
+
+
+class ScoreDatasetSerializer(serializers.Serializer):
+    """Score counts for one media type."""
+
+    label = serializers.CharField()
+    data = serializers.ListField(child=serializers.IntegerField())
+    background_color = serializers.CharField()
+
+
+class ScoreDistributionSerializer(serializers.Serializer):
+    """Score histogram per media type (``app.stats_score``)."""
+
+    labels = serializers.ListField(child=serializers.CharField())
+    datasets = ScoreDatasetSerializer(many=True)
+    average_score = serializers.FloatField(allow_null=True)
+    total_scored = serializers.IntegerField()
+    scale_max = serializers.IntegerField()
+
+
+class StatusDatasetSerializer(serializers.Serializer):
+    """Per-media-type counts for one status."""
+
+    label = serializers.CharField()
+    data = serializers.ListField(child=serializers.IntegerField())
+    background_color = serializers.CharField()
+    total = serializers.IntegerField()
+
+
+class StatusDistributionSerializer(serializers.Serializer):
+    """Status counts per media type (``app.statistics``)."""
+
+    labels = serializers.ListField(child=serializers.CharField())
+    datasets = StatusDatasetSerializer(many=True)
+    total_completed = serializers.IntegerField()
+
+
 class StatisticsResponseSerializer(serializers.Serializer):
     """User statistics for the requested date range."""
 
     start_date = serializers.DateTimeField(allow_null=True)
     end_date = serializers.DateTimeField(allow_null=True)
-    media_count = serializers.JSONField()
-    activity_data = serializers.JSONField()
-    media_type_distribution = serializers.JSONField()
-    score_distribution = serializers.JSONField()
+    media_count = serializers.DictField(
+        child=serializers.IntegerField(),
+        help_text="`total` plus a count per active media type.",
+    )
+    activity_data = ActivityDataSerializer()
+    media_type_distribution = PieChartSerializer()
+    score_distribution = ScoreDistributionSerializer()
+    # Left open: each entry is the serializer for that media type's model.
     top_rated = serializers.ListField(child=serializers.DictField())
-    status_distribution = serializers.JSONField()
-    status_pie_chart_data = serializers.JSONField()
+    status_distribution = StatusDistributionSerializer()
+    status_pie_chart_data = PieChartSerializer()
     timeline = serializers.DictField(
-        child=serializers.ListField(child=serializers.DictField()),
+        child=TimelineItemSerializer(many=True),
         help_text="Timeline entries keyed by month.",
     )
 
 
-# Provider recommendations are passed through as the provider returns them.
+# Provider recommendations are passed through as the provider returns them, so
+# the keys (and whether media_id is a number or a string) vary by provider.
 RECOMMENDATIONS_RESPONSE = {
     "type": "array",
     "items": {"type": "object", "additionalProperties": True},

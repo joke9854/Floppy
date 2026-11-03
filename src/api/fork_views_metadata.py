@@ -69,13 +69,58 @@ class ItemImageSerializer(serializers.Serializer):
     image = serializers.CharField()
 
 
+class ItemMetadataIdentitySerializer(serializers.Serializer):
+    """Which item the projection describes."""
+
+    media_id = serializers.CharField()
+    source = serializers.CharField()
+    media_type = serializers.CharField()
+    season_number = serializers.IntegerField(allow_null=True)
+    episode_number = serializers.IntegerField(allow_null=True)
+    external_ids = serializers.DictField(
+        help_text="Resolved ids keyed by external provider.",
+    )
+
+
+class ItemMetadataAttributionSerializer(serializers.Serializer):
+    """The provider the stored metadata came from."""
+
+    source = serializers.CharField()
+    source_url = serializers.CharField(allow_null=True)
+
+
+class ItemMetadataFreshnessSerializer(serializers.Serializer):
+    """When the stored metadata was last refreshed."""
+
+    refreshed_at = serializers.DateTimeField(allow_null=True)
+    age_days = serializers.IntegerField(allow_null=True)
+    state = serializers.ChoiceField(choices=["fresh", "stale", "unknown"])
+
+
+class ItemMetadataFieldsSerializer(serializers.Serializer):
+    """Stored provider fields; empty values are omitted."""
+
+    title = serializers.CharField(required=False)
+    original_title = serializers.CharField(required=False)
+    synopsis = serializers.CharField(required=False)
+    image = serializers.CharField(required=False)
+    release_datetime = serializers.DateTimeField(required=False)
+    runtime_minutes = serializers.IntegerField(required=False)
+    genres = serializers.ListField(child=serializers.CharField(), required=False)
+    country = serializers.CharField(required=False)
+    languages = serializers.ListField(child=serializers.CharField(), required=False)
+    studios = serializers.ListField(child=serializers.CharField(), required=False)
+    format = serializers.CharField(required=False)
+    status = serializers.CharField(required=False)
+
+
 class ItemMetadataSerializer(serializers.Serializer):
     """Normalized metadata projection for an item."""
 
-    identity = serializers.DictField()
-    attribution = serializers.DictField()
-    freshness = serializers.JSONField()
-    fields = serializers.DictField()
+    identity = ItemMetadataIdentitySerializer()
+    attribution = ItemMetadataAttributionSerializer()
+    freshness = ItemMetadataFreshnessSerializer()
+    fields = ItemMetadataFieldsSerializer()
     authorship = serializers.CharField()
 
 

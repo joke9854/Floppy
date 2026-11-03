@@ -44,12 +44,67 @@ class CollectionSeasonDeleteSerializer(serializers.Serializer):
     deleted = serializers.IntegerField()
 
 
+class DiscoverCandidateSerializer(serializers.Serializer):
+    """One Discover card (``app.discover.schemas.CandidateItem.to_dict``)."""
+
+    media_type = serializers.CharField()
+    source = serializers.CharField()
+    media_id = serializers.CharField()
+    title = serializers.CharField()
+    original_title = serializers.CharField(allow_null=True)
+    localized_title = serializers.CharField(allow_null=True)
+    image = serializers.CharField(allow_null=True)
+    release_date = serializers.CharField(allow_null=True)
+    activity_at = serializers.CharField(allow_null=True)
+    genres = serializers.ListField(child=serializers.CharField())
+    tags = serializers.ListField(child=serializers.CharField())
+    people = serializers.ListField(child=serializers.CharField())
+    keywords = serializers.ListField(child=serializers.CharField())
+    studios = serializers.ListField(child=serializers.CharField())
+    directors = serializers.ListField(child=serializers.CharField())
+    lead_cast = serializers.ListField(child=serializers.CharField())
+    collection_id = serializers.CharField(allow_null=True)
+    collection_name = serializers.CharField(allow_null=True)
+    certification = serializers.CharField(allow_null=True)
+    runtime_bucket = serializers.CharField(allow_null=True)
+    release_decade = serializers.CharField(allow_null=True)
+    popularity = serializers.FloatField(allow_null=True)
+    rating = serializers.FloatField(allow_null=True)
+    rating_count = serializers.IntegerField(allow_null=True)
+    row_key = serializers.CharField(allow_null=True)
+    source_reason = serializers.CharField(allow_null=True)
+    anchor_title = serializers.CharField(allow_null=True)
+    score_breakdown = serializers.DictField(
+        child=serializers.FloatField(),
+        help_text="Ranking signal name to its contribution.",
+    )
+    final_score = serializers.FloatField(allow_null=True)
+    display_score = serializers.FloatField(allow_null=True)
+
+
+class DiscoverRowSerializer(serializers.Serializer):
+    """One Discover row (``app.discover.schemas.RowResult.to_dict``)."""
+
+    key = serializers.CharField()
+    title = serializers.CharField()
+    mission = serializers.CharField()
+    why = serializers.CharField()
+    source = serializers.CharField()
+    items = DiscoverCandidateSerializer(many=True)
+    is_stale = serializers.BooleanField()
+    show_more = serializers.BooleanField()
+    source_state = serializers.CharField()
+    match_signal = serializers.CharField(required=False)
+    # Ranking diagnostics; free-form by design.
+    debug_payload = serializers.DictField(required=False)
+
+
 class DiscoverRowsSerializer(serializers.Serializer):
     """Discover rows for a media type."""
 
     media_type = serializers.CharField()
     show_more = serializers.BooleanField()
-    rows = serializers.ListField(child=serializers.DictField())
+    rows = DiscoverRowSerializer(many=True)
 
 
 class DiscoverRefreshRequestSerializer(serializers.Serializer):
@@ -102,6 +157,8 @@ class HomeRowSerializer(serializers.Serializer):
     title = serializers.CharField(allow_null=True)
     summary = serializers.CharField(allow_null=True)
     total = serializers.IntegerField(allow_null=True)
+    # Left open: each card is the tracked or untracked media serializer's output
+    # for its media type, and a card that fails to serialize is just ``title``.
     items = serializers.ListField(child=serializers.DictField())
 
 

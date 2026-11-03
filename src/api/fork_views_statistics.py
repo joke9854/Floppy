@@ -142,6 +142,9 @@ class StatisticsOverviewSerializer(serializers.Serializer):
     """The web dashboard's statistics payload for a range."""
 
     range = StatisticsRangeSerializer()
+    # Left open: this is the dashboard cache entry, whose keys differ between a
+    # built range, a merged predefined range and the empty refresh-in-progress
+    # placeholder (which also swaps several objects for `[]` or `{}`).
     statistics = serializers.DictField()
 
 

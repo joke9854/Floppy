@@ -181,11 +181,31 @@ class PodcastLookupSerializer(serializers.Serializer):
     episodes = PodcastFeedEpisodeEnvelopeSerializer()
 
 
+class PodcastShowEpisodeSerializer(serializers.Serializer):
+    """One catalog episode (``app.podcast_views.podcast_episodes_api`` JSON)."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    published = serializers.DateTimeField(allow_null=True)
+    duration = serializers.CharField(help_text='Like "1h 9m"; empty when unknown.')
+    duration_seconds = serializers.IntegerField(allow_null=True)
+    episode_number = serializers.IntegerField(allow_null=True)
+    website_url = serializers.CharField()
+    status = serializers.CharField(
+        allow_null=True,
+        help_text="The user's status, or null when untracked.",
+    )
+    has_history = serializers.BooleanField(
+        allow_null=True,
+        help_text="Null when the episode has no item yet.",
+    )
+
+
 class PodcastShowEpisodesSerializer(serializers.Serializer):
     """Paginated show episodes in the web episode-list shape."""
 
     pagination = PaginationSerializer()
-    results = serializers.ListField(child=serializers.DictField())
+    results = PodcastShowEpisodeSerializer(many=True)
 
 
 class PodcastMarkAllPlayedSerializer(serializers.Serializer):
