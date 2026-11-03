@@ -30,4 +30,41 @@ class ScopedAutoSchema(AutoSchema):
             operation["x-required-scope"] = "none (session or account token only)"
         elif scope:
             operation["x-required-scope"] = scope
+        self._add_auth_error_responses(operation)
         return operation
+
+    def _add_auth_error_responses(self, operation):
+        """Document the 401 and 403 every authenticated operation can return.
+
+        Spectacular adds an empty requirement to ``security`` when anonymous
+        access is allowed, and omits ``security`` when the view has no
+        authenticators, so neither public case gets a 401.
+        """
+        from drf_spectacular.utils import OpenApiResponse
+
+        from api.authentication import HasScope
+        from api.contract_serializers import DetailErrorSerializer
+
+        security = operation.get("security")
+        if not security or {} in security:
+            return
+        responses = operation["responses"]
+        if "401" not in responses:
+            responses["401"] = self._get_response_for_code(
+                OpenApiResponse(
+                    DetailErrorSerializer,
+                    description="Credentials are missing, invalid, or expired.",
+                ),
+                "401",
+            )
+        has_scope_check = any(
+            isinstance(permission, HasScope) for permission in self.view.get_permissions()
+        )
+        if has_scope_check and "403" not in responses:
+            responses["403"] = self._get_response_for_code(
+                OpenApiResponse(
+                    DetailErrorSerializer,
+                    description="The token does not hold the scope this operation requires.",
+                ),
+                "403",
+            )

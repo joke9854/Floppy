@@ -50,6 +50,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The job could not be queued; retry later.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/cinetrack/bootstrap/jobs/{job_id}/:
     get:
@@ -80,6 +92,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Unknown or expired job; resubmit the batch.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
   /api/v1/cinetrack/bootstrap/movies/ensure/:
     post:
@@ -140,6 +164,18 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Database busy; nothing was written. Retry after Retry-After
             seconds.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/cinetrack/bootstrap/shows/ensure/:
     post:
@@ -200,6 +236,18 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Database busy; nothing was written. Retry after Retry-After
             seconds.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/cinetrack/connection/:
     get:
@@ -359,6 +407,18 @@ paths:
                       type: object
                       additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -549,6 +609,18 @@ paths:
                       type: object
                       additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/home/:
     get:
       operationId: api_v1_home_retrieve
@@ -573,6 +645,18 @@ paths:
                       type: object
                       additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/imports/{service}/:
     post:
       operationId: api_v1_imports_create
@@ -607,6 +691,18 @@ paths:
                   task_id:
                     type: string
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/info/:
     get:
       operationId: getPublicInfo
@@ -745,6 +841,18 @@ paths:
                                   type: object
                                   additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     post:
       operationId: api_v1_lists_create
       description: Create a new custom list for the authenticated user.
@@ -846,6 +954,18 @@ paths:
                             type: object
                             additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/lists/{list_id}/:
     patch:
       operationId: api_v1_lists_partial_update
@@ -955,6 +1075,18 @@ paths:
                             type: object
                             additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     delete:
       operationId: api_v1_lists_destroy
       description: Delete a specific custom list.
@@ -973,6 +1105,18 @@ paths:
       responses:
         '204':
           description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/lists/{list_id}/items/:
     get:
       operationId: api_v1_lists_items_retrieve
@@ -996,6 +1140,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaEnvelope'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/:
     get:
       operationId: listTrackedMedia
@@ -1234,6 +1390,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
   /api/v1/media/{media_type}/:
     get:
@@ -1467,6 +1635,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
     post:
       operationId: trackMedia
@@ -1560,6 +1740,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/:
     get:
@@ -1633,6 +1819,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:read
     patch:
       operationId: updateMediaItem
@@ -1720,6 +1912,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:write
     delete:
       operationId: deleteMedia
@@ -1782,6 +1980,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/:
     get:
       operationId: retrieveMediaSeason
@@ -1860,6 +2070,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:read
     delete:
       operationId: deleteMediaSeason
@@ -1928,6 +2144,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/:
     get:
       operationId: retrieveMediaEpisode
@@ -2012,6 +2240,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:read
     delete:
       operationId: deleteMediaEpisode
@@ -2086,6 +2320,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/episodes/{episode_number}/watch/:
     post:
       operationId: api_v1_media_episodes_watch_create
@@ -2152,6 +2398,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/progress/:
     post:
       operationId: updateMediaSeasonProgress
@@ -2199,6 +2457,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/characters/:
     get:
       operationId: api_v1_media_characters_retrieve
@@ -2246,6 +2516,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: TMDB or TVDB could not be reached.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
   /api/v1/media/{media_type}/{source}/{media_id}/episodes/ensure/:
     post:
@@ -2327,6 +2609,18 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Database busy; nothing was written. Retry after Retry-After
             seconds.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/episodes/translate/:
     post:
@@ -2389,6 +2683,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Episode metadata could not be fetched.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
   /api/v1/media/{media_type}/{source}/{media_id}/history/{consumption_id}/:
     patch:
@@ -2479,6 +2785,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/lists/{list_id}/:
     put:
@@ -2551,6 +2863,18 @@ paths:
                       type: integer
                       nullable: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     delete:
       operationId: api_v1_media_lists_destroy
       description: Remove a specific media from a specific list.
@@ -2600,6 +2924,18 @@ paths:
       responses:
         '204':
           description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/progress/:
     post:
       operationId: updateMediaProgress
@@ -2641,6 +2977,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/media/{media_type}/{source}/{media_id}/tags/:
     get:
       operationId: api_v1_media_tags_retrieve
@@ -2710,6 +3058,18 @@ paths:
                         item_count:
                           type: integer
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     put:
       operationId: api_v1_media_tags_update
       description: Replace the user's tags on this item with the given tag ids.
@@ -2784,6 +3144,18 @@ paths:
                         item_count:
                           type: integer
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/music/songs/plays/:
     post:
       operationId: api_v1_music_songs_plays_create
@@ -2806,6 +3178,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/podcasts/episodes/plays/:
     post:
       operationId: api_v1_podcasts_episodes_plays_create
@@ -2838,6 +3222,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackedMediaResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/scrobble/:
     post:
       operationId: api_v1_scrobble_create
@@ -2991,6 +3387,18 @@ paths:
                   errors:
                     type: string
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: scrobble:write
   /api/v1/search/{media_type}/:
     get:
@@ -3090,6 +3498,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: catalog:read
   /api/v1/search/id/:
     get:
@@ -3147,6 +3561,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:read
   /api/v1/statistics/overview/:
     get:
@@ -3174,6 +3600,18 @@ paths:
                     type: object
                     additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/sync/activities/:
     get:
       operationId: api_v1_sync_activities_retrieve
@@ -3190,6 +3628,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncActivities'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/changes/:
     get:
@@ -3240,6 +3690,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/CursorExpired'
           description: The cursor was compacted away; take a fresh snapshot.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/conflicts/:
     get:
@@ -3257,6 +3719,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncConflictListResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/conflicts/{conflict_id}/resolve/:
     post:
@@ -3305,6 +3779,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: No open conflict with that id.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:write
   /api/v1/sync/connections/:
     get:
@@ -3322,6 +3808,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncConnectionListResponse'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
     post:
       operationId: api_v1_sync_connections_create
@@ -3374,6 +3872,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Connection stopped by an administrator.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: sync:read
   /api/v1/sync/connections/{connection}/:
     delete:
@@ -3405,6 +3909,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: No such app connection for this account.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/history/:
     post:
@@ -3439,6 +3955,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed request or limits exceeded; nothing was written.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/sync/history/remove/:
     post:
@@ -3473,6 +4001,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed request or limits exceeded; nothing was written.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/sync/items/changes/:
     get:
@@ -3511,6 +4051,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/items/snapshot/:
     get:
@@ -3549,6 +4101,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/progress-changes/:
     get:
@@ -3595,6 +4159,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/CursorExpired'
           description: The cursor was compacted away; read a fresh snapshot.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: sync:read
   /api/v1/sync/ratings/:
     post:
@@ -3629,6 +4205,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed request or limits exceeded; nothing was written.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/sync/status/:
     post:
@@ -3663,6 +4251,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed request or limits exceeded; nothing was written.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
   /api/v1/tags/:
     get:
@@ -3701,6 +4301,18 @@ paths:
                         item_count:
                           type: integer
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     post:
       operationId: api_v1_tags_create
       description: Create a tag (names are unique per user, case-insensitive).
@@ -3736,6 +4348,18 @@ paths:
                   item_count:
                     type: integer
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/tags/{tag_id}/:
     patch:
       operationId: api_v1_tags_partial_update
@@ -3779,6 +4403,18 @@ paths:
                   item_count:
                     type: integer
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     delete:
       operationId: api_v1_tags_destroy
       description: Delete the tag and its item associations.
@@ -3797,6 +4433,18 @@ paths:
       responses:
         '204':
           description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/tasks/{task_id}/:
     get:
       operationId: api_v1_tasks_retrieve
@@ -3842,6 +4490,18 @@ paths:
                     type: string
                     nullable: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /api/v1/user/preferences/:
     get:
       operationId: api_v1_user_preferences_retrieve
@@ -3868,6 +4528,18 @@ paths:
                     type: object
                     additionalProperties: true
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
     patch:
       operationId: api_v1_user_preferences_partial_update
       description: |-
@@ -3905,6 +4577,18 @@ paths:
                     items:
                       type: string
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
   /apis/listenbrainz/1/submit-listens/:
     post:
       operationId: submitListenBrainzListens
@@ -3984,6 +4668,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: any
 components:
   schemas:

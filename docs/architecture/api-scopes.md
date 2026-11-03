@@ -11,6 +11,7 @@ third-party client (Nuvio, Stremio, Kodi, a scrobbler) is written against.
 | Which scope each endpoint needs | `src/api/scopes.py` (`VIEW_SCOPES`) |
 | Enforcement | `api.authentication.HasScope`, installed globally in `REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]` |
 | Published per-operation scope | `x-required-scope` in `src/api/contracts/openapi.yaml` |
+| Published 401/403 responses | `api.scope_schema.ScopedAutoSchema`: 401 on every authenticated operation, 403 wherever `HasScope` runs |
 | Coverage guarantee | `api.tests.test_fork_scope_enforcement.ScopeMapCoverageTests` |
 
 The coverage test has already paid for itself: the watched-state sync endpoints

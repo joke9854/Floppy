@@ -587,25 +587,25 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/search/{media_type}/", "get"): (
                 "searchMedia",
                 "SearchEnvelope",
-                {"200", "400", "403", "500"},
+                {"200", "400", "401", "403", "500"},
                 None,
             ),
             ("/api/v1/media/{media_type}/", "post"): (
                 "trackMedia",
                 "TrackedMediaResponse",
-                {"201", "400", "403", "404", "409", "500"},
+                {"201", "400", "401", "403", "404", "409", "500"},
                 "TrackMediaRequest",
             ),
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "get"): (
                 "retrieveMediaItem",
                 "CompleteMediaItemResponse",
-                {"200", "400", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500"},
                 None,
             ),
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "patch"): (
                 "updateMediaItem",
                 "CompleteMediaResponse",
-                {"200", "400", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500"},
                 "TrackedMediaUpdateRequest",
             ),
             (
@@ -615,7 +615,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ): (
                 "updateMediaConsumption",
                 "ConsumptionResponse",
-                {"200", "400", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500"},
                 "MediaUpdateRequest",
             ),
             (
@@ -624,7 +624,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ): (
                 "retrieveMediaSeason",
                 "CompleteMediaResponse",
-                {"200", "400", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500"},
                 None,
             ),
             (
@@ -634,7 +634,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ): (
                 "retrieveMediaEpisode",
                 "CompleteEpisodeResponse",
-                {"200", "400", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500"},
                 None,
             ),
         }
@@ -705,7 +705,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
                 "/apis/listenbrainz/1/validate-token/",
                 "get",
                 "validateListenBrainzToken",
-                {"200", "401"},
+                {"200", "401", "403"},
             ),
         ):
             operation = paths[path][method]
@@ -793,6 +793,25 @@ class OpenAPIArtifactTests(SimpleTestCase):
                         bodyless.add(key)
                         self.assertIn(key, self._BODYLESS_WRITES, "no request body")
         self.assertEqual(bodyless, self._BODYLESS_WRITES)
+
+    def test_authenticated_operations_document_auth_errors(self):
+        paths = generate_schema_contract().schema["paths"]
+        public = set()
+        for path, path_item in paths.items():
+            for method, operation in path_item.items():
+                if method not in {"get", "post", "put", "patch", "delete"}:
+                    continue
+                security = operation.get("security")
+                responses = operation["responses"]
+                if not security or {} in security:
+                    public.add((path, method))
+                    self.assertNotIn("401", responses, path)
+                    continue
+                with self.subTest(path=path, method=method):
+                    self.assertIn("401", responses)
+                    self.assertIn("403", responses)
+        self.assertIn(("/api/v1/info/", "get"), public)
+        self.assertIn(("/api/v1/health/", "get"), public)
 
 
 class JSONLDContextTests(SimpleTestCase):
