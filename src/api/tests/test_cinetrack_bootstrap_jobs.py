@@ -3,6 +3,7 @@
 from http import HTTPStatus as HTTP  # noqa: N814
 from unittest.mock import patch
 
+from django.conf import settings
 from django.db import OperationalError
 
 from api import cinetrack_bootstrap_views
@@ -32,6 +33,11 @@ class CineTrackBootstrapJobTests(FloppyApiTestCase):
             args=[job_id],
             headers=headers or self.auth_headers,
         )
+
+    def test_background_workers_import_the_job_task(self):
+        # Celery processes leave "api" out of INSTALLED_APPS, so the task is
+        # only registered on a real worker through CELERY_IMPORTS.
+        self.assertIn("api.tasks", settings.CELERY_IMPORTS)
 
     def test_a_large_movie_batch_finishes_with_one_result_per_entry(self):
         response = self._submit({"movies": _movies(120)})

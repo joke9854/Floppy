@@ -1523,7 +1523,11 @@ if os.environ.get("FLOPPY_PROCESS_ROLE") == "interactive":
         "integrations.tasks._webhook",
     )
 else:
+    # Celery processes leave "api" out of INSTALLED_APPS, so autodiscovery
+    # never finds api.tasks; without this the CineTrack bootstrap job arrives
+    # as an unregistered task and its job stays queued forever.
     CELERY_IMPORTS = (
+        "api.tasks",
         "integrations.tasks._change_log",
         "integrations.tasks._jellyfin_pull",
         "integrations.tasks._koito",
