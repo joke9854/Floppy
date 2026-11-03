@@ -739,6 +739,61 @@ class OpenAPIArtifactTests(SimpleTestCase):
                         with self.subTest(path=path, method=method, status=status):
                             self.assertIn("schema", response["content"]["application/json"])
 
+    # Writes declared with ``extend_schema(request=None)``. Spectacular omits
+    # ``requestBody`` for these, which looks the same as a forgotten request
+    # serializer, so a new bodyless write must be added here on purpose.
+    _BODYLESS_WRITES = frozenset(
+        {
+            ("/api/v1/calendar/update/", "POST"),
+            (
+                "/api/v1/lists/{list_id}/recommendations/{recommendation_id}/{decision}/",
+                "POST",
+            ),
+            ("/api/v1/lists/{list_id}/smart-sync/", "POST"),
+            ("/api/v1/media/{media_type}/{source}/{media_id}/sync/", "POST"),
+            (
+                "/api/v1/media/{media_type}/{source}/{media_id}/{season_number}/sync/",
+                "POST",
+            ),
+            (
+                "/api/v1/media/{media_type}/{source}/{media_id}/"
+                "{season_number}/{episode_number}/sync/",
+                "POST",
+            ),
+            ("/api/v1/music/artists/{artist_id}/sync-discography/", "POST"),
+            ("/api/v1/podcasts/shows/{show_id}/mark-all-played/", "POST"),
+            ("/api/v1/user/notifications/test/", "POST"),
+            ("/api/v1/user/token/regenerate/", "POST"),
+        }
+    )
+
+    def test_full_schema_documents_every_api_operation_completely(self):
+        paths = generate_schema_contract().schema["paths"]
+        bodyless = set()
+        for path, path_item in paths.items():
+            if not path.startswith("/api/v1/"):
+                continue
+            for method, operation in path_item.items():
+                if method not in {"get", "post", "put", "patch", "delete"}:
+                    continue
+                key = (path, method.upper())
+                with self.subTest(path=path, method=method):
+                    successes = {
+                        status: response
+                        for status, response in operation["responses"].items()
+                        if status.startswith("2")
+                    }
+                    self.assertTrue(successes, "no 2xx response")
+                    for status, response in successes.items():
+                        if status != "204":
+                            self.assertIn("content", response, status)
+                    if method in {"post", "put", "patch"} and (
+                        "requestBody" not in operation
+                    ):
+                        bodyless.add(key)
+                        self.assertIn(key, self._BODYLESS_WRITES, "no request body")
+        self.assertEqual(bodyless, self._BODYLESS_WRITES)
+
 
 class JSONLDContextTests(SimpleTestCase):
     """Gate the committed JSON-LD context and its public route."""
