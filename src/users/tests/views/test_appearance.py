@@ -113,6 +113,52 @@ class AppearanceViewTests(TestCase):
         self.assertEqual(self.user.theme, "system")
         self.assertEqual(self.user.detail_page_layouts, {})
 
+    def test_appearance_saves_the_floating_sidebar(self):
+        response = self.client.post(
+            reverse("appearance"),
+            {
+                "theme": "cinetrack",
+                "custom_theme": "{}",
+                "detail_layouts": "{}",
+                "sidebar_style": "floating",
+                "floating_sidebar": "icons",
+            },
+        )
+
+        self.assertRedirects(response, reverse("appearance"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.sidebar_style, "floating")
+        self.assertEqual(self.user.floating_sidebar, "icons")
+
+    def test_appearance_keeps_the_sidebar_when_the_form_omits_it(self):
+        self.user.sidebar_style = "floating"
+        self.user.save(update_fields=["sidebar_style"])
+
+        self.client.post(
+            reverse("appearance"),
+            {"theme": "cinetrack", "custom_theme": "{}", "detail_layouts": "{}"},
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.theme, "cinetrack")
+        self.assertEqual(self.user.sidebar_style, "floating")
+
+    def test_appearance_rejects_an_unknown_sidebar_without_partial_save(self):
+        response = self.client.post(
+            reverse("appearance"),
+            {
+                "theme": "cinetrack",
+                "custom_theme": "{}",
+                "detail_layouts": "{}",
+                "sidebar_style": "docked",
+            },
+        )
+
+        self.assertRedirects(response, reverse("appearance"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.theme, "system")
+        self.assertEqual(self.user.sidebar_style, "attached")
+
     def test_custom_theme_is_rendered_as_safe_css_variables(self):
         self.user.theme = "custom"
         self.user.custom_theme = {

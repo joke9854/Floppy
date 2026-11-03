@@ -78,6 +78,31 @@ class CineTrackShellTests(TestCase):
             rf'<a href="{calendar_url}"\s+class="ct-tab"\s+aria-current="page">',
         )
 
+    def test_sidebar_carries_the_saved_layout(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'data-ct-sidebar="attached"')
+        self.assertContains(response, 'data-ct-floating="hover"')
+        self.assertContains(response, "ct-shell-content")
+
+        self.user.sidebar_style = "floating"
+        self.user.floating_sidebar = "expanded"
+        self.user.save(update_fields=["sidebar_style", "floating_sidebar"])
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'data-ct-sidebar="floating"')
+        self.assertContains(response, 'data-ct-floating="expanded"')
+
+    def test_sidebar_lists_library_types_and_groups(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'class="ct-rail-section"', count=2)
+        tv_url = reverse("medialist", kwargs={"media_type": "tv"})
+        self.assertRegex(
+            response.content.decode(),
+            rf'<a href="{tv_url}"\s+class="ct-rail-link"',
+        )
+        self.assertContains(response, "ct-palette-open")
+
     def test_menu_toggles_expose_expanded_state_and_controls(self):
         self._use_theme(ThemeChoices.CINETRACK)
         response = self.client.get(reverse("home"))
