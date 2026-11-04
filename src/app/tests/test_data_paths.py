@@ -14,6 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
 
 from config import settings as project_settings
+from config.oidc_key import generate_private_key_pem
 
 ROOT = Path(__file__).resolve().parents[3]
 SRC = ROOT / "src"
@@ -139,6 +140,10 @@ class DataPathSettingsTests(SimpleTestCase):
             root = Path(temp_dir)
             read_only_source = root / "source"
             shutil.copytree(SRC / "config", read_only_source / "config")
+            # Settings import the scope vocabulary; api/scopes.py has no imports.
+            (read_only_source / "api").mkdir()
+            for name in ("__init__.py", "scopes.py"):
+                shutil.copy2(SRC / "api" / name, read_only_source / "api" / name)
             read_only_directories = [
                 read_only_source,
                 *(path for path in read_only_source.rglob("*") if path.is_dir()),
@@ -184,6 +189,9 @@ class DataPathSettingsTests(SimpleTestCase):
                     DB_USER="floppy",
                     DB_PASSWORD="password",
                     DB_PORT="5432",
+                    # The OIDC key otherwise lives in FLOPPY_DATA_DIR, which is
+                    # the path this test proves PostgreSQL leaves alone.
+                    OAUTH_OIDC_PRIVATE_KEY=generate_private_key_pem(),
                 )
             finally:
                 protected.chmod(0o755)

@@ -55,11 +55,20 @@ class WebManifestTests(SimpleTestCase):
         for name, (url, icon_src) in expected_shortcuts.items():
             shortcut = shortcuts[name]
             self.assertEqual(shortcut["url"], url)
-            self.assertEqual(shortcut["icons"], [{"src": icon_src, "sizes": "192x192"}])
-            asset_path = self.static_dir / icon_src.removeprefix("/static/")
-            self.assertTrue(
-                asset_path.exists(), f"Missing shortcut icon asset: {icon_src}"
+            # Android ignores SVG shortcut icons, so each has a 96px PNG first.
+            png_src = icon_src.removesuffix(".svg") + ".png"
+            self.assertEqual(
+                shortcut["icons"],
+                [
+                    {"src": png_src, "sizes": "96x96", "type": "image/png"},
+                    {"src": icon_src, "sizes": "any", "type": "image/svg+xml"},
+                ],
             )
+            for src in (png_src, icon_src):
+                asset_path = self.static_dir / src.removeprefix("/static/")
+                self.assertTrue(
+                    asset_path.exists(), f"Missing shortcut icon asset: {src}"
+                )
 
     def test_manifest_declares_a_standalone_root_scoped_identity(self):
         self.assertEqual(self.manifest["name"], "Floppy - Media Tracker")
