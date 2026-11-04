@@ -14,7 +14,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '/') {
     e.preventDefault();
     const searchInput = document.getElementById('global-search');
-    if (searchInput) {
+    // The CineTrack sidebar hides the top bar from lg up; search there is the palette.
+    if (searchInput && !searchInput.checkVisibility() && document.querySelector('.ct-palette')) {
+      window.dispatchEvent(new CustomEvent('ct-palette-open'));
+    } else if (searchInput) {
       searchInput.focus();
       searchInput.select();
     }

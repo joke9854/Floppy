@@ -1,9 +1,8 @@
 {% load app_tags %}
 {% load i18n %}
 {% comment %}
-  Library menu for the CineTrack shell: the user's enabled media types in
-  their saved order, then Library > More. Shared by the rail menu and the
-  mobile sheet. TV Seasons is the Seasons view of TV Shows (E1), so it has
+  Library sheet for the CineTrack bottom nav: the user's enabled media types
+  in their saved order. Lists, Collection and Tags live in the More sheet. TV Seasons is the Seasons view of TV Shows (E1), so it has
   no entry of its own while TV Shows is enabled.
 {% endcomment %}
 <p class="ct-menu-label">{% translate "Library" %}</p>
@@ -24,39 +23,4 @@
       </a>
     </li>
   {% endfor %}
-</ul>
-<p class="ct-menu-label">{% translate "More" %}</p>
-<ul>
-  <li>
-    <a href="{{ lists_url }}"
-       class="ct-menu-link"
-       {% if request.path == lists_url %}aria-current="page"{% endif %}>
-      <span aria-hidden="true">{% include "app/icons/folder-plus.svg" with classes="w-5 h-5" %}</span>
-      <span>{% translate "Lists" %}</span>
-    </a>
-  </li>
-  <li>
-    <a href="{{ collection_list_url }}"
-       class="ct-menu-link"
-       {% if request.path == collection_list_url %}aria-current="page"{% endif %}>
-      <span aria-hidden="true">{% include "app/icons/cube.svg" with classes="w-5 h-5" %}</span>
-      <span>{% translate "Collection" %}</span>
-    </a>
-  </li>
-  <li>
-    <a href="{{ tag_index_url }}"
-       class="ct-menu-link"
-       {% if request.path == tag_index_url %}aria-current="page"{% endif %}>
-      <span aria-hidden="true">{% include "app/icons/tag.svg" with classes="w-5 h-5" %}</span>
-      <span>{% translate "Tags" %}</span>
-    </a>
-  </li>
-  <li>
-    <a href="{{ create_entry_url }}"
-       class="ct-menu-link"
-       {% if request.path == create_entry_url %}aria-current="page"{% endif %}>
-      <span aria-hidden="true">{% include "app/icons/circle-plus.svg" with classes="w-5 h-5" %}</span>
-      <span>{% translate "Add custom entry" %}</span>
-    </a>
-  </li>
 </ul>

@@ -123,6 +123,15 @@ document.addEventListener("alpine:init", () => {
 // Bind once: kept in <head>, which boosted navigation leaves in place.
 if (!window.__floppyCtShellBound) {
   window.__floppyCtShellBound = true;
+  // The sidebar's search hint names the platform's palette shortcut.
+  const labelShortcut = () => {
+    if (!/Mac|iPhone|iPad/.test(navigator.platform)) return;
+    document.querySelectorAll("[data-ct-shortcut-label]").forEach((el) => {
+      el.textContent = "⌘K";
+    });
+  };
+  document.addEventListener("DOMContentLoaded", labelShortcut);
+  document.addEventListener("htmx:afterSettle", labelShortcut);
   document.addEventListener("keydown", (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") return;
     if (!document.querySelector("[data-ct-shell]")) return;

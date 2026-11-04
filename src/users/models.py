@@ -391,6 +391,21 @@ class MobileGridLayoutChoices(models.TextChoices):
     COMPACT = "compact", _("Compact (3 columns)")
 
 
+class SidebarStyleChoices(models.TextChoices):
+    """CineTrack desktop sidebar: full-height attached or a floating bar."""
+
+    ATTACHED = "attached", _("Attached")
+    FLOATING = "floating", _("Floating")
+
+
+class FloatingSidebarChoices(models.TextChoices):
+    """How the floating CineTrack sidebar shows its labels."""
+
+    EXPAND_ON_HOVER = "hover", _("Expand on hover")
+    ALWAYS_EXPANDED = "expanded", _("Always expanded")
+    ICONS_ONLY = "icons", _("Icons only")
+
+
 class QuickSeasonUpdateChoices(models.TextChoices):
     """Controls quick season update buttons and the next-episode pill on home cards."""
 
@@ -1093,6 +1108,18 @@ class User(AbstractUser):
         max_length=20,
         default=ThemeChoices.SYSTEM,
         choices=ThemeChoices.choices,
+    )
+
+    sidebar_style = models.CharField(
+        max_length=20,
+        default=SidebarStyleChoices.ATTACHED,
+        choices=SidebarStyleChoices.choices,
+    )
+
+    floating_sidebar = models.CharField(
+        max_length=20,
+        default=FloatingSidebarChoices.EXPAND_ON_HOVER,
+        choices=FloatingSidebarChoices.choices,
     )
 
     custom_theme = models.JSONField(

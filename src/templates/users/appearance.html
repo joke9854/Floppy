@@ -83,6 +83,61 @@
       </div>
     </section>
 
+    {# The CineTrack shell's desktop sidebar (A22). Phones always use the bottom tab bar. #}
+    <section class="preferences-section"
+             x-show="theme === 'cinetrack'"
+             x-cloak
+             x-data="{ sidebarStyle: '{{ request.user.sidebar_style|escapejs }}', floating: '{{ request.user.floating_sidebar|escapejs }}' }">
+      <div class="preferences-section-header">
+        <div class="preferences-section-icon">{% include "app/icons/sidebar.svg" with classes="w-5 h-5" %}</div>
+        <div>
+          <h2>Sidebar</h2>
+          <p>Floating applies on screens 1024 px and wider; phones always use the bottom tab bar.</p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        {% for value, label in sidebar_styles %}
+          <label class="ct-sidebar-option flex cursor-pointer flex-col gap-3 rounded-xl border bg-[var(--color-surface)] p-4 transition-colors"
+                 :class="sidebarStyle === '{{ value }}' ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30' : 'border-[var(--color-surface-border)] hover:border-[var(--color-text-muted)]'">
+            <span class="ct-sidebar-preview ct-sidebar-preview-{{ value }}" aria-hidden="true"><span></span><span></span></span>
+            <span class="flex items-start gap-3">
+              <input type="radio"
+                     name="sidebar_style"
+                     value="{{ value }}"
+                     x-model="sidebarStyle"
+                     class="mt-1 accent-[var(--color-accent)]">
+              <span>
+                <span class="block font-medium">{{ label }}</span>
+                <span class="block text-sm text-[var(--color-text-muted)]">
+                  {% if value == "attached" %}Full-height sidebar with labels, always visible.{% else %}Compact bar that floats over the page.{% endif %}
+                </span>
+              </span>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <fieldset class="mt-5" x-show="sidebarStyle === 'floating'" x-cloak>
+        <legend class="mb-2 font-semibold">Floating behaviour</legend>
+        <div class="inline-flex flex-wrap rounded-full bg-[var(--color-surface)] p-1">
+          {% for value, label in floating_sidebar_choices %}
+            <label class="cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--color-accent)]"
+                   :class="floating === '{{ value }}' ? 'bg-[var(--color-border)] text-[var(--color-text)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'">
+              <input type="radio"
+                     name="floating_sidebar"
+                     value="{{ value }}"
+                     x-model="floating"
+                     class="sr-only">
+              {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+        <p class="mt-2 text-sm text-[var(--color-text-muted)]"
+           x-text="{ hover: 'Hover opens the labels over the page; nothing shifts.', expanded: 'Labels stay visible; the page makes room for them.', icons: 'Icons only; labels show as tooltips.' }[floating]"></p>
+      </fieldset>
+    </section>
+
     <section class="preferences-section">
       <div class="preferences-section-header">
         <div class="preferences-section-icon">{% include "app/icons/vertical-sliders.svg" with classes="w-5 h-5" %}</div>

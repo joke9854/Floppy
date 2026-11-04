@@ -87,6 +87,7 @@ from users.models import (
     ActivityHistoryViewChoices,
     DateFormatChoices,
     DurationFormatChoices,
+    FloatingSidebarChoices,
     GameLoggingStyleChoices,
     ImportFrequencyChoices,
     ImportModeChoices,
@@ -97,6 +98,7 @@ from users.models import (
     RatingScaleChoices,
     ScrobbleWatchedPercentChoices,
     SessionDurationChoices,
+    SidebarStyleChoices,
     ThemeChoices,
     TimeFormatChoices,
     TitleDisplayPreferenceChoices,
@@ -931,14 +933,30 @@ def appearance(request):
             messages.error(request, exc.messages[0])
             return redirect("appearance")
 
+        # The sidebar fields are optional so older forms keep the saved values.
+        sidebar_style = request.POST.get("sidebar_style", request.user.sidebar_style)
+        floating_sidebar = request.POST.get(
+            "floating_sidebar", request.user.floating_sidebar
+        )
+        if (
+            sidebar_style not in SidebarStyleChoices.values
+            or floating_sidebar not in FloatingSidebarChoices.values
+        ):
+            messages.error(request, "Unsupported sidebar option.")
+            return redirect("appearance")
+
         request.user.theme = theme
         request.user.custom_theme = custom_theme
         request.user.detail_page_layouts = detail_layouts
+        request.user.sidebar_style = sidebar_style
+        request.user.floating_sidebar = floating_sidebar
         request.user.save(
             update_fields=[
                 "theme",
                 "custom_theme",
                 "detail_page_layouts",
+                "sidebar_style",
+                "floating_sidebar",
             ]
         )
         messages.success(request, "Appearance updated")
@@ -964,6 +982,8 @@ def appearance(request):
         "custom_theme_colors": appearance_config.CUSTOM_THEME_COLORS,
         "custom_theme_effects": appearance_config.CUSTOM_THEME_EFFECTS,
         "appearance_theme": request.user.theme,
+        "sidebar_styles": SidebarStyleChoices.choices,
+        "floating_sidebar_choices": FloatingSidebarChoices.choices,
         "custom_theme_json": palette,
         "detail_layout_families_json": appearance_config.DETAIL_LAYOUT_FAMILIES,
         "detail_layouts_json": appearance_config.resolved_detail_layouts(
