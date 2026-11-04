@@ -1,5 +1,6 @@
 
 {% load i18n %}
+{% load app_tags %}
 {% comment %}
   Reusable horizontal scrolling row with HTMX infinite-scroll loading.
 
@@ -35,7 +36,30 @@
 {% else %}
 <div data-home-row-wrapper="true">
 {% endif %}
-  {% if not hide_heading %}
+  {% if not hide_heading and not hx_url and request|uses_ct_home_cards %}
+  {# v2 Home (A1): the title, a muted sort toggle and "See All" at the right. #}
+  <div class="ct-row-head">
+    <h2 class="ct-row-title">
+      {% if row.summary_inline %}{{ row.title_main }}{% if row.title_detail %} <span class="ct-row-detail">{{ row.title_detail }}</span>{% endif %}{% else %}{{ row.title }}{% endif %}
+    </h2>
+    {% if row.summary_inline %}
+      <button type="button"
+              hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              hx-target="closest [data-home-row-wrapper]"
+              hx-swap="outerHTML"
+              data-home-row-sort-toggle="true"
+              aria-label="{% blocktranslate trimmed with value_1=row.title %}Toggle sort direction for {{ value_1 }}{% endblocktranslate %}"
+              class="ct-row-sort">
+        <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
+        <span aria-hidden="true">{% if row.direction == 'asc' %}↑{% else %}↓{% endif %}</span>
+      </button>
+    {% endif %}
+    {% if row.url %}
+      <a href="{{ row.url }}" class="ct-row-link">{% translate "See All" %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>
+    {% endif %}
+  </div>
+  {% elif not hide_heading %}
   <div class="mb-2 flex items-start justify-between gap-3">
     <div class="min-w-0 flex-1">
       {% if row.summary_inline %}

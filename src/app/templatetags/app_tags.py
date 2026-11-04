@@ -189,6 +189,15 @@ def ct_detail_backdrop(media):
     return backdrops.resolve_backdrop(media)
 
 
+@register.simple_tag
+def ct_card_backdrop(item):
+    """Return a Home card's cached backdrop URL, or None (v2 Home).
+
+    Cache only: Home never waits on the provider, so a miss shows the poster.
+    """
+    return backdrops.cached_backdrop(item)
+
+
 def _ct_value(obj, key):
     """Read a key from a provider dict or an attribute from a model."""
     if isinstance(obj, dict):

@@ -52,7 +52,34 @@
       }
     }
   </style>
-  <div class="space-y-4 sm:space-y-8">
+  <div class="space-y-4 sm:space-y-8{% if request|uses_ct_home_cards %} ct-home{% endif %}">
+    {% if request|uses_ct_home_cards %}
+      {# v2 Home (A1): a large title and the bell; no eyebrow. #}
+      <header class="ct-page-head">
+        <div class="min-w-0">
+          <h1 class="ct-page-title">{% translate "Home" %}</h1>
+          {% if home_sections.catch_up or home_sections.airing_count %}
+            <p class="ct-page-sub">
+              {% if home_sections.catch_up %}
+                {% blocktranslate trimmed count count=home_sections.catch_up %}{{ count }} episode to catch up on{% plural %}{{ count }} episodes to catch up on{% endblocktranslate %}
+              {% endif %}
+              {% if home_sections.catch_up and home_sections.airing_count %}·{% endif %}
+              {% if home_sections.airing_count %}
+                {% blocktranslate trimmed count count=home_sections.airing_count %}{{ count }} airing this week{% plural %}{{ count }} airing this week{% endblocktranslate %}
+              {% endif %}
+            </p>
+          {% endif %}
+        </div>
+        <a href="{% url 'notifications' %}"
+           class="ct-page-bell"
+           aria-label="{% translate "Notifications" %}"
+           title="{% translate "Notifications" %}">{% include "app/icons/bell.svg" with classes="w-6 h-6" %}</a>
+        {# A6: phones show the account avatar here instead (no sidebar account). #}
+        <a href="{% url 'account' %}"
+           class="ct-page-account"
+           aria-label="{% translate "Account settings" %}"><span class="ct-avatar ct-avatar-lg" aria-hidden="true">{{ user.username|slice:":2"|upper }}</span></a>
+      </header>
+    {% endif %}
     <div id="active-playback-container"
          class="media-grid"
          {% if not active_playback_card %}style="display:none"{% endif %}
@@ -65,6 +92,9 @@
       {% endif %}
     </div>
     {% include "app/components/home_groups.html" %}
+    {% if home_sections and not defer_remaining_groups %}
+      {% include "app/components/ct/home_sections.html" %}
+    {% endif %}
     {% if defer_remaining_groups %}
       {% comment %}
         Remaining groups hydrate asynchronously so first paint only pays

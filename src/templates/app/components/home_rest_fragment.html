@@ -4,5 +4,8 @@
   the full set of rows that still need cover polling.
   Context: home_groups (remaining groups), artwork_poll_row_ids, user
 {% endcomment %}
+{% if home_sections %}
+  {% include "app/components/ct/home_sections.html" %}
+{% endif %}
 {% include "app/components/home_groups.html" %}
 {% include "app/components/home_artwork_poller.html" with poll_row_ids=artwork_poll_row_ids oob=True %}
