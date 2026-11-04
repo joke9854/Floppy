@@ -1,0 +1,76 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  v2 Home fixed sections (boards A1/A6): Airing This Week, a two-column
+  grouped list (one column on phones, as A6), and Recently Watched, a row of
+  poster cards. Data from app.home_sections.build_home_sections.
+  Context: home_sections, user.
+{% endcomment %}
+{% if home_sections.airing %}
+  <section class="ct-home-section" aria-labelledby="ct-airing-title">
+    <div class="ct-row-head">
+      <h2 id="ct-airing-title" class="ct-row-title">{% translate "Airing This Week" %}</h2>
+      <a href="{% url 'calendar' %}" class="ct-row-link">{% translate "Calendar" %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>
+    </div>
+    <div class="ct-airing">
+      {% for column in home_sections.airing %}
+        <ul class="ct-airing-list ct-card">
+          {% for entry in column %}
+            {% with event=entry.event item=entry.event.item %}
+              <li>
+                <a href="{{ item|media_url }}" class="ct-airing-row">
+                  <span class="ct-airing-day{% if entry.is_today %} is-today{% endif %}">
+                    <span>{{ entry.day|date:"D" }}</span>
+                    <strong>{{ entry.day|date:"j" }}</strong>
+                  </span>
+                  <img alt=""
+                       class="ct-airing-poster"
+                       src="{{ item.image|default:IMG_NONE|tmdb_size:'w154'|image_url }}"
+                       width="40"
+                       height="60"
+                       loading="lazy"
+                       decoding="async">
+                  <span class="ct-airing-text">
+                    <span class="ct-airing-title">{{ item.title }}</span>
+                    <span class="ct-airing-sub">
+                      {% if item.season_number is not None and event.content_number %}S{{ item.season_number }} E{{ event.content_number }}{% elif event.readable_content_number %}{{ event.readable_content_number }}{% else %}{{ item.media_type|media_type_readable }}{% endif %}
+                      {% with time=event|user_event_time:user %}
+                        {# user_event_time reads "at 21:00"; the row shows just the time. #}
+                        {% if time %}· {{ time|slice:"3:" }}{% endif %}
+                      {% endwith %}
+                    </span>
+                  </span>
+                  {% if entry.tag == "finale" %}
+                    <span class="ct-airing-tag">{% translate "Finale" %}</span>
+                  {% elif entry.tag == "premiere" %}
+                    <span class="ct-airing-tag is-premiere">{% translate "Premiere" %}</span>
+                  {% endif %}
+                  <span class="ct-airing-chevron" aria-hidden="true">{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</span>
+                </a>
+              </li>
+            {% endwith %}
+          {% endfor %}
+        </ul>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+{% if home_sections.recent %}
+  <section class="ct-home-section" aria-labelledby="ct-recent-title">
+    <div class="ct-row-head">
+      <h2 id="ct-recent-title" class="ct-row-title">{% translate "Recently Watched" %}</h2>
+      <a href="{% url 'history' %}" class="ct-row-link">{% translate "History" %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>
+    </div>
+    <div class="ct-recent-row home-row-scrollbar-hidden"
+         data-horizontal-drag="true"
+         tabindex="0"
+         role="region"
+         aria-labelledby="ct-recent-title">
+      {% for entry in home_sections.recent %}
+        <div class="home-row-card w-44 shrink-0">
+          {% include "app/components/ct/poster_card.html" with item=entry.item media=entry.media entry=entry %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
