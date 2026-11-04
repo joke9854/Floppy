@@ -50,6 +50,7 @@ from app import (
     helpers,
     history_cache,
     history_processor,
+    home_sections,
     image_cache,
     live_playback,
     metadata_utils,
@@ -402,6 +403,7 @@ from users.models import (
     HomeSortChoices,
     MediaSortChoices,
     MediaStatusChoices,
+    ThemeChoices,
     TopTalentSortChoices,
 )
 
@@ -481,6 +483,7 @@ def home(request):
             "MediaTypes": MediaTypes,
             "IMG_NONE": settings.IMG_NONE,
             "defer_remaining_groups": defer_remaining_groups and bool(home_groups),
+            "home_sections": _ct_home_sections(request.user),
             "artwork_poll_row_ids": [
                 row["row_id"]
                 for group in home_groups
@@ -506,6 +509,13 @@ def home(request):
         return render(request, "app/home.html", context)
 
 
+def _ct_home_sections(user):
+    """Return the v2 Home sections for the CineTrack theme, else None."""
+    if getattr(user, "theme", None) != ThemeChoices.CINETRACK:
+        return None
+    return home_sections.build_home_sections(user)
+
+
 @require_GET
 def home_rest_fragment(request):
     """Deferred home content: every group after the first.
@@ -521,6 +531,7 @@ def home_rest_fragment(request):
         {
             "user": request.user,
             "home_groups": home_groups[1:],
+            "home_sections": _ct_home_sections(request.user),
             "artwork_poll_row_ids": [
                 row["row_id"]
                 for group in home_groups

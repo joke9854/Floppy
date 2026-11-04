@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -111,6 +112,46 @@ class CineTrackHomeCardTests(TestCase):
         self.assertIn('decoding="async"', html)
         self.assertIn("https://image.tmdb.org/t/p/w185/abc.jpg 185w", html)
         self.assertNotIn('class="media-card ', html.split("ct-progress-card", 1)[1][:4000])
+
+    def test_progress_card_uses_a_cached_backdrop_without_fetching(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        cache.set(
+            "tmdb_backdrop_tv_1668",
+            "https://image.tmdb.org/t/p/w1280/backdrop.jpg",
+        )
+        with patch("app.backdrops.resolve_backdrop") as resolve:
+            html = self._hydrated_home()
+
+        resolve.assert_not_called()
+        card = html.split('class="ct-progress-card"', 1)[1][:3000]
+        self.assertIn("/w780/backdrop.jpg", card)
+        self.assertNotIn("is-poster", card)
+
+    def test_progress_card_falls_back_to_the_poster(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        html = self._hydrated_home()
+
+        card = html.split('class="ct-progress-card"', 1)[1][:3000]
+        self.assertIn("ct-progress-art is-poster", card)
+
+    def test_cinetrack_home_has_the_v2_header_and_row_heading(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        html = self._hydrated_home()
+
+        self.assertIn('class="ct-page-title"', html)
+        self.assertIn(f'href="{reverse("notifications")}"', html)
+        self.assertIn('class="ct-row-head"', html)
+        self.assertIn('class="ct-row-link"', html)
+        self.assertIn("data-home-row-sort-toggle", html)
+        self.assertNotIn('aria-label="Scroll right"', html)
+
+    def test_classic_home_keeps_the_classic_heading(self):
+        self._use_theme(ThemeChoices.DARK)
+        html = self._hydrated_home()
+
+        self.assertNotIn("ct-page-title", html)
+        self.assertNotIn("ct-row-head", html)
+        self.assertIn('aria-label="Scroll right"', html)
 
     def test_classic_theme_keeps_the_classic_card(self):
         self._use_theme(ThemeChoices.DARK)
