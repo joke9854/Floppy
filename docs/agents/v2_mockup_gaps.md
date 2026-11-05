@@ -20,3 +20,36 @@ Phase 4 predates the rule: its entries are still visible.
 | 4 | Lists (A13) | Public Profile button | Visible | `lists/custom_lists.html` |
 | 4 | Lists (A13) | New List split menu (smart list, Trakt/MDBList/CSV import) | Visible | `lists/custom_lists.html` |
 | 4 | Lists (A13) | "% completed" in the card meta line | Visible | `lists/components/ct_list_card.html` |
+| 5 | Discover (A8/A19) | Refresh recommendations button | Hidden | `ct/discover_header.html` |
+| 5 | Discover (A8/A19) | "Hidden" view (items hidden from Discover, to unhide them) | Hidden | `ct/discover_header.html` |
+| 5 | Discover (A8/A19) | Hero prev/next arrows, poster thumbnail and row-name eyebrow | Hidden | `ct/discover_hero.html` |
+| 5 | Discover (A8/A19) | Row "why" line, match signal and "Refreshing…" note | Hidden | `discover_row.html` |
+| 5 | Discover (A8/A19) | Card match % ("Taste match" etc.) and provenance line | Hidden | `discover_row.html` |
+| 5 | Discover (A8/A19) | Alternate-title ⓘ button on cards | Hidden | `input.css` (`.ct-rail-row.ct-library-grid`) |
+| 5 | Discover (A8/A19) | Card hover actions (Add to Planning, Hide from Discover, Add to list) | Visible (hover only; the only way to hide an item) | `media_card.html` |
+| 5 | Discover/Search (A8/A9/A19) | Top bar search field, its suggestions dropdown and book barcode scan | Hidden on these two pages | `input.css` (`.ct-topbar`) |
+| 5 | Search (A9) | Grid / list layout toggle (always list rows) | Hidden | `ct/search_header.html` |
+| 5 | Search (A9) | Result counts ("N results · Showing first N") | Hidden | `search.html` |
+| 5 | Search (A9) | Lists, history and info buttons of the classic list card | Hidden | `ct/search_row.html` |
+| 5 | Search (A9) | "Matched: …" alternate-title line | Hidden | `ct/search_row.html` |
+| 5 | Search (A9) | Pagination | Visible (needed to reach page 2+) | `search.html` |
+| 5 | Search (A9) | Music search (artists/albums grids) | Visible, unchanged | `search.html` |
+| 5 | Discover (A8/A19) | "Refreshing recommendations in background…" banner and the refresh/undo toasts | Visible (transient states) | `discover.html` |
+
+## Mockup parts not built
+
+The reverse gap: things the boards show that the live app cannot back yet,
+because they need data or endpoints that do not exist. Each one waits for a
+decision: build the backend, adapt the design, or drop it.
+
+| Phase | Page (board) | Mockup part | Missing | Where it would go |
+| --- | --- | --- | --- | --- |
+| 5 | Discover (A8/A19) | "See All" link on each row | No per-row Discover page to link to | `discover_row.html` (`ct-row-head`) |
+| 5 | Discover (A8) | Hero overview text | Discover candidates carry no overview | `ct/discover_hero.html` |
+| 5 | Discover (A8) | Hero runtime ("2h 46m") | Candidates carry only a runtime bucket | `ct/discover_hero.html` |
+| 5 | Discover (A8/A19) | Hero rank ("#1 trending this week") | No rank on the candidate | `ct/discover_hero.html` |
+| 5 | Discover (A8/A19) | Status badges on cards for tracked items | Candidates have no tracking state | `discover_row.html` |
+| 5 | Discover (A8/A19) | A row titled "Because You Watched …" | Exists only as a per-card provenance line (hidden above), not as a row | Discover row registry |
+| 5 | Search (A9) | "All" tab and per-type result counts | Search runs one media type per request | `ct/search_header.html` |
+| 5 | Search (A9) | "People" tab | No person search | `ct/search_header.html` |
+| 5 | Search (A9) | Network / author in the row meta ("FX", "Katherine Arden") | Not in search results | `ct/search_row.html` |

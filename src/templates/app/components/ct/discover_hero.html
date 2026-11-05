@@ -1,14 +1,18 @@
 {% load i18n %}
 {% load app_tags %}
 {% comment %}
-  CineTrack Discover hero (W4): a scroll-snap carousel of one pick per row,
-  each slide tinted by its poster's accent (a hidden w92 probe, as on detail
-  pages; visible TMDB images never carry crossorigin). The backdrop comes
-  from ct_discover_hero, which falls back to the poster. The slides link to
-  the same detail URLs as the row cards. ctHero (ctShell.js) runs the dots,
-  arrows and the autoplay, which stops on hover, focus and reduced motion.
+  CineTrack Discover hero (v2 A8/A19): a scroll-snap carousel of one pick per
+  row, each slide tinted by its poster's accent (a hidden w92 probe, as on
+  detail pages; visible TMDB images never carry crossorigin). The backdrop
+  comes from ct_discover_hero, which falls back to the poster.
 
-  Context: rows, user, IMG_NONE.
+  Each slide has the title, a "Type · Genre · Year" line, Add to Planned (the
+  cards' discover_action "planning", re-rendering #discover-rows) and Details.
+  ctHero (ctShell.js) runs the dots and the autoplay, which stops on hover,
+  focus and reduced motion. The prev/next arrows, the poster thumbnail and
+  the row-name eyebrow are hidden (docs/agents/v2_mockup_gaps.md).
+
+  Context: rows, user, IMG_NONE, selected_media_type, show_more, discover_debug.
 {% endcomment %}
 {% ct_discover_hero rows as slides %}
 {% if slides %}
@@ -52,49 +56,37 @@
                    decoding="async">
             {% endif %}
             <div class="ct-discover-hero__fade" aria-hidden="true"></div>
-            <a href="{{ candidate|media_url }}" class="ct-discover-hero__body">
-              <img alt=""
-                   class="ct-discover-hero__poster ct-fade-img"
-                   src="{{ candidate.image|tmdb_size:'w342'|image_url }}"
-                   {% with srcset=candidate.image|tmdb_srcset %}{% if srcset %}srcset="{{ srcset }}" sizes="120px"{% endif %}{% endwith %}
-                   width="342"
-                   height="513"
-                   decoding="async"
-                   {% if not forloop.first %}loading="lazy"{% endif %}>
-              <span class="ct-discover-hero__text">
-                <span class="ct-discover-hero__eyebrow">{{ slide.row_title }}</span>
-                <span class="ct-discover-hero__title">{{ candidate|display_title:user }}</span>
-                {% if candidate.release_date %}
-                  <span class="ct-discover-hero__meta">{{ candidate.release_date|slice:":4" }}</span>
-                {% endif %}
-              </span>
-            </a>
+            <div class="ct-discover-hero__body">
+              <a href="{{ candidate|media_url }}" class="ct-discover-hero__title">{{ candidate|display_title:user }}</a>
+              <p class="ct-discover-hero__meta">
+                {{ candidate.media_type|media_type_readable }}{% if candidate.genres %} · {{ candidate.genres.0 }}{% endif %}{% if candidate.release_date %} · {{ candidate.release_date|slice:":4" }}{% endif %}
+              </p>
+              <div class="ct-discover-hero__actions">
+                <button type="button"
+                        class="ct-discover-hero__primary"
+                        hx-post="{% url 'discover_action' %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        hx-target="#discover-rows"
+                        hx-swap="innerHTML"
+                        hx-vals='{"action":"planning","candidate_media_type":"{{ candidate.media_type|escapejs }}","source":"{{ candidate.source|escapejs }}","media_id":"{{ candidate.media_id|escapejs }}","active_media_type":"{{ selected_media_type|default:"all"|escapejs }}","show_more":"{% if show_more %}1{% else %}0{% endif %}","row_key":"","title":"{{ candidate.title|escapejs }}","image":"{{ candidate.image|default:IMG_NONE|escapejs }}","release_date":"{{ candidate.release_date|default:""|escapejs }}","discover_debug":"{% if discover_debug %}1{% else %}0{% endif %}"}'>
+                  {% include "app/icons/plus.svg" with classes="w-4 h-4" %}
+                  {% translate "Add to Planned" %}
+                </button>
+                <a href="{{ candidate|media_url }}" class="ct-discover-hero__secondary">{% translate "Details" %}</a>
+              </div>
+            </div>
           </article>
         {% endwith %}
       {% endfor %}
     </div>
     {% if slides|length > 1 %}
-      <div class="ct-discover-hero__controls">
-        <button type="button"
-                class="ct-icon-button ct-glass-control"
-                @click="go(index - 1)"
-                aria-label="{% translate "Previous" %}">
-          {% include "app/icons/chevron-left.svg" with classes="w-4 h-4" %}
-        </button>
-        <div class="ct-discover-hero__dots">
-          {% for slide in slides %}
-            <button type="button"
-                    @click="go({{ forloop.counter0 }})"
-                    :aria-current="index === {{ forloop.counter0 }} ? 'true' : 'false'"
-                    aria-label="{% blocktranslate trimmed with value_1=forloop.counter %}Slide {{ value_1 }}{% endblocktranslate %}"></button>
-          {% endfor %}
-        </div>
-        <button type="button"
-                class="ct-icon-button ct-glass-control"
-                @click="go(index + 1)"
-                aria-label="{% translate "Next" %}">
-          {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
-        </button>
+      <div class="ct-discover-hero__dots">
+        {% for slide in slides %}
+          <button type="button"
+                  @click="go({{ forloop.counter0 }})"
+                  :aria-current="index === {{ forloop.counter0 }} ? 'true' : 'false'"
+                  aria-label="{% blocktranslate trimmed with value_1=forloop.counter %}Slide {{ value_1 }}{% endblocktranslate %}"></button>
+        {% endfor %}
       </div>
     {% endif %}
   </section>

@@ -3,6 +3,12 @@
 {% load app_tags %}
 
 <section id="discover-row-{{ row.key }}" data-discover-row-key="{{ row.key }}">
+  {% if request.user.theme == 'cinetrack' %}
+    {# v2 A8/A19: the title only; the why line, match signal and stale note are hidden (v2_mockup_gaps.md). #}
+    <div class="ct-row-head">
+      <h2 class="ct-row-title">{{ row.title }}</h2>
+    </div>
+  {% else %}
   <div class="mb-3 flex items-start justify-between gap-4">
     <div class="min-w-0">
       <h2 class="text-xl font-semibold text-[var(--color-text)]">{{ row.title }}</h2>
@@ -17,10 +23,22 @@
       <span class="text-xs text-[var(--color-warning-text)]">{% translate "Refreshing…" %}</span>
     {% endif %}
   </div>
+  {% endif %}
 
   {% if row.items %}
     {% with first_media_type=row.items.0.media_type|default:"" %}
-      <div class="media-grid{% if first_media_type == 'podcast' or first_media_type == 'music' %} media-grid-square{% endif %}{% if request.user.theme == 'cinetrack' %} ct-rail-row{% endif %}"{% if request.user.theme == 'cinetrack' %} data-horizontal-drag="true"{% endif %}>
+      {% if request.user.theme == 'cinetrack' %}
+        {# v2 cards: the Library poster style with a "Type · Year" line; match % and provenance are hidden. #}
+        <div class="media-grid ct-rail-row ct-library-grid{% if first_media_type == 'podcast' or first_media_type == 'music' %} media-grid-square{% endif %}" data-horizontal-drag="true">
+          {% for candidate in row.items %}
+            <div>
+              {% include "app/components/media_card.html" with media=None item=candidate title=candidate.title from_grid=True user=user current_sort=None card_media_type=candidate.media_type score_chip_mode='conditional' progress_chip_mode='conditional' time_left_chip_mode='conditional' show_release_year_placeholder=False show_status_chip=False show_progress_chip=False hover_action_mode='discover' discover_active_media_type=selected_media_type discover_show_more=show_more discover_row_key=row.key discover_debug=discover_debug %}
+              <p class="ct-library-sub">{{ candidate.media_type|media_type_readable }}{% if candidate.release_date %} · {{ candidate.release_date|slice:":4" }}{% endif %}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+      <div class="media-grid{% if first_media_type == 'podcast' or first_media_type == 'music' %} media-grid-square{% endif %}">
         {% for candidate in row.items %}
           {% if row.key == 'top_picks_for_you' %}
             {% include "app/components/media_card.html" with media=None item=candidate title=candidate.title from_grid=True user=user current_sort=None card_media_type=candidate.media_type subtitle_override=candidate.release_date subtitle_match_percent=candidate.display_score|default_if_none:candidate.final_score|match_percent subtitle_match_label=_('Taste match') provenance_text=candidate.source_reason score_chip_mode='conditional' progress_chip_mode='conditional' time_left_chip_mode='conditional' show_release_year_placeholder=False show_status_chip=False show_progress_chip=False hover_action_mode='discover' discover_active_media_type=selected_media_type discover_show_more=show_more discover_row_key=row.key discover_debug=discover_debug %}
@@ -33,6 +51,7 @@
           {% endif %}
         {% endfor %}
       </div>
+      {% endif %}
     {% endwith %}
   {% else %}
     <div class="rounded-lg border border-dashed border-gray-700 bg-[var(--color-hover-dim)] px-4 py-5 text-sm text-[var(--color-text-muted)]">

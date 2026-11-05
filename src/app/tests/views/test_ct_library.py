@@ -245,6 +245,24 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
         self.assertNotContains(response, "UNDER CONSTRUCTION")
         self.assertNotContains(response, "Show More Rows")
 
+    def test_cinetrack_v2_follows_the_mockup(self, get_tab_rows, *_):
+        """v2 A8/A19: hero actions, card meta line; features the board lacks are hidden."""
+        get_tab_rows.return_value = self.rows
+        self._use_cinetrack()
+
+        response = self.client.get(reverse("discover"))
+
+        self.assertContains(response, "Add to Planned")
+        self.assertContains(response, '"action":"planning"')
+        self.assertContains(response, 'class="ct-discover-hero__secondary">Details<')
+        self.assertContains(response, "ct-palette-open")
+        self.assertContains(response, 'class="ct-library-sub">Movie · 2024</p>', count=2)
+        self.assertContains(response, 'class="ct-row-title">Trending_Right_Now<')
+        self.assertNotContains(response, "Refresh recommendations")
+        self.assertNotContains(response, "switchMedia('hidden')")
+        self.assertNotContains(response, "Why.")
+        self.assertNotContains(response, "ct-discover-hero__poster")
+
     def test_classic_page_is_unchanged(self, get_tab_rows, *_):
         get_tab_rows.return_value = self.rows
 
@@ -267,14 +285,56 @@ class CineTrackSearchTests(_CineTrackUserMixin, TestCase):
         return self.client.get(reverse("search") + "?media_type=movie&q=test")
 
     def test_cinetrack_header(self, mock_search):
+        """v2 A9: the page's own field and the type segment; no layout toggle."""
         self._use_cinetrack()
 
         response = self._get(mock_search)
 
         self.assertContains(response, 'class="ct-search-head"')
-        self.assertContains(response, "Results for “test”")
-        self.assertContains(response, "&layout=list")
-        self.assertContains(response, "source=tmdb")
+        self.assertContains(response, 'class="ct-search-field"')
+        self.assertRegex(response.content.decode(), r'name="q"\s+value="test"')
+        self.assertRegex(
+            response.content.decode(),
+            r'media_type=movie"\s+aria-current="page">Movies<',
+        )
+        self.assertNotContains(response, "Results for")
+        self.assertNotContains(response, "layout=list")
+
+    def test_cinetrack_result_rows(self, mock_search):
+        """Tracked results show their status; the others an Add button."""
+        self._use_cinetrack()
+        item = Item.objects.create(
+            media_id="1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Tracked Movie",
+            image="http://example.com/a.jpg",
+        )
+        Movie.objects.create(item=item, user=self.user, status=Status.PLANNING.value)
+        mock_search.return_value = {
+            "page": 1,
+            "total_results": 2,
+            "total_pages": 1,
+            "results": [
+                {
+                    "media_id": media_id,
+                    "title": title,
+                    "media_type": MediaTypes.MOVIE.value,
+                    "source": Sources.TMDB.value,
+                    "image": "http://example.com/a.jpg",
+                }
+                for media_id, title in (("1", "Tracked Movie"), ("2", "New Movie"))
+            ],
+        }
+
+        response = self.client.get(reverse("search") + "?media_type=movie&q=movie")
+
+        self.assertContains(response, 'class="ct-search-row"', count=3)
+        self.assertContains(response, "In Your Library")
+        self.assertContains(response, "More Results")
+        self.assertContains(response, 'data-status="planning"', count=2)
+        self.assertContains(response, 'class="ct-search-row__add"', count=1)
+        self.assertNotContains(response, "Online Results")
 
     def test_classic_header(self, mock_search):
         response = self._get(mock_search)

@@ -1,0 +1,72 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack search result row (v2 A9), one line of a grouped list: poster,
+  title, "Type · Year", then either the tracked state (status dot, a detail
+  line and the status) with a chevron, or an Add button that opens the same
+  track modal as the classic list card. The classic card's lists, history and
+  info buttons are hidden (docs/agents/v2_mockup_gaps.md).
+
+  Context: item, media (None when untracked), user.
+{% endcomment %}
+<div class="ct-search-row" x-data="{ trackOpen: false }">
+  <a href="{{ item|media_url }}" class="ct-search-row__link">
+    <img alt=""
+         class="ct-search-row__poster"
+         src="{{ item.image|default:IMG_NONE|tmdb_size:'w92'|image_url }}"
+         width="44"
+         height="64"
+         loading="lazy"
+         decoding="async">
+    <span class="ct-search-row__text">
+      <span class="ct-search-row__title">{{ item|display_title:user }}</span>
+      <span class="ct-search-row__meta">
+        {{ item.media_type|media_type_readable }}{% with year=item|release_year:media %}{% if year %} · {{ year }}{% endif %}{% endwith %}
+      </span>
+    </span>
+    {% if media %}
+      {% with status=media.aggregated_status|default:media.status %}
+        <span class="ct-search-row__state" data-status="{{ status|slugify }}">
+          <span class="ct-status-dot" aria-hidden="true"></span>
+          <span class="ct-search-row__state-text">
+            {% if status == Status.IN_PROGRESS.value %}
+              {% ct_library_subtitle media as next_label %}
+              {% if next_label != media.get_status_display %}<span>{{ next_label }}</span>{% endif %}
+            {% elif status == Status.COMPLETED.value %}
+              {% with end_date=media|safe_attr:"aggregated_end_date"|default_if_none:media.end_date %}
+                {% if end_date %}<span>{% blocktranslate trimmed with value_1=end_date|user_date_format:user %}Watched {{ value_1 }}{% endblocktranslate %}</span>{% endif %}
+              {% endwith %}
+            {% elif status == Status.PLANNING.value and media.created_at %}
+              <span>{% blocktranslate trimmed with value_1=media.created_at|user_date_format:user %}Added {{ value_1 }}{% endblocktranslate %}</span>
+            {% endif %}
+            <small>{{ media.get_status_display }}</small>
+          </span>
+        </span>
+      {% endwith %}
+      {% include "app/icons/chevron-right.svg" with classes="ct-search-row__chevron w-4 h-4" %}
+    {% endif %}
+  </a>
+  {% if not media %}
+    <button type="button"
+            class="ct-search-row__add"
+            hx-get="{% media_view_url 'track_modal' item %}"
+            hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
+            hx-target="#{% component_id 'track' item None %}"
+            hx-trigger="click once"
+            @click="trackOpen = true">
+      {% include "app/icons/plus.svg" with classes="w-4 h-4" %}
+      {% translate "Add" %}
+    </button>
+    <div x-show="trackOpen"
+         x-cloak
+         @keydown.escape.window="trackOpen = false"
+         @mousedown.self="trackOpen = false"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="modal-max-height overflow-y-auto px-4 md:px-0 relative z-60 w-full"
+           style="width: min(96vw, 72rem);">
+        <div id="{% component_id 'track' item None %}"></div>
+      </div>
+    </div>
+  {% endif %}
+</div>

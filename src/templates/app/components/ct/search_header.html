@@ -1,46 +1,47 @@
 {% load i18n %}
 {% load app_tags %}
 {% comment %}
-  CineTrack Search header (W4), included by search.html when ct_shell in
-  place of the classic title row. Same source and layout links (same query
-  strings) as the classic header, drawn as pills.
+  CineTrack Search header (v2 A9), included by search.html when ct_shell in
+  place of the classic title row. The page has its own field (the top bar is
+  hidden on this page), a segment of the enabled search types and a Source
+  segment, all plain GET links with the classic header's query strings.
+
+  Results always render as list rows (ct/search_row.html), so the grid/list
+  toggle is hidden, as are the top bar's suggestions and book barcode scan
+  (docs/agents/v2_mockup_gaps.md).
 {% endcomment %}
 <div class="ct-search-head">
-  <div class="min-w-0">
-    <p class="ct-search-eyebrow">{{ media_type|media_type_readable_plural }}</p>
-    <h1 class="ct-library-title">
-      {% if request.GET.q %}
-        {% blocktranslate trimmed with value_1=request.GET.q %}Results for “{{ value_1 }}”{% endblocktranslate %}
-      {% else %}
-        {% translate "Search Results" %}
-      {% endif %}
-    </h1>
-  </div>
-  <div class="flex items-center flex-wrap gap-2">
-    <nav class="ct-type-switch" aria-label="{% translate "Source:" %}">
-      {% if source_options %}
-        {% for source_option in source_options %}
-          <a href="{% url 'search' %}?q={{ request.GET.q|urlencode }}&media_type={{ media_type }}&source={{ source_option.value }}&layout={{ layout }}"
-             class="ct-type-pill"
-             {% if source == source_option.value %}aria-current="page"{% endif %}>{{ source_option.label }}</a>
-        {% endfor %}
-      {% else %}
-        {% for source_option in media_type|sources %}
-          <a href="{% url 'search' %}?q={{ request.GET.q|urlencode }}&media_type={{ media_type }}&source={{ source_option.value }}&layout={{ layout }}"
-             class="ct-type-pill"
-             {% if source == source_option.value %}aria-current="page"{% endif %}>{{ source_option.label }}</a>
-        {% endfor %}
-      {% endif %}
+  <h1 class="ct-page-title">{% translate "Search" %}</h1>
+  <form method="get" action="{% url 'search' %}" class="ct-search-field" role="search">
+    {% include "app/icons/magnifying-glass.svg" with classes="w-5 h-5" %}
+    <input type="search"
+           name="q"
+           value="{{ request.GET.q }}"
+           placeholder="{% blocktranslate trimmed with value_1=media_type|media_type_readable_plural %}Search {{ value_1 }}{% endblocktranslate %}"
+           aria-label="{% translate "Search" %}"
+           autocomplete="off"
+           {% if not request.GET.q %}autofocus{% endif %}>
+    <input type="hidden" name="media_type" value="{{ media_type }}">
+    {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
+  </form>
+  <div class="ct-search-bar">
+    <nav class="ct-segment" aria-label="{% translate "Media type" %}">
+      {% get_search_media_types user as search_types %}
+      {% for search_type in search_types %}
+        <a href="{% url 'search' %}?q={{ request.GET.q|urlencode }}&media_type={{ search_type.value }}"
+           {% if media_type == search_type.value %}aria-current="page"{% endif %}>{{ search_type.display }}</a>
+      {% endfor %}
     </nav>
-    <nav class="ct-segment ct-segment--icons" aria-label="{% translate "Layout" %}">
-      <a href="?q={{ request.GET.q|urlencode }}&media_type={{ media_type }}{% if source %}&source={{ source }}{% endif %}&layout=grid"
-         {% if layout == 'grid' %}aria-current="page"{% endif %}
-         title="{% translate "Grid View" %}"
-         aria-label="{% translate "Grid View" %}">{% include "app/icons/four-square.svg" with classes="w-4 h-4" %}</a>
-      <a href="?q={{ request.GET.q|urlencode }}&media_type={{ media_type }}{% if source %}&source={{ source }}{% endif %}&layout=list"
-         {% if layout == 'list' %}aria-current="page"{% endif %}
-         title="{% translate "List View" %}"
-         aria-label="{% translate "List View" %}">{% include "app/icons/list.svg" with classes="w-4 h-4" %}</a>
-    </nav>
+    {% if source_options|length > 1 %}
+      <div class="ct-search-source">
+        <span>{% translate "Source" %}</span>
+        <nav class="ct-segment" aria-label="{% translate "Source" %}">
+          {% for source_option in source_options %}
+            <a href="{% url 'search' %}?q={{ request.GET.q|urlencode }}&media_type={{ media_type }}&source={{ source_option.value }}"
+               {% if source == source_option.value %}aria-current="page"{% endif %}>{% if source_option.value|length <= 4 %}{{ source_option.value|upper }}{% else %}{{ source_option.label }}{% endif %}</a>
+          {% endfor %}
+        </nav>
+      </div>
+    {% endif %}
   </div>
 </div>
