@@ -3185,7 +3185,7 @@ a.ct-person-link:hover .ct-person-primary {
 /* CineTrack Library, Discover and Search (W4). Switches and tabs are plain
    pills (many of them, so no blur); rows stay crisp poster rails. The page's
    indigo utilities take a deepened accent that keeps white text readable. */
-main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head)) {
+main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head, .ct-lists-head)) {
   --color-indigo-400: var(--color-link);
   --color-indigo-500: var(--color-accent);
   --color-indigo-600: color-mix(in srgb, var(--color-accent) 62%, #0b1a22);
@@ -3530,6 +3530,569 @@ main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head)) {
 
 .ct-load-more {
   height: 1px;
+}
+
+/* v2 Library (A3/A16). The header reuses the Home page head; the status
+   segment and the toolbar share one row; the grid keeps the shared media
+   card (hover actions, bulk select) restyled as a crisp poster with the
+   title, a subtitle, a status badge and an inset progress line. */
+.ct-library-titlebar {
+  align-items: flex-end;
+  padding-top: 0;
+}
+
+.ct-library-title--wide {
+  display: none;
+}
+
+.ct-library-head .ct-type-switch {
+  align-self: flex-start;
+  max-width: 100%;
+  gap: 2px;
+  margin-inline: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-library-head .ct-type-pill {
+  height: 32px;
+  padding-inline: 14px;
+  border: 0;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.ct-library-head .ct-type-pill[aria-current="page"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-library-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ct-library-bar .ct-status-tabs {
+  display: none;
+  flex: 0 1 auto;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-library-bar .ct-status-tab {
+  height: 30px;
+  padding-inline: 16px;
+  border: 0;
+  font-weight: 700;
+}
+
+.ct-library-bar .ct-status-tab[aria-pressed="true"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-toolbar-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ct-toolbar {
+  gap: 10px;
+}
+
+.ct-toolbar > .filter-control > button,
+.ct-toolbar .ct-settings-menu > button {
+  height: 36px;
+  gap: 8px;
+  padding-inline: 14px;
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ct-toolbar .ct-settings-menu > button {
+  width: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ct-toolbar .ct-settings-menu > button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ct-toolbar > .filter-control > button:hover,
+.ct-toolbar .ct-settings-menu > button:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-toolbar-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.ct-toolbar > .filter-control:first-of-type > button > svg:last-child,
+.ct-toolbar #result-count {
+  display: none;
+}
+
+.ct-toolbar > .filter-control > button > svg.ml-2 {
+  margin-left: 0;
+}
+
+.ct-toolbar .ct-status-dot:not([data-status]),
+.ct-toolbar .ct-status-dot[data-status=""] {
+  display: none;
+}
+
+.ct-status-dot[data-status="completed"] { background-color: var(--ct-status-completed); }
+.ct-status-dot[data-status="in-progress"] { background-color: var(--ct-status-watching); }
+.ct-status-dot[data-status="planning"] { background-color: var(--ct-status-planned); }
+.ct-status-dot[data-status="paused"] { background-color: var(--ct-status-paused); }
+.ct-status-dot[data-status="dropped"] { background-color: var(--ct-status-dropped); }
+
+.ct-toolbar .ct-segment {
+  display: none;
+  align-self: center;
+}
+
+/* Phones (A16): the status pull-down leads, then the filter, sort and view
+   settings shrink to icons. */
+@media (max-width: 767.98px) {
+  .ct-toolbar.media-filter-toolbar {
+    display: flex !important;
+    flex-wrap: nowrap;
+  }
+
+  .ct-toolbar.media-filter-toolbar .filter-control {
+    width: auto;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control > button {
+    width: auto;
+    padding-block: 0 !important;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control > button span {
+    max-width: none;
+  }
+
+  .ct-toolbar > [data-ct-filter="status"] {
+    order: -1;
+    margin-right: auto;
+  }
+
+  .ct-toolbar.media-filter-toolbar > [data-ct-filter="status"] > button {
+    height: 40px;
+    padding-inline: 16px !important;
+    font-size: 15px;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control:not([data-ct-filter="status"]) > button {
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    padding-inline: 0 !important;
+  }
+
+  .ct-toolbar > .filter-control:not([data-ct-filter="status"]) > button > :not(.ct-toolbar-icon) {
+    display: none;
+  }
+
+  .ct-toolbar > .ml-auto {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .ct-library-title--phone,
+  .ct-library-head .ct-type-switch {
+    display: none;
+  }
+
+  .ct-library-title--wide {
+    display: inline;
+  }
+
+  .ct-library-bar .ct-status-tabs {
+    display: flex;
+  }
+
+  .ct-toolbar {
+    justify-content: flex-end;
+  }
+
+  .ct-toolbar > [data-ct-filter="status"] {
+    display: none;
+  }
+
+  .ct-toolbar .ct-segment {
+    display: inline-flex;
+  }
+}
+
+.ct-library-grid.media-grid {
+  gap: 22px 20px;
+}
+
+@media (min-width: 30rem) {
+  .ct-library-grid.media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 29.99rem) {
+  .ct-library-grid.media-grid {
+    gap: 18px 13px;
+  }
+}
+
+.ct-library-grid .search-result-card {
+  aspect-ratio: auto;
+  overflow: visible;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.ct-library-grid .search-result-card::after {
+  display: none;
+}
+
+.ct-library-grid .search-result-card > .media-card-visual {
+  position: relative;
+  inset: auto;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--ct-radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 22%), 0 7px 18px rgb(0 0 0 / 14%);
+  transition: transform var(--motion-short) var(--ease-standard);
+}
+
+.ct-library-grid .search-result-card:hover > .media-card-visual {
+  transform: translateY(-3px);
+}
+
+.ct-library-grid .search-result-card .media-card-body {
+  position: static;
+  padding: 10px 0 0 !important;
+  background: none;
+}
+
+.ct-library-grid .media-card-body::before {
+  display: none;
+}
+
+.ct-library-grid .search-result-card .media-card-title-row {
+  max-height: none;
+}
+
+.ct-library-grid .search-result-card .media-card-title,
+.ct-library-grid .search-result-card .media-card-title[title] {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-library-grid .search-result-card .media-card-title[title]::before {
+  content: none;
+}
+
+.ct-library-grid .search-result-card:hover .media-card-title[title] {
+  color: var(--color-link);
+}
+
+.ct-library-grid .media-card-year {
+  display: none;
+}
+
+.ct-library-sub {
+  min-height: 1.3em;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status badge: a filled circle top-right with the state icon in white. */
+.ct-library-grid .media-status-chip {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  padding: 0;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+}
+
+.ct-library-grid .media-status-chip > [data-status] {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--color-surface-strong);
+  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 85%), 0 3px 8px rgb(0 0 0 / 35%);
+  color: #fff;
+}
+
+.ct-library-grid .media-status-chip > [data-status] > svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ct-library-grid .media-status-chip > [data-status="completed"] { background-color: var(--ct-status-completed); }
+.ct-library-grid .media-status-chip > [data-status="in-progress"] { background-color: var(--ct-status-watching); }
+.ct-library-grid .media-status-chip > [data-status="planning"] { background-color: var(--ct-status-planned); color: #1c1a17; }
+.ct-library-grid .media-status-chip > [data-status="paused"] { background-color: var(--ct-status-paused); }
+.ct-library-grid .media-status-chip > [data-status="dropped"] { background-color: var(--ct-status-dropped); }
+
+.ct-library-grid .media-next-ep-link {
+  right: auto;
+  left: 8px;
+}
+
+/* Progress: an inset rounded line inside the poster. */
+.ct-library-grid .media-card-progress-bar {
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 22%);
+}
+
+.ct-library-grid .media-card-progress-bar > div {
+  border-radius: inherit;
+  background-color: #fff;
+}
+
+/* v2 Lists (A13): the Home page head, a My Lists / Shared with Me segment,
+   and cards with a four-poster cover strip, the name and a meta line. */
+.ct-lists-head {
+  margin-bottom: 28px;
+}
+
+@media (min-width: 640px) {
+  .ct-lists-head {
+    align-items: flex-start;
+  }
+}
+
+.ct-lists-profile,
+.ct-lists-new > button {
+  height: 40px;
+  border: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ct-lists-head .ct-lists-profile {
+  padding-inline: 16px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.ct-lists-head .ct-lists-profile:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-lists-head .ct-lists-new > button {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.ct-lists-head .ct-lists-new > button:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 88%, #fff);
+}
+
+.ct-lists-head .ct-lists-new > button:first-of-type {
+  padding-inline: 18px 16px;
+  border-right: 1px solid rgb(0 0 0 / 14%);
+  border-radius: 999px 0 0 999px;
+}
+
+.ct-lists-head .ct-lists-new > button:nth-of-type(2) {
+  padding-inline: 10px 14px;
+  border-radius: 0 999px 999px 0;
+}
+
+.ct-lists-bar {
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ct-lists-bar .ct-lists-scope {
+  flex: none;
+}
+
+.ct-lists-scope > a {
+  padding: 6px 18px;
+  font-weight: 700;
+}
+
+.ct-lists-bar > .flex-1 {
+  width: 100%;
+}
+
+.ct-lists-bar input[type="text"] {
+  height: 36px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  font-size: 14px;
+}
+
+.ct-lists-bar .filter-control > button {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .ct-lists-bar > .flex-1 {
+    flex: 0 1 280px;
+    margin-left: auto;
+  }
+}
+
+.ct-lists-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px 32px;
+}
+
+@media (min-width: 640px) {
+  .ct-lists-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .ct-lists-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 56px;
+  }
+}
+
+.ct-list-card {
+  position: relative;
+  min-width: 0;
+}
+
+.ct-list-card__frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 344 / 180;
+  border-radius: 16px;
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 22%), 0 7px 18px rgb(0 0 0 / 14%);
+  transition: transform var(--motion-short) var(--ease-standard);
+}
+
+.ct-list-card:hover .ct-list-card__frame {
+  transform: translateY(-3px);
+}
+
+.ct-list-card__cover,
+.ct-list-card__frame .media-card-poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.ct-list-card__frame .ct-list-cover {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.ct-list-cover > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-list-cover__empty {
+  background-color: var(--color-surface-strong);
+}
+
+.ct-list-card__edit {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 55%);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-short) var(--ease-standard);
+}
+
+.ct-list-card:hover .ct-list-card__edit,
+.ct-list-card__edit:focus-visible {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .ct-list-card__edit {
+    opacity: 1;
+  }
+}
+
+.ct-list-card__title {
+  display: block;
+  margin-top: 14px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-list-card__title:hover {
+  color: var(--color-link);
+}
+
+.ct-list-card__meta {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 13px;
 }
 
 /* Search: three posters a row on phones, as in the Library grid. */

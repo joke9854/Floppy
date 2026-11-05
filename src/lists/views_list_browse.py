@@ -30,7 +30,7 @@ from lists.views_helpers import (
     _order_expression,
     _resolve_list_sort_direction,
 )
-from users.models import ListSortChoices
+from users.models import ListSortChoices, ThemeChoices
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +143,16 @@ def lists(request):
         custom_lists = custom_lists.filter(
             Q(name__icontains=search_query) | Q(description__icontains=search_query),
         )
+
+    # v2 Lists (A13): CineTrack splits the page into "My Lists" (the default)
+    # and "Shared with Me"; other themes keep one combined grid.
+    scope = request.GET.get("scope", "")
+    if scope not in ("mine", "shared"):
+        scope = "mine" if request.user.theme == ThemeChoices.CINETRACK else ""
+    if scope == "mine":
+        custom_lists = custom_lists.filter(owner=request.user)
+    elif scope == "shared":
+        custom_lists = custom_lists.exclude(owner=request.user)
 
     if selected_media_type != "all":
         custom_lists = (
@@ -298,6 +308,12 @@ def lists(request):
             "mdblist_account": mdblist_account,
             "cache_buster": cache_buster,
             "list_url_template": _build_list_url_template(request),
+            "current_scope": scope,
+            "owned_count": CustomList.objects.filter(owner=request.user).count(),
+            "shared_count": CustomList.objects.filter(collaborators=request.user)
+            .exclude(owner=request.user)
+            .distinct()
+            .count(),
         },
     )
     # Explicitly set cache control headers for Safari compatibility
@@ -321,6 +337,18 @@ def list_cover_image(request, list_id):
     custom_list = get_object_or_404(CustomList, id=list_id)
     if not custom_list.user_can_view(request.user):
         return HttpResponseForbidden()
+    if getattr(request.user, "theme", None) == ThemeChoices.CINETRACK:
+        # v2 Lists (A13): a strip of the first four posters, from local items.
+        posters = [
+            membership.item
+            for membership in custom_list.customlistitem_set.select_related("item")
+            .order_by("date_added", "pk")[:4]
+        ]
+        return render(
+            request,
+            "lists/components/ct_list_cover.html",
+            {"posters": posters, "name": custom_list.name},
+        )
     image_url = custom_list.image
     return render(
         request,

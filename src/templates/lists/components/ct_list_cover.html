@@ -1,0 +1,18 @@
+{% load app_tags %}
+{% comment %}
+  CineTrack list cover (v2 A13): the first four posters side by side, from the
+  list's own items, so a cover never waits on a provider. It replaces the
+  lazy placeholder in list_grid.html (hx-swap="outerHTML").
+{% endcomment %}
+<div class="media-card-poster ct-list-cover w-full aspect-[3/2]"
+     role="img"
+     aria-label="{{ name }}">
+  {% for item in posters %}
+    <img alt=""
+         src="{{ item.image|default:IMG_NONE|tmdb_size:'w185'|image_url }}"
+         loading="lazy"
+         decoding="async">
+  {% empty %}
+    <span class="ct-list-cover__empty" aria-hidden="true"></span>
+  {% endfor %}
+</div>

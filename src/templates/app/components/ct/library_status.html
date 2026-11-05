@@ -1,0 +1,35 @@
+{% load i18n %}
+{% comment %}
+  CineTrack Library status segment (v2 A3): single-status shortcuts over the
+  toolbar's status filter. They set the same `statuses` state and request the
+  same endpoint, target and form as the toolbar's Status menu, which stays for
+  multi-select and is the status pull-down on phones (A16). The swap
+  cross-fades (M4).
+{% endcomment %}
+{% if status_choices %}
+  <div class="ct-status-tabs" role="group" aria-label="{% translate "Status" %}">
+    <button type="button"
+            class="ct-status-tab"
+            hx-get="{{ media_list_url }}"
+            hx-target="{{ filter_hx_target }}"
+            hx-include="#filter-form"
+            hx-indicator="#loading-indicator"
+            hx-swap="innerHTML transition:true"
+            :aria-pressed="statuses.length === 0 ? 'true' : 'false'"
+            @click="statuses = []">{% translate "All" %}</button>
+    {% for value, label in status_choices %}
+      {% if value != 'all' and value != 'All' %}
+        <button type="button"
+                class="ct-status-tab"
+                data-status="{{ value|slugify }}"
+                hx-get="{{ media_list_url }}"
+                hx-target="{{ filter_hx_target }}"
+                hx-include="#filter-form"
+                hx-indicator="#loading-indicator"
+                hx-swap="innerHTML transition:true"
+                :aria-pressed="statuses.length === 1 && statuses[0] === '{{ value|escapejs }}' ? 'true' : 'false'"
+                @click="statuses = ['{{ value|escapejs }}']">{% translate label %}</button>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

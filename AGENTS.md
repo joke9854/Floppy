@@ -303,6 +303,7 @@ Models/migrations and divergent UI normally require manual adaptation. Provider 
 - `docs/agents/pocketcasts_workflow.md`: Pocket Casts import/schedule workflow details.
 - `docs/agents/clz_import.md`: the CLZ importer's header-mapped contract and the shared custom-field resolution layer it sits on.
 - `docs/agents/migration_sync_playbook.md`: hard-gate flow for adapting accepted upstream migration outcomes to Floppy's current graph.
+- `docs/agents/v2_mockup_gaps.md`: live CineTrack features the v2 Penpot boards lack; from Phase 5, hide them and log them here for the post-redesign review.
 - `docs/agents/view_authentication.md`: guide for view authentication and declaring public route exemptions.
 - `docs/architecture/log-redaction.md`: the log boundary contract — where credentials are removed, what the rules match, and what they do not cover.
 - `docs/architecture/theming.md`: the theme resolution contract and the six theme states any colour change must hold.

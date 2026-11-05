@@ -31,7 +31,7 @@
               </span>
             {% elif media.aggregated_status %}
               {% with status_value=media.aggregated_status %}
-                <div class="w-4 h-4 {{ status_value|status_color }}">
+                <div class="w-4 h-4 {{ status_value|status_color }}" data-status="{{ status_value|slugify }}">
                   {% if status_value == Status.COMPLETED.value %}
                     {% include "app/icons/states/completed.svg" with classes="w-full h-full" %}
                   {% elif status_value == Status.IN_PROGRESS.value %}
@@ -47,7 +47,7 @@
               {% endwith %}
             {% else %}
               {% with status_value=media.status %}
-                <div class="w-4 h-4 {{ status_value|status_color }}">
+                <div class="w-4 h-4 {{ status_value|status_color }}" data-status="{{ status_value|slugify }}">
                   {% if status_value == Status.COMPLETED.value %}
                     {% include "app/icons/states/completed.svg" with classes="w-full h-full" %}
                   {% elif status_value == Status.IN_PROGRESS.value %}

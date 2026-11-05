@@ -16,9 +16,14 @@
          @click.outside="open = false; view = 'root'">
       <button class="flex items-center px-2 py-2 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
               @click="open = !open; if (open) { view = 'root'; }"
+              {% if ct_toolbar %}aria-label="{% translate "Filter" %}"{% endif %}
               type="button">
+        {% if ct_toolbar %}
+          {% translate "All" as filter_all_label %}{% translate "Filter" as filter_ct_label %}
+          {% include "app/icons/funnel.svg" with classes="ct-toolbar-icon" %}
+        {% endif %}
         <span class="block min-w-0 truncate max-w-[10rem] sm:max-w-[14rem]"
-              x-text="filterLabel()"></span>
+              {% if ct_toolbar %}x-text="filterLabel() === '{{ filter_all_label|escapejs }}' ? '{{ filter_ct_label|escapejs }}' : filterLabel()"{% else %}x-text="filterLabel()"{% endif %}></span>
         <svg xmlns="http://www.w3.org/2000/svg"
              viewBox="0 0 20 20"
              class="w-4 h-4 ml-2"

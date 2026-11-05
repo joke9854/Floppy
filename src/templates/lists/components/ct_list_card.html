@@ -1,0 +1,48 @@
+{% load i18n %}
+{% comment %}
+  CineTrack list card (v2 A13), included per list by list_grid.html: a
+  four-poster cover (lazy, ct_list_cover.html), the name, and a meta line
+  with the item count and who can see the list. The edit button and its
+  modal slot are the classic card's.
+{% endcomment %}
+<article class="ct-list-card group">
+  <div class="ct-list-card__frame">
+    <a href="{% url 'list_detail' custom_list.public_reference %}"
+       class="ct-list-card__cover"
+       tabindex="-1"
+       aria-hidden="true">
+      <div class="media-card-poster w-full aspect-[3/2] bg-[var(--color-surface-alt)] animate-pulse"
+           hx-get="{% url 'list_cover_image' custom_list.id %}"
+           hx-trigger="revealed"
+           hx-swap="outerHTML"></div>
+    </a>
+    {% if custom_list.can_edit %}
+      <button class="ct-list-card__edit"
+              hx-get="{% url 'list_edit_form' custom_list.id %}"
+              hx-target="next .list-edit-modal-slot"
+              hx-swap="innerHTML"
+              hx-trigger="click once"
+              @click="showModal = true"
+              title="{% translate "Edit list" %}"
+              aria-label="{% blocktranslate trimmed with value_1=custom_list.name %}Edit {{ value_1 }}{% endblocktranslate %}">{% include "app/icons/horizontal-sliders.svg" with classes="w-4 h-4" %}</button>
+    {% endif %}
+  </div>
+  <a href="{% url 'list_detail' custom_list.public_reference %}"
+     class="ct-list-card__title">{{ custom_list.name }}</a>
+  <p class="ct-list-card__meta">
+    {% blocktranslate trimmed with value_1=custom_list.items_count count count=custom_list.items_count %}{{ value_1 }} item{% plural %}{{ value_1 }} items{% endblocktranslate %}
+    <span aria-hidden="true">·</span>
+    {% if custom_list.owner_id != user.id or custom_list.collaborators.all %}
+      {% translate "Shared" %}
+    {% else %}
+      {% translate custom_list.get_visibility_display %}
+    {% endif %}
+    {% if custom_list.completion_percent %}
+      <span aria-hidden="true">·</span>
+      {% blocktranslate trimmed with value_1=custom_list.completion_percent %}{{ value_1 }}% completed{% endblocktranslate %}
+    {% endif %}
+  </p>
+  {% if custom_list.can_edit %}
+    <div class="list-edit-modal-slot"></div>
+  {% endif %}
+</article>

@@ -6,6 +6,9 @@
 {% for custom_list in custom_lists %}
   <div {% if forloop.last and custom_lists.has_next %} hx-get="{% if profile_username %}{% url 'user_profile' profile_username %}?page={{ custom_lists.next_page_number }}{% else %}{% url 'lists' %}?page={{ custom_lists.next_page_number }}{% endif %}" hx-trigger="revealed threshold:200px once" hx-swap="afterend" hx-include="#filter-form" hx-indicator="#loading-indicator" {% endif %}
        x-data="{ showModal: false }">
+    {% if user.theme == "cinetrack" and not profile_username %}
+      {% include "lists/components/ct_list_card.html" %}
+    {% else %}
     <div class="media-card bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg relative hover:ring-2 hover:ring-indigo-500 transition search-result-card-square group{% if request.user.media_card_subtitle_display == 'always' %} media-card-subtitle-always{% endif %}"
          style="aspect-ratio: 3/2 !important;">
       <div class="relative">
@@ -46,6 +49,7 @@
         <div class="list-edit-modal-slot"></div>
       {% endif %}
     </div>
+    {% endif %}
     {% if current_sort == 'last_watched' %}
       {% if custom_list.last_watched_at %}
         <p class="mt-2 text-sm font-semibold text-[var(--color-text)]">{{ custom_list.last_watched_at|user_date_format:user }}</p>

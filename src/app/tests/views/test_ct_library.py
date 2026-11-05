@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -6,8 +7,13 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from app.discover.schemas import CandidateItem, RowResult
-from app.models import MediaTypes, Sources
-from app.templatetags.app_tags import ct_discover_hero, ct_library_types
+from app.models import Item, MediaTypes, Movie, Sources, Status
+from app.templatetags.app_tags import (
+    ct_discover_hero,
+    ct_library_in_progress,
+    ct_library_subtitle,
+    ct_library_types,
+)
 from users.models import ThemeChoices
 
 BACKDROP = "https://image.tmdb.org/t/p/w1280/back.jpg"
@@ -64,6 +70,63 @@ class CineTrackLibraryTypesTests(TestCase):
         self.assertIn(MediaTypes.SEASON.value, [entry["media_type"] for entry in library["types"]])
 
 
+class CineTrackLibraryCardTests(TestCase):
+    """v2 A3: the card subtitle names the next episode, else the status."""
+
+    def _media(self, media_type, status, **attrs):
+        item = SimpleNamespace(media_type=media_type)
+        return SimpleNamespace(item=item, status=status, aggregated_status=None, **attrs)
+
+    def test_in_progress_show_names_the_next_episode(self):
+        season = SimpleNamespace(item=SimpleNamespace(season_number=2))
+        media = self._media(
+            MediaTypes.TV.value,
+            Status.IN_PROGRESS.value,
+            next_episode_target=lambda: (season, 5),
+        )
+
+        self.assertEqual(ct_library_subtitle(media), "S2 E5 next")
+
+    def test_in_progress_season_names_the_next_episode(self):
+        media = self._media(
+            MediaTypes.SEASON.value,
+            Status.IN_PROGRESS.value,
+            next_episode_number=lambda: 7,
+        )
+
+        self.assertEqual(ct_library_subtitle(media), "E7 next")
+
+    def test_caught_up_and_other_statuses_show_the_status(self):
+        caught_up = self._media(
+            MediaTypes.TV.value,
+            Status.IN_PROGRESS.value,
+            next_episode_target=lambda: None,
+        )
+        planned = self._media(MediaTypes.MOVIE.value, Status.PLANNING.value)
+
+        self.assertEqual(ct_library_subtitle(caught_up), "In Progress")
+        self.assertEqual(ct_library_subtitle(planned), "Planning")
+        self.assertEqual(ct_library_subtitle(self._media(MediaTypes.MOVIE.value, "")), "")
+
+    def test_in_progress_count_is_per_type_and_user(self):
+        user = get_user_model().objects.create_user(username="counts", password="12345")
+        other = get_user_model().objects.create_user(username="other", password="12345")
+        for index, (owner, status) in enumerate(
+            [(user, Status.IN_PROGRESS), (user, Status.COMPLETED), (other, Status.IN_PROGRESS)],
+        ):
+            item = Item.objects.create(
+                media_id=str(index),
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.MOVIE.value,
+                title=f"Movie {index}",
+                image="https://image.tmdb.org/t/p/w500/p.jpg",
+            )
+            Movie.objects.create(item=item, user=owner, status=status.value)
+
+        self.assertEqual(ct_library_in_progress(user, MediaTypes.MOVIE.value), 1)
+        self.assertEqual(ct_library_in_progress(user, "nope"), 0)
+
+
 class CineTrackDiscoverHeroTests(TestCase):
     """W4: one hero slide per row, skipping placeholders and repeats."""
 
@@ -114,7 +177,7 @@ class CineTrackMediaListTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, 'data-status="completed"')
         self.assertContains(response, 'hx-include="#filter-form"')
         self.assertContains(response, 'hx-swap="innerHTML transition:true"')
-        self.assertContains(response, "result-count-badge result-count-mobile ct-count-pill", count=1)
+        self.assertContains(response, "<span data-result-count>", count=1)
         self.assertContains(response, 'id="filter-form"', count=1)
         self.assertContains(response, 'id="loading-indicator"', count=1)
 
@@ -124,6 +187,32 @@ class CineTrackMediaListTests(_CineTrackUserMixin, TestCase):
         self.assertNotContains(response, "ct-library-head")
         self.assertNotContains(response, "ct-status-tab")
         self.assertContains(response, '<h1 class="text-3xl font-bold">')
+        self.assertNotContains(response, "ct-toolbar")
+        self.assertNotContains(response, "ct-library-grid")
+        self.assertContains(response, "media-settings-menu-desktop")
+
+    def test_cinetrack_v2_toolbar_and_grid(self):
+        """A3: status segment and toolbar share a row; the grid is restyled."""
+        self._use_cinetrack()
+        item = Item.objects.create(
+            media_id="1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Movie",
+            image="https://image.tmdb.org/t/p/w500/p.jpg",
+        )
+        Movie.objects.create(item=item, user=self.user, status=Status.COMPLETED.value)
+
+        response = self.client.get(reverse("medialist", args=[MediaTypes.MOVIE.value]))
+
+        self.assertContains(response, 'class="ct-library-bar"')
+        self.assertContains(response, "ct-toolbar")
+        self.assertContains(response, 'data-ct-filter="status"')
+        self.assertContains(response, "layoutHref('table')")
+        self.assertContains(response, "ct-settings-menu")
+        self.assertContains(response, "media-grid ct-library-grid")
+        self.assertContains(response, 'data-status="completed"', count=2)
+        self.assertContains(response, '<p class="ct-library-sub">Completed</p>', html=True)
 
 
 @override_settings(IMAGE_CACHE_ENABLED=False)

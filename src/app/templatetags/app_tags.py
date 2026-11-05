@@ -372,6 +372,54 @@ def ct_library_types(user):
 
 
 @register.simple_tag
+def ct_library_in_progress(user, media_type):
+    """Return how many titles of a Library type the user has in progress (A3)."""
+    from django.apps import apps
+
+    try:
+        model = apps.get_model("app", media_type)
+    except LookupError:
+        return 0
+    return (
+        model.objects.filter(user=user, status=Status.IN_PROGRESS.value)
+        .values("item_id")
+        .distinct()
+        .count()
+    )
+
+
+@register.simple_tag
+def ct_library_subtitle(media):
+    """Return the v2 Library card subtitle (A3): the next episode or the status.
+
+    In-progress shows read the next episode from the seasons and events the
+    Library query already prefetches, so the card costs no extra queries.
+    """
+    status = getattr(media, "aggregated_status", None) or getattr(media, "status", "")
+    if status == Status.IN_PROGRESS.value:
+        media_type = media.item.media_type
+        target = None
+        if media_type == MediaTypes.SEASON.value and hasattr(
+            media,
+            "next_episode_number",
+        ):
+            episode = media.next_episode_number()
+            if episode is not None:
+                return _("E%(episode)s next") % {"episode": episode}
+        elif media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value) and hasattr(
+            media,
+            "next_episode_target",
+        ):
+            target = media.next_episode_target()
+        if target is not None and target[0].item.season_number is not None:
+            return _("S%(season)s E%(episode)s next") % {
+                "season": target[0].item.season_number,
+                "episode": target[1],
+            }
+    return _(dict(Status.choices).get(status, status)) if status else ""
+
+
+@register.simple_tag
 def ct_discover_hero(rows, limit=5):
     """Return the Discover hero slides: one candidate per row, in row order (W4).
 

@@ -1,8 +1,8 @@
 
 {% load i18n %}
 {% load app_tags %}
-<div class="flex flex-col md:flex-row gap-4 mb-6">
-  <div class="flex gap-1 flex-wrap md:flex-nowrap w-full items-center filter-toolbar media-filter-toolbar">
+<div class="flex flex-col md:flex-row gap-4 {% if ct_toolbar %}ct-toolbar-wrap{% else %}mb-6{% endif %}">
+  <div class="flex gap-1 flex-wrap md:flex-nowrap w-full items-center filter-toolbar media-filter-toolbar{% if ct_toolbar %} ct-toolbar{% endif %}">
     {% if show_layout_toggle and column_config %}
       {{ column_config|json_script:"media-column-config-data" }}
       {{ default_column_config|json_script:"media-column-default-config-data" }}
@@ -12,10 +12,11 @@
 
     <!-- Filter by Status -->
     {% if status_choices %}
-      <div class="relative filter-control" x-data="{ open: false }">
+      <div class="relative filter-control" data-ct-filter="status" x-data="{ open: false }">
         <button class="flex items-center px-2 py-2 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
                 @click="open = !open"
                 type="button">
+          {% if ct_toolbar %}<span class="ct-status-dot" :data-status="statuses.length === 1 ? statuses[0].toLowerCase().replace(' ', '-') : ''" aria-hidden="true"></span>{% endif %}
           {% translate "Status" as media_i18n_74 %}{% translate " Statuses" as media_i18n_75 %}<span x-text="statuses.length === 0 ? '{{ media_i18n_74|escapejs }}' : (statuses.length === 1 ? (statusLabels[statuses[0]] || statuses[0]) : statuses.length + '{{ media_i18n_75|escapejs }}')"></span>
           <svg xmlns="http://www.w3.org/2000/svg"
                viewBox="0 0 20 20"
@@ -65,10 +66,12 @@
     {% endif %}
 
     <!-- Sort by -->
-    <div class="relative filter-control" x-data="{ open: false }">
+    <div class="relative filter-control" data-ct-filter="sort" x-data="{ open: false }">
       <button class="flex items-center px-2 py-2 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
               @click="open = !open"
+              {% if ct_toolbar %}aria-label="{% translate "Sort" %}"{% endif %}
               type="button">
+        {% if ct_toolbar %}{% include "app/icons/arrows-up-down.svg" with classes="ct-toolbar-icon" %}{% endif %}
         <span x-text="sortLabels[sort] || sort"></span>
         <svg xmlns="http://www.w3.org/2000/svg"
              viewBox="0 0 20 20"
@@ -121,10 +124,26 @@
       </div>
 
       <div class="ml-auto flex items-center gap-2 shrink-0">
+        {% if ct_toolbar %}
+          <nav class="ct-segment ct-segment--icons" aria-label="{% translate "Layout" %}">
+            <a :href="layoutHref('grid')"
+               :aria-current="layout === 'grid' ? 'page' : null"
+               title="{% translate "Grid View" %}"
+               aria-label="{% translate "Grid View" %}">{% include "app/icons/four-square.svg" with classes="w-4 h-4" %}</a>
+            <a :href="layoutHref('table')"
+               :aria-current="layout !== 'grid' ? 'page' : null"
+               title="{% translate "Table View" %}"
+               aria-label="{% translate "Table View" %}">{% include "app/icons/list.svg" with classes="w-4 h-4" %}</a>
+          </nav>
+        {% endif %}
         {% url 'medialist_columns' media_type as media_list_columns_url %}
         {% include "app/components/table_column_menu.html" with table_column_update_url=media_list_columns_url table_refresh_url=filter_hx_endpoint table_refresh_target=".media-table" table_refresh_include_selector="#filter-form" table_loading_indicator="#loading-indicator" table_type=table_type|default:'media' %}
 
-        {% include "app/components/media_settings_menu.html" with menu_class="media-settings-menu-desktop" %}
+        {% if ct_toolbar %}
+          {% include "app/components/media_settings_menu.html" with menu_class="ct-settings-menu" %}
+        {% else %}
+          {% include "app/components/media_settings_menu.html" with menu_class="media-settings-menu-desktop" %}
+        {% endif %}
       </div>
     {% endif %}
   </div>

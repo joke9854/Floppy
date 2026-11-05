@@ -19,18 +19,29 @@
   {# Form CSS lives in the content block so boosted navigation keeps it #}
   {{ form.media.css }}
   <div x-data="{ showModal: false, listMode: 'manual', showTraktModal: false, showMdblistModal: false, showCsvImportModal: false, traktDefaultStep: {% if trakt_has_credentials %}3{% else %}1{% endif %}, traktStep: {% if trakt_has_credentials %}3{% else %}1{% endif %} }">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8{% if ct_shell %} ct-lists-head{% endif %}">
       <div>
-        <h1 class="text-3xl font-bold mb-2">{% translate "Lists" %}</h1>
-        <p class="text-[var(--color-text-muted)]">{% translate "Organize and share your media lists" %}</p>
+        {% if ct_shell %}
+          <h1 class="ct-page-title">{% translate "Lists" %}</h1>
+          <p class="ct-page-sub">
+            {% blocktranslate trimmed count count=owned_count %}{{ count }} list{% plural %}{{ count }} lists{% endblocktranslate %}
+            {% if shared_count %}
+              <span aria-hidden="true">·</span>
+              {% blocktranslate trimmed count count=shared_count %}{{ count }} shared with you{% plural %}{{ count }} shared with you{% endblocktranslate %}
+            {% endif %}
+          </p>
+        {% else %}
+          <h1 class="text-3xl font-bold mb-2">{% translate "Lists" %}</h1>
+          <p class="text-[var(--color-text-muted)]">{% translate "Organize and share your media lists" %}</p>
+        {% endif %}
       </div>
       <div class="flex items-center gap-2">
         <a href="{% url 'user_profile' request.user.username %}"
-           class="flex items-center px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer">
+           class="ct-lists-profile flex items-center px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer">
           {% include "app/icons/person.svg" with classes="w-5 h-5 mr-2" %}
           {% translate "Public Profile" %}
         </a>
-        <div class="relative inline-flex" x-data="{ open: false }">
+        <div class="ct-lists-new relative inline-flex" x-data="{ open: false }">
           <button @click="listMode = 'manual'; showModal = true"
                   class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-md hover:bg-indigo-700 transition-colors cursor-pointer border-r border-indigo-500">
             {% include "app/icons/plus.svg" with classes="w-5 h-5 mr-2" %}
@@ -77,8 +88,8 @@
       </div>
     </div>
 
-    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row gap-4 mb-6"
-         x-data="{ sort: '{{ current_sort }}', direction: '{{ current_direction|default:'desc' }}', mediaType: '{{ current_media_type }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
+    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row gap-4 mb-6{% if ct_shell %} ct-lists-bar{% endif %}"
+         x-data="{ scope: '{{ current_scope|default:''|escapejs }}', sort: '{{ current_sort }}', direction: '{{ current_direction|default:'desc' }}', mediaType: '{{ current_media_type }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
            {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %}
            'all': '{{ media_i18n_16|escapejs }}'
          }, sortLabels: {
@@ -91,7 +102,17 @@
         <input type="hidden" name="direction" x-model="direction">
         <input type="hidden" name="media_type" x-model="mediaType">
         <input type="hidden" name="q" x-model="query">
+        <input type="hidden" name="scope" x-model="scope">
       </form>
+
+      {% if ct_shell and shared_count or ct_shell and current_scope == "shared" %}
+        <nav class="ct-segment ct-lists-scope" aria-label="{% translate "Lists" %}">
+          <a href="?scope=mine"
+             {% if current_scope != "shared" %}aria-current="page"{% endif %}>{% translate "My Lists" %}</a>
+          <a href="?scope=shared"
+             {% if current_scope == "shared" %}aria-current="page"{% endif %}>{% translate "Shared with Me" %}</a>
+        </nav>
+      {% endif %}
 
       <div class="relative flex-1">
         <input placeholder="{% translate "Search lists..." %}"
@@ -200,7 +221,7 @@
 
     {% if custom_lists %}
       <div id="lists-grid"
-           class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+           class="{% if ct_shell %}ct-lists-grid{% else %}grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4{% endif %}"
            hx-history="false">
         {% include "lists/components/list_grid.html" %}
       </div>
