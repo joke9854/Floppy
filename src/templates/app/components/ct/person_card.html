@@ -1,0 +1,35 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack person card (Apple layout v2): a 2:3 portrait and two lines. On
+  the Characters tab the character comes first, then the actor; Cast and Crew
+  lead with the person. Context: person, media, IMG_NONE, crew (optional).
+{% endcomment %}
+<article class="ct-person-card">
+  {% if person.person_id and person.name %}
+    <a href="{% url 'person_detail' source=media.source person_id=person.person_id name=person.name|slug %}" class="ct-person-link">
+  {% else %}
+    <div class="ct-person-link">
+  {% endif %}
+  <span class="ct-person-frame">
+    {% if person.image and person.image != IMG_NONE %}
+      <img alt="{{ person.name }}"
+           class="ct-fade-img"
+           src="{{ person.image|image_url }}"
+           width="185"
+           height="278"
+           loading="lazy"
+           decoding="async">
+    {% endif %}
+  </span>
+  {% if crew %}
+    <span class="ct-person-primary">{{ person.name|default:_("Unknown") }}</span>
+    <span class="ct-person-secondary">{{ person.role|default:person.department }}</span>
+  {% else %}
+    <span class="ct-person-primary" x-show="tab === 'characters'">{{ person.role|default:person.name }}</span>
+    <span class="ct-person-secondary" x-show="tab === 'characters'">{{ person.name }}</span>
+    <span class="ct-person-primary" x-show="tab !== 'characters'" x-cloak>{{ person.name }}</span>
+    <span class="ct-person-secondary" x-show="tab !== 'characters'" x-cloak>{{ person.role }}</span>
+  {% endif %}
+  {% if person.person_id and person.name %}</a>{% else %}</div>{% endif %}
+</article>

@@ -1017,6 +1017,12 @@ def season_details(
             if request.user.is_authenticated
             else None,
         ),
+        "watch_on": tmdb.watch_on_providers(
+            season_metadata.get("providers"),
+            request.user.watch_provider_region
+            if request.user.is_authenticated
+            else None,
+        ),
         "watch_provider_region": (
             request.user.watch_provider_region
             if request.user.is_authenticated

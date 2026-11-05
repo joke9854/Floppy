@@ -180,6 +180,94 @@ def ct_next_episode(entry):
 
 
 @register.simple_tag
+def ct_detail_next_episode(media, current_instance):
+    """Return the episode a detail page's primary button marks watched (v2).
+
+    A season page takes its first aired episode without a watch in the current
+    pass; a show page asks the tracked show for its next target, as Home does.
+    The coordinates are the ones episode_save takes.
+    """
+    if not isinstance(media, dict):
+        return None
+    library_media_type = getattr(
+        getattr(current_instance, "item", None), "library_media_type", None
+    )
+    if media.get("media_type") == MediaTypes.SEASON.value:
+        now = timezone.now()
+        for episode in media.get("episodes") or []:
+            air_date = episode.get("air_date")
+            if episode.get("history") or not isinstance(air_date, datetime):
+                continue
+            if air_date > now:
+                return None
+            return {
+                "media_id": media.get("media_id"),
+                "source": media.get("source"),
+                "season_number": media.get("season_number"),
+                "episode_number": episode.get("episode_number"),
+                "library_media_type": library_media_type,
+            }
+        return None
+    if current_instance is None or not hasattr(current_instance, "next_episode_target"):
+        return None
+    target = current_instance.next_episode_target()
+    if target is None or target[1] is None:
+        return None
+    season_item = target[0].item
+    return {
+        "media_id": season_item.media_id,
+        "source": season_item.source,
+        "season_number": season_item.season_number,
+        "episode_number": target[1],
+        "library_media_type": season_item.library_media_type,
+    }
+
+
+@register.filter
+def ct_v2_detail_type(media_type):
+    """Return whether a detail page takes the Apple layout v2 (A2/A7/A10)."""
+    return media_type in {
+        MediaTypes.MOVIE.value,
+        MediaTypes.TV.value,
+        MediaTypes.SEASON.value,
+        MediaTypes.ANIME.value,
+    }
+
+
+@register.simple_tag
+def ct_season_covers(show, current_number=None):
+    """Return a show's seasons as v2 season covers, specials last (A2/A7).
+
+    ``show`` is the show page's metadata (seasons as {item, media} results) or
+    a season page's ``tv`` metadata (seasons as plain dicts). ``current`` marks
+    the season on screen: ``current_number``, else the first regular season.
+    """
+    seasons = ((show or {}).get("related") or {}).get("seasons") or []
+    covers = []
+    for season in seasons:
+        item = _ct_value(season, "item") or season
+        number = _ct_value(item, "season_number")
+        if number is None:
+            continue
+        label = _ct_value(item, "season_title") or (
+            _("Specials") if number == 0 else _("Season %(number)s") % {"number": number}
+        )
+        covers.append(
+            {
+                "number": number,
+                "label": label,
+                "short": _("Specials") if number == 0 else f"S{number}",
+                "image": _ct_value(item, "image"),
+                "current": number == current_number,
+            },
+        )
+    covers.sort(key=lambda cover: (cover["number"] == 0, cover["number"]))
+    if covers and not any(cover["current"] for cover in covers):
+        covers[0]["current"] = True
+    return covers
+
+
+@register.simple_tag
 def ct_detail_backdrop(media):
     """Return a detail page's horizontal backdrop URL, or None (W3).
 

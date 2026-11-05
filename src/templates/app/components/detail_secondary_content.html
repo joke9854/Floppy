@@ -4,6 +4,9 @@
 {% load user_tags %}
 {% load humanize %}
 {% load static %}
+{% if request.user.is_authenticated and request.user.theme == "cinetrack" and not public_view|default:False and media_type|ct_v2_detail_type %}
+  {% include "app/components/ct/detail_secondary.html" %}
+{% else %}
 {% detail_layout_family media_type as detail_family %}
 
   <div id="detail-secondary-content" class="flex flex-col-reverse md:flex-row gap-0 md:gap-10">
@@ -12,120 +15,7 @@
     <div class="w-full md:w-1/4 md:max-w-[250px] mx-auto lg:mx-0"
          style="display: flex; flex-direction: column;">
       {# Your History #}
-      <div {% detail_section_attrs user detail_family "sidebar" "history" %}>
-      {% if not public_view|default:False and current_instance and user_medias %}
-        {% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value %}
-          {% if user_medias|length > 1 %}
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-bold">{% translate "Your History" %}</h2>
-        </div>
-
-        <div class="space-y-4 mb-6">
-          <div x-data="{ showRepeats: false }">
-            <button @click="showRepeats = !showRepeats"
-                    class="group flex items-center justify-center w-full px-3 py-2 text-sm text-[var(--color-text)] bg-[var(--color-surface-strong)] hover:bg-[var(--color-surface-hover)] transition duration-200 rounded-lg tracking-wide cursor-pointer">
-              <div class="lucide lucide-chevron-down w-4 h-4 mr-2 transition-transform"
-                   :class="{ 'rotate-180': showRepeats }">{% include "app/icons/chevron-down.svg" with classes="w-full h-full" %}</div>
-              {% if media_type == MediaTypes.GAME.value or media_type == MediaTypes.BOARDGAME.value %}{% translate "Show Sessions" %}{% else %}{% translate "Show Repeats" %}{% endif %} ({{ user_medias|length|add:"-1" }})
-            </button>
-
-            <div x-show="showRepeats" class="space-y-2 mt-4">
-              {% for user_media in user_medias|slice:"1:" %}
-                <div class="bg-[var(--color-surface)] p-4 rounded-lg">
-                  <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
-                      {% if user_media.score %}
-                        {% include "app/icons/star.svg" with classes="w-4 h-4 mr-2 text-yellow-400 fill-yellow-400" %}
-                      {% else %}
-                        {% include "app/icons/star.svg" with classes="w-4 h-4 mr-2 text-[var(--color-text-muted)] fill-gray-400" %}
-                      {% endif %}
-                      {% if user_media.score %}
-                        <span class="text-sm font-medium text-[var(--color-text-secondary)]">{{ user_media.score|score_display:user }}</span>
-                      {% else %}
-                        <span class="text-sm font-medium text-[var(--color-text-muted)]">{% translate "Not rated" %}</span>
-                      {% endif %}
-                    </div>
-
-                    {% if not public_view|default:False %}
-                    <div x-data="{ trackOpen: false }">
-                      <button class="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                              hx-get="{% media_view_url 'track_modal' media %}?instance_id={{ user_media.id }}&return_url={{ detail_return_url|urlencode }}"
-                              hx-target="#{% component_id 'track' media user_media.id %}"
-                              hx-trigger="click"
-                              @click="trackOpen = true">
-                        {% include "app/icons/edit-flat.svg" with classes="w-4 h-4" %}
-                      </button>
-
-                      <div x-show="trackOpen"
-                      @mousedown.self="trackOpen = false"
-                           x-cloak
-                           @keydown.escape.window="trackOpen = false"
-                           class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                        <div class="modal-max-height overflow-y-auto px-4 md:px-0 relative z-60 w-full"
-                             style="width: min(96vw, 72rem);">
-                          <div id="{% component_id 'track' media user_media.id %}"></div>
-                        </div>
-                      </div>
-                    </div>
-                    {% endif %}
-                  </div>
-
-                  <div class="space-y-2">
-                    <div class="text-xs text-[var(--color-text-muted)]">{% blocktranslate trimmed with value_1=user_media.status|media_status_readable %}Status: {{ value_1 }}{% endblocktranslate %}</div>
-
-                    {% if media.media_type != MediaTypes.MOVIE.value %}
-                      <div class="text-xs text-[var(--color-text-muted)]">
-                        {% if media_type == MediaTypes.SEASON.value %}
-                          {% blocktranslate trimmed with value_1=user_media.completed_episode_count %}Progress: {{ value_1 }}{% endblocktranslate %}{% if media.max_progress %} / {{ media.max_progress }}{% endif %}
-                        {% else %}
-                          {% blocktranslate trimmed with value_1=user_media.formatted_progress %}Progress: {{ value_1 }}{% endblocktranslate %}
-                          {% if media.media_type != MediaTypes.GAME.value and not user_media.progress_is_percentage and user_media.progress_unit != 'minutes' %}
-                            {% with progress_unit=media_type|long_unit|lower %}{% if user_media.progress == 1 %}{% translate progress_unit context "progress unit" %}{% else %}{% with progress_unit_plural=progress_unit|add:"s" %}{% translate progress_unit_plural context "progress unit" %}{% endwith %}{% endif %}{% endwith %}
-                          {% endif %}
-                        {% endif %}
-                      </div>
-                    {% endif %}
-
-                    {% if user_media.start_date %}
-                      <div class="text-xs text-[var(--color-text-muted)]">{% blocktranslate trimmed with value_1=user_media.start_date|datetime_format:user %}Started: {{ value_1 }}{% endblocktranslate %}</div>
-                    {% endif %}
-
-                    {% if user_media.end_date %}
-                      <div class="text-xs text-[var(--color-text-muted)]">{% blocktranslate trimmed with value_1=user_media.end_date|datetime_format:user %}Finished: {{ value_1 }}{% endblocktranslate %}</div>
-                    {% endif %}
-
-                    {% if user_media.notes %}
-                      {% with user_notes_id=user_media.id|stringformat:"s"|add:"-notes-preview" %}
-                        {{ user_media.notes|json_script:user_notes_id }}
-                        <div class="flex items-start mt-3"
-                             x-data="{ isExpanded:false, isClamped:false, measure(){ const el = this.$refs.notesPreview; this.isClamped = el.scrollHeight > el.clientHeight }, rafMeasure(){ requestAnimationFrame(() => this.measure()) }, reset(){ this.isExpanded = false; this.$nextTick(() => this.rafMeasure()) } }"
-                             x-init="rafMeasure(); $watch('showRepeats', v => { if (v) reset() })">
-                          {% include "app/icons/page-empty.svg" with classes="w-3 h-3 mr-1 text-yellow-400 shrink-0 mt-0.5" %}
-                          <div class="flex-1">
-                            <div x-ref="notesPreview"
-                                 data-markdown-preview
-                                 data-markdown-source="{{ user_notes_id }}"
-                                 :class="isExpanded ? 'max-h-60 overflow-y-auto' : 'max-h-20 overflow-hidden'"
-                                 class="text-xs text-[var(--color-text-secondary)] rounded-md border border-gray-700 bg-[var(--color-surface)] p-2"></div>
-                            <button x-show="isClamped"
-                                    @click="isExpanded = !isExpanded"
-                                    class="text-[var(--color-link)] hover:text-[var(--color-link-hover)] text-xs mt-1 focus:outline-none transition-colors cursor-pointer">
-                              {% translate "Show less" as media_i18n_0 %}{% translate "Read more" as media_i18n_12 %}<span x-text="isExpanded ? '{{ media_i18n_0|escapejs }}' : '{{ media_i18n_12|escapejs }}'"></span>
-                            </button>
-                          </div>
-                        </div>
-                      {% endwith %}
-                    {% endif %}
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-          {% endif %}
-        {% endif %}
-      {% endif %}
-      </div>
+      {% include "app/components/detail_history_section.html" %}
 
       {% if migrated_grouped_item and not current_instance and media_type == MediaTypes.ANIME.value %}
       <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-6">
@@ -234,95 +124,7 @@
       {% endif %}
 
       {# Collection #}
-      {% if not public_view and media_type != MediaTypes.PODCAST.value %}
-        <div {% detail_section_attrs user detail_family "sidebar" "collection" %}>
-        <div class="flex items-center justify-between mb-4 mt-6">
-          <h2 class="text-xl font-bold">{% translate "Collection" %}</h2>
-          <div x-data="{ collectionOpen: false }">
-            <button class="p-2 text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
-                    hx-get="{% media_view_url 'collection_modal' media %}"
-                    hx-vals='{"return_url": "{{ detail_return_url|urlencode }}", "season_number": "{{ media.season_number|default:'' }}", "episode_number": "{{ media.episode_number|default:'' }}"}'
-                    hx-target="#{% component_id 'collection' media %}"
-                    @click="collectionOpen = true"
-                    title="{% translate "Add collection data" %}">{% include "app/icons/plus.svg" with classes="w-4 h-4" %}</button>
-
-            {# Collection Modal #}
-            <div x-show="collectionOpen"
-            @mousedown.self="if (!$event.target.closest('[data-cf-dropdown-menu]')) collectionOpen = false"
-                 @keydown.escape.window="collectionOpen = false"
-                 class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="w-152 modal-max-height overflow-y-auto px-4 md:px-0 relative z-60">
-                <div id="{% component_id 'collection' media %}"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="bg-[var(--color-surface)] p-4 rounded-lg text-center md:text-start">
-          {# Collection statistics for TV shows/Anime or Seasons #}
-          {% if collection_stats %}
-            {% if media_type == MediaTypes.SEASON.value %}
-              {# For seasons, only show episode stats #}
-              <div class="{% if has_collection_data %}mb-4{% endif %}">
-                <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED EPISODES" %}</h3>
-                <p class="text-sm text-[var(--color-text-secondary)]">
-                  {{ collection_stats.collected_episodes }}/{{ collection_stats.total_episodes }}
-                  {% if collection_stats.total_episodes > 0 %}
-                    {% widthratio collection_stats.collected_episodes collection_stats.total_episodes 100 as episode_percentage %}
-                    <span class="text-[var(--color-text-secondary)] mx-1">•</span>
-                    <span class="text-[var(--color-text-secondary)]">{{ episode_percentage }}%</span>
-                  {% endif %}
-                </p>
-              </div>
-              {% if has_collection_data %}<hr class="border-gray-700 mb-4 mt-4">{% endif %}
-            {% else %}
-              {# For TV shows/Anime, show season and episode stats #}
-              <div class="mb-4">
-                <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED SEASONS" %}</h3>
-                <p class="text-sm text-[var(--color-text-secondary)]">
-                  {{ collection_stats.collected_seasons }}/{{ collection_stats.total_seasons }}
-                  {% if collection_stats.total_seasons > 0 %}
-                    {% widthratio collection_stats.collected_seasons collection_stats.total_seasons 100 as season_percentage %}
-                    <span class="text-[var(--color-text-secondary)] mx-1">•</span>
-                    <span class="text-[var(--color-text-secondary)]">{{ season_percentage }}%</span>
-                  {% endif %}
-                </p>
-              </div>
-              
-              <div class="{% if has_collection_data %}mb-4{% endif %}">
-                <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED EPISODES" %}</h3>
-                <p class="text-sm text-[var(--color-text-secondary)]">
-                  {{ collection_stats.collected_episodes }}/{{ collection_stats.total_episodes }}
-                  {% if collection_stats.total_episodes > 0 %}
-                    {% widthratio collection_stats.collected_episodes collection_stats.total_episodes 100 as episode_percentage %}
-                    <span class="text-[var(--color-text-secondary)] mx-1">•</span>
-                    <span class="text-[var(--color-text-secondary)]">{{ episode_percentage }}%</span>
-                  {% endif %}
-                </p>
-              </div>
-              {% if has_collection_data %}<hr class="border-gray-700 mb-4 mt-4">{% endif %}
-            {% endif %}
-          {% endif %}
-          
-          {# Collection metadata details #}
-          {% if collection_entries %}
-            <div>
-              {% for owned_entry in collection_entries %}
-                {% include "app/components/collection_entry_summary.html" with collection_entry=owned_entry media_type=media_type user=user source_style_game_meta=True flat_list=True is_last=forloop.last entry_quality_label="" %}
-              {% endfor %}
-            </div>
-          {% elif collection_entry %}
-            <div>
-              {% if media_type == MediaTypes.SEASON.value %}
-                <p class="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">{% translate "Aggregated Episode Metadata" %}</p>
-              {% endif %}
-              {% include "app/components/collection_entry_summary.html" with collection_entry=collection_entry media_type=media_type user=user source_style_game_meta=True flat_list=True is_last=True entry_quality_label="" %}
-            </div>
-          {% elif not collection_stats %}
-            <p class="text-[var(--color-text-muted)] text-sm">{% translate "No collection data available" %}</p>
-          {% endif %}
-        </div>
-        </div>
-      {% endif %}
+      {% include "app/components/detail_collection_section.html" %}
 
     </div>
 
@@ -577,3 +379,4 @@
   {% include "app/components/_episode_scroll_restore.html" %}
 {% endif %}
 {% include "app/components/_scrollable_row_js.html" %}
+{% endif %}

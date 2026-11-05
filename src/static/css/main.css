@@ -7550,6 +7550,817 @@ a.ct-ep-title:hover {
     width: 176px;
   }
 }
+.ct-detail-back {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  margin-top: 8px;
+  border-radius: 999px;
+  color: var(--color-text);
+}
+.ct-detail-hero--v2 {
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+.ct-detail-hero--v2 .ct-detail-poster {
+  width: 220px;
+}
+.ct-detail-hero--v2 .ct-detail-identity {
+  text-align: start;
+}
+.ct-detail-title {
+  color: var(--color-text);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.05;
+}
+.ct-detail-title a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+.ct-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
+.ct-detail-meta > span + span::before {
+  margin-inline: 7px;
+  color: var(--color-text-muted);
+  content: "·";
+}
+.ct-detail-hero--v2 .ct-detail-chips > div {
+  justify-content: flex-start;
+  margin: 8px 0 0;
+  gap: 4px 14px;
+}
+.ct-detail-hero--v2 .ct-detail-chips .rounded-full.border {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+.ct-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+.ct-detail-actions .ct-action-bar {
+  margin: 0;
+}
+.ct-detail-actions .ct-action-bar > a {
+  display: inline-flex;
+  flex: none;
+  height: 40px;
+  align-items: center;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ct-detail-actions .ct-action-bar .order-1, .ct-detail-actions .ct-action-bar.order-1 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  gap: 10px;
+}
+.ct-btn-primary {
+  display: inline-flex;
+  height: 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 20px;
+  border-radius: 999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter var(--motion-duration) var(--motion-ease), transform 120ms ease;
+}
+.ct-btn-primary:hover {
+  filter: brightness(1.08);
+}
+.ct-btn-primary:active {
+  transform: scale(0.97);
+}
+.ct-btn-primary:disabled {
+  opacity: 0.6;
+}
+.ct-btn-kbd {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 6px;
+  background-color: rgb(0 0 0 / 14%);
+  font-size: 11px;
+  font-weight: 800;
+}
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *) {
+  height: 46px;
+  gap: 10px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *) > svg {
+  display: none;
+}
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background-color: currentcolor;
+  content: "";
+  opacity: 0.85;
+}
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::after, .ct-detail-actions .ct-action-bar div:not(.overflow-hidden) > [data-ct-shortcut="track"]:not(.fixed *)::after {
+  width: 16px;
+  height: 16px;
+  background-color: currentcolor;
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *), .ct-detail-actions .ct-action-bar .bg-gray-600[data-ct-shortcut="track"]:not(.fixed *) {
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+}
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::before {
+  background-color: var(--ct-status-watching);
+  opacity: 1;
+}
+.ct-detail-actions:not(.has-primary) .ct-action-bar .bg-indigo-600:not(.fixed *) {
+  color: var(--color-accent-contrast);
+}
+.ct-detail-actions .ct-action-bar .overflow-hidden.rounded-xl:not(.fixed *) {
+  height: 46px;
+  border-radius: 999px;
+}
+.ct-detail-actions .ct-action-bar .overflow-hidden.rounded-xl:not(.fixed *) > button + button {
+  padding-right: 16px;
+}
+.ct-detail-actions .ct-action-bar :is(button, a).bg-\[var\(--color-surface\)\]:not(.fixed *, .ct-action-bar > a) {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+.ct-detail-hero--v2 .ct-detail-identity > :is(div, p):has(> p) {
+  max-width: 600px;
+}
+.ct-watch-on {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+.ct-watch-on__label {
+  margin-right: 4px;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-weight: 700;
+}
+.ct-watch-chip {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 7px;
+  border: 0.9px solid rgb(255 255 255 / 9%);
+  border-radius: 10px;
+  background-color: rgb(255 255 255 / 5%);
+  white-space: nowrap;
+}
+.ct-watch-chip img {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+.ct-watch-chip__name {
+  color: var(--color-text);
+  font-weight: 700;
+}
+.ct-watch-chip__offer {
+  color: var(--color-text-secondary);
+}
+.ct-watch-on__via {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.ct-watch-on__via:hover {
+  color: var(--color-text-secondary);
+}
+main:has(.ct-detail-hero--v2) .ct-series-progress {
+  max-width: 560px;
+  margin-bottom: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+main:has(.ct-detail-hero--v2) .ct-series-progress__head, main:has(.ct-detail-hero--v2) .ct-series-progress .ct-progress-line {
+  display: none;
+}
+main:has(.ct-detail-hero--v2) .ct-series-progress__count {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+main:has(.ct-detail-hero--v2) .ct-series-progress__count > span {
+  margin-left: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+main:has(.ct-detail-hero--v2) .ct-season-dashes {
+  margin-top: 10px;
+}
+main:has(.ct-detail-hero--v2) .ct-season-dash {
+  height: 4px;
+}
+.ct-detail-sections {
+  display: block;
+  padding-bottom: 48px;
+}
+.ct-detail-sections > * + * {
+  margin-top: 48px;
+}
+.ct-detail-sections.is-loading > * {
+  display: none;
+}
+.ct-style-toggle {
+  height: 28px;
+  padding: 0 12px;
+  border: 0.9px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ct-style-toggle:hover {
+  background-color: rgb(255 255 255 / 6%);
+}
+.ct-season-picker {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ct-season-cover {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-season-cover__art {
+  display: block;
+  width: 92px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  background-color: var(--color-surface);
+}
+.ct-season-cover__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ct-season-cover:hover .ct-season-cover__art {
+  border-color: rgb(255 255 255 / 25%);
+}
+.ct-season-cover.is-current {
+  color: var(--color-text);
+  font-weight: 700;
+}
+.ct-season-cover.is-current .ct-season-cover__art {
+  border-color: var(--poster-accent-text, var(--color-accent));
+  box-shadow: 0 0 0 3px var(--poster-accent, var(--color-accent));
+  @supports (color: color-mix(in lab, red, red)) {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--poster-accent, var(--color-accent)) 25%, transparent);
+  }
+}
+.ct-season-cover__short {
+  display: none;
+}
+.ct-season-picker.is-text {
+  gap: 8px;
+}
+.ct-season-picker.is-text .ct-season-cover {
+  height: 38px;
+  justify-content: center;
+  padding: 0 18px;
+  border: 0.9px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+.ct-season-picker.is-text .ct-season-cover.is-current {
+  border-color: transparent;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+}
+.ct-season-picker.is-text :is(.ct-season-cover__art, .ct-season-cover__label) {
+  display: none;
+}
+.ct-season-picker.is-text .ct-season-cover__short {
+  display: inline;
+}
+.ct-episode-list {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+.ct-episode-list #episodes-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ct-episode-list .ct-ep-row {
+  flex-wrap: wrap;
+  gap: 0 16px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.ct-episode-list .ct-ep-row + .ct-ep-row {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+.ct-episode-list .ct-ep-row.is-next {
+  background-color: rgb(255 255 255 / 4%);
+}
+.ct-ep-skeleton {
+  height: 88px;
+  background-color: rgb(255 255 255 / 3%);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.ct-ep-skeleton + .ct-ep-skeleton {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+.ct-ep-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.ct-ep-number {
+  flex: none;
+  min-width: 14px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.ct-episode-list .ct-ep-body :is(.ct-ep-airdate, [id^="episode-history-"]) {
+  padding-left: 26px;
+}
+.ct-ep-next {
+  color: var(--color-link);
+}
+.ct-ep-info {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  align-self: center;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ct-ep-info:hover, .ct-ep-info.is-open {
+  color: var(--color-link);
+}
+.ct-ep-overview {
+  flex-basis: 100%;
+  max-width: 760px;
+  padding: 12px 0 4px 154px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ct-episode-list .ct-ep-still {
+  width: 112px;
+  border-radius: 8px;
+}
+.ct-episode-list .ct-ep-reveal {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(255 255 255 / 85%);
+}
+.ct-episode-list .ct-ep-actions > div > :not(:first-child) {
+  display: none;
+}
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button {
+  width: 44px;
+  height: 44px;
+  border-color: rgb(255 255 255 / 24%);
+}
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button::before {
+  opacity: 0;
+}
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button.bg-indigo-600 {
+  background-color: var(--ct-status-completed);
+}
+.ct-episode-list .ct-ep-row.is-next [id^="episode-track-button-"] > button {
+  border-color: var(--poster-accent-text, var(--color-accent));
+  color: var(--poster-accent-text, var(--color-accent));
+}
+.ct-episode-list .ct-ep-row:is(.is-next, :hover) [id^="episode-track-button-"] > button::before, .ct-episode-list [id^="episode-track-button-"] > button.bg-indigo-600::before {
+  opacity: 1;
+}
+.ct-detail-rail {
+  display: flex;
+  gap: 18px;
+  margin-inline: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.ct-detail-rail > * {
+  flex: none;
+  scroll-snap-align: start;
+}
+.ct-detail-rail > .ct-poster-card {
+  width: 140px;
+}
+.ct-title-toggle {
+  gap: 24px;
+}
+.ct-title-toggle button.ct-row-title {
+  cursor: pointer;
+}
+.ct-title-toggle button.ct-row-title.is-off {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+.ct-title-toggle button.ct-row-title.is-off:hover {
+  color: var(--color-text-secondary);
+}
+.ct-person-card {
+  width: 132px;
+}
+.ct-person-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.ct-person-frame {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  background: radial-gradient(circle at 50% 34%, rgb(255 255 255 / 10%) 0 17%, transparent 18%), radial-gradient(circle at 50% 86%, rgb(255 255 255 / 10%) 0 33%, transparent 34%), var(--color-surface);
+}
+.ct-person-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+a.ct-person-link:hover .ct-person-primary {
+  text-decoration: underline;
+}
+.ct-person-primary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.ct-person-secondary {
+  display: -webkit-box;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.ct-plays {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+.ct-play {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.ct-play + .ct-play {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+.ct-play__icon {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-watching);
+  color: #fff;
+}
+.ct-play__icon.is-done {
+  background-color: var(--ct-status-completed);
+}
+.ct-play__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ct-play__title {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.ct-play__sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px 32px;
+}
+.ct-info-grid dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-info-grid dd {
+  margin-top: 2px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 500;
+}
+@media (min-width: 768px) {
+  .ct-detail-back {
+    margin-top: 24px;
+  }
+  .ct-detail-hero--v2 {
+    gap: 40px;
+    padding-top: 40px;
+  }
+  .ct-detail-title {
+    font-size: 60px;
+    letter-spacing: -1.6px;
+  }
+  .ct-detail-sections > * + * {
+    margin-top: 56px;
+  }
+}
+@media (min-width: 1024px) {
+  .ct-info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .ct-detail-hero--v2 {
+    gap: 0;
+    padding-top: 200px;
+  }
+  .ct-detail-hero--v2 .ct-detail-poster {
+    display: none;
+  }
+  .ct-detail-hero--v2 .ct-detail-meta {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+  .ct-detail-actions {
+    margin: 16px 0;
+  }
+  .ct-detail-primary, .ct-btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+  .ct-btn-kbd {
+    display: none;
+  }
+  .ct-detail-actions .ct-action-bar {
+    width: 100%;
+  }
+  .ct-watch-on {
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ct-episode-list .ct-ep-row {
+    flex-wrap: wrap;
+    gap: 0 12px;
+    padding: 12px;
+  }
+  .ct-episode-list .ct-ep-still {
+    width: 80px;
+  }
+  .ct-episode-list .ct-ep-body {
+    flex: 1 1 0;
+  }
+  .ct-episode-list .ct-ep-actions {
+    display: block;
+    width: auto;
+  }
+  .ct-episode-list .ct-ep-body :is(.ct-ep-airdate, [id^="episode-history-"]) {
+    padding-left: 0;
+  }
+  .ct-ep-heading {
+    gap: 6px;
+  }
+  .ct-ep-overview {
+    padding-left: 0;
+  }
+  .ct-person-card {
+    width: 104px;
+  }
+  .ct-detail-rail > .ct-poster-card {
+    width: 112px;
+  }
+}
+.ct-detail-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.ct-detail-crumbs .ct-detail-back {
+  margin: 0 4px 0 0;
+}
+.ct-detail-crumbs a:not(.ct-detail-back):hover {
+  color: var(--color-text);
+}
+.ct-detail-hero--episode {
+  padding-top: 28px;
+}
+.ct-detail-hero--episode .ct-detail-poster {
+  position: relative;
+}
+.ct-detail-hero--episode .ct-detail-poster img.is-blurred {
+  filter: blur(22px) saturate(1.2);
+}
+.ct-detail-hero--episode .ct-detail-poster:has(img.is-blurred) {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+}
+.ct-spoiler {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ct-spoiler__reveal {
+  height: 36px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 16%);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ct-spoiler__reveal:hover {
+  background-color: rgb(255 255 255 / 24%);
+}
+.ct-detail-hero--episode .ct-detail-title {
+  font-size: 40px;
+  letter-spacing: -1px;
+}
+.ct-detail-hero--episode .ct-detail-meta {
+  margin-top: 8px;
+}
+.ct-detail-hero--episode .ct-action-bar.order-1 {
+  margin: 20px 0 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.ct-detail-hero--episode .ct-action-bar [id^="episode-track-button-"] > button:not(.fixed *) {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+  font-weight: 700;
+}
+.ct-detail-hero--episode .ct-action-bar :is(button, a).bg-\[var\(--color-surface\)\]:not(.fixed *) {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+.ct-rail-arrows {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.ct-rail-arrows > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ct-ep-card {
+  display: flex;
+  width: 204px;
+  flex-direction: column;
+  gap: 2px;
+}
+.ct-ep-card__still {
+  position: relative;
+  display: block;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-surface);
+}
+.ct-ep-card__still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ct-ep-card__still img.is-blurred {
+  filter: blur(10px);
+  transform: scale(1.1);
+}
+.ct-ep-card.is-current .ct-ep-card__still {
+  border-color: var(--poster-accent-text, var(--color-accent));
+}
+.ct-ep-card__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+.ct-ep-card__hidden {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 85%);
+}
+.ct-ep-card__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ct-ep-card.is-current .ct-ep-card__title {
+  color: var(--color-link);
+}
+.ct-ep-card__sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-info-grid dd a:hover {
+  text-decoration: underline;
+}
+@media (min-width: 768px) {
+  .ct-detail-hero--episode .ct-detail-poster {
+    width: min(48%, 600px);
+  }
+}
 main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head)) {
   --color-indigo-400: var(--color-link);
   --color-indigo-500: var(--color-accent);

@@ -1,40 +1,120 @@
 {% load i18n %}
 {% load app_tags %}
 {% comment %}
-  CineTrack detail hero (W3) for movie, show and season pages, in place of
-  media_details.html's top section: the blurred backdrop, a crisp poster, the
-  identity (centred on phones, left-aligned from md), score chips, one action
-  bar and the synopsis. The title block, chips, action buttons and synopsis
-  are the classic partials, so their ids, polling and modals are unchanged.
-  The trailer/photo carousel keeps #detail-carousel-wrap and its fragment
-  URL, moved under the hero; it collapses when the fragment comes back empty.
-  The action bar has no backdrop-filter: it holds fixed-position modals,
-  which a filtered ancestor would trap.
+  CineTrack detail hero for movie, show and season pages, in place of
+  media_details.html's top section. Movies, shows, seasons and anime get the
+  Apple layout v2 hero (A2/A7/A10): a back control, the poster beside a large
+  title, one meta line, the ratings, one filled action, the overview and the
+  "Watch on" row, then the episode progress. Other types keep the W3 hero.
+  The chips, action buttons and synopsis are the classic partials, so their
+  ids, polling and modals are unchanged. The action bar has no
+  backdrop-filter: it holds fixed-position modals, which a filtered ancestor
+  would trap.
   Context: as media_details.html.
 {% endcomment %}
 {% ct_detail_backdrop media as backdrop %}
 {% include "app/components/ct/detail_backdrop.html" with backdrop=backdrop poster=media.image %}
-<div class="ct-detail-hero">
-  <div class="ct-detail-poster">
-    {% with srcset=media.image|tmdb_srcset:'w342,w500,w780' %}
-      <img alt="{{ media|display_title:user }}"
-           class="ct-fade-img"
-           src="{{ media.image|tmdb_size:'w500'|image_url }}"
-           {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 250px, 200px"{% endif %}
-           width="500"
-           height="750"
-           decoding="async"
-           fetchpriority="high">
-    {% endwith %}
+{% if ct_v2_detail %}
+  {% if media_type == MediaTypes.SEASON.value %}
+    {% if parent_media_type == MediaTypes.ANIME.value %}{% url 'media_details' source=media.source media_type=MediaTypes.ANIME.value media_id=media.media_id title=media.title|slug as back_url %}{% else %}{% url 'media_details' source=media.source media_type=MediaTypes.TV.value media_id=media.media_id title=media.title|slug as back_url %}{% endif %}
+  {% else %}
+    {% url 'medialist' media_type=media_type as back_url %}
+  {% endif %}
+  <a class="ct-detail-back ct-glass-control"
+     href="{{ back_url }}"
+     @click="if (history.length > 1 && document.referrer.startsWith(location.origin)) { $event.preventDefault(); history.back(); }"
+     aria-label="{% translate "Back" %}">
+    {% include "app/icons/chevron-left.svg" with classes="w-5 h-5" %}
+  </a>
+  <div class="ct-detail-hero ct-detail-hero--v2">
+    <div class="ct-detail-poster">
+      {% with srcset=media.image|tmdb_srcset:'w342,w500,w780' %}
+        <img alt="{{ media|display_title:user }}"
+             class="ct-fade-img"
+             src="{{ media.image|tmdb_size:'w500'|image_url }}"
+             {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 220px, 200px"{% endif %}
+             width="500"
+             height="750"
+             decoding="async"
+             fetchpriority="high">
+      {% endwith %}
+    </div>
+    <div class="ct-detail-identity">
+      {% if media_type == MediaTypes.SEASON.value %}
+        <h1 class="ct-detail-title"><a href="{{ back_url }}">{{ media|display_title:user }}</a></h1>
+      {% else %}
+        <h1 class="ct-detail-title">{{ media|display_title:user }}</h1>
+      {% endif %}
+      {% with details_year=media.details|release_year media_year=media|release_year %}
+        {% firstof details_year media_year "" as year %}
+        <p class="ct-detail-meta">
+          {% if media_type == MediaTypes.SEASON.value %}
+            <span>{{ media.season_title|default:_("Season") }}</span>
+          {% else %}
+            <span>{{ media_type|media_type_readable }}</span>
+          {% endif %}
+          {% if media.genres %}<span>{{ media.genres|slice:":2"|join:", " }}</span>{% endif %}
+          {% if year %}<span>{{ year }}</span>{% endif %}
+          {% if media_type == MediaTypes.MOVIE.value %}
+            {% if media.details.runtime %}<span>{{ media.details.runtime }}</span>{% endif %}
+            {% if media.details.certification %}<span>{{ media.details.certification }}</span>{% endif %}
+          {% elif media_type == MediaTypes.SEASON.value %}
+            {% if media.max_progress %}
+              <span>{% blocktranslate trimmed count count=media.max_progress %}{{ count }} Episode{% plural %}{{ count }} Episodes{% endblocktranslate %}</span>
+            {% endif %}
+          {% elif media.details.seasons %}
+            <span>{% blocktranslate trimmed count count=media.details.seasons %}{{ count }} Season{% plural %}{{ count }} Seasons{% endblocktranslate %}</span>
+          {% endif %}
+        </p>
+      {% endwith %}
+      <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
+      <div class="ct-detail-actions">
+        {% if media_type != MediaTypes.MOVIE.value and not public_view|default:False %}
+          {# Marks the first unwatched episode in the list below, as W does; ctShell.js shows it once the list has one. #}
+          <button type="button"
+                  class="ct-btn-primary"
+                  data-ct-mark-next
+                  data-label="{% translate "Mark S%(season)s E%(episode)s Watched" %}"
+                  hidden>
+            {% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}
+            <span data-ct-mark-next-label></span>
+            <kbd class="ct-btn-kbd" aria-hidden="true">W</kbd>
+          </button>
+        {% endif %}
+        <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
+      </div>
+      {% include "app/components/detail_synopsis.html" %}
+      {% include "app/components/ct/watch_on.html" %}
+    </div>
   </div>
-  <div class="ct-detail-identity">
-    {% include "app/components/detail_title_block.html" %}
-    <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
-    <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
-    {% include "app/components/detail_synopsis.html" %}
+  {% if not public_view|default:False %}
+    {% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value or media_type == MediaTypes.ANIME.value %}
+      {% include "app/components/ct/series_progress_card.html" %}
+    {% endif %}
+  {% endif %}
+{% else %}
+  <div class="ct-detail-hero">
+    <div class="ct-detail-poster">
+      {% with srcset=media.image|tmdb_srcset:'w342,w500,w780' %}
+        <img alt="{{ media|display_title:user }}"
+             class="ct-fade-img"
+             src="{{ media.image|tmdb_size:'w500'|image_url }}"
+             {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 250px, 200px"{% endif %}
+             width="500"
+             height="750"
+             decoding="async"
+             fetchpriority="high">
+      {% endwith %}
+    </div>
+    <div class="ct-detail-identity">
+      {% include "app/components/detail_title_block.html" %}
+      <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
+      <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
+      {% include "app/components/detail_synopsis.html" %}
+    </div>
   </div>
-</div>
-{% if carousel_supported %}
+{% endif %}
+{% if carousel_supported and not ct_v2_detail %}
   <section class="ct-detail-media" aria-label="{% translate "Trailer and photos" %}">
     <div class="ct-detail-media__frame"
          id="detail-carousel-wrap"

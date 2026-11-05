@@ -13,16 +13,41 @@
 {% if ct_shell %}
   {% ct_detail_backdrop season_metadata as ct_backdrop %}
   {% include "app/components/ct/detail_backdrop.html" with backdrop=ct_backdrop poster=season_metadata.image %}
+  <nav class="ct-detail-crumbs" aria-label="{% translate "Breadcrumb" %}">
+    <a class="ct-detail-back ct-glass-control" href="{{ season_url }}" aria-label="{% translate "Back to season" %}">
+      {% include "app/icons/chevron-left.svg" with classes="w-5 h-5" %}
+    </a>
+    <a href="{% if parent_media_type == MediaTypes.ANIME.value %}{% url 'media_details' source=source media_type=MediaTypes.ANIME.value media_id=media_id title=show_title|slug %}{% else %}{% url 'media_details' source=source media_type=MediaTypes.TV.value media_id=media_id title=show_title|slug %}{% endif %}">{{ show_title }}</a>
+    {% include "app/icons/chevron-right.svg" with classes="w-3.5 h-3.5" %}
+    <a href="{{ season_url }}">{{ season_title }}</a>
+  </nav>
 {% endif %}
 <div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-2 md:mb-8{% if ct_shell %} ct-detail-hero ct-detail-hero--episode{% endif %}">
-  <div class="w-full md:w-1/4 max-w-[250px] mx-auto md:mx-0{% if ct_shell %} ct-detail-poster{% endif %}">
+  <div class="w-full md:w-1/4 max-w-[250px] mx-auto md:mx-0{% if ct_shell %} ct-detail-poster{% endif %}"
+       {% if ct_shell %}x-data="{ revealed: false, blurred: {% if user.obfuscate_episodes and episode and not episode.history %}true{% else %}false{% endif %} }"{% endif %}>
     <img alt="{{ episode_title }}"
          class="w-full rounded-lg shadow-lg bg-[var(--color-surface)] object-cover"
+         {% if ct_shell %}:class="{ 'is-blurred': blurred && !revealed }"{% endif %}
          src="{% if episode %}{{ episode.image|image_url }}{% else %}{{ IMG_NONE }}{% endif %}">
+    {% if ct_shell %}
+      <div class="ct-spoiler" x-show="blurred && !revealed" x-cloak>
+        {% include "app/icons/eye-closed.svg" with classes="w-6 h-6" %}
+        <span>{% translate "Hidden until you watch it" %}</span>
+        <button type="button" class="ct-spoiler__reveal" @click="revealed = true">{% translate "Reveal" %}</button>
+      </div>
+    {% endif %}
   </div>
 
   <div class="md:w-3/4">
     {# Show title — clickable link back to TV show, mirrors season page's h1 #}
+    {% if ct_shell %}
+      <h1 class="ct-detail-title">{{ episode_title }}</h1>
+      <p class="ct-detail-meta">
+        <span>{% blocktranslate trimmed with season=season_number episode=episode.display_episode_number|default:episode_number %}Season {{ season }}, Episode {{ episode }}{% endblocktranslate %}</span>
+        {% if episode.runtime %}<span>{{ episode.runtime }}</span>{% endif %}
+        {% if episode.air_date %}<span>{% blocktranslate trimmed with value_1=episode.air_date|user_date_format:user %}Aired {{ value_1 }}{% endblocktranslate %}</span>{% endif %}
+      </p>
+    {% else %}
     <div class="mb-1 text-center md:text-start">
       <div class="inline-flex items-center gap-2 md:flex md:gap-2">
         <h1 class="text-3xl font-bold cursor-pointer hover:text-indigo-500 transition-colors duration-200">
@@ -30,9 +55,10 @@
         </h1>
       </div>
     </div>
+    {% endif %}
 
-    {# Season + episode subtitle — mirrors season page's subtitle line #}
-    <div class="mb-3 flex flex-col items-center justify-between gap-y-4 md:mb-1 md:flex-row md:gap-y-0">
+    {# Season + episode subtitle — mirrors season page's subtitle line. CineTrack v2 moves both into the title, breadcrumb and season strip. #}
+    <div class="mb-3 flex flex-col items-center justify-between gap-y-4 md:mb-1 md:flex-row md:gap-y-0"{% if ct_shell %} hidden{% endif %}>
       <div class="w-full">
         <div class="relative flex flex-col gap-y-4 md:flex-row md:gap-y-0 items-center justify-between mb-1"
              x-data="{ open: false }"
@@ -359,6 +385,9 @@
   </div>
 {% endif %}
 
+{% if ct_shell %}
+  {% include "app/components/ct/episode_sections.html" %}
+{% else %}
 {# Cast & Crew — same grid pattern as detail_secondary_content.html #}
 {% if source == Sources.TMDB.value %}
   {% if episode_metadata.cast %}
@@ -498,6 +527,7 @@
       </button>
     </section>
   {% endif %}
+{% endif %}
 {% endif %}
 </div>
 

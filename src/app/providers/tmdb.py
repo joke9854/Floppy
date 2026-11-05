@@ -2281,6 +2281,52 @@ def filter_providers(all_providers, region):
     return providers
 
 
+def watch_on_providers(all_providers, region):
+    """Return the CineTrack "Watch on" row for a region's TMDB providers.
+
+    Subscription (flatrate/free) first, then rent/buy, each by TMDB's display
+    priority. A provider in both groups stays under subscription, and one that
+    rents and sells is one chip with both offers. ``link`` is TMDB's
+    JustWatch page. Returns None without a region or any provider.
+    """
+    if not region or region == "UNSET" or not isinstance(all_providers, dict):
+        return None
+    region_providers = all_providers.get(region) or {}
+
+    def collect(kinds):
+        providers = {}
+        for kind in kinds:
+            for provider in region_providers.get(kind) or []:
+                entry = providers.setdefault(
+                    provider.get("provider_id"),
+                    {
+                        "provider_id": provider.get("provider_id"),
+                        "provider_name": provider.get("provider_name"),
+                        "image": get_image_url(provider.get("logo_path")),
+                        "display_priority": provider.get("display_priority", 999),
+                        "offers": [],
+                    },
+                )
+                if kind not in entry["offers"]:
+                    entry["offers"].append(kind)
+        return sorted(providers.values(), key=lambda e: e["display_priority"])
+
+    subscription = collect(("flatrate", "free"))
+    subscribed = {provider["provider_id"] for provider in subscription}
+    rent_buy = [
+        provider
+        for provider in collect(("rent", "buy"))
+        if provider["provider_id"] not in subscribed
+    ]
+    if not subscription and not rent_buy:
+        return None
+    return {
+        "subscription": subscription,
+        "rent_buy": rent_buy,
+        "link": region_providers.get("link"),
+    }
+
+
 def item_watch_provider_names(item, region):
     """Return sorted flatrate/free watch-provider names for an item's region.
 

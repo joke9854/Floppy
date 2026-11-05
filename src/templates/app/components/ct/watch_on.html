@@ -1,0 +1,30 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  CineTrack "Watch on" row (Apple layout v2, A2/A10): logo chips under the
+  overview, subscription first, then rent/buy, then TMDB's JustWatch link.
+  TMDB gives no prices, so a rent/buy chip names the offer only.
+  Context: watch_on from tmdb.watch_on_providers.
+{% endcomment %}
+{% if watch_on %}
+  <div class="ct-watch-on">
+    <span class="ct-watch-on__label">{% translate "Watch on" %}</span>
+    {% for provider in watch_on.subscription|slice:":4" %}
+      <span class="ct-watch-chip">
+        <img src="{{ provider.image|image_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">
+        <span class="ct-watch-chip__name">{{ provider.provider_name }}</span>
+        <span class="ct-watch-chip__offer">{% if "flatrate" in provider.offers %}{% translate "Subscription" %}{% else %}{% translate "Free" %}{% endif %}</span>
+      </span>
+    {% endfor %}
+    {% for provider in watch_on.rent_buy|slice:":2" %}
+      <span class="ct-watch-chip">
+        <img src="{{ provider.image|image_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">
+        <span class="ct-watch-chip__name">{{ provider.provider_name }}</span>
+        <span class="ct-watch-chip__offer">{% if "rent" in provider.offers and "buy" in provider.offers %}{% translate "Rent · Buy" %}{% elif "rent" in provider.offers %}{% translate "Rent" %}{% else %}{% translate "Buy" %}{% endif %}</span>
+      </span>
+    {% endfor %}
+    {% if watch_on.link %}
+      <a class="ct-watch-on__via" href="{{ watch_on.link }}" target="_blank" rel="noopener noreferrer">{% translate "via JustWatch" %}</a>
+    {% endif %}
+  </div>
+{% endif %}

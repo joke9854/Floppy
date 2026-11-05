@@ -1,0 +1,88 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack episode page sections (Apple layout v2, A11), in place of the
+  classic Cast and Crew grids: the season's episodes as a still strip (this
+  one highlighted, unwatched stills spoiler-blurred when the user hides
+  them), the episode's guest stars (character first), then the crew's key
+  credits as an Information grid.
+  Context: as episode_details.html.
+{% endcomment %}
+<div class="ct-detail-sections">
+  {% if episodes|length > 1 %}
+    <section class="ct-detail-section" x-data>
+      <div class="ct-row-head">
+        <h2 class="ct-row-title"><a href="{{ season_url }}">{{ season_title }}</a></h2>
+        {% if current_instance %}
+          <span class="ct-row-detail">{% blocktranslate trimmed with watched=current_instance.completed_episode_count total=episodes|length %}{{ watched }} of {{ total }} watched{% endblocktranslate %}</span>
+        {% endif %}
+        <span class="ct-rail-arrows">
+          <button type="button" class="ct-glass-control" @click="$refs.strip.scrollBy({ left: -$refs.strip.clientWidth * 0.8, behavior: 'smooth' })" aria-label="{% translate "Previous episodes" %}">{% include "app/icons/chevron-left.svg" with classes="w-4 h-4" %}</button>
+          <button type="button" class="ct-glass-control" @click="$refs.strip.scrollBy({ left: $refs.strip.clientWidth * 0.8, behavior: 'smooth' })" aria-label="{% translate "Next episodes" %}">{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</button>
+        </span>
+      </div>
+      <div class="ct-detail-rail" x-ref="strip" x-init="$el.querySelector('.is-current')?.scrollIntoView({ block: 'nearest', inline: 'center' })">
+        {% for ep in episodes %}
+          <a class="ct-ep-card{% if ep.episode_number == episode_number %} is-current{% endif %}"
+             href="{% if parent_media_type == MediaTypes.ANIME.value %}{% url 'anime_episode_details' source=source media_id=media_id title=show_title|slug season_number=season_number episode_number=ep.episode_number %}{% else %}{% url 'episode_details' source=source media_id=media_id title=show_title|slug season_number=season_number episode_number=ep.episode_number %}{% endif %}"
+             {% if ep.episode_number == episode_number %}aria-current="page"{% endif %}>
+            <span class="ct-ep-card__still">
+              <img alt=""
+                   class="ct-fade-img{% if user.obfuscate_episodes and not ep.history %} is-blurred{% endif %}"
+                   src="{{ ep.image|tmdb_size:'w300'|image_url }}"
+                   width="300"
+                   height="169"
+                   loading="lazy"
+                   decoding="async">
+              {% if ep.history %}
+                <span class="ct-ep-card__badge" aria-label="{% translate "Watched" %}">{% include "app/icons/checkmark.svg" with classes="w-3.5 h-3.5" %}</span>
+              {% elif user.obfuscate_episodes %}
+                <span class="ct-ep-card__hidden" aria-hidden="true">{% include "app/icons/eye-closed.svg" with classes="w-5 h-5" %}</span>
+              {% endif %}
+            </span>
+            <span class="ct-ep-card__title">{{ ep.display_episode_number|default:ep.episode_number }}&ensp;{{ ep.title }}</span>
+            <span class="ct-ep-card__sub">
+              {% if ep.episode_number == episode_number %}{% translate "This episode" %}{% elif ep.history %}{% translate "Watched" %}{% else %}{{ ep.air_date|user_date_format:user|default_if_none:_("Unknown date") }}{% endif %}
+            </span>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if source == Sources.TMDB.value and episode_metadata.cast %}
+    <section class="ct-detail-section" {% detail_section_attrs user "episode" "content" "cast" %} x-data="{ tab: 'characters' }">
+      <div class="ct-row-head">
+        <h2 class="ct-row-title">{% translate "Guest Stars" %}</h2>
+      </div>
+      <div class="ct-detail-rail">
+        {% for person in episode_metadata.cast|slice:":20" %}
+          {% include "app/components/ct/person_card.html" with media=season_metadata %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if source == Sources.TMDB.value and episode_metadata.crew %}
+    <section class="ct-detail-section" {% detail_section_attrs user "episode" "content" "crew" %}>
+      <div class="ct-row-head">
+        <h2 class="ct-row-title">{% translate "Information" %}</h2>
+      </div>
+      <dl class="ct-info-grid">
+        {% for person in episode_metadata.crew|slice:":9" %}
+          <div>
+            <dt>{{ person.role|default:person.department }}</dt>
+            <dd>
+              {% if person.person_id and person.name %}
+                <a href="{% url 'person_detail' source=source person_id=person.person_id name=person.name|slug %}">{{ person.name }}</a>
+              {% else %}
+                {{ person.name }}
+              {% endif %}
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+    </section>
+  {% endif %}
+</div>

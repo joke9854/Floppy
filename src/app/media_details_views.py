@@ -1811,6 +1811,12 @@ def media_details(
             if watch_provider_payload is not None
             else None
         )
+        # The shell render reads stored metadata, which carries no providers;
+        # the item keeps TMDB's last raw per-region payload.
+        watch_on = tmdb.watch_on_providers(
+            watch_provider_payload or getattr(detail_item, "watch_providers", None),
+            watch_provider_region,
+        )
 
         if request.user.is_authenticated and request.user.pinned_watch_providers:
             pinned_matches = tmdb.pinned_provider_matches(
@@ -1825,6 +1831,7 @@ def media_details(
                 )
     else:
         watch_providers = None
+        watch_on = None
 
     display_provider = (
         metadata_resolution_result.display_provider
@@ -1935,6 +1942,7 @@ def media_details(
         else False,
         "item_id_for_polling": item_id_for_polling if not public_view else None,
         "watch_providers": watch_providers,
+        "watch_on": watch_on,
         "watch_provider_region": request.user.watch_provider_region
         if request.user.is_authenticated
         else None,

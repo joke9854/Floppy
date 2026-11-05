@@ -178,6 +178,28 @@ if (!window.__floppyCtShellBound) {
       next.dataset.watched = "0";
     });
   };
+  // v2 detail: the primary button marks the same episode W would and names
+  // it. Shown only while the list on the page has an unwatched episode.
+  const syncMarkNext = () => {
+    const button = document.querySelector("[data-ct-mark-next]");
+    if (!button) return;
+    const next = document.querySelector("[data-ct-episode-check][data-watched='0']");
+    button.hidden = !next;
+    button.closest(".ct-detail-actions")?.classList.toggle("has-primary", Boolean(next));
+    if (!next) return;
+    button.querySelector("[data-ct-mark-next-label]").textContent = button.dataset.label
+      .replace("%(season)s", next.dataset.seasonNumber)
+      .replace("%(episode)s", next.dataset.episodeNumber);
+  };
+  document.addEventListener("DOMContentLoaded", syncMarkNext);
+  document.addEventListener("htmx:afterSettle", syncMarkNext);
+  document.addEventListener("click", (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-ct-mark-next]") : null;
+    const help = document.querySelector("[data-ct-shortcuts]");
+    if (!button || !help) return;
+    markNextEpisode(help);
+    syncMarkNext();
+  });
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
     if (isTyping(event.target) || !document.querySelector("[data-ct-shell] .ct-detail-hero")) return;

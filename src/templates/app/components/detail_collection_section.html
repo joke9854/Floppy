@@ -1,0 +1,95 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% load humanize %}
+{% load static %}
+{# Collection: entries and stats with the add/edit modal, shared by the classic sidebar and the CineTrack v2 layout. #}
+{% if not public_view and media_type != MediaTypes.PODCAST.value %}
+  <div {% detail_section_attrs user detail_family "sidebar" "collection" %}>
+  <div class="flex items-center justify-between mb-4 mt-6">
+    <h2 class="text-xl font-bold">{% translate "Collection" %}</h2>
+    <div x-data="{ collectionOpen: false }">
+      <button class="p-2 text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              hx-get="{% media_view_url 'collection_modal' media %}"
+              hx-vals='{"return_url": "{{ detail_return_url|urlencode }}", "season_number": "{{ media.season_number|default:'' }}", "episode_number": "{{ media.episode_number|default:'' }}"}'
+              hx-target="#{% component_id 'collection' media %}"
+              @click="collectionOpen = true"
+              title="{% translate "Add collection data" %}">{% include "app/icons/plus.svg" with classes="w-4 h-4" %}</button>
+
+      {# Collection Modal #}
+      <div x-show="collectionOpen"
+      @mousedown.self="if (!$event.target.closest('[data-cf-dropdown-menu]')) collectionOpen = false"
+           @keydown.escape.window="collectionOpen = false"
+           class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="w-152 modal-max-height overflow-y-auto px-4 md:px-0 relative z-60">
+          <div id="{% component_id 'collection' media %}"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bg-[var(--color-surface)] p-4 rounded-lg text-center md:text-start">
+    {# Collection statistics for TV shows/Anime or Seasons #}
+    {% if collection_stats %}
+      {% if media_type == MediaTypes.SEASON.value %}
+        {# For seasons, only show episode stats #}
+        <div class="{% if has_collection_data %}mb-4{% endif %}">
+          <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED EPISODES" %}</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">
+            {{ collection_stats.collected_episodes }}/{{ collection_stats.total_episodes }}
+            {% if collection_stats.total_episodes > 0 %}
+              {% widthratio collection_stats.collected_episodes collection_stats.total_episodes 100 as episode_percentage %}
+              <span class="text-[var(--color-text-secondary)] mx-1">•</span>
+              <span class="text-[var(--color-text-secondary)]">{{ episode_percentage }}%</span>
+            {% endif %}
+          </p>
+        </div>
+        {% if has_collection_data %}<hr class="border-gray-700 mb-4 mt-4">{% endif %}
+      {% else %}
+        {# For TV shows/Anime, show season and episode stats #}
+        <div class="mb-4">
+          <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED SEASONS" %}</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">
+            {{ collection_stats.collected_seasons }}/{{ collection_stats.total_seasons }}
+            {% if collection_stats.total_seasons > 0 %}
+              {% widthratio collection_stats.collected_seasons collection_stats.total_seasons 100 as season_percentage %}
+              <span class="text-[var(--color-text-secondary)] mx-1">•</span>
+              <span class="text-[var(--color-text-secondary)]">{{ season_percentage }}%</span>
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="{% if has_collection_data %}mb-4{% endif %}">
+          <h3 class="text-sm font-semibold text-[var(--color-text-muted)]">{% translate "COLLECTED EPISODES" %}</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">
+            {{ collection_stats.collected_episodes }}/{{ collection_stats.total_episodes }}
+            {% if collection_stats.total_episodes > 0 %}
+              {% widthratio collection_stats.collected_episodes collection_stats.total_episodes 100 as episode_percentage %}
+              <span class="text-[var(--color-text-secondary)] mx-1">•</span>
+              <span class="text-[var(--color-text-secondary)]">{{ episode_percentage }}%</span>
+            {% endif %}
+          </p>
+        </div>
+        {% if has_collection_data %}<hr class="border-gray-700 mb-4 mt-4">{% endif %}
+      {% endif %}
+    {% endif %}
+
+    {# Collection metadata details #}
+    {% if collection_entries %}
+      <div>
+        {% for owned_entry in collection_entries %}
+          {% include "app/components/collection_entry_summary.html" with collection_entry=owned_entry media_type=media_type user=user source_style_game_meta=True flat_list=True is_last=forloop.last entry_quality_label="" %}
+        {% endfor %}
+      </div>
+    {% elif collection_entry %}
+      <div>
+        {% if media_type == MediaTypes.SEASON.value %}
+          <p class="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">{% translate "Aggregated Episode Metadata" %}</p>
+        {% endif %}
+        {% include "app/components/collection_entry_summary.html" with collection_entry=collection_entry media_type=media_type user=user source_style_game_meta=True flat_list=True is_last=True entry_quality_label="" %}
+      </div>
+    {% elif not collection_stats %}
+      <p class="text-[var(--color-text-muted)] text-sm">{% translate "No collection data available" %}</p>
+    {% endif %}
+  </div>
+  </div>
+{% endif %}

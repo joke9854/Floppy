@@ -20,6 +20,7 @@
       {% else %}
         {% blocktranslate trimmed count count=series_progress.watched %}{{ count }} episode watched{% plural %}{{ count }} episodes watched{% endblocktranslate %}
       {% endif %}
+      <span>{{ series_progress.percent }}%</span>
     </p>
     {# djlint:off H020 #}
     <span class="ct-progress-line" aria-hidden="true"><span></span></span>

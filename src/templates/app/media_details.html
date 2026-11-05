@@ -13,6 +13,7 @@
 {% endblock title %}
 
 {% block content %}
+  {% if ct_shell and media_type|ct_v2_detail_type %}{% firstof "1" as ct_v2_detail %}{% endif %}
   {% if music_detail_kind == "artist" %}
     {% include "app/components/detail_music_artist.html" %}
   {% elif music_detail_kind == "album" %}
@@ -73,7 +74,7 @@
 
       {% if defer_detail_secondary %}
         <div id="detail-secondary-content"
-             class="flex flex-col-reverse md:flex-row gap-0 md:gap-10"
+             class="flex flex-col-reverse md:flex-row gap-0 md:gap-10{% if ct_v2_detail %} ct-detail-sections is-loading{% endif %}"
              hx-get="{{ detail_secondary_fragment_url }}"
              hx-trigger="load delay:150ms"
              hx-swap="outerHTML">
