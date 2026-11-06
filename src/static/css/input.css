@@ -538,7 +538,8 @@ html.cinetrack {
 
 .ct-rail {
   position: fixed;
-  z-index: 55;
+  /* Below the z-50 modals and their backdrops, above the ct top bar (z-40). */
+  z-index: 45;
   top: 12px;
   bottom: 12px;
   left: 12px;
@@ -871,7 +872,7 @@ html.cinetrack {
 
 .ct-bottom-nav {
   position: fixed;
-  z-index: 55;
+  z-index: 45;
   right: 12px;
   bottom: calc(10px + env(safe-area-inset-bottom));
   left: 12px;
