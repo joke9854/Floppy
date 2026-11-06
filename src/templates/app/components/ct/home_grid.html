@@ -15,7 +15,7 @@
       </div>
     {% endwith %}
   {% elif next_episode %}
-    <div class="home-row-card ct-progress-slot shrink-0">
+    <div class="home-row-card ct-progress-slot shrink-0" data-ct-card-key="{{ entry.item.id }}">
       {% include "app/components/ct/progress_card.html" with item=entry.item media=entry.media %}
     </div>
   {% else %}

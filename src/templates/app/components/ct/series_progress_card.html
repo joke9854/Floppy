@@ -8,6 +8,8 @@
 {% ct_series_progress media current_instance as series_progress %}
 {% if series_progress %}
   <section class="ct-series-progress"
+           id="ct-series-progress"
+           data-ct-live
            style="--ct-progress: {{ series_progress.percent }}%"
            aria-label="{% translate "Your progress" %}">
     <div class="ct-series-progress__head">

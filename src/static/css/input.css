@@ -2651,6 +2651,11 @@ main:has(.ct-detail-hero--v2) .ct-season-dash {
   color: var(--color-link);
 }
 
+.ct-ep-row:not(.is-next) .ct-ep-next,
+.ct-ep-row.is-next .ct-ep-date {
+  display: none;
+}
+
 .ct-ep-info {
   display: grid;
   flex: none;

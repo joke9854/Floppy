@@ -154,45 +154,94 @@ if (!window.__floppyCtShellBound) {
     && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
   const dialogOpen = () => [...document.querySelectorAll(".fixed.inset-0, .ct-palette")]
     .some((el) => el.checkVisibility());
+  // The episode W and the hero button mark: the show's next episode when the
+  // server named one on the button, else the first unwatched one listed.
+  const episodeCheck = (season, episode) => document.querySelector(
+    `[data-ct-episode-check][data-season-number="${season}"][data-episode-number="${episode}"]`,
+  );
+  const nextEpisode = () => {
+    const pinned = document.querySelector("[data-ct-mark-next][data-episode-number]");
+    if (pinned) {
+      // Marked and waiting for the page to name the next one (refreshLiveParts).
+      const row = episodeCheck(pinned.dataset.seasonNumber, pinned.dataset.episodeNumber);
+      if (pinned.dataset.pending || (row && row.dataset.watched !== "0")) return null;
+      return { data: pinned.dataset, row };
+    }
+    const row = document.querySelector("[data-ct-episode-check][data-watched='0']");
+    return row ? { data: row.dataset, row } : null;
+  };
   const markNextEpisode = (help) => {
-    const next = document.querySelector("[data-ct-episode-check][data-watched='0']");
+    const next = nextEpisode();
     if (!next) {
       document.dispatchEvent(new CustomEvent("showToast", {
         detail: { message: help.dataset.noneLeft, type: "info" },
       }));
       return;
     }
+    const { data, row } = next;
     const values = {
-      media_id: next.dataset.mediaId,
-      season_number: next.dataset.seasonNumber,
-      episode_number: next.dataset.episodeNumber,
-      source: next.dataset.source,
+      media_id: data.mediaId,
+      season_number: data.seasonNumber,
+      episode_number: data.episodeNumber,
+      source: data.source,
       end_date: window.ctWatchNow(help.dataset.trackTime === "true"),
     };
-    if (next.dataset.libraryMediaType) values.library_media_type = next.dataset.libraryMediaType;
+    if (data.libraryMediaType) values.library_media_type = data.libraryMediaType;
     if (window.crypto && crypto.randomUUID) values.watch_operation_id = crypto.randomUUID();
-    next.dataset.watched = "pending";
+    const pinned = document.querySelector("[data-ct-mark-next][data-episode-number]");
+    if (row) row.dataset.watched = "pending";
+    if (pinned) pinned.dataset.pending = "1";
     const url = `${help.dataset.episodeSaveUrl}?next=${encodeURIComponent(location.pathname)}`;
     // The body as source, so the button's own hx-vals (instance_id) are not sent.
     htmx.ajax("POST", url, { values, swap: "none", source: document.body }).catch(() => {
-      next.dataset.watched = "0";
+      if (row) row.dataset.watched = "0";
+      if (pinned) delete pinned.dataset.pending;
+      syncMarkNext();
     });
   };
   // v2 detail: the primary button marks the same episode W would and names
-  // it. Shown only while the list on the page has an unwatched episode.
+  // it, and that episode's row reads "Up next". Hidden while there is none.
   const syncMarkNext = () => {
     const button = document.querySelector("[data-ct-mark-next]");
     if (!button) return;
-    const next = document.querySelector("[data-ct-episode-check][data-watched='0']");
+    const next = nextEpisode();
     button.hidden = !next;
     button.closest(".ct-detail-actions")?.classList.toggle("has-primary", Boolean(next));
+    document.querySelectorAll(".ct-episode-list .ct-ep-row").forEach((row) => {
+      row.classList.toggle("is-next", Boolean(next?.row) && row.contains(next.row));
+    });
     if (!next) return;
     button.querySelector("[data-ct-mark-next-label]").textContent = button.dataset.label
-      .replace("%(season)s", next.dataset.seasonNumber)
-      .replace("%(episode)s", next.dataset.episodeNumber);
+      .replace("%(season)s", next.data.seasonNumber)
+      .replace("%(episode)s", next.data.episodeNumber);
   };
   document.addEventListener("DOMContentLoaded", syncMarkNext);
   document.addEventListener("htmx:afterSettle", syncMarkNext);
+  // After a watch is saved, edited or undone, re-fetch this page and swap in
+  // its [data-ct-live] parts (the hero button, progress card and counts), so
+  // they read the server's numbers rather than the ones on first paint.
+  let refreshTimer;
+  const refreshLiveParts = () => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      const response = await fetch(location.href, { credentials: "same-origin" }).catch(() => null);
+      if (!response?.ok) return;
+      const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+      document.querySelectorAll("[data-ct-live][id]").forEach((el) => {
+        const replacement = fresh.getElementById(el.id);
+        if (!replacement) return;
+        const node = document.importNode(replacement, true);
+        el.replaceWith(node);
+        htmx.process(node);
+      });
+      syncMarkNext();
+    }, 150);
+  };
+  document.addEventListener("htmx:afterRequest", (event) => {
+    const config = event.detail.requestConfig;
+    if (!event.detail.successful || config?.verb !== "post") return;
+    if (document.querySelector("[data-ct-live]")) refreshLiveParts();
+  });
   document.addEventListener("click", (event) => {
     const button = event.target instanceof Element ? event.target.closest("[data-ct-mark-next]") : null;
     const help = document.querySelector("[data-ct-shortcuts]");
@@ -278,9 +327,32 @@ if (!window.__floppyCtCardsBound) {
     revealComplete(event.target instanceof Element ? event.target : document);
   });
 
-  // M5: the check fills green and the progress line grows by one episode.
-  // The button stays done, so a second tap can't log the episode twice; the
-  // card shows the next episode on the next Home load.
+  // Re-render one Home card from its row's own load_row fragment, so it names
+  // the next episode, its count and a live check. The undo stays attached.
+  const refreshHomeCard = async (form) => {
+    const slot = form.closest("[data-ct-card-key]");
+    const rowUrl = slot?.closest("[data-row-id][hx-get]")?.getAttribute("hx-get");
+    if (!rowUrl) return;
+    const response = await fetch(`${rowUrl}&offset=0`, {
+      credentials: "same-origin",
+      headers: { "HX-Request": "true" },
+    }).catch(() => null);
+    if (!response?.ok || !slot.isConnected) return;
+    const fresh = new DOMParser().parseFromString(await response.text(), "text/html")
+      .querySelector(`[data-ct-card-key="${slot.dataset.ctCardKey}"]`);
+    if (!fresh) return;
+    const node = document.importNode(fresh, true);
+    const instanceId = form.dataset.ctWatchedInstance;
+    const freshForm = node.querySelector("form[data-ct-check]");
+    if (instanceId && freshForm) freshForm.dataset.ctWatchedInstance = instanceId;
+    slot.replaceWith(node);
+    htmx.process(node);
+    revealComplete(node);
+  };
+
+  // M5: the check fills green and the progress line grows by one episode,
+  // then the card re-renders with the next one. The button stays done until
+  // then, so a second tap can't log the episode twice.
   document.addEventListener("htmx:afterRequest", (event) => {
     const form = event.detail.elt;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-ct-check")) return;
@@ -313,6 +385,7 @@ if (!window.__floppyCtCardsBound) {
       card.style.setProperty("--ct-progress", `${Math.min(100, progress + step)}%`);
       card.classList.add("is-watched");
     }
+    setTimeout(() => refreshHomeCard(form), 900);
   });
 
   document.addEventListener("ctWatchUndone", (event) => {
@@ -333,5 +406,6 @@ if (!window.__floppyCtCardsBound) {
     // A new check is a new play, not a resend of the undone one.
     const operation = form.querySelector('[name="watch_operation_id"]');
     if (operation && window.crypto?.randomUUID) operation.value = crypto.randomUUID();
+    refreshHomeCard(form);
   });
 }

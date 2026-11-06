@@ -49,11 +49,11 @@
         {% endif %}
       </div>
       <span class="ct-ep-airdate">
-        {% if ct_next_number and episode.episode_number == ct_next_number and not episode.history %}
+        {# Both labels; .is-next picks one. ctShell.js moves .is-next to the hero button's episode. #}
+        {% if not episode.history %}
           <span class="ct-ep-next">{% translate "Up next" %}{% if episode.runtime %} · {{ episode.runtime }}{% endif %}</span>
-        {% else %}
-          {{ episode.air_date|user_date_format:user|default_if_none:_("Unknown date") }}{% if episode.runtime %} · {{ episode.runtime }}{% endif %}
         {% endif %}
+        <span class="ct-ep-date">{{ episode.air_date|user_date_format:user|default_if_none:_("Unknown date") }}{% if episode.runtime %} · {{ episode.runtime }}{% endif %}</span>
         {% if episode.collection_entry %}
           <span class="ct-ep-collected" title="{% translate "Collected" %}{% if episode.collection_entry.resolution %} • {{ episode.collection_entry.resolution }}{% endif %}">{% include "app/icons/cube.svg" with classes="w-3.5 h-3.5" %}</span>
         {% endif %}

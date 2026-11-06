@@ -15,7 +15,7 @@
       <div class="ct-row-head">
         <h2 class="ct-row-title"><a href="{{ season_url }}">{{ season_title }}</a></h2>
         {% if current_instance %}
-          <span class="ct-row-detail">{% blocktranslate trimmed with watched=current_instance.completed_episode_count total=episodes|length %}{{ watched }} of {{ total }} watched{% endblocktranslate %}</span>
+          <span class="ct-row-detail" id="ct-season-watched" data-ct-live>{% blocktranslate trimmed with watched=current_instance.completed_episode_count total=episodes|length %}{{ watched }} of {{ total }} watched{% endblocktranslate %}</span>
         {% endif %}
         <span class="ct-rail-arrows">
           <button type="button" class="ct-glass-control" @click="$refs.strip.scrollBy({ left: -$refs.strip.clientWidth * 0.8, behavior: 'smooth' })" aria-label="{% translate "Previous episodes" %}">{% include "app/icons/chevron-left.svg" with classes="w-4 h-4" %}</button>

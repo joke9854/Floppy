@@ -70,11 +70,23 @@
       <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
       <div class="ct-detail-actions">
         {% if media_type != MediaTypes.MOVIE.value and not public_view|default:False %}
-          {# Marks the first unwatched episode in the list below, as W does; ctShell.js shows it once the list has one. #}
+          {% comment %}
+            A show page names the show's next episode (as Home does), so the
+            button never follows the season on screen and needs no episode list.
+            Without one (seasons, untracked shows) ctShell.js takes the first
+            unwatched episode in the list below, as W does. data-ct-live: the
+            page re-fetches it after a watch is saved or undone.
+          {% endcomment %}
+          {% if media_type != MediaTypes.SEASON.value %}
+            {% ct_detail_next_episode media current_instance as hero_next %}
+          {% endif %}
           <button type="button"
                   class="ct-btn-primary"
+                  id="ct-mark-next"
+                  data-ct-live
                   data-ct-mark-next
                   data-label="{% translate "Mark S%(season)s E%(episode)s Watched" %}"
+                  {% if hero_next %}data-media-id="{{ hero_next.media_id }}" data-source="{{ hero_next.source }}" data-season-number="{{ hero_next.season_number }}" data-episode-number="{{ hero_next.episode_number }}"{% if hero_next.library_media_type %} data-library-media-type="{{ hero_next.library_media_type }}"{% endif %}{% endif %}
                   hidden>
             {% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}
             <span data-ct-mark-next-label></span>

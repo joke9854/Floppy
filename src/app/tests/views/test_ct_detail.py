@@ -285,6 +285,27 @@ class CineTrackDetailTagTests(TestCase):
         media["episodes"][2]["air_date"] = future
         self.assertIsNone(ct_detail_next_episode(media, None))
 
+    def test_show_next_episode_is_the_shows_not_the_season_on_screen(self):
+        """The hero names the tracked show's next episode (as Home does)."""
+        season = SimpleNamespace(
+            item=SimpleNamespace(
+                media_id="1", source=Sources.TMDB.value, season_number=1, library_media_type=None,
+            ),
+        )
+        show = SimpleNamespace(next_episode_target=lambda: (season, 8))
+        media = {"media_type": MediaTypes.TV.value, "media_id": "1", "source": Sources.TMDB.value}
+
+        self.assertEqual(
+            ct_detail_next_episode(media, show),
+            {
+                "media_id": "1",
+                "source": Sources.TMDB.value,
+                "season_number": 1,
+                "episode_number": 8,
+                "library_media_type": None,
+            },
+        )
+
     def test_v2_covers_video_types_only(self):
         self.assertTrue(ct_v2_detail_type(MediaTypes.SEASON.value))
         self.assertTrue(ct_v2_detail_type(MediaTypes.MOVIE.value))
