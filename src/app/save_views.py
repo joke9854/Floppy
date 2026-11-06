@@ -8,7 +8,8 @@ from uuid import uuid4
 from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -526,6 +527,46 @@ def media_save(request):
                     },
                 )
 
+    return helpers.redirect_back(request)
+
+
+@require_POST
+def media_status(request):
+    """Set one tracked entry's status: the v2 detail quick status menu (A2/A10).
+
+    Only the status changes (plus today's end date when a dated entry becomes
+    Completed), so score, notes and dates survive, which a partial media_save
+    form would clear.
+    """
+    status = request.POST.get("status", "")
+    if status not in Status.values:
+        return HttpResponseBadRequest("Invalid status.")
+    media_type = request.POST.get("media_type", "")
+    if media_type not in MediaTypes.values:
+        return HttpResponseBadRequest("Invalid media type.")
+    try:
+        media = BasicMedia.objects.get_media(
+            request.user,
+            media_type,
+            request.POST.get("instance_id"),
+        )
+    except (ObjectDoesNotExist, ValueError) as error:
+        raise Http404 from error
+    if media.status != status:
+        media.status = status
+        if (
+            status == Status.COMPLETED.value
+            and hasattr(media, "end_date")
+            and not media.end_date
+            and media_type not in (MediaTypes.TV.value, MediaTypes.SEASON.value)
+        ):
+            media.end_date = timezone.now()
+        media.save()
+        messages.success(
+            request,
+            gettext("%(title)s: %(status)s.")
+            % {"title": media.item.title, "status": media.get_status_display()},
+        )
     return helpers.redirect_back(request)
 
 

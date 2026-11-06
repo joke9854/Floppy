@@ -296,6 +296,7 @@ from app.save_views import (
     media_delete,
     media_rewatch,
     media_save,
+    media_status,
 )
 from app.score_views import (
     _collect_music_history_day_keys_for_album_ids,
@@ -2271,6 +2272,7 @@ __all__ = [
     "media_rewatch",
     "media_save",
     "media_search",
+    "media_status",
     "metadata_resolution",
     "metadata_utils",
     "migrate_grouped_anime",

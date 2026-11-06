@@ -200,6 +200,7 @@ urlpatterns = [
         name="progress_edit",
     ),
     path("media_save", views.media_save, name="media_save"),
+    path("media_status", views.media_status, name="media_status"),
     path("media_delete", views.media_delete, name="media_delete"),
     path("media_rewatch", views.media_rewatch, name="media_rewatch"),
     path("retry", views.retry_startup_check, name="retry_startup_check"),

@@ -21,8 +21,16 @@
 {% block settings_content %}
   {# CineTrack (A5) starts on the card grid; a card opens one integration's panels below. #}
   <div class="space-y-6"
-       x-data="{ activeIntegration: '{% if ct_shell %}grid{% else %}all{% endif %}' }"
-       x-init="const deepLinkTag = new URLSearchParams(window.location.search).get('open'); if (deepLinkTag) { activeIntegration = deepLinkTag; }">
+       x-data="{ activeIntegration: '{% if ct_shell %}grid{% else %}all{% endif %}', fromHistory: false }"
+       x-init="const deepLinkTag = new URLSearchParams(window.location.search).get('open'); if (deepLinkTag) { activeIntegration = deepLinkTag; }{% if ct_shell %}
+               {# Each panel is a history entry (?open=), so Back returns to the grid. #}
+               $watch('activeIntegration', (value) => {
+                 if (fromHistory) { fromHistory = false; return; }
+                 const url = new URL(window.location.href);
+                 if (value === 'grid') { url.searchParams.delete('open'); } else { url.searchParams.set('open', value); }
+                 history.pushState({ ctIntegration: value }, '', url);
+               });{% endif %}"
+       {% if ct_shell %}@popstate.window="const tag = new URLSearchParams(window.location.search).get('open') || 'grid'; if (tag !== activeIntegration) { fromHistory = true; activeIntegration = tag; }"{% endif %}>
     {% if ct_shell %}
       {% include "users/components/ct_integrations_grid.html" %}
     {% endif %}

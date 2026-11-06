@@ -100,18 +100,22 @@ def _recently_watched(user) -> list[RecentEntry]:
     return recent[:RECENT_LIMIT]
 
 
-def _catch_up_count(user, now: datetime) -> int:
-    """Aired episodes not yet watched, across the user's in-progress seasons."""
-    seasons = dict(
-        Season.objects.filter(user=user, status=Status.IN_PROGRESS.value)
+def _catch_up(user, now: datetime) -> tuple[int, int]:
+    """Aired episodes not yet watched across in-progress seasons, and their shows."""
+    seasons = {
+        season_id: (item_id, tv_id)
+        for season_id, item_id, tv_id in Season.objects.filter(
+            user=user,
+            status=Status.IN_PROGRESS.value,
+        )
         .exclude(related_tv__status=Status.DROPPED.value)
-        .values_list("id", "item_id"),
-    )
+        .values_list("id", "item_id", "related_tv_id")
+    }
     if not seasons:
-        return 0
+        return 0, 0
     aired = dict(
         Event.objects.filter(
-            item_id__in=seasons.values(),
+            item_id__in=[item_id for item_id, _tv_id in seasons.values()],
             content_number__isnull=False,
             datetime__lte=now,
         )
@@ -125,10 +129,14 @@ def _catch_up_count(user, now: datetime) -> int:
         .annotate(n=Count("item__episode_number", distinct=True))
         .values_list("related_season_id", "n"),
     )
-    return sum(
-        max(0, aired.get(item_id, 0) - watched.get(season_id, 0))
-        for season_id, item_id in seasons.items()
-    )
+    episodes = 0
+    shows = set()
+    for season_id, (item_id, tv_id) in seasons.items():
+        left = max(0, aired.get(item_id, 0) - watched.get(season_id, 0))
+        if left:
+            episodes += left
+            shows.add(tv_id or f"season-{season_id}")
+    return episodes, len(shows)
 
 
 def build_home_sections(user) -> dict:
@@ -138,12 +146,14 @@ def build_home_sections(user) -> dict:
     sections = cache.get(cache_key)
     if sections is None:
         airing, airing_count = _airing_this_week(user, today)
+        catch_up, catch_up_shows = _catch_up(user, timezone.now())
         sections = {
             # Two columns of three on desktop (A1); phones show the first.
             "airing": [column for column in (airing[:3], airing[3:]) if column],
             "airing_count": airing_count,
             "recent": _recently_watched(user),
-            "catch_up": _catch_up_count(user, timezone.now()),
+            "catch_up": catch_up,
+            "catch_up_shows": catch_up_shows,
         }
         cache.set(cache_key, sections, HOME_ROW_CACHE_TTL)
         register_home_row_cache_key(user.id, cache_key)

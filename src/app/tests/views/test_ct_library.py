@@ -266,7 +266,7 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
 
         response = self.client.get(reverse("discover"))
 
-        self.assertContains(response, "Add to Planned")
+        self.assertContains(response, "Add to Planning")
         self.assertContains(response, '"action":"planning"')
         self.assertContains(response, 'class="ct-discover-hero__secondary">Details<')
         self.assertContains(response, "ct-palette-open")

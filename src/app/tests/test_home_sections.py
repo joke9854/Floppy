@@ -74,6 +74,7 @@ class HomeSectionsTests(TestCase):
         sections = home_sections.build_home_sections(self.user)
 
         self.assertEqual(sections["catch_up"], 4)
+        self.assertEqual(sections["catch_up_shows"], 1)
 
     def test_airing_this_week_tags_premiere_and_finale(self):
         Event.objects.create(
@@ -154,12 +155,12 @@ class HomeSectionsTests(TestCase):
 
     def test_sections_are_cached_and_cleared_with_the_home_rows(self):
         home_sections.build_home_sections(self.user)
-        with patch.object(home_sections, "_catch_up_count") as count:
+        with patch.object(home_sections, "_catch_up") as count:
             home_sections.build_home_sections(self.user)
             count.assert_not_called()
 
             clear_home_row_cache_for_user(self.user.id)
-            count.return_value = 0
+            count.return_value = (0, 0)
             home_sections.build_home_sections(self.user)
             count.assert_called_once()
 
@@ -176,6 +177,7 @@ class HomeSectionsTests(TestCase):
         rest = self.client.get(reverse("home_rest_fragment")).content.decode()
 
         self.assertIn("4 episodes to catch up on", home)
+        self.assertIn(f'href="{reverse("medialist", args=["tv"])}?status=In%20progress"', home)
         self.assertIn("1 airing this week", home)
         self.assertIn("Airing This Week", rest)
         self.assertIn("Recently Watched", rest)
@@ -191,3 +193,20 @@ class HomeSectionsTests(TestCase):
 
         self.assertNotIn("ct-page-sub", home)
         self.assertNotIn("Recently Watched", rest)
+
+
+class RecentlyWatchedRelativeDayTests(TestCase):
+    """Board A1: Recently Watched says Today, Yesterday or 2 Nov."""
+
+    def test_relative_day_labels(self):
+        from app.templatetags.app_tags import ct_relative_day
+
+        today = timezone.localdate()
+        self.assertEqual(ct_relative_day(today), "Today")
+        self.assertEqual(ct_relative_day(today - timedelta(days=1)), "Yesterday")
+        same_year = today.replace(month=1, day=2) if today.month > 1 else today.replace(day=1)
+        if (today - same_year).days > 1:
+            self.assertEqual(ct_relative_day(same_year), f"{same_year.day} {same_year:%b}")
+        last_year = today.replace(year=today.year - 1, day=2)
+        self.assertEqual(ct_relative_day(last_year), f"2 {last_year:%b} {last_year.year}")
+        self.assertEqual(ct_relative_day("S1 E3"), "S1 E3")

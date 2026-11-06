@@ -216,6 +216,8 @@ class CineTrackDetailPageTests(TestCase):
         response = self._get(mock_get_metadata)
         self.assertContains(response, 'id="ct-mark-movie"')
         self.assertContains(response, 'name="save_as_new_entry" value="1"')
+        self.assertContains(response, f'action="{reverse("media_status")}"')
+        self.assertContains(response, "Edit details")
 
         secondary = self.client.get(f"{self.url}?fragment=secondary")
         self.assertContains(secondary, 'class="ct-detail-sections"')
@@ -375,3 +377,88 @@ class CineTrackDetailTagTests(TestCase):
         self.assertTrue(ct_v2_detail_type(MediaTypes.SEASON.value))
         self.assertTrue(ct_v2_detail_type(MediaTypes.MOVIE.value))
         self.assertFalse(ct_v2_detail_type(MediaTypes.BOOK.value))
+
+
+class CineTrackEpisodeMarkTests(TestCase):
+    """Audit: the episode page marks an unwatched episode in one click."""
+
+    def _render(self, theme, history):
+        from django.template.loader import render_to_string
+        from django.test import RequestFactory
+
+        user = get_user_model().objects.create_user(username=f"ep-{theme}", password="x")
+        user.theme = theme
+        request = RequestFactory().get("/details/tmdb/tv/1/show/season/1/episode/2")
+        request.user = user
+        return render_to_string(
+            "app/components/detail_episode_hero_track_button.html",
+            {
+                "episode": SimpleNamespace(history=history),
+                "source": "tmdb",
+                "media_id": "1",
+                "season_number": 1,
+                "episode_number": 2,
+            },
+            request=request,
+        )
+
+    def test_cinetrack_unwatched_episode_posts_the_watch_directly(self):
+        html = self._render(ThemeChoices.CINETRACK, [])
+        self.assertIn(f'hx-post="{reverse("episode_save")}?next=', html)
+        self.assertIn('name="episode_number" value="2"', html)
+        self.assertIn("data-ct-live", html)
+        self.assertNotIn("track_modal", html)
+
+    def test_watched_or_classic_episode_keeps_the_track_window(self):
+        watched = self._render(ThemeChoices.CINETRACK, [SimpleNamespace(id=9)])
+        classic = self._render(ThemeChoices.SYSTEM, [])
+        for html in (watched, classic):
+            self.assertNotIn(reverse("episode_save"), html)
+            self.assertIn('hx-target="#episode-track-modal-', html)
+
+
+@patch("app.models.Item.fetch_releases")
+@patch("app.providers.services.get_media_metadata", return_value={"max_progress": 1})
+class MediaStatusViewTests(TestCase):
+    """Audit: the v2 quick status menu changes only the status."""
+
+    def setUp(self):
+        from app.models import Item, Movie, Status
+
+        self.user = get_user_model().objects.create_user(username="status", password="x")
+        self.client.force_login(self.user)
+        item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+        )
+        self.movie = Movie.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.PLANNING.value,
+            score=8,
+            notes="Rewatch with friends",
+        )
+
+    def _post(self, **data):
+        payload = {"media_type": "movie", "instance_id": self.movie.id, "next": "/back"}
+        return self.client.post(reverse("media_status"), payload | data)
+
+    def test_status_changes_and_the_rest_survives(self, *_mocks):
+        response = self._post(status="Completed")
+
+        self.assertRedirects(response, "/back", fetch_redirect_response=False)
+        self.movie.refresh_from_db()
+        self.assertEqual(self.movie.status, "Completed")
+        self.assertIsNotNone(self.movie.end_date)
+        self.assertEqual(self.movie.score, 8)
+        self.assertEqual(self.movie.notes, "Rewatch with friends")
+
+    def test_bad_input_and_other_users_entries_are_refused(self, *_mocks):
+        self.assertEqual(self._post(status="Nope").status_code, 400)
+        other = get_user_model().objects.create_user(username="other", password="x")
+        self.client.force_login(other)
+        self.assertEqual(self._post(status="Dropped").status_code, 404)
+        self.movie.refresh_from_db()
+        self.assertEqual(self.movie.status, "Planning")

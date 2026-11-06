@@ -61,7 +61,13 @@
           {% if home_sections.catch_up or home_sections.airing_count %}
             <p class="ct-page-sub">
               {% if home_sections.catch_up %}
-                {% blocktranslate trimmed count count=home_sections.catch_up %}{{ count }} episode to catch up on{% plural %}{{ count }} episodes to catch up on{% endblocktranslate %}
+                {# Links to the shows it counts, so the total is something to act on. #}
+                <a class="ct-page-sub__link" href="{% url 'medialist' MediaTypes.TV.value %}?status={{ Status.IN_PROGRESS.value|urlencode }}">
+                  {% blocktranslate trimmed count count=home_sections.catch_up %}{{ count }} episode to catch up on{% plural %}{{ count }} episodes to catch up on{% endblocktranslate %}
+                  {% if home_sections.catch_up_shows > 1 %}
+                    {% blocktranslate trimmed with shows=home_sections.catch_up_shows %}across {{ shows }} shows{% endblocktranslate %}
+                  {% endif %}
+                </a>
               {% endif %}
               {% if home_sections.catch_up and home_sections.airing_count %}·{% endif %}
               {% if home_sections.airing_count %}

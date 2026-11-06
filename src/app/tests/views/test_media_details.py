@@ -584,7 +584,7 @@ class MediaDetailsViewTests(TestCase):
             content,
         )
         self.assertIn(
-            'class="flex w-full items-center gap-2 sm:w-auto sm:flex-wrap"', content
+            'class="ct-more-row flex w-full items-center gap-2 sm:w-auto sm:flex-wrap"', content
         )
         self.assertIn(
             'class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11"',

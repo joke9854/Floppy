@@ -7,23 +7,78 @@
      {% if swap_oob %}hx-swap-oob="outerHTML"{% endif %}
      x-data="{ trackOpen: {% if track_open %}true{% else %}false{% endif %} }"
      class="w-full sm:w-auto sm:shrink-0">
-  <button type="button"
-          data-ct-shortcut="track"
-          class="inline-flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3 text-white shadow-sm transition duration-300 cursor-pointer sm:w-auto {% if current_instance %}bg-indigo-600 hover:bg-indigo-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %}"
-          hx-get="{% media_view_url 'track_modal' media %}"
-          hx-vals='{"return_url": "{{ return_url }}"{% if current_instance %}, "instance_id": "{{ current_instance.id }}"{% endif %}{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
-          hx-target="#{% component_id 'track' media %}"
-          hx-trigger="click"
-          @click="trackOpen = true">
-    {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
-    <span class="font-medium">
-      {% if current_instance %}
-        {{ current_instance.status|media_status_readable }}
-      {% else %}
-        {% translate "Add to tracker" %}
-      {% endif %}
-    </span>
-  </button>
+  {% if current_instance and request.user.theme == "cinetrack" %}
+    {% comment %}
+      v2 quick status pull-down (boards A2/A10): each status is one POST to
+      media_status, which changes only the status; Edit details opens the full
+      track window as the button used to.
+    {% endcomment %}
+    <div class="ct-status-menu"
+         x-data="{ statusOpen: false }"
+         @click.outside="statusOpen = false"
+         @keydown.escape.window="statusOpen = false">
+      <button type="button"
+              data-ct-shortcut="track"
+              class="inline-flex w-full items-center justify-center gap-3 rounded-xl bg-indigo-600 px-5 py-3 text-white shadow-sm transition duration-300 hover:bg-indigo-700 cursor-pointer sm:w-auto"
+              aria-haspopup="menu"
+              :aria-expanded="statusOpen ? 'true' : 'false'"
+              @click="statusOpen = !statusOpen">
+        {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
+        <span class="font-medium">{{ current_instance.status|media_status_readable }}</span>
+        {% include "app/icons/chevron-down.svg" with classes="w-4 h-4 shrink-0" %}
+      </button>
+      <div class="ct-status-menu__panel" role="menu" x-show="statusOpen" x-cloak x-transition.opacity>
+        <form method="post" action="{% url 'media_status' %}">
+          {% csrf_token %}
+          <input type="hidden" name="media_type" value="{{ current_instance.item.media_type }}">
+          <input type="hidden" name="instance_id" value="{{ current_instance.id }}">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% for value, label in Status.choices %}
+            <button type="submit"
+                    name="status"
+                    value="{{ value }}"
+                    role="menuitemradio"
+                    aria-checked="{% if value == current_instance.status %}true{% else %}false{% endif %}"
+                    class="ct-status-menu__item">
+              <span>{{ value|media_status_readable }}</span>
+              {% if value == current_instance.status %}
+                {% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}
+              {% endif %}
+            </button>
+          {% endfor %}
+        </form>
+        <div class="ct-status-menu__divider" role="separator"></div>
+        <button type="button"
+                role="menuitem"
+                class="ct-status-menu__item"
+                hx-get="{% media_view_url 'track_modal' media %}"
+                hx-vals='{"return_url": "{{ return_url }}", "instance_id": "{{ current_instance.id }}"{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
+                hx-target="#{% component_id 'track' media %}"
+                hx-trigger="click"
+                @click="statusOpen = false; trackOpen = true">
+          <span>{% translate "Edit details" %}</span>
+        </button>
+      </div>
+    </div>
+  {% else %}
+    <button type="button"
+            data-ct-shortcut="track"
+            class="inline-flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3 text-white shadow-sm transition duration-300 cursor-pointer sm:w-auto {% if current_instance %}bg-indigo-600 hover:bg-indigo-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %}"
+            hx-get="{% media_view_url 'track_modal' media %}"
+            hx-vals='{"return_url": "{{ return_url }}"{% if current_instance %}, "instance_id": "{{ current_instance.id }}"{% endif %}{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
+            hx-target="#{% component_id 'track' media %}"
+            hx-trigger="click"
+            @click="trackOpen = true">
+      {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
+      <span class="font-medium">
+        {% if current_instance %}
+          {{ current_instance.status|media_status_readable }}
+        {% else %}
+          {% translate "Add to tracker" %}
+        {% endif %}
+      </span>
+    </button>
+  {% endif %}
 
   <div x-show="trackOpen"
   @mousedown.self="trackOpen = false"

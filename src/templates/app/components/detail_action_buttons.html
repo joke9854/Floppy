@@ -7,7 +7,7 @@
 {% if not public_view|default:False %}
   {% if match_item and media_type == MediaTypes.MOVIE.value or match_item and media_type == MediaTypes.TV.value %}
     <a href="{% url 'match_fix' match_item.id %}"
-       class="mb-2 inline-flex items-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text)] shadow-sm transition-colors hover:bg-[var(--color-surface-muted)]">
+       class="ct-fix-match mb-2 inline-flex items-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text)] shadow-sm transition-colors hover:bg-[var(--color-surface-muted)]">
       {% translate "Fix match" %}
     </a>
   {% endif %}
@@ -51,7 +51,8 @@
                 </div>
               </div>
             {% else %}
-              {% if user_medias and media_type != MediaTypes.TV.value and media_type != MediaTypes.SEASON.value %}
+              {# v2 tracked movies use the quick status menu in detail_track_action.html ("Save as another play" lives in its Edit details window). #}
+              {% if user_medias and media_type != MediaTypes.TV.value and media_type != MediaTypes.SEASON.value and request.user.theme != "cinetrack" %}
                 <div x-data="{ editTrackOpen: false, createTrackOpen: false, trackMenuOpen: false }"
                      class="relative inline-flex w-full sm:w-auto"
                      @click.outside="trackMenuOpen = false">
@@ -119,7 +120,30 @@
             {% endif %}
           </div>
 
-          <div class="flex w-full items-center gap-2 sm:w-auto sm:flex-wrap">
+          {% comment %}
+            v2 phones (P7): only the status pull-down and ⋮ stay in the hero;
+            ⋮ opens these actions (and Fix match) as a bottom sheet. Elsewhere
+            .ct-more-items is display: contents, so the row is unchanged.
+          {% endcomment %}
+          <div class="ct-more-row flex w-full items-center gap-2 sm:w-auto sm:flex-wrap"
+               x-data="{ moreOpen: false }"
+               @keydown.escape.window="moreOpen = false">
+            {% if request.user.theme == "cinetrack" %}
+              <button type="button"
+                      class="ct-more-toggle"
+                      aria-label="{% translate "More actions" %}"
+                      :aria-expanded="moreOpen ? 'true' : 'false'"
+                      @click="moreOpen = true">
+                {% include "app/icons/ellipsis.svg" with classes="w-5 h-5" %}
+              </button>
+              <div class="ct-more-backdrop" x-show="moreOpen" x-cloak @click="moreOpen = false"></div>
+            {% endif %}
+            <div class="ct-more-items" :class="{ 'is-open': moreOpen }" role="group" aria-label="{% translate "More actions" %}">
+            {% if match_item and media_type == MediaTypes.MOVIE.value or match_item and media_type == MediaTypes.TV.value %}
+              <a href="{% url 'match_fix' match_item.id %}" class="ct-more-fix-match" title="{% translate "Fix match" %}">
+                {% include "app/icons/edit.svg" with classes="w-4 h-4" %}
+              </a>
+            {% endif %}
             {% if detail_link_sections %}
               <div x-data="{ linksOpen: false, linksPinned: false }"
                    class="relative flex-1 sm:flex-none"
@@ -271,6 +295,7 @@
                 </div>
               </button>
             </form>
+            </div>
           </div>
           {% if activity_subtitle or media.score_count is not None or trakt_score or imdb_score or mal_score or user_medias and current_instance %}
           </div>

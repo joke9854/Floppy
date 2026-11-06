@@ -36,7 +36,7 @@
         <span class="ct-poster-title">{% if item.media_type == MediaTypes.SEASON.value %}{% season_card_title item %}{% else %}{{ item|display_title:user }}{% endif %}</span>
         <span class="ct-poster-sub">
           {% if entry.subtitle_override %}
-            {{ entry.subtitle_override|iso_date_format:user }}
+            {{ entry.subtitle_override|ct_relative_day }}
           {% elif item.release_datetime %}
             {{ item.release_datetime|date:"Y" }}
           {% endif %}

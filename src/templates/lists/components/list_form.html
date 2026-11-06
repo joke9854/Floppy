@@ -177,7 +177,8 @@
       {% endfor %}
 
       {% if form.instance.pk %}
-        <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+        {# Sticky: the actions stay on screen however long the form scrolls. #}
+        <div class="sticky -bottom-6 z-10 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-surface-border)] bg-[var(--color-surface)] px-6 py-4">
           <a href="{% url 'list_activity' custom_list.id %}"
              class="px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text-secondary)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors">
             {% translate "Activity History" %}
@@ -197,7 +198,7 @@
           </div>
         </div>
       {% else %}
-        <div class="flex justify-end pt-4">
+        <div class="sticky -bottom-6 z-10 -mx-6 -mb-6 flex justify-end border-t border-[var(--color-surface-border)] bg-[var(--color-surface)] px-6 py-4">
           <button type="submit" formaction="{% url 'list_create' %}?next={{ request.path }}"
             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors cursor-pointer">
             {% translate "Create List" %}

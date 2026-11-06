@@ -6,7 +6,7 @@
   detail pages; visible TMDB images never carry crossorigin). The backdrop
   comes from ct_discover_hero, which falls back to the poster.
 
-  Each slide has the title, a "Type · Genre · Year" line, Add to Planned (the
+  Each slide has the title, a "Type · Genre · Year" line, Add to Planning (the
   cards' discover_action "planning", re-rendering #discover-rows) and Details.
   ctHero (ctShell.js) runs the dots and the autoplay, which stops on hover,
   focus and reduced motion. The prev/next arrows, the poster thumbnail and
@@ -70,7 +70,7 @@
                         hx-swap="innerHTML"
                         hx-vals='{"action":"planning","candidate_media_type":"{{ candidate.media_type|escapejs }}","source":"{{ candidate.source|escapejs }}","media_id":"{{ candidate.media_id|escapejs }}","active_media_type":"{{ selected_media_type|default:"all"|escapejs }}","show_more":"{% if show_more %}1{% else %}0{% endif %}","row_key":"","title":"{{ candidate.title|escapejs }}","image":"{{ candidate.image|default:IMG_NONE|escapejs }}","release_date":"{{ candidate.release_date|default:""|escapejs }}","discover_debug":"{% if discover_debug %}1{% else %}0{% endif %}"}'>
                   {% include "app/icons/plus.svg" with classes="w-4 h-4" %}
-                  {% translate "Add to Planned" %}
+                  {% translate "Add to Planning" %}
                 </button>
                 <a href="{{ candidate|media_url }}" class="ct-discover-hero__secondary">{% translate "Details" %}</a>
               </div>

@@ -102,6 +102,8 @@ class CustomListForm(forms.ModelForm):
             "public_slug",
         ]
         widgets = {
+            # Four rows keep the Create button in the first screen (A16).
+            "description": forms.Textarea(attrs={"rows": 4}),
             "collaborators": CollaboratorsWidget(
                 attrs={
                     "data-minimum-input-length": 1,

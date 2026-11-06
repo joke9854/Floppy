@@ -1332,6 +1332,20 @@ html.cinetrack {
   font-size: 15px;
 }
 
+.ct-page-sub__link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.ct-page-sub__link:hover,
+.ct-page-sub__link:focus-visible {
+  color: var(--color-text);
+  text-decoration-color: currentColor;
+}
+
 .ct-page-bell {
   display: grid;
   flex: none;
@@ -1854,6 +1868,156 @@ main:has(> .container > .ct-detail-backdrop) > .container > :not(.ct-detail-back
 
 .ct-action-bar > a {
   margin: 0;
+}
+
+/* P7: phones keep the status pull-down and ⋮ in the hero; ⋮ opens the other
+   actions as a bottom sheet. Wider screens lay the items out as before. */
+.ct-more-items {
+  display: contents;
+}
+
+.ct-more-toggle,
+.ct-more-backdrop,
+.ct-more-fix-match {
+  display: none;
+}
+
+@media (width < 768px) {
+  html.cinetrack .ct-action-bar > .ct-fix-match {
+    display: none;
+  }
+
+  html.cinetrack .ct-action-bar :has(> .ct-more-row) {
+    flex-wrap: nowrap;
+  }
+
+  html.cinetrack .ct-action-bar :has(> .ct-more-row) > :not(.ct-more-row) {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  html.cinetrack .ct-more-row {
+    flex: none;
+    width: auto;
+  }
+
+  html.cinetrack .ct-more-toggle {
+    display: inline-grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border: 0.9px solid rgb(255 255 255 / 12%);
+    border-radius: 999px;
+    background-color: rgb(255 255 255 / 10%);
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  html.cinetrack .ct-more-backdrop {
+    position: fixed;
+    z-index: 65;
+    display: block;
+    inset: 0;
+    background-color: rgb(0 0 0 / 50%);
+  }
+
+  html.cinetrack .ct-more-items {
+    display: none;
+  }
+
+  /* No transform or filter here: the items' own modals are position: fixed. */
+  html.cinetrack .ct-more-items.is-open {
+    position: fixed;
+    z-index: 70;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    gap: 2px;
+    padding: 12px 12px calc(16px + env(safe-area-inset-bottom));
+    border-top: 0.9px solid rgb(255 255 255 / 10%);
+    border-radius: var(--ct-radius-lg) var(--ct-radius-lg) 0 0;
+    background-color: rgb(23 27 33);
+    box-shadow: 0 -16px 40px rgb(0 0 0 / 45%);
+  }
+
+  html.cinetrack .ct-more-items.is-open > * {
+    width: 100%;
+    flex: none;
+  }
+
+  html.cinetrack .ct-more-items.is-open :is(a, button):is([title], [aria-label]):not(.fixed *, [role="menuitem"]) {
+    display: flex;
+    width: 100%;
+    height: 48px;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--color-text);
+    font-size: 15px;
+  }
+
+  html.cinetrack .ct-more-items.is-open :is(a, button)[title]:not(.fixed *)::after {
+    content: attr(title);
+  }
+
+  html.cinetrack .ct-more-items.is-open :is(a, button)[aria-label]:not([title], .fixed *)::after {
+    content: attr(aria-label);
+  }
+}
+
+/* Quick status pull-down (A2/A10) under the detail status button. */
+.ct-status-menu {
+  position: relative;
+}
+
+.ct-status-menu__panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: var(--ct-radius-lg);
+  background-color: rgb(23 27 33 / 92%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+  backdrop-filter: blur(18px);
+}
+
+.ct-status-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-status-menu__item:hover,
+.ct-status-menu__item:focus-visible {
+  background-color: rgb(255 255 255 / 8%);
+}
+
+.ct-status-menu__item[aria-checked="true"] {
+  color: var(--poster-accent, var(--color-accent));
+  font-weight: 600;
+}
+
+.ct-status-menu__divider {
+  height: 1px;
+  margin: 6px 4px;
+  background-color: rgb(255 255 255 / 10%);
 }
 
 .ct-action-bar.order-1,
