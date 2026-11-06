@@ -1855,8 +1855,11 @@ class MediaManager(models.Manager):
             ),
         )
 
-    def annotate_max_progress(self, media_list, media_type):
-        """Annotate max_progress for all media items."""
+    def annotate_max_progress(self, media_list, media_type, *, cached_only=False):
+        """Annotate max_progress for all media items.
+
+        ``cached_only`` (list pages): TMDB seasons never wait on the provider.
+        """
         current_datetime = timezone.now()
 
         if media_type in (MediaTypes.MOVIE.value, MediaTypes.COMIC_ISSUE.value):
@@ -1886,9 +1889,31 @@ class MediaManager(models.Manager):
             # For seasons, use metadata max_progress instead of database annotation
             # The metadata value is more accurate as it reflects the actual total episodes
             # from the provider, not just episodes with release_datetime set
-            from app.providers import services
+            from app.providers import services, tmdb
+
+            # List pages read a TMDB season's provider total from cache only: a
+            # live fetch per row took a cold Seasons library page to 24 s on the
+            # 5 req/s TMDB bucket. A miss keeps the released-episode count from
+            # the DB, the same fallback a failed fetch always had. Model logic
+            # (rewatch, completion) still needs the real length, so it fetches.
+            tmdb_seasons = [
+                season
+                for season in media_list
+                if cached_only and season.item.source == Sources.TMDB.value
+            ]
+            self._annotate_season_released_episodes(tmdb_seasons, current_datetime)
+            for season in tmdb_seasons:
+                cached, _missing = tmdb.get_cached_seasons(
+                    season.item.media_id,
+                    [season.item.season_number],
+                )
+                season_data = cached.get(f"season/{season.item.season_number}") or {}
+                if season_data.get("max_progress") is not None:
+                    season.max_progress = season_data["max_progress"]
 
             for season in media_list:
+                if season in tmdb_seasons:
+                    continue
                 try:
                     season_metadata = services.get_media_metadata(
                         MediaTypes.SEASON.value,

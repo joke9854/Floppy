@@ -2,6 +2,40 @@
 if (!window.__floppyBulkSelectionBound) {
   window.__floppyBulkSelectionBound = true;
   document.addEventListener("alpine:init", () => {
+    // Media card state. Shared here rather than inlined on each card: the
+    // inline copy was ~1 KB of every Library card (32 per page).
+    Alpine.data("mediaCard", (bulkSelect = false) => ({
+      trackOpen: false,
+      listsOpen: false,
+      revealed: false,
+      tapToReveal(e) {
+        if (this.revealed) {
+          if (e.target.closest("button, a, input, select, textarea")) return;
+          const link =
+            this.$root.querySelector(".media-card-overlay a[href]") ||
+            this.$root.querySelector("a.media-card-title[href]");
+          if (link) {
+            e.preventDefault();
+            e.stopPropagation();
+            link.click();
+          }
+          return;
+        }
+        if (
+          !window.matchMedia("(pointer: coarse)").matches ||
+          this.$root.classList.contains("media-card-hide-overlay") ||
+          !this.$root.querySelector(".media-card-overlay") ||
+          (bulkSelect && this.selectMode)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        this.revealed = true;
+        window.dispatchEvent(new CustomEvent("media-card-revealed", { detail: this.$root }));
+      },
+    }));
+
     Alpine.data("bulkSelection", (configId, refreshId) => ({
       selectMode: false,
       selectedItemIds: [],

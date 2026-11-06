@@ -2098,6 +2098,7 @@ def media_list(request, media_type):
             BasicMedia.objects.annotate_max_progress(
                 _tracked_media_entries(media_list),
                 media_type,
+                cached_only=True,
             )
             prefill_episode_runtime_index(media_list)
             media_list = _sort_media_items_by_numeric_value(
@@ -2111,6 +2112,7 @@ def media_list(request, media_type):
             BasicMedia.objects.annotate_max_progress(
                 _tracked_media_entries(media_list),
                 media_type,
+                cached_only=True,
             )
             prefill_episode_runtime_index(media_list)
             media_list = _sort_media_items_by_numeric_value(
@@ -2374,6 +2376,7 @@ def media_list(request, media_type):
             BasicMedia.objects.annotate_max_progress(
                 _tracked_media_entries(media_list),
                 media_type,
+                cached_only=True,
             )
 
             prefill_episode_runtime_index(media_list)
@@ -2398,6 +2401,7 @@ def media_list(request, media_type):
         BasicMedia.objects.annotate_max_progress(
             _tracked_media_entries(media_page.object_list),
             media_type,
+            cached_only=True,
         )
         prefill_episode_runtime_index(media_page.object_list)
     else:
@@ -2420,6 +2424,7 @@ def media_list(request, media_type):
         BasicMedia.objects.annotate_max_progress(
             _tracked_media_entries(media_page.object_list),
             media_type,
+            cached_only=True,
         )
         # Table runtime/time-watched cells read total_runtime_minutes per row;
         # prefill so the page renders with one episode-runtime query.
@@ -2461,6 +2466,10 @@ def media_list(request, media_type):
 
     if filter_data is not None:
         filter_data.setdefault("departments", [])
+        # The ~900-entry provider catalog (120 KB of JSON per page) only
+        # feeds the providers panel, which is hidden without a region or pins.
+        if not filter_data.get("show_providers"):
+            filter_data = {**filter_data, "all_providers": []}
 
     _layout_class = ".media-grid" if layout == "grid" else ".media-table"
     context = {

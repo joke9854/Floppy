@@ -2957,10 +2957,17 @@ class MediaListViewTests(TestCase):
                 "image": "https://example.com/tv-logo.jpg",
             },
         ]
+        url = reverse("medialist", args=[MediaTypes.MOVIE.value])
 
-        response = self.client.get(
-            reverse("medialist", args=[MediaTypes.MOVIE.value]),
-        )
+        # Without a region or pins the panel is hidden: no catalog in the page.
+        hidden = self.client.get(url)
+        self.assertFalse(hidden.context["filter_data"]["show_providers"])
+        self.assertEqual(hidden.context["filter_data"]["all_providers"], [])
+        self.assertNotContains(hidden, "Amazon MX Player")
+
+        self.user.pinned_watch_providers = ["Netflix"]
+        self.user.save(update_fields=["pinned_watch_providers"])
+        response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(

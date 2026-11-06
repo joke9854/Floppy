@@ -770,7 +770,7 @@ class AppTagsTests(TestCase):
         )
 
         self.assertIn("media-card-hide-overlay", content)
-        self.assertIn("this.selectMode", content)
+        self.assertIn('x-data="mediaCard(true)"', content)
         self.assertIn("flex-wrap", content)
         self.assertIn("gap-2.5", content)
 
