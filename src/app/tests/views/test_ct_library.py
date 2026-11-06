@@ -214,6 +214,20 @@ class CineTrackMediaListTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, 'data-status="completed"', count=2)
         self.assertContains(response, '<p class="ct-library-sub">Completed</p>', html=True)
 
+    def test_cinetrack_status_tabs_request_their_own_status(self):
+        """Each tab sends its status in hx-vals, not the form's stale one.
+
+        htmx reads #filter-form in the same click, before Alpine re-renders
+        its hidden status inputs, so the form alone carries the previous tab.
+        """
+        self._use_cinetrack()
+
+        response = self.client.get(reverse("medialist", args=[MediaTypes.MOVIE.value]))
+
+        self.assertContains(response, """hx-vals='{"status": "all"}'""", count=1)
+        for status in (Status.IN_PROGRESS.value, Status.COMPLETED.value):
+            self.assertContains(response, f"""hx-vals='{{"status": "{status}"}}'""", count=1)
+
 
 @override_settings(IMAGE_CACHE_ENABLED=False)
 @patch("app.middleware.discover_tab_cache.maybe_schedule_user_warmup", return_value=0)

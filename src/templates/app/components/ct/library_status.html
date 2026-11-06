@@ -4,7 +4,9 @@
   toolbar's status filter. They set the same `statuses` state and request the
   same endpoint, target and form as the toolbar's Status menu, which stays for
   multi-select and is the status pull-down on phones (A16). The swap
-  cross-fades (M4).
+  cross-fades (M4). Each tab sends its own status through hx-vals, which
+  overrides the form's: htmx reads #filter-form in the same click, before
+  Alpine has re-rendered the hidden status inputs.
 {% endcomment %}
 {% if status_choices %}
   <div class="ct-status-tabs" role="group" aria-label="{% translate "Status" %}">
@@ -15,6 +17,7 @@
             hx-include="#filter-form"
             hx-indicator="#loading-indicator"
             hx-swap="innerHTML transition:true"
+            hx-vals='{"status": "all"}'
             :aria-pressed="statuses.length === 0 ? 'true' : 'false'"
             @click="statuses = []">{% translate "All" %}</button>
     {% for value, label in status_choices %}
@@ -27,6 +30,7 @@
                 hx-include="#filter-form"
                 hx-indicator="#loading-indicator"
                 hx-swap="innerHTML transition:true"
+                hx-vals='{"status": "{{ value|escapejs }}"}'
                 :aria-pressed="statuses.length === 1 && statuses[0] === '{{ value|escapejs }}' ? 'true' : 'false'"
                 @click="statuses = ['{{ value|escapejs }}']">{% translate label %}</button>
       {% endif %}
