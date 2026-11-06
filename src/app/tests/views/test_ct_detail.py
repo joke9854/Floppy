@@ -83,6 +83,13 @@ class CineTrackDetailBackdropTests(TestCase):
 
         self.assertEqual(ct_detail_backdrop(media), BACKDROP)
 
+    def test_details_response_seeds_the_backdrop_without_a_request(self):
+        """A TMDB details fetch already carries backdrop_path; no second request."""
+        tmdb._seed_backdrop_cache(MediaTypes.TV.value, "1399", {"backdrop_path": "/back.jpg"})
+        media = {"source": Sources.TMDB.value, "media_type": MediaTypes.SEASON.value, "media_id": "1399"}
+
+        self.assertEqual(ct_detail_backdrop(media, allow_network=False), BACKDROP)
+
     def test_incomplete_identity_has_none(self):
         self.assertIsNone(ct_detail_backdrop({"source": Sources.TMDB.value}))
 
@@ -134,6 +141,36 @@ class CineTrackDetailPageTests(TestCase):
         self.assertContains(response, 'id="detail-secondary-content"', count=1)
         self.assertContains(response, "data-poster-accent-scope")
         self.assertNotContains(response, "detail-carousel-grid")
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_backdrop_miss_never_blocks_the_shell(self, mock_get_metadata):
+        """The shell reads the backdrop from cache only; the secondary fetches a miss."""
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        cache.delete("tmdb_backdrop_movie_238")
+
+        with patch("lists.models.CustomList._get_tmdb_backdrop", return_value=BACKDROP) as fetch:
+            shell = self._get(mock_get_metadata)
+            fetch.assert_not_called()
+            secondary = self.client.get(f"{self.url}?fragment=secondary&ct_backdrop=1")
+            fetch.assert_called_once()
+
+        self.assertContains(shell, 'id="ct-detail-backdrop-pending"')
+        self.assertContains(shell, "fragment=secondary&ct_backdrop=1")
+        self.assertContains(secondary, 'hx-swap-oob="outerHTML:#ct-detail-backdrop-pending"')
+        self.assertContains(secondary, "https://image.tmdb.org/t/p/w1280/back.jpg 1280w")
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_cached_backdrop_needs_no_swap(self, mock_get_metadata):
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+
+        shell = self._get(mock_get_metadata)
+        secondary = self.client.get(f"{self.url}?fragment=secondary")
+
+        self.assertNotContains(shell, "ct-detail-backdrop-pending")
+        self.assertNotContains(shell, "ct_backdrop=1")
+        self.assertNotContains(secondary, 'hx-swap-oob="outerHTML:#ct-detail-backdrop-pending"')
 
     @patch("app.providers.services.get_media_metadata")
     def test_classic_theme_keeps_the_classic_top_section(self, mock_get_metadata):

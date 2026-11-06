@@ -276,13 +276,15 @@ def ct_season_covers(show, current_number=None):
 
 
 @register.simple_tag
-def ct_detail_backdrop(media):
+def ct_detail_backdrop(media, allow_network=True):
     """Return a detail page's horizontal backdrop URL, or None (W3).
 
     Seasons and episodes resolve their show's backdrop. A miss is fetched once
-    and cached for 7 days, as statistics highlights already do.
+    and cached for 7 days, as statistics highlights already do. The detail
+    shell passes ``allow_network=False`` so its first paint never waits on the
+    provider; the secondary fragment fetches the miss and swaps it in.
     """
-    return backdrops.resolve_backdrop(media)
+    return backdrops.resolve_backdrop(media, allow_network=allow_network)
 
 
 @register.simple_tag

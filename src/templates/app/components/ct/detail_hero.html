@@ -12,8 +12,8 @@
   would trap.
   Context: as media_details.html.
 {% endcomment %}
-{% ct_detail_backdrop media as backdrop %}
-{% include "app/components/ct/detail_backdrop.html" with backdrop=backdrop poster=media.image %}
+{# ct_backdrop: read from cache only by media_details.html; a miss shows the poster until ct/detail_secondary.html swaps the backdrop in. #}
+{% include "app/components/ct/detail_backdrop.html" with backdrop=ct_backdrop poster=media.image backdrop_pending=True %}
 {% if ct_v2_detail %}
   {% if media_type == MediaTypes.SEASON.value %}
     {% if parent_media_type == MediaTypes.ANIME.value %}{% url 'media_details' source=media.source media_type=MediaTypes.ANIME.value media_id=media.media_id title=media.title|slug as back_url %}{% else %}{% url 'media_details' source=media.source media_type=MediaTypes.TV.value media_id=media.media_id title=media.title|slug as back_url %}{% endif %}

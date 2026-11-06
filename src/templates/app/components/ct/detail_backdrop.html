@@ -6,9 +6,13 @@
   ct_shell <main>, so the whole page takes the tint). Visible TMDB images never
   carry crossorigin: a CORS fetch of a URL already cached without CORS fails.
 
-  Context: backdrop (URL or None), poster (URL).
+  Context: backdrop (URL or None), poster (URL). backdrop_pending: a cache
+  miss in the detail shell, which ct/detail_secondary.html replaces by id
+  (backdrop_oob) once it has fetched the backdrop.
 {% endcomment %}
-<div class="ct-detail-backdrop" aria-hidden="true">
+<div class="ct-detail-backdrop"
+     {% if backdrop_oob %}hx-swap-oob="outerHTML:#ct-detail-backdrop-pending"{% elif backdrop_pending and not backdrop %}id="ct-detail-backdrop-pending"{% endif %}
+     aria-hidden="true">
   {% if backdrop %}
     <img alt=""
          class="ct-detail-backdrop__img ct-fade-img"

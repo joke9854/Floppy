@@ -15,6 +15,13 @@
 {% if not public_view|default:False %}
   {% ct_detail_next_episode media current_instance as next_episode %}
 {% endif %}
+{# The shell read the backdrop from cache only and missed (ct_backdrop=1): fetch it here and swap it in. #}
+{% if request.GET.ct_backdrop %}
+  {% ct_detail_backdrop media as fresh_backdrop %}
+  {% if fresh_backdrop %}
+    {% include "app/components/ct/detail_backdrop.html" with backdrop=fresh_backdrop poster=media.image backdrop_oob=True %}
+  {% endif %}
+{% endif %}
 <div id="detail-secondary-content" class="ct-detail-sections">
 
   {# Episodes #}

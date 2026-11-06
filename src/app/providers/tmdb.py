@@ -575,6 +575,7 @@ def movie(media_id, language=None):
                 url,
                 params=params,
             )
+            _seed_backdrop_cache(MediaTypes.MOVIE.value, media_id, response)
             if response.get("belongs_to_collection", {}) is not None and (
                 collection_id := response.get("belongs_to_collection", {}).get("id")
             ):
@@ -1337,9 +1338,26 @@ def _build_tv_crew(response):
     return creators + crew
 
 
+def _seed_backdrop_cache(media_type, media_id, response):
+    """Cache a details response's backdrop under the detail hero's key.
+
+    CustomList._get_tmdb_backdrop (behind app.backdrops) otherwise makes its
+    own /movie or /tv request for the same field, which the detail page's
+    first paint would wait on.
+    """
+    backdrop_path = response.get("backdrop_path")
+    if backdrop_path:
+        cache.set(
+            f"tmdb_backdrop_{media_type}_{media_id}",
+            f"https://image.tmdb.org/t/p/w1280{backdrop_path}",
+            60 * 60 * 24 * 7,
+        )
+
+
 def process_tv(response, media_id=None):
     """Process the metadata for the selected tv show from The Movie Database."""
     media_id = str(media_id) if media_id is not None else str(response["id"])
+    _seed_backdrop_cache(MediaTypes.TV.value, media_id, response)
     num_episodes = response["number_of_episodes"]
     next_episode = response.get("next_episode_to_air")
     last_episode = response.get("last_episode_to_air")
