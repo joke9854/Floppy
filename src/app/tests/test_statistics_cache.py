@@ -1245,3 +1245,42 @@ class StatisticsChartPreparationTests(SimpleTestCase):
         self.assertEqual(result["by_time_of_day"]["all"]["datasets"][0]["data"][13], 2)
         self.assertEqual(result["by_month"]["movie"]["datasets"][0]["data"][8], 1.5)
         self.assertNotIn("book", result["by_month"])
+
+
+class StatisticsBulkImportDayTests(TestCase):
+    """A day with more than 24 hours of plays is an import, not a rhythm."""
+
+    def test_bulk_day_is_left_out_of_weekday_and_hour_stats(self):
+        from app import statistics_aggregator
+
+        user = get_user_model().objects.create_user(username="bulk", password="x")
+        monday = date(2026, 10, 12)
+        wednesday = date(2026, 10, 14)
+        tv = MediaTypes.TV.value
+        prebuilt = {
+            monday: {
+                "daily_minutes_by_type": {tv: 3000},
+                "totals": {"minutes_by_type": {tv: 3000}, "plays_by_type": {tv: 80}},
+                "hour_counts": {tv: {"17": 80}},
+                "hour_minutes": {tv: {"17": 3000}},
+            },
+            wednesday: {
+                "daily_minutes_by_type": {tv: 60},
+                "totals": {"minutes_by_type": {tv: 60}, "plays_by_type": {tv: 2}},
+                "hour_counts": {tv: {"21": 2}},
+                "hour_minutes": {tv: {"21": 60}},
+            },
+        }
+
+        result = statistics_aggregator._aggregate_statistics_from_days(
+            user,
+            [monday, wednesday],
+            None,
+            None,
+            prebuilt_days=prebuilt,
+        )
+
+        self.assertEqual(result["activity_data"]["stats"]["most_active_day"], "Wednesday")
+        self.assertEqual(result["minutes_per_media_type"][tv], 3060)
+        weekday_chart = result["combined_plays_charts"]["by_weekday"]["all"]
+        self.assertEqual(max(weekday_chart["datasets"][0]["data"]), 1.0)

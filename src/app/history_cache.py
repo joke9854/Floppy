@@ -122,6 +122,7 @@ from app.models import (
     Music,
     Podcast,
     Sources,
+    Status,
     Track,
 )
 
@@ -317,8 +318,10 @@ def _fetch_movie_data(
     include_undated=False,
 ):
     """Query and return movies queryset and play-count map for history."""
+    # A Planning entry is a plan, not a play, whatever dates it carries.
     movies_qs = (
         Movie.objects.filter(user=user)
+        .exclude(status=Status.PLANNING.value)
         .select_related("item")
         .defer(*history_deferred_item_fields("item"))
     )

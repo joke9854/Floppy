@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.db.models import Count, Q
+from django.utils import timezone
 
 from app.discover import cache_repo
 from app.discover.adapters import TMDB_ADAPTER, TRAKT_ADAPTER
@@ -30,9 +31,19 @@ TRAKT_POPULAR_MAX_PULL_TARGET = 2000
 ADAPTIVE_PULL_TARGET_META_KEY = "adaptive_pull_target"
 ROW_CACHE_SCHEMA_META_KEY = "schema_version"
 
-MOVIE_CANON_ROW_SCHEMA_VERSION = 2
+MOVIE_CANON_ROW_SCHEMA_VERSION = 3
 MOVIE_COMING_SOON_ROW_SCHEMA_VERSION = 1
 HIGH_RATING_THRESHOLD = 7.0
+# All-Time Greats: Trakt "popular" ranks this year's hits next to the canon.
+CANON_MIN_AGE_YEARS = 3
+
+
+def _is_established(candidate: CandidateItem) -> bool:
+    """Return whether a title is old and well rated enough for the canon row."""
+    year = str(candidate.release_date or "")[:4]
+    if year.isdigit() and int(year) > timezone.localdate().year - CANON_MIN_AGE_YEARS:
+        return False
+    return candidate.rating is None or candidate.rating >= HIGH_RATING_THRESHOLD
 
 
 def _clamp_adaptive_pull_target(value: int | None) -> int:
@@ -66,6 +77,7 @@ def _trakt_ranked_candidates(
     fetch_page,
     row_schema_version: int | None,
     seen_identities: set[tuple[str, str, str]] | None = None,
+    keep=None,
 ) -> tuple[list[CandidateItem], dict[str, int]]:
     blocked_statuses = {
         Status.COMPLETED.value,
@@ -100,13 +112,14 @@ def _trakt_ranked_candidates(
         if not page_candidates:
             break
 
-        count_before = len(candidates)
+        count_before = len(seen_identities)
         for candidate in page_candidates:
             identity = candidate.identity()
             if identity in seen_identities:
                 continue
             seen_identities.add(identity)
-            candidates.append(candidate)
+            if keep is None or keep(candidate):
+                candidates.append(candidate)
 
         filtered_candidates = exclude_tracked_items(candidates, blocked_identities)
         if len(filtered_candidates) >= MAX_ITEMS_PER_ROW and first_success_pull is None:
@@ -123,7 +136,7 @@ def _trakt_ranked_candidates(
                 required_pull + TRAKT_POPULAR_PULL_STEP
             )
 
-        if len(candidates) == count_before:
+        if len(seen_identities) == count_before:
             break
 
         page += 1
@@ -186,6 +199,7 @@ def _trakt_canon_candidates(
         fetch_page=fetch_page,
         row_schema_version=row_schema_version,
         seen_identities=seen_identities,
+        keep=_is_established,
     )
 
 

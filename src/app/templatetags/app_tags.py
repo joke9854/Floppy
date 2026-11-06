@@ -82,6 +82,36 @@ def dict_get(dictionary, key):
 
 
 @register.filter
+def ct_relative_day(value):
+    """Return "Today", "Yesterday", "2 Nov" or "2 Nov 2025" for a date (board A1)."""
+    if isinstance(value, str):
+        value = parse_date(value) or value
+    if isinstance(value, datetime):
+        value = timezone.localtime(value).date() if timezone.is_aware(value) else value.date()
+    if not isinstance(value, date):
+        return value or ""
+    today = timezone.localdate()
+    days = (today - value).days
+    if days == 0:
+        return _("Today")
+    if days == 1:
+        return _("Yesterday")
+    if value.year == today.year:
+        return formats.date_format(value, "j M")
+    return formats.date_format(value, "j M Y")
+
+
+@register.filter
+def ct_plays(entries):
+    """Return the entries that are plays: a Planning entry is a plan."""
+    return [
+        entry
+        for entry in entries or []
+        if getattr(entry, "status", None) != Status.PLANNING.value
+    ]
+
+
+@register.filter
 def newline_join(values):
     """Join a list of strings with newlines, for round-tripping into a textarea."""
     return "\n".join(values or [])

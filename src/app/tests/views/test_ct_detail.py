@@ -194,6 +194,34 @@ class CineTrackDetailPageTests(TestCase):
         self.assertContains(cinetrack, 'data-episode-save-url="/episode_save"')
 
     @patch("app.providers.services.get_media_metadata")
+    def test_planned_movie_offers_mark_watched_and_lists_no_plays(self, mock_get_metadata):
+        from app.models import Item, Movie, Status
+
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        item = Item.objects.create(
+            media_id="238",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Test Movie",
+            image="https://image.tmdb.org/t/p/w500/poster.jpg",
+        )
+        Movie.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.PLANNING.value,
+            end_date=timezone.now(),
+        )
+
+        response = self._get(mock_get_metadata)
+        self.assertContains(response, 'id="ct-mark-movie"')
+        self.assertContains(response, 'name="save_as_new_entry" value="1"')
+
+        secondary = self.client.get(f"{self.url}?fragment=secondary")
+        self.assertContains(secondary, 'class="ct-detail-sections"')
+        self.assertNotContains(secondary, "Your Plays")
+
+    @patch("app.providers.services.get_media_metadata")
     def test_cinetrack_sections_fragment_is_one_column_with_the_carousel(self, mock_get_metadata):
         self.user.theme = ThemeChoices.CINETRACK
         self.user.save(update_fields=["theme"])

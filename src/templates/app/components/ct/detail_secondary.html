@@ -139,7 +139,8 @@
   {% endif %}
 
   {# Your Plays (movies) #}
-  {% if media_type == MediaTypes.MOVIE.value and user_medias and not public_view|default:False %}
+  {% with plays=user_medias|ct_plays %}
+  {% if media_type == MediaTypes.MOVIE.value and plays and not public_view|default:False %}
     <section class="ct-detail-section" {% detail_section_attrs user detail_family "sidebar" "history" %}>
       <div class="ct-row-head">
         <h2 class="ct-row-title">{% translate "Your Plays" %}</h2>
@@ -147,7 +148,7 @@
            href="{% url 'history' %}?media_type={{ media_type }}&media_id={{ media.media_id|urlencode }}&source={{ media.source|urlencode }}">{% translate "History" %} {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>
       </div>
       <ul class="ct-plays">
-        {% for play in user_medias %}
+        {% for play in plays %}
           <li class="ct-play">
             <span class="ct-play__icon{% if play.status == Status.COMPLETED.value %} is-done{% endif %}" aria-hidden="true">
               {% if play.status == Status.COMPLETED.value %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% else %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}{% endif %}
@@ -164,6 +165,7 @@
       </ul>
     </section>
   {% endif %}
+  {% endwith %}
 
   {# Franchise collection and other related lists #}
   {% for name, related_items in media.related.items %}

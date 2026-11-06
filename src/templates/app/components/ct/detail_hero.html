@@ -92,6 +92,25 @@
             <span data-ct-mark-next-label></span>
             <kbd class="ct-btn-kbd" aria-hidden="true">W</kbd>
           </button>
+        {% elif current_instance.status == Status.PLANNING.value and not public_view|default:False %}
+          {# A planned movie: one click logs a play. A new Completed row takes over the plan's score and notes and replaces it. #}
+          <form method="post" action="{% url 'media_save' %}" class="contents">
+            {% csrf_token %}
+            <input type="hidden" name="media_id" value="{{ media.media_id }}">
+            <input type="hidden" name="source" value="{{ media.source }}">
+            <input type="hidden" name="media_type" value="{{ media_type }}">
+            <input type="hidden" name="status" value="{{ Status.COMPLETED.value }}">
+            <input type="hidden" name="save_as_new_entry" value="1">
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <input type="hidden"
+                   name="end_date"
+                   x-data
+                   x-init="$el.value = window.ctWatchNow({{ TRACK_TIME|yesno:'true,false' }})">
+            <button type="submit" class="ct-btn-primary" id="ct-mark-movie">
+              {% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}
+              <span>{% translate "Mark Watched" %}</span>
+            </button>
+          </form>
         {% endif %}
         <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
       </div>

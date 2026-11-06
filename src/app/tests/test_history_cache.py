@@ -62,6 +62,34 @@ class HistoryMonthCacheTests(TestCase):
         index_days = history_cache.build_history_index(self.user, self.logging_style)
         return [day_key for day_key in index_days if day_key.startswith(month_prefix)]
 
+    def test_planned_movie_with_a_date_is_not_a_play(self):
+        item = Item.objects.create(
+            media_id="movie-planned",
+            source=Sources.MANUAL.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Planned Movie",
+            image="http://example.com/planned.jpg",
+        )
+        yesterday = timezone.now() - timedelta(days=1)
+        Movie.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.PLANNING.value,
+            end_date=yesterday,
+        )
+        planned_day = history_cache.history_day_key(timezone.localtime(yesterday))
+
+        self.assertNotIn(
+            planned_day,
+            history_cache.build_history_index(self.user, self.logging_style),
+        )
+        self.assertIsNone(history_cache.build_history_day(self.user, planned_day))
+        today = history_cache.build_history_day(self.user, self.today_key)
+        self.assertEqual(
+            [entry["title"] for entry in today["entries"]],
+            ["Fallback Movie"],
+        )
+
     def test_dense_cached_day_deserializes_only_visible_entries(self):
         from app import history_cache_serialization
 

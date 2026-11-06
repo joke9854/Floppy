@@ -85,6 +85,7 @@ def _recently_watched(user) -> list[RecentEntry]:
             break
     movies = (
         Movie.objects.filter(user=user, end_date__isnull=False)
+        .exclude(status=Status.PLANNING.value)
         .select_related("item")
         .order_by("-end_date")[:RECENT_LIMIT]
     )

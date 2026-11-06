@@ -132,6 +132,26 @@ class HomeSectionsTests(TestCase):
         titles = [entry.item.title for entry in sections["recent"]]
         self.assertEqual(titles, ["Fight Club", "Friends"])
 
+    def test_recently_watched_skips_a_planned_movie_with_a_date(self):
+        movie_item = Item.objects.create(
+            media_id="9999",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Hope",
+            image=POSTER,
+        )
+        Movie.objects.create(
+            item=movie_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+            end_date=self.now - timedelta(days=1),
+        )
+
+        sections = home_sections.build_home_sections(self.user)
+
+        titles = [entry.item.title for entry in sections["recent"]]
+        self.assertEqual(titles, ["Friends"])
+
     def test_sections_are_cached_and_cleared_with_the_home_rows(self):
         home_sections.build_home_sections(self.user)
         with patch.object(home_sections, "_catch_up_count") as count:

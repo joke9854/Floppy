@@ -25,7 +25,17 @@ from app.history_cache_utils import (
     _typed_history_index_registry_key,
     expand_history_media_types,
 )
-from app.models import Anime, BoardGame, Book, Comic, Episode, Game, Manga, Movie
+from app.models import (
+    Anime,
+    BoardGame,
+    Book,
+    Comic,
+    Episode,
+    Game,
+    Manga,
+    Movie,
+    Status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +79,9 @@ def build_history_index(
 
     movie_qs = Movie.objects.none()
     if include_movie:
-        movie_qs = Movie.objects.filter(user=user).filter(
+        movie_qs = Movie.objects.filter(user=user).exclude(
+            status=Status.PLANNING.value,
+        ).filter(
             models.Q(end_date__isnull=False) | models.Q(start_date__isnull=False),
         )
     movie_end_days = (

@@ -912,6 +912,59 @@ class MediaManagerTests(TestCase):
         manager._annotate_tv_released_episodes(tv_list, timezone.now())
         self.assertEqual(tv_list[0].max_progress, 10)
 
+    @patch("app.providers.services.get_media_metadata")
+    def test_list_pages_read_tmdb_season_lengths_from_cache_only(self, mock_metadata):
+        """A Seasons library page never waits on TMDB, one call per row."""
+        from django.core.cache import cache
+
+        from app.providers import tmdb
+
+        cache.clear()
+        aired = timezone.now() - timedelta(days=5)
+        seasons = []
+        for media_id in ("100", "200"):
+            item = Item.objects.create(
+                media_id=media_id,
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.SEASON.value,
+                title="Show",
+                season_number=1,
+            )
+            for number in (1, 2, 3):
+                Event.objects.create(item=item, content_number=number, datetime=aired)
+            seasons.append(Season(item=item, user=self.user))
+        cache.set(tmdb._season_cache_key("200", 1, None), {"max_progress": 10})
+
+        MediaManager().annotate_max_progress(
+            seasons,
+            MediaTypes.SEASON.value,
+            cached_only=True,
+        )
+
+        mock_metadata.assert_not_called()
+        self.assertEqual([season.max_progress for season in seasons], [3, 10])
+
+    def test_untracked_absolute_numbered_season_counts_its_episodes(self):
+        """One Piece S2 runs E11-E14: four episodes left, not fourteen."""
+        season2_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.MANUAL.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=2,
+        )
+        aired = timezone.now() - timedelta(days=5)
+        Event.objects.create(item=self.season1_item, content_number=10, datetime=aired)
+        for number in range(11, 15):
+            Event.objects.create(item=season2_item, content_number=number, datetime=aired)
+
+        tv_list = list(TV.objects.filter(user=self.user.id))
+        MediaManager()._annotate_tv_released_episodes(tv_list, timezone.now())
+
+        self.assertEqual(tv_list[0].released_episode_breakdown, {1: 10, 2: 4})
+        self.assertEqual(tv_list[0].max_progress, 14)
+
     @patch("app.models.providers.services.get_media_metadata")
     def test_annotate_max_progress_for_books_uses_stored_pages_only(
         self, mock_get_media_metadata

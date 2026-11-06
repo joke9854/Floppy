@@ -461,6 +461,50 @@ class CalendarViewTests(TestCase):
 
     @patch("events.models.Event.objects.get_user_events")
     @patch.object(get_user_model(), "update_preference")
+    def test_calendar_new_season_takes_the_show_status(
+        self,
+        mock_update_preference,
+        mock_get_user_events,
+    ):
+        """A season with no Season row is filtered by its show's status, not hidden."""
+        mock_update_preference.return_value = "grid"
+        show_item = Item.objects.create(
+            media_id="show-1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Show",
+        )
+        TV.objects.create(item=show_item, user=self.user, status=Status.IN_PROGRESS.value)
+        season_item = Item.objects.create(
+            media_id="show-1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            season_number=5,
+            title="Show",
+        )
+        orphan_item = Item.objects.create(
+            media_id="show-2",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            season_number=1,
+            title="Other",
+        )
+        today = timezone.localdate()
+        when = timezone.make_aware(timezone.datetime(today.year, today.month, 15, 12, 0))
+        mock_get_user_events.return_value = [
+            Event(item=season_item, content_number=1, datetime=when),
+            Event(item=orphan_item, content_number=1, datetime=when),
+        ]
+
+        response = self.client.get(reverse("calendar"))
+
+        content = response.content.decode()
+        self.assertIn(f'data-release-status="{Status.IN_PROGRESS.value}"', content)
+        self.assertIn('data-release-status=""', content)
+        self.assertNotIn('data-release-status="None"', content)
+
+    @patch("events.models.Event.objects.get_user_events")
+    @patch.object(get_user_model(), "update_preference")
     def test_calendar_filter_media_types_include_enabled_types_without_releases(
         self,
         mock_update_preference,

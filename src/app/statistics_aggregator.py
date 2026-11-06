@@ -35,6 +35,7 @@ from app.statistics_talent import (
 )
 from app.templatetags import app_tags
 
+MINUTES_PER_DAY = 24 * 60
 logger = logging.getLogger(__name__)
 
 COIN_FLIP_PROBABILITY = 0.5
@@ -587,6 +588,7 @@ def _aggregate_statistics_from_days(
     weekday_hour_counts = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     day_play_counts = defaultdict(dict)
     day_minutes_by_type = defaultdict(dict)
+    bulk_days: set[str] = set()
     movie_genres = defaultdict(lambda: {"minutes": 0, "plays": 0, "name": ""})
     tv_genres = defaultdict(lambda: {"minutes": 0, "plays": 0, "name": ""})
     anime_genres = defaultdict(lambda: {"minutes": 0, "plays": 0, "name": ""})
@@ -789,14 +791,24 @@ def _aggregate_statistics_from_days(
                 plays_by_type[media_type] += plays or 0
                 day_play_counts[media_type][day.isoformat()] = plays
 
-            for media_type, hours in day_stats.get("hour_counts", {}).items():
-                for hour, count in hours.items():
-                    hour_counts[media_type][hour] += count
-                    weekday_hour_counts[media_type][day.weekday()][int(hour)] += count
+            # More than a day of plays on one day is an import stamping its
+            # run time, not real watch times: keep it out of the rhythm.
+            day_minutes = sum(
+                (day_stats.get("daily_minutes_by_type") or {}).values(),
+            )
+            if day_minutes > MINUTES_PER_DAY:
+                bulk_days.add(day.isoformat())
+            else:
+                for media_type, hours in day_stats.get("hour_counts", {}).items():
+                    for hour, count in hours.items():
+                        hour_counts[media_type][hour] += count
+                        weekday_hour_counts[media_type][day.weekday()][int(hour)] += (
+                            count
+                        )
 
-            for media_type, hours in day_stats.get("hour_minutes", {}).items():
-                for hour, minutes in hours.items():
-                    hour_minutes[media_type][hour] += minutes or 0
+                for media_type, hours in day_stats.get("hour_minutes", {}).items():
+                    for hour, minutes in hours.items():
+                        hour_minutes[media_type][hour] += minutes or 0
 
             for media_type, minutes in day_stats.get(
                 "daily_minutes_by_type", {}
@@ -1296,9 +1308,18 @@ def _aggregate_statistics_from_days(
     )
 
     week_start_sunday = user.week_start_day == WeekStartDayChoices.SUNDAY
+    # Weekday and hour views leave out bulk-import days; totals keep them.
+    rhythm_day_minutes_by_type = {
+        media_type: {
+            day_str: minutes
+            for day_str, minutes in day_map.items()
+            if day_str not in bulk_days
+        }
+        for media_type, day_map in day_minutes_by_type.items()
+    }
     activity_data = _build_activity_data(
         activity_counts_by_date,
-        day_minutes_by_type,
+        rhythm_day_minutes_by_type,
         day_list,
         start_date,
         end_date,
@@ -2073,7 +2094,7 @@ def _aggregate_statistics_from_days(
             date_type.fromisoformat(d): 1 for d, m in _day_map.items() if m > 0
         }
         _mt_most_active, _mt_day_pct = stats.calculate_most_active_weekday(
-            {_mt: _day_map}, day_list
+            {_mt: rhythm_day_minutes_by_type[_mt]}, day_list
         )
         _mt_streaks = stats.calculate_streak_details(
             _mt_date_counts, _end_date_for_streak
@@ -2128,7 +2149,7 @@ def _aggregate_statistics_from_days(
     weekday_hour_chart_data = _build_weekday_hour_charts(weekday_hour_counts)
 
     combined_hours_charts = _build_combined_hours_charts(
-        day_minutes_by_type, hour_minutes
+        rhythm_day_minutes_by_type, hour_minutes
     )
 
     def _pack_metric(breakdown, label, unit, icon, *, total_decimals=1):

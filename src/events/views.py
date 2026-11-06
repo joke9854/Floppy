@@ -129,6 +129,26 @@ def calendar(request):
                 **{f"{media_type}__user": request.user},
             ).values_list("id", f"{media_type}__status"),
         )
+    # A new season of a tracked show has no Season row yet: it takes the
+    # show's status, or the status filter would hide every one of its episodes.
+    untracked_seasons = {
+        release.item_id: (release.item.media_id, release.item.source)
+        for release in releases
+        if release.item.media_type == MediaTypes.SEASON.value
+        and release.item_id not in status_by_item_id
+    }
+    if untracked_seasons:
+        show_status = {
+            (media_id, source): status
+            for media_id, source, status in Item.objects.filter(
+                media_type=MediaTypes.TV.value,
+                media_id__in={media_id for media_id, _ in untracked_seasons.values()},
+                tv__user=request.user,
+            ).values_list("media_id", "source", "tv__status")
+        }
+        for item_id, key in untracked_seasons.items():
+            if key in show_status:
+                status_by_item_id[item_id] = show_status[key]
 
     available_statuses_by_type = {}
     for media_type, item_ids in item_ids_by_type.items():

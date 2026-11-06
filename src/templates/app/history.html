@@ -104,7 +104,8 @@
             </svg>
             <span>{{ current_year }}</span>
           </a>
-        {% else %}
+        {% elif not ct_shell %}
+          {# v2 shows no control at all where there is nothing newer: a disabled chip reads as a live one there. #}
           <span class="flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] cursor-not-allowed text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
               <path d="m11 17-5-5 5-5"></path>
@@ -124,7 +125,7 @@
             </svg>
             <span>{{ next_month_name }}</span>
           </a>
-        {% else %}
+        {% elif not ct_shell %}
           <span class="flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] cursor-not-allowed text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
               <path d="m15 18-6-6 6-6"></path>

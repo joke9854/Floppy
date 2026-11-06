@@ -881,6 +881,39 @@ class TrackModalViewTests(TestCase):
         self.assertEqual(content.count("suggestionRuntimeMinutes: '95'"), 2)
         self.assert_release_shortcut_labels(response)
         self.assertNotContains(response, "Save Image")
+        # Classic keeps the model's Completed default and a disabled Delete.
+        self.assertNotIn("status", response.context["form"].initial)
+        self.assertContains(response, ">Delete</button>")
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_cinetrack_add_defaults_to_planning_without_delete(self, mock_get_metadata):
+        from users.models import ThemeChoices
+
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        mock_get_metadata.return_value = {
+            "media_id": "278",
+            "title": "New Movie",
+            "media_type": MediaTypes.MOVIE.value,
+            "source": Sources.TMDB.value,
+            "image": "http://example.com/image.jpg",
+            "details": {"release_date": "2024-01-15"},
+            "max_progress": 1,
+        }
+
+        response = self.client.get(
+            reverse(
+                "track_modal",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_type": MediaTypes.MOVIE.value,
+                    "media_id": "278",
+                },
+            ),
+        )
+
+        self.assertEqual(response.context["form"].initial["status"], Status.PLANNING.value)
+        self.assertNotContains(response, ">Delete</button>")
 
     def test_update_item_image(self):
         """Existing tracked items should allow image overrides from metadata."""

@@ -65,6 +65,19 @@ class CineTrackHistoryTests(_ThemeMixin, TestCase):
         self.assertContains(response, "htmx.swap(page, next.innerHTML")
         self.assertContains(response, 'data-ct-page="history"')
 
+    def test_cinetrack_month_switcher_stops_at_the_current_month(self):
+        import calendar
+
+        next_month = calendar.month_abbr[timezone.localdate().month % 12 + 1]
+        classic = self.client.get(reverse("history"))
+        self.assertContains(classic, f"<span>{next_month}</span>")
+
+        self._use_cinetrack()
+        response = self.client.get(reverse("history"))
+
+        self.assertNotContains(response, f"<span>{next_month}</span>")
+        self.assertNotContains(response, "cursor-not-allowed text-sm")
+
     def test_cinetrack_rows_keep_the_card_endpoints_and_ids(self):
         classic = self.client.get(reverse("history")).content.decode()
         self._use_cinetrack()

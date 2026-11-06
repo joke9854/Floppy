@@ -51,6 +51,7 @@ from app.models import (
     Movie,
     Music,
     Podcast,
+    Status,
     Track,
 )
 
@@ -177,6 +178,7 @@ def build_history_day(user, day_key, logging_style_override=None, media_types=No
     # Movies
     movies_qs = (
         Movie.objects.filter(user=user)
+        .exclude(status=Status.PLANNING.value)
         .filter(
             models.Q(end_date__isnull=False) | models.Q(start_date__isnull=False),
         )

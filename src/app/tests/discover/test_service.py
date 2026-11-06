@@ -7753,3 +7753,27 @@ class DiscoverServiceTests(TestCase):
         self.assertIn("seasonality_dampener_contribution", payload["top_candidates"][0])
         self.assertIn("diversity_dampener_contribution", payload["top_candidates"][0])
         self.assertIn("tag_signal_mode", payload["top_candidates"][0])
+
+
+class CanonRowEstablishedTitlesTests(TestCase):
+    """All-Time Greats keeps established, well-rated titles only."""
+
+    def _candidate(self, release_date, rating):
+        return CandidateItem(
+            media_type=MediaTypes.MOVIE.value,
+            source="tmdb",
+            media_id="1",
+            title="Movie",
+            release_date=release_date,
+            rating=rating,
+        )
+
+    def test_recent_or_weak_titles_are_left_out(self):
+        from app.discover.trakt_candidates import _is_established
+
+        this_year = timezone.localdate().year
+        self.assertTrue(_is_established(self._candidate("1972-03-24", 9.2)))
+        self.assertTrue(_is_established(self._candidate(None, None)))
+        self.assertFalse(_is_established(self._candidate(f"{this_year}-04-24", 8.1)))
+        self.assertFalse(_is_established(self._candidate(f"{this_year - 2}-01-01", 8.0)))
+        self.assertFalse(_is_established(self._candidate("1999-01-01", 6.1)))

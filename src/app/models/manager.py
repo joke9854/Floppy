@@ -2139,9 +2139,43 @@ class MediaManager(models.Manager):
                 max_episode,
             )
 
+        # Absolute-numbered seasons (One Piece S11 is E382-E407) start past 1. A
+        # tracked season's progress is its furthest episode number, so its own
+        # highest number stays comparable; a season with no row yet counts its
+        # episodes from its first one, or it adds hundreds of phantom episodes.
+        first_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
+        first_events = (
+            events.models.Event.objects.filter(
+                item__media_id__in=media_ids,
+                item__source__in=media_sources,
+                item__media_type=MediaTypes.SEASON.value,
+                item__season_number__gt=0,
+                content_number__gt=0,
+            )
+            .values("item__media_id", "item__source", "item__season_number")
+            .annotate(first_episode=models.Min("content_number"))
+        )
+        for row in first_events:
+            key = (row["item__media_id"], row["item__source"])
+            first_by_show[key][row["item__season_number"]] = row["first_episode"]
+
         for tv in tv_list:
             key = (tv.item.media_id, tv.item.source)
             breakdown = released_by_show.get(key, {})
+            tracked_season_numbers = (
+                {season.item.season_number for season in tv.seasons.all()}
+                if tv.pk is not None
+                else set()
+            )
+            firsts = first_by_show.get(key, {})
+            breakdown = {
+                season_num: (
+                    count
+                    if season_num in tracked_season_numbers
+                    else max(0, count - firsts.get(season_num, 1) + 1)
+                )
+                for season_num, count in breakdown.items()
+            }
             tv.released_episode_breakdown = breakdown
             if breakdown:
                 dropped_season_numbers = (
