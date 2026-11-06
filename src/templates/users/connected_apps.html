@@ -47,6 +47,10 @@
       {% endif %}
       <p class="mt-4 text-sm text-[var(--color-text-muted)]">
         {% url 'integrations' as integrations_url %}
+        {# CineTrack's Integrations page opens on its card grid; tokens sit in its API view. #}
+        {% if ct_shell %}
+          {% firstof integrations_url|add:"?open=api" as integrations_url %}
+        {% endif %}
         {% blocktranslate %}App tokens, and disconnecting an app from every install at once, are in <a class="text-[var(--color-link)] hover:underline" href="{{ integrations_url }}#connected-apps">Integrations</a>.{% endblocktranslate %}
       </p>
     </section>

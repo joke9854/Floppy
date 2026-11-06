@@ -8,7 +8,7 @@
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}"
       data-img-none="{{ IMG_NONE }}"
-      class="{% if user.is_authenticated and user.theme != 'system' %}{{ user.theme }}{% endif %} bg-[var(--color-page-bg)]"
+      class="{% block html_theme %}{% if user.is_authenticated and user.theme != 'system' %}{{ user.theme }}{% endif %}{% endblock html_theme %} bg-[var(--color-page-bg)]"
       style="{% custom_theme_style user %}">
   <head>
     {# Required meta tags #}

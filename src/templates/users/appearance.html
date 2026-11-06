@@ -5,13 +5,23 @@
   Appearance - Floppy
 {% endblock title %}
 
+{% block settings_head %}
+  {% if ct_shell %}
+    <header class="ct-settings-head">
+      <h2>Appearance</h2>
+      <p>Changes apply after saving.</p>
+    </header>
+  {% endif %}
+{% endblock settings_head %}
+
 {% block settings_content %}
   {{ detail_layout_families_json|json_script:"detail-layout-families" }}
   {{ detail_layouts_json|json_script:"detail-layout-values" }}
   {{ custom_theme_json|json_script:"custom-theme-values" }}
 
+  {# CineTrack (A22): Sidebar first, theme tiles, no section icons; see .ct-appearance in input.css. #}
   <form method="post"
-        class="space-y-8"
+        class="space-y-8{% if ct_shell %} ct-appearance{% endif %}"
         x-data="appearanceEditor()"
         x-init="init()">
     {% csrf_token %}
@@ -37,6 +47,11 @@
                   :class="theme === '{{ value }}' ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30' : 'border-[var(--color-surface-border)] hover:border-[var(--color-text-muted)]'"
                   class="flex items-center gap-3 rounded-xl border bg-[var(--color-surface)] p-4 text-left transition-colors cursor-pointer">
             <span class="theme-swatch theme-swatch-{{ value }}" aria-hidden="true"></span>
+            {% if ct_shell %}
+              {# djlint:off H020 #}
+              <span class="ct-theme-preview" data-theme="{{ value }}" aria-hidden="true"><span></span><span></span><span></span></span>
+              {# djlint:on #}
+            {% endif %}
             <span class="font-medium">{{ preset.label }}</span>
           </button>
           {% endif %}
@@ -100,7 +115,9 @@
         {% for value, label in sidebar_styles %}
           <label class="ct-sidebar-option flex cursor-pointer flex-col gap-3 rounded-xl border bg-[var(--color-surface)] p-4 transition-colors"
                  :class="sidebarStyle === '{{ value }}' ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30' : 'border-[var(--color-surface-border)] hover:border-[var(--color-text-muted)]'">
+            {# djlint:off H020 #}
             <span class="ct-sidebar-preview ct-sidebar-preview-{{ value }}" aria-hidden="true"><span></span><span></span></span>
+            {# djlint:on #}
             <span class="flex items-start gap-3">
               <input type="radio"
                      name="sidebar_style"
@@ -138,7 +155,8 @@
       </fieldset>
     </section>
 
-    <section class="preferences-section">
+    {# Not on A22: hidden for CineTrack (docs/agents/v2_mockup_gaps.md); its state still posts unchanged. #}
+    <section class="preferences-section"{% if ct_shell %} hidden{% endif %}>
       <div class="preferences-section-header">
         <div class="preferences-section-icon">{% include "app/icons/vertical-sliders.svg" with classes="w-5 h-5" %}</div>
         <div>
@@ -206,6 +224,12 @@
         </div>
       </template>
     </section>
+
+    {% if ct_shell %}
+      <p class="ct-appearance-note" x-show="theme === 'cinetrack'">
+        Floating applies on screens 1024 px and wider; phones always use the bottom tab bar.
+      </p>
+    {% endif %}
 
     <div class="preferences-actions">
       <div>

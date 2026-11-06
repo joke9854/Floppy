@@ -1,0 +1,88 @@
+{% load i18n %}
+{% comment %}
+v2 settings nav (A5/A22), CineTrack only: three labelled groups. Preferences has
+no row on the boards but holds core tracking options, so it stays (in Library).
+RSS and About are hidden here (their URLs still work); see docs/agents/v2_mockup_gaps.md.
+{% endcomment %}
+{% url 'account' as account_url %}
+{% url 'appearance' as appearance_url %}
+{% url 'notifications' as notifications_url %}
+{% url 'sidebar' as sidebar_url %}
+{% url 'home_screen' as home_screen_url %}
+{% url 'integrations' as integrations_url %}
+{% url 'metadata_settings' as metadata_url %}
+{% url 'preferences' as preferences_url %}
+{% url 'import_data' as import_url %}
+{% url 'export_data' as export_url %}
+{% url 'connected_apps' as connected_apps_url %}
+{% url 'advanced' as advanced_url %}
+<nav class="ct-settings-nav"
+     aria-label="{% translate "Settings" %}"
+     hx-boost="true"
+     hx-swap="innerHTML transition:true">
+  <p class="ct-settings-group">{% translate "You" %}</p>
+  <a href="{{ account_url }}"
+     {% if request.path == account_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/person.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Account" %}</span>
+  </a>
+  <a href="{{ appearance_url }}"
+     {% if request.path == appearance_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/eye.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Appearance" %}</span>
+  </a>
+  <a href="{{ notifications_url }}"
+     {% if request.path == notifications_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/bell.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Notifications" %}</span>
+  </a>
+
+  <p class="ct-settings-group">{% translate "Library" %}</p>
+  <a href="{{ sidebar_url }}"
+     {% if request.path == sidebar_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/book-open.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Media types" %}</span>
+  </a>
+  <a href="{{ home_screen_url }}"
+     {% if request.path == home_screen_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/house.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Home screen" %}</span>
+  </a>
+  <a href="{{ integrations_url }}"
+     {% if request.path == integrations_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/link.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Integrations" %}</span>
+  </a>
+  <a href="{{ metadata_url }}"
+     {% if request.path == metadata_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/tag.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Metadata" %}</span>
+  </a>
+  <a href="{{ preferences_url }}"
+     {% if request.path == preferences_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/vertical-sliders.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Preferences" %}</span>
+  </a>
+
+  <p class="ct-settings-group">{% translate "Data" %}</p>
+  <a href="{{ import_url }}"
+     {% if request.path == import_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/import.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Import" %}</span>
+  </a>
+  <a href="{{ export_url }}"
+     {% if request.path == export_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/export.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Export" %}</span>
+  </a>
+  <a href="{{ connected_apps_url }}"
+     {% if request.path == connected_apps_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/circle-check.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Connected apps" %}</span>
+  </a>
+  <a href="{{ advanced_url }}"
+     {% if request.path == advanced_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/settings.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "Advanced" %}</span>
+  </a>
+</nav>

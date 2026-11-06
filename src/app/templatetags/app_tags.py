@@ -24,6 +24,14 @@ register = template.Library()
 
 
 @register.simple_tag
+def login_wall_posters():
+    """Return cached public trending poster URLs for the sign-in wall."""
+    from app import login_wall
+
+    return login_wall.cached_posters()
+
+
+@register.simple_tag
 def watch_operation_id():
     """Return private replay identity for one rendered first-party watch action."""
     return str(uuid4())

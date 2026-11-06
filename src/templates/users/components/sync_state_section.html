@@ -11,7 +11,7 @@ Two things this section is careful about:
     posting through a hidden input. No native <select> anywhere in settings.
 {% endcomment %}
 <div class="bg-[var(--color-panel)] rounded-xl p-6 mb-6"
-     x-show="activeIntegration === 'all' || activeIntegration === 'sync'">
+     x-show="activeIntegration === 'all' || activeIntegration === 'sync' || activeIntegration === 'api'">
   <div class="flex items-start justify-between mb-4">
     <div>
       <h2 class="text-xl font-semibold text-[var(--color-text)]">Watched-state sync</h2>
@@ -99,13 +99,13 @@ Two things this section is careful about:
                   Not checked yet
                 {% endif %}
                 {% if row.pending_deliveries %}
-                  &middot; {{ row.pending_deliveries }} pending
+                  · {{ row.pending_deliveries }} pending
                 {% endif %}
                 {% if row.failed_deliveries %}
-                  &middot; <span class="text-[var(--color-warning-text)]">{{ row.failed_deliveries }} failed</span>
+                  · <span class="text-[var(--color-warning-text)]">{{ row.failed_deliveries }} failed</span>
                 {% endif %}
                 {% if row.open_conflicts %}
-                  &middot; <span class="text-[var(--color-warning-text)]">{{ row.open_conflicts }} to decide</span>
+                  · <span class="text-[var(--color-warning-text)]">{{ row.open_conflicts }} to decide</span>
                 {% endif %}
               </p>
             </div>

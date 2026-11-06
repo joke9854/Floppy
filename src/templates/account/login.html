@@ -1,4 +1,5 @@
-{% extends "account/base_entrance.html" %}
+{% extends "allauth/layouts/entrance_v2.html" %}
+{# A15: the v2 sign-in for every theme. Form, providers and links keep their allauth endpoints. #}
 {% load i18n %}
 
 {% load allauth account %}
@@ -10,11 +11,19 @@
 
 {% block content_title %}
   {% if IS_FIRST_RUN and REGISTRATION %}
-    {% translate "Welcome to Floppy — set up your account to get started" %}
+    {% translate "Welcome to Floppy" %}
   {% else %}
-    {% translate "Sign in to your account" %}
+    {% translate "Sign in to Floppy" %}
   {% endif %}
 {% endblock content_title %}
+
+{% block content_sub %}
+  {% if IS_FIRST_RUN and REGISTRATION %}
+    {% translate "Set up your account to get started." %}
+  {% else %}
+    {% translate "Your movies, shows and books, tracked on your own server." %}
+  {% endif %}
+{% endblock content_sub %}
 
 {% block content %}
   {% if not SOCIALACCOUNT_ONLY %}
@@ -23,13 +32,15 @@
     {% element form form=form method="post" action=login_url tags="entrance,login" %}
       {% slot body %}
         {% csrf_token %}
-        {% element fields form=form unlabeled=True %}
-        {% endelement %}
+        <div class="ct-login-creds">
+          {% element fields form=form %}
+          {% endelement %}
+        </div>
         {{ redirect_field }}
       {% endslot %}
 
       {% slot actions %}
-        {% element button type="submit" tags="prominent,login" icon='<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" x2="3" y1="12" y2="12"></line>' %}
+        {% element button type="submit" tags="prominent,login" %}
           {% translate "Sign In" %}
         {% endelement %}
       {% endslot %}
@@ -41,36 +52,19 @@
   {% endif %}
 
   {% if not SOCIALACCOUNT_ONLY %}
-    <div class="mt-6 text-center">
-      <p class="text-[var(--color-text-muted)]">
-        {% if REGISTRATION %}
+    <div class="ct-login-links">
+      <a href="{% url 'password_recover' %}">{% translate "Forgot password?" %}</a>
+      {% if REGISTRATION %}
+        <p>
           {% if IS_FIRST_RUN %}
             {% translate "No account exists yet." %}
-            <a class="text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
-               href="{% url 'account_signup' %}">{% translate "Create your account" %}</a>
+            <a href="{% url 'account_signup' %}">{% translate "Create your account" %}</a>
           {% else %}
             {% translate "Need an account?" %}
-            <a class="text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
-               href="{% url 'account_signup' %}">{% translate "Register now" %}</a>
-            <span class="mx-2 text-gray-600">|</span>
-            <a class="text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
-               href="{% url 'password_recover' %}">{% translate "Forgot Password" %}</a>
+            <a href="{% url 'account_signup' %}">{% translate "Register now" %}</a>
           {% endif %}
-        {% else %}
-          {% translate "Sign-ups are disabled." %}
-          {% if FORK_OWNER_URL %}
-            <a class="text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
-               href="{{ FORK_OWNER_URL }}"
-               rel="noopener"
-               target="_blank">{% translate "Host your own" %}</a>
-          {% else %}
-            {% translate "Host your own." %}
-          {% endif %}
-          <span class="mx-2 text-gray-600">|</span>
-          <a class="text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
-             href="{% url 'password_recover' %}">{% translate "Forgot Password" %}</a>
-        {% endif %}
-      </p>
+        </p>
+      {% endif %}
     </div>
   {% endif %}
 {% endblock content %}

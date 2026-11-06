@@ -1,0 +1,45 @@
+{% load i18n %}
+{# One A5 integration card. href: a page elsewhere (import modal); otherwise the card opens this page's setup panels for `key`. #}
+<div class="ct-integration-card">
+  <div class="ct-integration-top">
+    <span class="ct-integration-mark" style="background-color: {{ color }}" aria-hidden="true">{{ letter }}</span>
+    <div class="min-w-0">
+      <p class="ct-integration-name">{{ name }}</p>
+      <p class="ct-integration-method">{{ method }}</p>
+    </div>
+  </div>
+  <div class="ct-integration-foot">
+    {% if broken %}
+      <span class="ct-integration-status" data-state="warn">{% translate "Needs attention" %}</span>
+    {% elif connected %}
+      <span class="ct-integration-status" data-state="ok">
+        {% if key == "trakt" %}
+          {% translate "Configured" %}
+        {% else %}
+          {% translate "Connected" %}
+        {% endif %}
+        {% if count %}
+          · {% blocktranslate count counter=count %}{{ counter }} library{% plural %}{{ counter }} libraries{% endblocktranslate %}
+        {% endif %}
+      </span>
+    {% elif unknown %}
+      <span class="ct-integration-status"></span>
+    {% else %}
+      <span class="ct-integration-status">{% translate "Not connected" %}</span>
+    {% endif %}
+    <a class="ct-integration-action{% if not connected and not broken %} ct-integration-action-tinted{% endif %}"
+       href="{% if href %}{{ href }}{% else %}?open={{ key }}{% endif %}"
+       {% if not href %}@click.prevent="activeIntegration = '{{ key }}'; window.scrollTo(0, 0)"{% endif %}
+       aria-label="{% if broken %}{% translate "Fix" %}{% elif connected %}{% translate "Manage" %}{% elif unknown %}{% translate "Set up" %}{% else %}{% translate "Connect" %}{% endif %} {{ name }}">
+      {% if broken %}
+        {% translate "Fix" %}
+      {% elif connected %}
+        {% translate "Manage" %}
+      {% elif unknown %}
+        {% translate "Set up" %}
+      {% else %}
+        {% translate "Connect" %}
+      {% endif %}
+    </a>
+  </div>
+</div>

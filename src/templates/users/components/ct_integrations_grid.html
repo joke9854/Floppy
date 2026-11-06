@@ -1,0 +1,41 @@
+{% load i18n %}
+{% comment %}
+A5 Settings · Integrations, CineTrack only: one card per integration. Manage and
+Connect open that integration's existing setup panels on this page
+(activeIntegration, the same switch as ?open=), or its import modal for Trakt and
+Pocket Casts. Statuses come from stored state only; Emby, Kodi and Stremio keep
+none, so their cards show the method and "Set up" (see docs/agents/v2_mockup_gaps.md).
+{% endcomment %}
+{% url 'import_data' as import_url %}
+<div class="ct-integrations-grid" x-show="activeIntegration === 'grid'">
+  <h3 class="ct-integrations-heading">{% translate "Media servers" %}</h3>
+  <div class="ct-integration-cards">
+    {% include "users/components/ct_integration_card.html" with key="plex" name="Plex" letter="P" color="#e5a00d" method=_("Webhook") connected=plex_connected count=plex_library_options|length %}
+    {% include "users/components/ct_integration_card.html" with key="jellyfin" name="Jellyfin" letter="J" color="#7c5cd6" method=_("Official plugin") connected=jellyfin_account.is_connected broken=jellyfin_account.connection_broken %}
+    {% include "users/components/ct_integration_card.html" with key="emby" name="Emby" letter="E" color="#52b54b" method=_("Webhook") unknown=True %}
+    {% include "users/components/ct_integration_card.html" with key="kodi" name="Kodi" letter="K" color="#17b2e7" method=_("HTTP Scrobbler add-on") unknown=True %}
+  </div>
+
+  <h3 class="ct-integrations-heading">{% translate "Apps & services" %}</h3>
+  <div class="ct-integration-cards">
+    {% include "users/components/ct_integration_card.html" with key="trakt" name="Trakt" letter="T" color="#ed1c24" method=_("History & ratings") connected=user.trakt_account.is_configured href=import_url|add:"?open=trakt" %}
+    {% include "users/components/ct_integration_card.html" with key="stremio" name="Stremio" letter="S" color="#8a5af0" method=_("Scrobbler addon") unknown=True %}
+    {% include "users/components/ct_integration_card.html" with key="seerr" name="Seerr" letter="S" color="#5b5bd6" method=_("Auto-add requests") connected=user.jellyseerr_enabled %}
+    {% include "users/components/ct_integration_card.html" with key="pocketcasts" name="Pocket Casts" letter="P" color="#f43e37" method=_("Podcasts") connected=user.pocketcasts_account.is_connected broken=user.pocketcasts_account.connection_broken href=import_url|add:"?open=pocketcasts" %}
+  </div>
+
+  <a class="ct-integrations-more"
+     href="?open=api"
+     @click.prevent="activeIntegration = 'api'">{% translate "API key, app tokens, watched-state sync and Nuvio" %}
+    {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
+  </a>
+</div>
+
+<button type="button"
+        class="ct-integrations-back"
+        x-show="activeIntegration !== 'grid'"
+        x-cloak
+        @click="activeIntegration = 'grid'">
+  {% include "app/icons/chevron-left.svg" with classes="w-4 h-4" %}
+  {% translate "Integrations" %}
+</button>

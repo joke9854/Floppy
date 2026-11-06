@@ -69,6 +69,14 @@ def cleanup_image_cache():
     return summary
 
 
+@shared_task(name="Refresh sign-in poster wall", ignore_result=True)
+def refresh_login_wall_posters():
+    """Cache TMDB trending posters for the public sign-in page."""
+    from app import login_wall
+
+    return len(login_wall.refresh_posters())
+
+
 @shared_task(name="Repair Celery broker bindings", ignore_result=True)
 def repair_celery_broker_bindings():
     """Sweep and normalize Kombu Redis pidbox/fanout bindings periodically.

@@ -9,10 +9,23 @@
   {% translate "Integrations - Floppy" %}
 {% endblock title %}
 
+{% block settings_head %}
+  {% if ct_shell %}
+    <header class="ct-settings-head">
+      <h2>{% translate "Integrations" %}</h2>
+      <p>{% translate "Connect the places you watch. Floppy marks plays as they happen." %}</p>
+    </header>
+  {% endif %}
+{% endblock settings_head %}
+
 {% block settings_content %}
+  {# CineTrack (A5) starts on the card grid; a card opens one integration's panels below. #}
   <div class="space-y-6"
-       x-data="{ activeIntegration: 'all' }"
+       x-data="{ activeIntegration: '{% if ct_shell %}grid{% else %}all{% endif %}' }"
        x-init="const deepLinkTag = new URLSearchParams(window.location.search).get('open'); if (deepLinkTag) { activeIntegration = deepLinkTag; }">
+    {% if ct_shell %}
+      {% include "users/components/ct_integrations_grid.html" %}
+    {% endif %}
     {% if match_review_references %}
       <section class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-5">
         <h2 class="text-lg font-semibold">{% translate "Matching review" %}</h2>
@@ -66,15 +79,17 @@
         </a>
       </div>
     {% endif %}
-  <div class="bg-[var(--color-surface)] rounded-lg p-6">
-    <div class="flex items-center mb-4">
-      {% include "app/icons/database.svg" with classes="w-6 h-6 text-[var(--color-link)] mr-3" %}
-      <h2 class="text-xl font-semibold">{% translate "Integrations" %}</h2>
-    </div>
-    <p class="text-[var(--color-text-muted)] mb-5 text-sm">{% translate "Connect your media servers and services via webhooks to automatically track your watching progress." %}</p>
+  <div class="{% if ct_shell %}ct-integrations-panels{% else %}bg-[var(--color-surface)] rounded-lg p-6{% endif %}">
+    {% if not ct_shell %}
+      <div class="flex items-center mb-4">
+        {% include "app/icons/database.svg" with classes="w-6 h-6 text-[var(--color-link)] mr-3" %}
+        <h2 class="text-xl font-semibold">{% translate "Integrations" %}</h2>
+      </div>
+      <p class="text-[var(--color-text-muted)] mb-5 text-sm">{% translate "Connect your media servers and services via webhooks to automatically track your watching progress." %}</p>
+    {% endif %}
 
     {# API Token #}
-    <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6">
+    <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6"{% if ct_shell %} x-show="activeIntegration === 'api'"{% endif %}>
       <div class="flex items-center mb-3">
         {% include "app/icons/padlock.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
         <h3 class="text-base font-medium">{% translate "Legacy API key" %}</h3>
@@ -114,9 +129,12 @@
       </div>
     </div>
 
-    {% include "users/components/integration_tokens.html" %}
+    <div{% if ct_shell %} x-show="activeIntegration === 'api'"{% endif %}>
+      {% include "users/components/integration_tokens.html" %}
+    </div>
 
-    {# Filter bar #}
+    {# Filter bar (CineTrack uses the card grid instead) #}
+    {% if not ct_shell %}
     <div class="bg-[var(--color-surface-strong)] rounded-lg p-4 mb-5">
       <p class="text-sm text-[var(--color-text-secondary)] mb-3">{% translate "Jump to integration:" %}</p>
       <div class="flex flex-wrap gap-2">
@@ -178,6 +196,7 @@
         </button>
       </div>
     </div>
+    {% endif %}
 
     {# Jellyfin Official #}
     <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6"
@@ -1455,7 +1474,7 @@
 
     {# Nuvio #}
     <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6"
-         x-show="activeIntegration === 'all' || activeIntegration === 'nuvio'"
+         x-show="activeIntegration === 'all' || activeIntegration === 'nuvio' || activeIntegration === 'api'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
         {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}

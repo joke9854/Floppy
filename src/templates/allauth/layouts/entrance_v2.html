@@ -1,0 +1,105 @@
+{% extends "allauth/layouts/base.html" %}
+{% load i18n static app_tags %}
+{% comment %}
+A15 Login (Apple layout v2), shown to everyone (user's decision, 2026-11-06): the
+page is visible before sign-in, so it always uses the CineTrack tokens and only
+static copy. The poster wall shows TMDB's trending posters (public, cached by
+app.login_wall); until the cache is warm it shows the board's placeholder tiles.
+{% endcomment %}
+
+{% block html_theme %}cinetrack{% endblock html_theme %}
+
+{% block extra_head %}
+  {{ block.super }}
+  {# Lets base.html's htmx:beforeSwap guard spot a sign-in page returned to a boosted or fragment request. #}
+  {% if not user.is_authenticated %}<meta name="floppy-page" content="entrance">{% endif %}
+{% endblock extra_head %}
+
+{% block body %}
+  <div class="ct-login">
+    <div class="ct-login-wall" aria-hidden="true">
+      <div>
+        {% login_wall_posters as posters %}
+        {# djlint:off H020 #}
+        {% if posters %}
+          {% for poster in posters %}<span style="background-image: url('{{ poster }}')"></span>{% endfor %}
+          {% for poster in posters %}<span style="background-image: url('{{ poster }}')"></span>{% endfor %}
+        {% else %}
+          {% for tile in "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" %}<span></span>{% endfor %}
+        {% endif %}
+        {# djlint:on #}
+      </div>
+    </div>
+
+    <main class="ct-login-main">
+      <div class="ct-login-form">
+        <img src="{% static 'favicon/apple-touch-icon.png' %}"
+             alt="Floppy"
+             width="64"
+             height="64"
+             class="ct-login-mark">
+        <h1>
+          {% block content_title %}
+          {% endblock content_title %}
+        </h1>
+        <p class="ct-login-sub">
+          {% block content_sub %}
+          {% endblock content_sub %}
+        </p>
+        {% block content %}
+        {% endblock content %}
+      </div>
+
+      <aside class="ct-login-panel">
+        <h2>{% translate "Everything you watch, read and play, in one place." %}</h2>
+        <ul>
+          <li>
+            <span class="ct-login-feature-icon">{% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}</span>
+            <span>
+              <strong>{% translate "Pick up where you left off" %}</strong>
+              {% translate "Mark episodes as you go, or let your media server do it for you." %}
+            </span>
+          </li>
+          <li>
+            <span class="ct-login-feature-icon">{% include "app/icons/calendar.svg" with classes="w-5 h-5" %}</span>
+            <span>
+              <strong>{% translate "Never miss an episode" %}</strong>
+              {% translate "See what airs this week, with premieres and finales flagged." %}
+            </span>
+          </li>
+          <li>
+            <span class="ct-login-feature-icon">{% include "app/icons/bars-increasing.svg" with classes="w-5 h-5" %}</span>
+            <span>
+              <strong>{% translate "See your year" %}</strong>
+              {% translate "Hours, genres, streaks and a recap of everything you finished." %}
+            </span>
+          </li>
+          <li>
+            <span class="ct-login-feature-icon">{% include "app/icons/padlock.svg" with classes="w-5 h-5" %}</span>
+            <span>
+              <strong>{% translate "Your server, your data" %}</strong>
+              {% translate "Self-hosted. No ads, no tracking, export any time." %}
+            </span>
+          </li>
+        </ul>
+        <div class="ct-login-works">
+          <span>{% translate "Works with" %}</span>
+          <span class="ct-login-brands">
+            <span style="background-color: #e5a00d" title="Plex">P</span>
+            <span style="background-color: #7c5cd6" title="Jellyfin">J</span>
+            <span style="background-color: #52b54b" title="Emby">E</span>
+            <span style="background-color: #17b2e7" title="Kodi">K</span>
+            <span style="background-color: #ed1c24" title="Trakt">T</span>
+            <span style="background-color: #8a5af0" title="Stremio">S</span>
+          </span>
+          <span>{% translate "and more" %}</span>
+        </div>
+      </aside>
+    </main>
+
+    <p class="ct-login-foot">
+      {% translate "Floppy · self-hosted media tracker" %}
+      {% if posters %}· {% translate "artwork from TMDB" %}{% endif %}
+    </p>
+  </div>
+{% endblock body %}

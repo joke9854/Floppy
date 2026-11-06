@@ -11,11 +11,13 @@
     </div>
     <div class="flex flex-col md:flex-row gap-8">
       <div class="md:w-64 shrink-0">
+        {% if ct_shell %}
+          {% include "users/components/ct_settings_nav.html" %}
+        {% else %}
         <div class="bg-[var(--color-surface)] rounded-lg overflow-hidden sticky top-20">
-          {# hx-boost: swap the body instead of reloading on settings navigation; CineTrack cross-fades it (M3) #}
+          {# hx-boost: swap the body instead of reloading on settings navigation #}
           <nav class="p-2 space-y-1"
-               hx-boost="true"{% if request.user.theme == "cinetrack" %}
-               hx-swap="innerHTML transition:true"{% endif %}>
+               hx-boost="true">
             {% url 'account' as account_url %}
             <a href="{{ account_url }}"
                {% if request.path == account_url %}aria-current="page"{% endif %}
@@ -72,16 +74,6 @@
               <span>{% translate "Integrations" %}</span>
             </a>
 
-            {% if ct_shell %}
-              {% url 'connected_apps' as connected_apps_url %}
-              <a href="{{ connected_apps_url }}"
-                 {% if request.path == connected_apps_url %}aria-current="page"{% endif %}
-                 class="w-full flex items-center space-x-3 px-2 py-2 rounded-md transition-colors text-left border-l-2 cursor-pointer text-sm {% if request.path == connected_apps_url %}bg-[var(--color-surface-strong)] text-[var(--color-text)] border-[var(--color-link)]{% else %}text-[var(--color-text-muted)] border-transparent hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text)]{% endif %}">
-                {% include "app/icons/padlock.svg" with classes="w-5 h-5" %}
-                <span>{% translate "Connected apps" %}</span>
-              </a>
-            {% endif %}
-
             {% url 'metadata_settings' as metadata_url %}
             <a href="{{ metadata_url }}"
                {% if request.path == metadata_url %}aria-current="page"{% endif %}
@@ -131,10 +123,13 @@
             </a>
           </nav>
         </div>
+        {% endif %}
       </div>
 
       <!-- min-w-0 prevents flex item overflow, happens when creating periodic import for Simkl -->
       <div class="flex-1 min-w-0">
+        {% block settings_head %}
+        {% endblock settings_head %}
         {% block settings_content %}
         {% endblock settings_content %}
       </div>

@@ -35,6 +35,21 @@ Phase 4 predates the rule: its entries are still visible.
 | 5 | Search (A9) | Pagination | Visible (needed to reach page 2+) | `search.html` |
 | 5 | Search (A9) | Music search (artists/albums grids) | Visible, unchanged | `search.html` |
 | 5 | Discover (A8/A19) | "Refreshing recommendations in background…" banner and the refresh/undo toasts | Visible (transient states) | `discover.html` |
+| 6 | Settings (A5/A22) | RSS and About rows in the settings nav (URLs still work) | Hidden | `users/components/ct_settings_nav.html` |
+| 6 | Settings (A5/A22) | Preferences row in the settings nav | Visible (core tracking options live there) | `users/components/ct_settings_nav.html` |
+| 6 | Settings (A5/A22) | "Configure your account and preferences" line under the title | Hidden | `input.css` (`.ct-settings > .mb-8 > p`) |
+| 6 | Integrations (A5) | "Jump to integration" filter bar | Hidden (the card grid replaces it) | `users/integrations.html` |
+| 6 | Integrations (A5) | Setup panels for each integration | Visible only after Manage/Connect/Set up on its card (or `?open=`) | `users/integrations.html` |
+| 6 | Integrations (A5) | Legacy API key, App tokens, Connected apps, Watched-state sync, Nuvio | Visible behind a "API key, app tokens…" link under the grid (`?open=api`); needed for webhooks and apps | `users/components/ct_integrations_grid.html` |
+| 6 | Integrations (A5) | Matching review and saved match decisions | Visible (only when there are entries; the only place to fix matches) | `users/integrations.html` |
+| 6 | Integrations (A5) | Guided-setup banner | Visible (transient, onboarding only) | `users/integrations.html` |
+| 6 | Appearance (A22) | Detail pages layout section | Hidden (its state still posts unchanged) | `users/appearance.html` |
+| 6 | Appearance (A22) | Section icons and subtitles | Hidden | `input.css` (`.ct-appearance`) |
+| 6 | Appearance (A22) | Every theme preset beyond the board's five, and the custom palette | Visible (choosing a theme is core) | `users/appearance.html` |
+| 6 | Appearance (A22) | Save bar | Visible (settings apply only after saving) | `users/appearance.html` |
+| 6 | Login (A15) | Register / "No account exists yet" links | Visible when registration is on (the only way to sign up) | `account/login.html` |
+| 6 | Login (A15) | "Sign-ups are disabled · Host your own" line | Hidden | `account/login.html` |
+| 6 | Login (A15) | Social provider buttons are labelled with the provider name, not "Continue with SSO" | Visible (several providers can be configured) | `socialaccount/snippets/provider_list.html` |
 
 ## Mockup parts not built
 
@@ -53,3 +68,8 @@ decision: build the backend, adapt the design, or drop it.
 | 5 | Search (A9) | "All" tab and per-type result counts | Search runs one media type per request | `ct/search_header.html` |
 | 5 | Search (A9) | "People" tab | No person search | `ct/search_header.html` |
 | 5 | Search (A9) | Network / author in the row meta ("FX", "Katherine Arden") | Not in search results | `ct/search_row.html` |
+| 6 | Integrations (A5) | Connected / Not connected for Emby, Kodi and Stremio | No stored connection state (no last-received time); cards show the method and "Set up" | `users/components/ct_integration_card.html` |
+| 6 | Integrations (A5) | Stremio "Every 2 hours · Synced 14:02" | No last-sync time on the page; the Stremio import runs from the Import page | `users/components/ct_integrations_grid.html` |
+| 6 | Integrations (A5) | Trakt "Sign-in expired 1 Nov · Fix" | Trakt stores client credentials only, no sign-in or expiry; the card says Configured / Not connected | `users/components/ct_integrations_grid.html` |
+| 6 | Appearance (A22) | "Changes apply immediately" | Appearance saves on submit; the subtitle says "Changes apply after saving." | `users/appearance.html` |
+| 6 | Login (A15) | "+ 4 more" after the brand chips | No fixed count; says "and more" | `allauth/layouts/entrance_v2.html` |
