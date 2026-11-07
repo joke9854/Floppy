@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import time
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -53,6 +54,12 @@ TMDB_MOVIE_CACHE_VERSION = 2
 # entry, independent of the movie/tv/season append_to_response payloads above.
 CAROUSEL_CACHE_TTL_SUCCESS = 60 * 60 * 24 * 7
 CAROUSEL_CACHE_TTL_ABSENT = 60 * 60 * 24
+# One uncached detail fetch per show/movie at a time: a second request for the
+# same uncached entry (a reload while the first still fetches) waits up to
+# FETCH_WAIT_SECONDS for the first one's cache fill instead of fetching again.
+FETCH_LOCK_TIMEOUT = 60
+FETCH_WAIT_SECONDS = 10
+FETCH_POLL_SECONDS = 0.25
 
 
 def base_params(language=None):
@@ -87,6 +94,34 @@ def _season_cache_key(media_id, season_number, language=None):
         f"{Sources.TMDB.value}_{MediaTypes.SEASON.value}_v{TMDB_SEASON_CACHE_VERSION}_"
         f"{media_id}_{season_number}{_language_suffix(language)}"
     )
+
+
+@contextlib.contextmanager
+def _single_fetch(lock_key, read_cache):
+    """Yield what a concurrent fetch of the same entry cached, or None to fetch.
+
+    The first caller claims the lock and gets None. A caller that finds the lock
+    taken polls read_cache() until it returns data, the holder releases the lock
+    (finished or failed), or FETCH_WAIT_SECONDS pass; then it gets whatever
+    read_cache() last returned, and None means fetch it yourself.
+    """
+    claimed = cache.add(lock_key, True, FETCH_LOCK_TIMEOUT)
+    data = None
+    if not claimed:
+        deadline = time.monotonic() + FETCH_WAIT_SECONDS
+        while True:
+            # Check the lock before reading: a holder fills the cache before
+            # releasing, so a released lock seen here means the read is final.
+            holder_done = cache.get(lock_key) is None
+            data = read_cache()
+            if data is not None or holder_done or time.monotonic() >= deadline:
+                break
+            time.sleep(FETCH_POLL_SECONDS)
+    try:
+        yield data
+    finally:
+        if claimed:
+            cache.delete(lock_key)
 
 
 def _tv_cache_key(media_id, language=None):
@@ -553,119 +588,126 @@ def movie(media_id, language=None):
     data = cache.get(cache_key)
 
     if data is None:
-        url = f"{base_url}/movie/{media_id}"
-        appends = [
-            "recommendations",
-            "external_ids",
-            "credits",
-            "watch/providers",
-            "alternative_titles",
-            "keywords",
-            "release_dates",
-        ]
-        params = {
-            **base_params(language),
-            "append_to_response": ",".join(appends),
-        }
+        with _single_fetch(
+            f"{cache_key}_fetch_lock",
+            lambda: cache.get(cache_key),
+        ) as filled:
+            if filled is not None:
+                return filled
 
-        try:
-            response = services.api_request(
-                Sources.TMDB.value,
-                "GET",
-                url,
-                params=params,
-            )
-            _seed_backdrop_cache(MediaTypes.MOVIE.value, media_id, response)
-            if response.get("belongs_to_collection", {}) is not None and (
-                collection_id := response.get("belongs_to_collection", {}).get("id")
-            ):
-                try:
-                    collection_response = services.api_request(
-                        Sources.TMDB.value,
-                        "GET",
-                        f"{base_url}/collection/{collection_id}",
-                        params={**base_params(language)},
-                    )
-                except requests.exceptions.HTTPError as error:
-                    logger.warning(
-                        "Failed to fetch TMDB collection metadata: %s",
-                        exception_summary(error),
-                    )
+            url = f"{base_url}/movie/{media_id}"
+            appends = [
+                "recommendations",
+                "external_ids",
+                "credits",
+                "watch/providers",
+                "alternative_titles",
+                "keywords",
+                "release_dates",
+            ]
+            params = {
+                **base_params(language),
+                "append_to_response": ",".join(appends),
+            }
+
+            try:
+                response = services.api_request(
+                    Sources.TMDB.value,
+                    "GET",
+                    url,
+                    params=params,
+                )
+                _seed_backdrop_cache(MediaTypes.MOVIE.value, media_id, response)
+                if response.get("belongs_to_collection", {}) is not None and (
+                    collection_id := response.get("belongs_to_collection", {}).get("id")
+                ):
+                    try:
+                        collection_response = services.api_request(
+                            Sources.TMDB.value,
+                            "GET",
+                            f"{base_url}/collection/{collection_id}",
+                            params={**base_params(language)},
+                        )
+                    except requests.exceptions.HTTPError as error:
+                        logger.warning(
+                            "Failed to fetch TMDB collection metadata: %s",
+                            exception_summary(error),
+                        )
+                        collection_response = {}
+                else:
                     collection_response = {}
-            else:
-                collection_response = {}
-        except requests.exceptions.HTTPError as error:
-            handle_error(error)
+            except requests.exceptions.HTTPError as error:
+                handle_error(error)
 
-        # Filter out collection items from recommendations, to avoid duplicates
-        collection_items = get_collection(collection_response)
-        collection_ids = [item["media_id"] for item in collection_items]
-        recommended_items = response.get("recommendations", {}).get("results", [])
-        filtered_recommendations = [
-            item for item in recommended_items if item["id"] not in collection_ids
-        ]
-        collection_info = response.get("belongs_to_collection") or {}
-        provider_certification = get_movie_certification(
-            response.get("release_dates", {})
-        )
-        cast = response.get("credits", {}).get("cast", [])
-        external_ids = dict(response.get("external_ids", {}) or {})
-        movie_details = {
-            "format": "Movie",
-            "release_date": get_start_date(response.get("release_date")),
-            "status": response.get("status"),
-            "runtime": get_readable_duration(response.get("runtime")),
-            "studios": get_companies(response.get("production_companies", [])),
-            "country": get_country(response.get("production_countries", [])),
-            "languages": get_languages(response.get("spoken_languages", [])),
-            "certification": provider_certification,
-        }
-        if budget := format_currency(response.get("budget")):
-            movie_details["budget"] = budget
-        if revenue := format_currency(response.get("revenue")):
-            movie_details["revenue"] = revenue
-        data = {
-            "media_id": media_id,
-            "source": Sources.TMDB.value,
-            "source_url": f"https://www.themoviedb.org/movie/{media_id}",
-            "media_type": MediaTypes.MOVIE.value,
-            **get_title_fields(response),
-            "max_progress": 1,
-            "image": get_image_url(response.get("poster_path")),
-            "synopsis": get_synopsis(response.get("overview")),
-            "genres": get_genres(response.get("genres", [])),
-            "score": get_score(response.get("vote_average")),
-            "score_count": response.get("vote_count"),
-            "provider_popularity": response.get("popularity"),
-            "provider_rating": get_score(response.get("vote_average")),
-            "provider_rating_count": response.get("vote_count"),
-            "details": movie_details,
-            "cast": get_cast_credits(response.get("credits", {})),
-            "crew": get_crew_credits(response.get("credits", {})),
-            "studios_full": get_companies_full(response.get("production_companies")),
-            "provider_keywords": get_keyword_names(response.get("keywords", {})),
-            "provider_certification": provider_certification,
-            "provider_collection_id": str(collection_info.get("id") or ""),
-            "provider_collection_name": collection_info.get("name") or "",
-            "total_cast_count": len(cast),
-            "related": {
-                collection_response.get("name", "collection"): collection_items,
-                "recommendations": get_related(
-                    filtered_recommendations[:15],
-                    MediaTypes.MOVIE.value,
-                ),
-            },
-            # Persisted onto Item.provider_external_ids by
-            # metadata_resolution.upsert_provider_links(), the same as the TV
-            # path in process_tv(). Without it the IMDb ID TMDB already
-            # returned here was fetched and discarded, so movies were invisible
-            # to the Stremio catalog and IMDb rating sync (issue #1066).
-            "provider_external_ids": external_ids,
-            "external_links": get_external_links(external_ids, media_id),
-            "providers": response.get("watch/providers", {}).get("results", {}),
-        }
+            # Filter out collection items from recommendations, to avoid duplicates
+            collection_items = get_collection(collection_response)
+            collection_ids = [item["media_id"] for item in collection_items]
+            recommended_items = response.get("recommendations", {}).get("results", [])
+            filtered_recommendations = [
+                item for item in recommended_items if item["id"] not in collection_ids
+            ]
+            collection_info = response.get("belongs_to_collection") or {}
+            provider_certification = get_movie_certification(
+                response.get("release_dates", {})
+            )
+            cast = response.get("credits", {}).get("cast", [])
+            external_ids = dict(response.get("external_ids", {}) or {})
+            movie_details = {
+                "format": "Movie",
+                "release_date": get_start_date(response.get("release_date")),
+                "status": response.get("status"),
+                "runtime": get_readable_duration(response.get("runtime")),
+                "studios": get_companies(response.get("production_companies", [])),
+                "country": get_country(response.get("production_countries", [])),
+                "languages": get_languages(response.get("spoken_languages", [])),
+                "certification": provider_certification,
+            }
+            if budget := format_currency(response.get("budget")):
+                movie_details["budget"] = budget
+            if revenue := format_currency(response.get("revenue")):
+                movie_details["revenue"] = revenue
+            data = {
+                "media_id": media_id,
+                "source": Sources.TMDB.value,
+                "source_url": f"https://www.themoviedb.org/movie/{media_id}",
+                "media_type": MediaTypes.MOVIE.value,
+                **get_title_fields(response),
+                "max_progress": 1,
+                "image": get_image_url(response.get("poster_path")),
+                "synopsis": get_synopsis(response.get("overview")),
+                "genres": get_genres(response.get("genres", [])),
+                "score": get_score(response.get("vote_average")),
+                "score_count": response.get("vote_count"),
+                "provider_popularity": response.get("popularity"),
+                "provider_rating": get_score(response.get("vote_average")),
+                "provider_rating_count": response.get("vote_count"),
+                "details": movie_details,
+                "cast": get_cast_credits(response.get("credits", {})),
+                "crew": get_crew_credits(response.get("credits", {})),
+                "studios_full": get_companies_full(response.get("production_companies")),
+                "provider_keywords": get_keyword_names(response.get("keywords", {})),
+                "provider_certification": provider_certification,
+                "provider_collection_id": str(collection_info.get("id") or ""),
+                "provider_collection_name": collection_info.get("name") or "",
+                "total_cast_count": len(cast),
+                "related": {
+                    collection_response.get("name", "collection"): collection_items,
+                    "recommendations": get_related(
+                        filtered_recommendations[:15],
+                        MediaTypes.MOVIE.value,
+                    ),
+                },
+                # Persisted onto Item.provider_external_ids by
+                # metadata_resolution.upsert_provider_links(), the same as the TV
+                # path in process_tv(). Without it the IMDb ID TMDB already
+                # returned here was fetched and discarded, so movies were invisible
+                # to the Stremio catalog and IMDb rating sync (issue #1066).
+                "provider_external_ids": external_ids,
+                "external_links": get_external_links(external_ids, media_id),
+                "providers": response.get("watch/providers", {}).get("results", {}),
+            }
 
-        cache.set(cache_key, data)
+            cache.set(cache_key, data)
 
     return data
 
@@ -1143,12 +1185,29 @@ def tv_with_seasons(media_id, season_numbers, language=None):
         tv_data = tv(media_id, language)
 
     if uncached_seasons:
-        fetched_seasons, fetched_tv_data = fetch_and_cache_seasons(
-            media_id,
-            uncached_seasons,
-            tv_data,
-            language,
+
+        def read_fetched_seasons():
+            found, missing = get_cached_seasons(media_id, uncached_seasons, language)
+            return None if missing else found
+
+        lock_key = (
+            f"{tv_cache_key}_seasons_"
+            f"{'_'.join(map(str, uncached_seasons))}_fetch_lock"
         )
+        with _single_fetch(lock_key, read_fetched_seasons) as filled_seasons:
+            if filled_seasons is None:
+                fetched_seasons, fetched_tv_data = fetch_and_cache_seasons(
+                    media_id,
+                    uncached_seasons,
+                    tv_data,
+                    language,
+                )
+            else:
+                fetched_seasons = filled_seasons
+                # The lock holder cached the show payload with its seasons.
+                fetched_tv_data = cache.get(tv_cache_key)
+                if fetched_tv_data is None and tv_data is None:
+                    fetched_tv_data = tv(media_id, language)
 
         if fetched_tv_data is not None:
             tv_data = fetched_tv_data
@@ -1174,28 +1233,35 @@ def tv(media_id, language=None):
             data = None
 
     if data is None:
-        url = f"{base_url}/tv/{media_id}"
-        params = {
-            **base_params(language),
-            "append_to_response": TV_DETAIL_APPEND_RESPONSES,
-        }
+        with _single_fetch(
+            f"{cache_key}_fetch_lock",
+            lambda: cache.get(cache_key),
+        ) as filled:
+            if filled is None:
+                url = f"{base_url}/tv/{media_id}"
+                params = {
+                    **base_params(language),
+                    "append_to_response": TV_DETAIL_APPEND_RESPONSES,
+                }
 
-        try:
-            response = services.api_request(
-                Sources.TMDB.value,
-                "GET",
-                url,
-                params=params,
-            )
-        except requests.exceptions.HTTPError as error:
-            handle_error(error)
+                try:
+                    response = services.api_request(
+                        Sources.TMDB.value,
+                        "GET",
+                        url,
+                        params=params,
+                    )
+                except requests.exceptions.HTTPError as error:
+                    handle_error(error)
 
-        data = process_tv(response, media_id=media_id)
+                data = process_tv(response, media_id=media_id)
+                cache.set(cache_key, data)
+                return data
+        data = filled
+
+    data, changed = _apply_tvdb_id_override_to_tv_data(media_id, data)
+    if changed:
         cache.set(cache_key, data)
-    else:
-        data, changed = _apply_tvdb_id_override_to_tv_data(media_id, data)
-        if changed:
-            cache.set(cache_key, data)
 
     return data
 

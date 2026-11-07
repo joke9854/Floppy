@@ -240,6 +240,8 @@ def season_details(
         )
 
     episodes_in_db = current_instance.episodes.all() if current_instance else []
+    # A provider error is transient: never persist it as a missing season.
+    provider_unavailable = False
     if season_item_is_local_only:
         tv_with_seasons_metadata = _build_local_tv_with_seasons_metadata(
             media_id,
@@ -258,15 +260,29 @@ def season_details(
         )
         season_metadata_missing = True
     else:
-        tv_with_seasons_metadata = services.get_media_metadata(
-            "tv_with_seasons",
-            media_id,
-            source,
-            [season_number],
-            language=metadata_resolution.metadata_language_default(
-                request.user, show_item
-            ),
-        )
+        try:
+            with services.interactive_request_scope():
+                tv_with_seasons_metadata = services.get_media_metadata(
+                    "tv_with_seasons",
+                    media_id,
+                    source,
+                    [season_number],
+                    language=metadata_resolution.metadata_language_default(
+                        request.user, show_item
+                    ),
+                )
+        except services.ProviderAPIError:
+            # A stalled or failing provider must not hold the page: render
+            # from the stored show and season rows when there are any.
+            if show_item is None and season_item is None:
+                raise
+            logger.warning(
+                "Falling back to stored season metadata for media_id=%s "
+                "due to provider API error",
+                media_id,
+            )
+            provider_unavailable = True
+            tv_with_seasons_metadata = {}
         season_metadata = tv_with_seasons_metadata.get(season_key)
         season_metadata_missing = season_metadata is None
         if season_metadata_missing:
@@ -361,7 +377,9 @@ def season_details(
             or settings.IMG_NONE,
             "provider_metadata_status": (
                 ProviderMetadataStatus.LOCAL_ONLY_MISSING_SEASON.value
-                if season_metadata_missing and season_number > 0
+                if season_metadata_missing
+                and season_number > 0
+                and not provider_unavailable
                 else ""
             ),
         }
@@ -378,7 +396,12 @@ def season_details(
             metadata=None,
             defaults=season_defaults,
         )
-    elif render_secondary_only and season_metadata_missing and season_number > 0:
+    elif (
+        render_secondary_only
+        and season_metadata_missing
+        and season_number > 0
+        and not provider_unavailable
+    ):
         season_item = _save_provider_metadata_status(
             season_item,
             ProviderMetadataStatus.LOCAL_ONLY_MISSING_SEASON.value,

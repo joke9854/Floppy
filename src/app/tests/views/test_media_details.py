@@ -7575,6 +7575,92 @@ class MediaDetailsViewTests(TestCase):
     @patch("app.providers.tmdb.get_tvdb_episode_image_map")
     @patch("app.helpers.get_tmdb_backdrop_image")
     @patch("app.providers.services.get_media_metadata")
+    def test_season_details_provider_error_renders_stored_rows_without_marking_missing(
+        self,
+        mock_get_metadata,
+        _mock_get_tmdb_backdrop_image,
+        _mock_get_tvdb_episode_image_map,
+        _mock_refresh_trakt_popularity,
+    ):
+        """A stalled TMDB link renders the stored season and stays transient."""
+        tv_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Test TV Show",
+            image="http://example.com/show.jpg",
+        )
+        related_tv = TV.objects.create(
+            item=tv_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        season_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Test TV Show",
+            image="http://example.com/show.jpg",
+            season_number=16,
+        )
+        season = Season.objects.create(
+            item=season_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+            related_tv=related_tv,
+        )
+        episode_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Auditions: Europe (1)",
+            image="http://example.com/episode.jpg",
+            season_number=16,
+            episode_number=1,
+        )
+        Episode.objects.create(
+            item=episode_item,
+            related_season=season,
+            end_date=timezone.make_aware(datetime(2026, 4, 17)),
+        )
+        interactive_flags = []
+
+        def stalled_provider(media_type, *_args, **_kwargs):
+            if media_type == "tv_with_seasons":
+                interactive_flags.append(services._interactive_request.get())
+            raise services.ProviderAPIError(
+                Sources.TMDB.value,
+                requests.exceptions.ReadTimeout("read timed out"),
+            )
+
+        mock_get_metadata.side_effect = stalled_provider
+
+        url = reverse(
+            "season_details",
+            kwargs={
+                "source": Sources.TMDB.value,
+                "media_id": "1668",
+                "title": "test-tv-show",
+                "season_number": 16,
+            },
+        )
+        response = self.client.get(url, {"fragment": "secondary"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Auditions: Europe (1)")
+        self.assertTrue(interactive_flags)
+        self.assertTrue(all(interactive_flags))
+        season_item.refresh_from_db()
+        self.assertNotEqual(
+            season_item.provider_metadata_status,
+            ProviderMetadataStatus.LOCAL_ONLY_MISSING_SEASON.value,
+        )
+        self.assertEqual(self.client.get(url).status_code, 200)
+
+    @patch("app.views.trakt_popularity_service.refresh_trakt_popularity")
+    @patch("app.providers.tmdb.get_tvdb_episode_image_map")
+    @patch("app.helpers.get_tmdb_backdrop_image")
+    @patch("app.providers.services.get_media_metadata")
     def test_season_details_local_only_flag_skips_provider_metadata_lookup(
         self,
         mock_get_metadata,
