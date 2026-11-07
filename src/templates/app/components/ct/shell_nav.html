@@ -130,9 +130,10 @@
         <span aria-hidden="true">{% include "app/icons/ellipsis.svg" with classes="w-5 h-5" %}</span>
         <span class="ct-rail-tip">{% translate "More" %}</span>
       </button>
+      {# The menu panels start hidden inline, not via x-cloak: after a boosted swap htmx's settle step puts the server-rendered style back on same-id elements, undoing x-show and leaving every panel open. #}
       <div id="ct-rail-library-menu"
            x-ref="panel"
-           x-cloak
+           style="display: none"
            x-show="open"
            x-transition.opacity.duration.150ms
            class="ct-menu ct-menu-rail">
@@ -213,7 +214,7 @@
     </button>
     <div id="ct-rail-account-menu"
          x-ref="panel"
-         x-cloak
+         style="display: none"
          x-show="open"
          x-transition.opacity.duration.150ms
          class="ct-menu ct-menu-rail ct-menu-rail-bottom">
@@ -263,7 +264,7 @@
       </button>
       <div id="ct-sheet-library-menu"
            x-ref="panel"
-           x-cloak
+           style="display: none"
            x-show="open"
            x-transition.opacity.duration.150ms
            class="ct-menu ct-menu-sheet">
@@ -297,7 +298,7 @@
       {# A18: grouped lists with hairlines; Log out sits apart at the end. #}
       <div id="ct-sheet-more-menu"
            x-ref="panel"
-           x-cloak
+           style="display: none"
            x-show="open"
            x-transition.opacity.duration.150ms
            class="ct-menu ct-menu-sheet ct-more-sheet">
