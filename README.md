@@ -948,13 +948,46 @@ The image lives at `ghcr.io/dannyvfilms/floppy`:
 
 - `:latest` - the latest commit on the `latest` branch
 - `:release` - the latest commit on the `release` branch, or the stable alias for a GitHub release tag
-- `:vX.Y.Z` - versioned release builds from GitHub release tags
+- `:X.Y.Z`, `:X.Y`, `:X` - versioned release builds from `vX.Y.Z` git tags
 
 A fork publishes to its own owner's package. The `CineTrack-API` branch builds
 `ghcr.io/joke9854/floppy` with two tags:
 
 - `:cinetrack-api` - the latest commit on `CineTrack-API`
 - `:sha-<short>` - one exact commit, for pinning or rolling back
+
+A `vX.Y.Z` tag pushed to that fork also builds `:X.Y.Z`, `:X.Y` and `:X` there.
+
+### Versions and releases
+
+Floppy uses [Semantic Versioning](https://semver.org/). The annotated git tag
+`vX.Y.Z` is the only place a version is defined; nothing in the source tree
+carries it. Every build reads it with `git describe --tags` and bakes the result
+into the image, from where it reaches **Settings → About**, `/api/v1/info/`
+(`version`), the container's startup line and Sentry's `release`:
+
+- a build of the tagged commit reports `v0.1.0`
+- a later commit reports the last tag plus its distance and commit, for example
+  `v0.1.0-5-gabc1234`
+- a build from a repository with no tags reports `dev`
+
+Bump MAJOR for a change that breaks existing API clients or needs manual upgrade
+steps, MINOR for features and new API capabilities, PATCH for fixes only.
+`/api/openapi.yaml` keeps its own `info.version`: it versions the API contract,
+not the app.
+
+To cut a release, add its notes under a new heading in
+[`CHANGELOG.md`](CHANGELOG.md), commit, then tag that commit and push the tag in
+the same push as the branch, so the branch build already sees it:
+
+```bash
+git tag -a v0.2.0 -m "Floppy 0.2.0"
+git push origin HEAD:CineTrack-API refs/tags/v0.2.0
+```
+
+Floppy's versions are its own. Upstream Yamtrack tags (`v0.26.x`) and the
+dannyvfilms fork's date tags (`v26.10.29`) are not fetched into this repository;
+do not push them here, or `git describe` may report one of them.
 
 `scripts/deploy_cinetrack.sh` pulls `:cinetrack-api` and restarts only when that
 image's commit passed the "CineTrack API Targeted Tests" workflow, appending

@@ -261,6 +261,7 @@ Floppy is a Django 5.2 app for self-hosted media tracking with Celery workers an
 - `upstream` (formerly named `dev` in this fork) must be an exact mirror of `FuzzyGrim/Yamtrack:dev`. Never commit to it, target it with a PR, or add fork-only edits. Refresh it only by exact fast-forward/reset to the upstream remote.
 - `latest` is the fork integration branch for day-to-day work and semantic upstream ports. Do not merge or rebase `upstream` into `latest`.
 - `release` is for versioned release/container publication flow, not the primary integration branch.
+- Floppy versions are SemVer `vX.Y.Z` git tags, the only place a version is defined; release notes go in `CHANGELOG.md`. See README "Versions and releases".
 
 ## Upstream Resolution Workflow
 
