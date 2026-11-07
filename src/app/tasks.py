@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django_celery_results.models import TaskResult
 
-from app import cache_safety, history_cache, image_cache, metadata_utils
+from app import backdrops, cache_safety, history_cache, image_cache, metadata_utils
 from app.interactive_requests import interactive_request_active
 from app.log_safety import exception_summary
 from app.models import (
@@ -67,6 +67,12 @@ def cleanup_image_cache():
             summary["removed_bytes"],
         )
     return summary
+
+
+@shared_task(name="Fetch card backdrop", ignore_result=True)
+def fetch_backdrop(item):
+    """Cache a Home card's backdrop that was missing when the card rendered."""
+    backdrops.resolve_backdrop(item)
 
 
 @shared_task(name="Refresh sign-in poster wall", ignore_result=True)

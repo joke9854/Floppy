@@ -12,6 +12,7 @@ own artwork.
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import transaction
 
 from app.models import MediaTypes, Sources
 
@@ -56,8 +57,8 @@ def _usable(backdrop):
     return None
 
 
-def cached_backdrop(item) -> str | None:
-    """Return an already-cached backdrop without triggering provider lookups."""
+def _cache_key(item) -> str | None:
+    """Return the cache key a backdrop for this item lives under, if any."""
     identity = _identity(item)
     if identity is None:
         return None
@@ -68,19 +69,51 @@ def cached_backdrop(item) -> str | None:
             MediaTypes.TV.value if media_type in _SHOW_LEVEL_TYPES else media_type
         )
         if backdrop_media_type in (MediaTypes.MOVIE.value, MediaTypes.TV.value):
-            return _usable(
-                cache.get(f"tmdb_backdrop_{backdrop_media_type}_{media_id}"),
-            )
+            return f"tmdb_backdrop_{backdrop_media_type}_{media_id}"
 
     if source == Sources.TVDB.value and media_type in _TVDB_TYPES:
         tmdb_id = _tvdb_tmdb_id(item)
         if tmdb_id:
-            return _usable(cache.get(f"tmdb_backdrop_tv_{tmdb_id}"))
+            return f"tmdb_backdrop_tv_{tmdb_id}"
 
     if source == Sources.IGDB.value and media_type == MediaTypes.GAME.value:
-        return _usable(cache.get(f"igdb_backdrop_{media_id}"))
+        return f"igdb_backdrop_{media_id}"
 
     return None
+
+
+def cached_backdrop(item) -> str | None:
+    """Return an already-cached backdrop without triggering provider lookups."""
+    key = _cache_key(item)
+    return _usable(cache.get(key)) if key else None
+
+
+def queue_backdrop_fetch(item) -> None:
+    """Fetch an uncached backdrop in the background so the next render has it.
+
+    Only a true miss is queued (a cached "no backdrop" is left alone), once per
+    key per hour, after the request's transaction commits.
+    """
+    key = _cache_key(item)
+    if not key or cache.get(key) is not None:
+        return
+    payload = {
+        field: _read(item, field)
+        for field in ("source", "media_type", "media_id", "provider_external_ids")
+    }
+    lock_key = f"backdrop_fetch_queued_{key}"
+
+    def enqueue():
+        if not cache.add(lock_key, True, 60 * 60):
+            return
+        from app.tasks import fetch_backdrop
+
+        try:
+            fetch_backdrop.delay(payload)
+        except Exception:  # deliberate best-effort; the poster stays
+            cache.delete(lock_key)
+
+    transaction.on_commit(enqueue)
 
 
 def resolve_backdrop(item, *, allow_network=True) -> str | None:

@@ -139,3 +139,42 @@ class ResolveBackdropTests(TestCase):
         )
 
         self.assertEqual(backdrops.resolve_backdrop(item), BACKDROP_URL)
+
+
+class QueueBackdropFetchTests(TestCase):
+    """queue_backdrop_fetch queues true misses only, once per key."""
+
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    def _queue(self, item):
+        with (
+            patch("app.tasks.fetch_backdrop.delay") as delay,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            backdrops.queue_backdrop_fetch(item)
+            backdrops.queue_backdrop_fetch(item)
+        return delay
+
+    def test_miss_is_queued_once(self):
+        delay = self._queue(_tv_item())
+
+        delay.assert_called_once_with(
+            {
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.TV.value,
+                "media_id": "1396",
+                "provider_external_ids": None,
+            },
+        )
+
+    def test_known_absence_is_not_queued(self):
+        cache.set("tmdb_backdrop_tv_1396", settings.IMG_NONE)
+
+        self._queue(_tv_item()).assert_not_called()
+
+    def test_item_without_a_backdrop_source_is_not_queued(self):
+        self._queue({"media_type": MediaTypes.MOVIE.value}).assert_not_called()

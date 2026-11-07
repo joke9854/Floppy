@@ -321,9 +321,13 @@ def ct_detail_backdrop(media, allow_network=True):
 def ct_card_backdrop(item):
     """Return a Home card's cached backdrop URL, or None (v2 Home).
 
-    Cache only: Home never waits on the provider, so a miss shows the poster.
+    Cache only: Home never waits on the provider, so a miss shows the poster
+    and queues the fetch for the next render.
     """
-    return backdrops.cached_backdrop(item)
+    backdrop = backdrops.cached_backdrop(item)
+    if backdrop is None:
+        backdrops.queue_backdrop_fetch(item)
+    return backdrop
 
 
 def _ct_value(obj, key):

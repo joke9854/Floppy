@@ -5,13 +5,15 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.template.loader import render_to_string
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from app.models import Episode, Item, MediaTypes, Season, Sources, Status
 from app.templatetags.app_tags import tmdb_size, tmdb_srcset
 from events.models import Event
+from users.home_screen import HomeRowEntry
 from users.models import ThemeChoices
 
 POSTER = "https://image.tmdb.org/t/p/w500/abc.jpg"
@@ -133,6 +135,38 @@ class CineTrackHomeCardTests(TestCase):
 
         card = html.split('class="ct-progress-card"', 1)[1][:3000]
         self.assertIn("ct-progress-art is-poster", card)
+
+    def test_progress_card_miss_queues_one_backdrop_fetch(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        with (
+            patch("app.tasks.fetch_backdrop.delay") as delay,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self._hydrated_home()
+            self._hydrated_home()
+
+        delay.assert_called_once()
+        self.assertEqual(delay.call_args.args[0]["media_id"], "1668")
+
+    def test_in_progress_show_without_a_next_episode_keeps_the_landscape_card(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        request = RequestFactory().get(reverse("home"))
+        request.user = self.user
+        entry = HomeRowEntry(
+            item=self.season_item,
+            media=self.season,
+            show_progress_controls=False,
+        )
+
+        html = render_to_string(
+            "app/components/ct/home_grid.html",
+            {"media_list": {"items": [entry]}},
+            request=request,
+        )
+
+        self.assertIn('class="ct-progress-card"', html)
+        self.assertNotIn("data-ct-check", html)
+        self.assertNotIn("ct-poster-card", html)
 
     def test_cinetrack_home_has_the_v2_header_and_row_heading(self):
         self._use_theme(ThemeChoices.CINETRACK)

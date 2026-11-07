@@ -10,7 +10,10 @@
   episode_save, with the end date taken in the browser at the moment of the
   click (date only when TRACK_TIME is off), so history keeps the exact time.
 
-  Context: item, media, next_episode (from ct_next_episode), user,
+  Without a next episode (caught up, or nothing aired yet) the card drops the
+  check and shows the release year, as the poster card does.
+
+  Context: item, media, next_episode (from ct_next_episode, may be None), user,
   TRACK_TIME, IMG_NONE.
 {% endcomment %}
 {% ct_card_backdrop item as backdrop %}
@@ -53,6 +56,7 @@
                height="1"
                decoding="async">
         {% endif %}
+        {% if next_episode %}
         {% watch_operation_id as check_watch_operation_id %}
         <form class="ct-check-form"
               hx-post="{% url 'episode_save' %}?next={% url 'home' %}"
@@ -76,17 +80,22 @@
             {% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}
           </button>
         </form>
+        {% endif %}
         {# djlint:off H020 #}
         <span class="ct-progress-line" aria-hidden="true"><span></span></span>
         {# djlint:on #}
       </div>
       <a href="{{ item|media_url }}" class="ct-progress-title">{{ title }}</a>
       <span class="ct-progress-episode">
-        <span data-ct-episode-label>S{{ next_episode.season_number }} E{{ next_episode.episode_number }}</span>
-        {% if media.time_left_display %}
-          · {{ media.time_left_display }}
-        {% elif media.episodes_left %}
-          · {% blocktranslate trimmed count count=media.episodes_left %}{{ count }} left{% plural %}{{ count }} left{% endblocktranslate %}
+        {% if next_episode %}
+          <span data-ct-episode-label>S{{ next_episode.season_number }} E{{ next_episode.episode_number }}</span>
+          {% if media.time_left_display %}
+            · {{ media.time_left_display }}
+          {% elif media.episodes_left %}
+            · {% blocktranslate trimmed count count=media.episodes_left %}{{ count }} left{% plural %}{{ count }} left{% endblocktranslate %}
+          {% endif %}
+        {% elif item.release_datetime %}
+          {{ item.release_datetime|date:"Y" }}
         {% endif %}
       </span>
     </article>
