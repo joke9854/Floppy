@@ -75,6 +75,26 @@ def fetch_backdrop(item):
     backdrops.resolve_backdrop(item)
 
 
+@shared_task(name="Fetch TMDB seasons", ignore_result=True)
+def fetch_tmdb_seasons(media_id, season_numbers, language=None, lock_key=None):
+    """Cache the seasons a show page rendered without (see detail_related)."""
+    from app.providers import services
+
+    try:
+        services.get_media_metadata(
+            "tv_with_seasons",
+            media_id,
+            Sources.TMDB.value,
+            season_numbers,
+            language=language,
+        )
+    except services.ProviderAPIError:
+        logger.warning("TMDB season prefetch failed media_id=%s", media_id)
+    finally:
+        if lock_key:
+            cache.delete(lock_key)
+
+
 @shared_task(name="Refresh sign-in poster wall", ignore_result=True)
 def refresh_login_wall_posters():
     """Cache TMDB trending posters for the public sign-in page."""

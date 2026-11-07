@@ -66,13 +66,18 @@ RATE_LIMIT_DEFAULT_WAIT_SECONDS = 5
 RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60 * 60
 RATE_LIMIT_MAX_RETRIES_INTERACTIVE = 1
 RATE_LIMIT_MAX_WAIT_SECONDS_INTERACTIVE = 5
+# (connect, read) for a call a user is waiting on: the read timeout is the
+# longest silence between bytes, so a slow but moving download still finishes
+# while a stalled link fails into the caller's fallback instead of holding the
+# page for REQUEST_TIMEOUT.
+REQUEST_TIMEOUT_INTERACTIVE = (5, 20)
 
 _interactive_request = contextvars.ContextVar("_interactive_request", default=False)
 
 
 @contextmanager
 def interactive_request_scope():
-    """Cap rate-limit retry waits for a synchronous, request-serving call.
+    """Cap rate-limit retry waits and timeouts for a request-serving call.
 
     Wrap a get_media_metadata()/api_request() call made while a user is
     waiting on the HTTP response so a 429 fails fast into the caller's
@@ -732,7 +737,11 @@ def api_request(
         request_kwargs = {
             "url": url,
             "headers": headers,
-            "timeout": settings.REQUEST_TIMEOUT,
+            "timeout": (
+                REQUEST_TIMEOUT_INTERACTIVE
+                if _interactive_request.get()
+                else settings.REQUEST_TIMEOUT
+            ),
         }
 
         if provider == Sources.TMDB.value:

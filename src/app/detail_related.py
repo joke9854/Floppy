@@ -3,13 +3,44 @@
 import logging
 
 from django.conf import settings
+from django.core.cache import cache
+from django.db import transaction
 
 from app import helpers
 from app.models import Item, MediaTypes, Sources
-from app.providers import services
+from app.providers import services, tmdb
 from app.services import metadata_resolution
 
 logger = logging.getLogger(__name__)
+
+SEASON_FETCH_LOCK_SECONDS = 10 * 60
+
+
+def _cached_tmdb_season_numbers(media_id, season_numbers, language):
+    """Return the TMDB seasons already cached; fetch the rest in the background.
+
+    A show page only uses season payloads for card titles, counts and posters,
+    which the show payload mostly carries already. Fetching every season with
+    its credits on the request blocked the page for over a minute on a slow
+    link, so the page uses what is cached and the next visit gets the rest.
+    """
+    _cached, uncached = tmdb.get_cached_seasons(media_id, season_numbers, language)
+    if uncached:
+        seasons_text = ",".join(str(number) for number in uncached)
+        lock_key = f"tmdb_season_fetch_queued_{media_id}_{language}_{seasons_text}"
+
+        def enqueue():
+            if not cache.add(lock_key, True, SEASON_FETCH_LOCK_SECONDS):
+                return
+            from app.tasks import fetch_tmdb_seasons
+
+            try:
+                fetch_tmdb_seasons.delay(media_id, uncached, language, lock_key)
+            except Exception:  # deliberate best-effort; the cards keep show data
+                cache.delete(lock_key)
+
+        transaction.on_commit(enqueue)
+    return [number for number in season_numbers if number not in uncached]
 
 
 def enrich_detail_seasons(
@@ -26,11 +57,13 @@ def enrich_detail_seasons(
     has_specials = any(season.get("season_number") == 0 for season in seasons)
     show_title = Item._normalize_title_value(media_metadata.get("title"))
 
+    language = metadata_resolution.metadata_language_default(user, detail_item)
     if (
         render_secondary_only
         and source == Sources.TMDB.value
         and media_metadata.get("tvdb_id")
         and not has_specials
+        and _cached_tmdb_season_numbers(media_id, [0], language)
     ):
         try:
             specials_metadata = services.get_media_metadata(
@@ -38,9 +71,7 @@ def enrich_detail_seasons(
                 media_id,
                 source,
                 [0],
-                language=metadata_resolution.metadata_language_default(
-                    user, detail_item
-                ),
+                language=language,
             )
             if isinstance(specials_metadata, dict) and specials_metadata.get(
                 "season/0"
@@ -69,6 +100,10 @@ def enrich_detail_seasons(
                 if season_number is not None
             },
         )
+        if source == Sources.TMDB.value:
+            season_numbers = _cached_tmdb_season_numbers(
+                media_id, season_numbers, language
+            )
         if season_numbers:
             try:
                 grouped_season_metadata = services.get_media_metadata(
@@ -76,9 +111,7 @@ def enrich_detail_seasons(
                     media_id,
                     source,
                     season_numbers,
-                    language=metadata_resolution.metadata_language_default(
-                        user, detail_item
-                    ),
+                    language=language,
                 )
             except services.ProviderAPIError:
                 grouped_season_metadata = None

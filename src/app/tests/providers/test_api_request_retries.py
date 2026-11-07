@@ -219,6 +219,25 @@ class InteractiveRequestScopeTests(CooldownIsolationMixin, SimpleTestCase):
             RATE_LIMIT_MAX_RETRIES_INTERACTIVE * RATE_LIMIT_MAX_WAIT_SECONDS_INTERACTIVE,
         )
 
+    def test_interactive_scope_uses_the_short_timeout(self):
+        """A stalled provider must not hold the page for the full timeout."""
+        response = Mock(status_code=200)
+        response.json.return_value = {"ok": True}
+        get = Mock(return_value=response)
+        with patch.object(services.session, "get", get):
+            with interactive_request_scope():
+                api_request("hardcover", "GET", "https://example.test/x")
+            api_request("hardcover", "GET", "https://example.test/x")
+
+        self.assertEqual(
+            get.call_args_list[0].kwargs["timeout"],
+            services.REQUEST_TIMEOUT_INTERACTIVE,
+        )
+        self.assertEqual(
+            get.call_args_list[1].kwargs["timeout"],
+            services.settings.REQUEST_TIMEOUT,
+        )
+
     def test_scope_is_reset_after_use(self):
         """The context manager must not leak into calls made outside it."""
         get = Mock(return_value=rate_limited_response())

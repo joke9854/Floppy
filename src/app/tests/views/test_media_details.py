@@ -64,6 +64,11 @@ from lists.models import CustomList, CustomListItem
 from users.models import DateFormatChoices, RatingScaleChoices, TimeFormatChoices
 
 
+def _all_seasons_cached(_media_id, season_numbers, _language):
+    """Treat every TMDB season as cached, so the show page enriches inline."""
+    return season_numbers
+
+
 class MediaDetailsViewTests(TestCase):
     """Test the media details views."""
 
@@ -8627,12 +8632,17 @@ class MediaDetailsViewTests(TestCase):
             ),
         )
 
+    @patch(
+        "app.detail_related._cached_tmdb_season_numbers",
+        side_effect=_all_seasons_cached,
+    )
     @patch("app.providers.tmdb._build_specials_season_from_tvdb", return_value=None)
     @patch("app.providers.tmdb.services.api_request")
     def test_tv_details_keep_cast_and_crew_after_status_saves_and_reopen(
         self,
         mock_api_request,
         mock_build_specials,
+        _mock_cached_seasons,
     ):
         """Saving TV tracking statuses should not remove cast/crew from reopened details."""
         tmdb.cache.clear()
@@ -8812,8 +8822,14 @@ class MediaDetailsViewTests(TestCase):
         )
         self.assertGreaterEqual(mock_build_specials.call_count, 1)
 
+    @patch(
+        "app.detail_related._cached_tmdb_season_numbers",
+        side_effect=_all_seasons_cached,
+    )
     @patch("app.providers.services.get_media_metadata")
-    def test_tv_details_view_adds_specials_from_regular_path(self, mock_get_metadata):
+    def test_tv_details_view_adds_specials_from_regular_path(
+        self, mock_get_metadata, _mock_cached_seasons
+    ):
         """TV details should show a specials season when season 0 is enriched."""
 
         def metadata_side_effect(
