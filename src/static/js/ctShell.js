@@ -224,16 +224,26 @@ if (!window.__floppyCtShellBound) {
   const refreshLiveParts = () => {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async () => {
-      const response = await fetch(location.href, { credentials: "same-origin" }).catch(() => null);
-      if (!response?.ok) return;
-      const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+      // A part loaded from another URL (a season's fragment on a show page)
+      // names it in data-ct-live-src; the rest come from this page.
+      const sources = new Map();
       document.querySelectorAll("[data-ct-live][id]").forEach((el) => {
-        const replacement = fresh.getElementById(el.id);
-        if (!replacement) return;
-        const node = document.importNode(replacement, true);
-        el.replaceWith(node);
-        htmx.process(node);
+        const src = el.dataset.ctLiveSrc || location.href;
+        if (!sources.has(src)) sources.set(src, []);
+        sources.get(src).push(el);
       });
+      await Promise.all([...sources].map(async ([src, parts]) => {
+        const response = await fetch(src, { credentials: "same-origin" }).catch(() => null);
+        if (!response?.ok) return;
+        const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+        parts.forEach((el) => {
+          const replacement = fresh.getElementById(el.id);
+          if (!replacement) return;
+          const node = document.importNode(replacement, true);
+          el.replaceWith(node);
+          htmx.process(node);
+        });
+      }));
       syncMarkNext();
     }, 150);
   };

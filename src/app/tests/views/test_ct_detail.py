@@ -224,7 +224,7 @@ class CineTrackDetailPageTests(TestCase):
         self.assertNotContains(secondary, "Your Plays")
 
     @patch("app.providers.services.get_media_metadata")
-    def test_cinetrack_sections_fragment_is_one_column_with_the_carousel(self, mock_get_metadata):
+    def test_cinetrack_sections_fragment_is_one_column_with_the_trailers_row(self, mock_get_metadata):
         self.user.theme = ThemeChoices.CINETRACK
         self.user.save(update_fields=["theme"])
         mock_get_metadata.return_value = {
@@ -240,7 +240,10 @@ class CineTrackDetailPageTests(TestCase):
         response = self.client.get(f"{self.url}?fragment=secondary")
 
         self.assertContains(response, 'class="ct-detail-sections"')
-        self.assertContains(response, 'id="detail-carousel-wrap"', count=1)
+        # P8: the trailers row replaces the trailer-and-photos carousel.
+        self.assertContains(response, 'id="ct-trailers"', count=1)
+        self.assertContains(response, "fragment=trailers")
+        self.assertNotContains(response, 'id="detail-carousel-wrap"')
         self.assertContains(response, "Information")
         self.assertContains(response, "Michael Corleone")
         self.assertNotContains(response, "md:w-1/4 md:max-w-[250px]")

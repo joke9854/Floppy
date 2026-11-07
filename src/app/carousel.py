@@ -39,6 +39,47 @@ def confirmed_empty(media_type, source, media_id, *, season_number=None) -> bool
     return data is not None and not data["video"] and not data["photos"]
 
 
+# A show's Trailers row reads at most this many of its newest seasons: each
+# season is its own TMDB request the first time.
+TRAILER_SEASON_LIMIT = 6
+
+
+def resolve_trailers(media_type, source, media_id) -> list[dict]:
+    """Return a TMDB movie's or show's trailers and teasers for the v2 Trailers row.
+
+    A show lists its own videos, then each season's, newest season first,
+    for its TRAILER_SEASON_LIMIT newest seasons. Each entry is
+    {"key", "name", "type", "season"}; ``season`` is None for the title's own.
+    """
+    if source != Sources.TMDB.value or media_type not in (
+        MediaTypes.MOVIE.value,
+        MediaTypes.TV.value,
+    ):
+        return []
+    sources = [(None, tmdb.carousel_media(media_type, media_id))]
+    if media_type == MediaTypes.TV.value:
+        seasons = (tmdb.tv(media_id).get("related") or {}).get("seasons") or []
+        numbers = sorted(
+            (s.get("season_number") for s in seasons if s.get("season_number")),
+            reverse=True,
+        )[:TRAILER_SEASON_LIMIT]
+        sources += [
+            (number, tmdb.carousel_media(MediaTypes.SEASON.value, media_id, season_number=number))
+            for number in numbers
+        ]
+    trailers, seen = [], set()
+    for season, data in sources:
+        for video in data.get("videos") or []:
+            # A season adds only real trailers and teasers, never the
+            # any-video fallback the title itself gets.
+            if season is not None and video.get("type") not in ("Trailer", "Teaser"):
+                continue
+            if video["key"] not in seen:
+                seen.add(video["key"])
+                trailers.append({**video, "season": season})
+    return trailers
+
+
 def resolve_carousel_media(media_type, source, media_id, *, season_number=None) -> dict | None:
     """Return {"video": {...}|None, "photos": [{"url", "thumb_url"}, ...]} or None."""
     if source == Sources.TMDB.value and media_type in _TMDB_CAROUSEL_TYPES:

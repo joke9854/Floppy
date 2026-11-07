@@ -6243,9 +6243,9 @@ html.cinetrack {
   position: fixed;
   z-index: 45;
   top: 12px;
-  bottom: 12px;
   left: 12px;
   width: 64px;
+  max-height: calc(100dvh - 24px);
   flex-direction: column;
   align-items: center;
   gap: 12px;
@@ -6372,6 +6372,7 @@ html.cinetrack {
   .ct-rail[data-ct-sidebar="attached"] {
     top: 0;
     bottom: 0;
+    max-height: none;
     left: 0;
     width: 248px;
     padding: 20px 16px 16px;
@@ -6407,7 +6408,10 @@ html.cinetrack {
     flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: thin;
+    scrollbar-width: none;
+  }
+  :is(.ct-rail[data-ct-sidebar="attached"], .ct-rail[data-ct-floating="expanded"], .ct-rail[data-ct-floating="hover"]:is(:hover, :focus-within)) .ct-rail-list::-webkit-scrollbar {
+    display: none;
   }
   :is(.ct-rail[data-ct-sidebar="attached"], .ct-rail[data-ct-floating="expanded"], .ct-rail[data-ct-floating="hover"]:is(:hover, :focus-within)) :is(.ct-rail-brand, .ct-rail-search, .ct-rail-footer, .ct-rail-list > li) {
     flex-shrink: 0;
@@ -8120,6 +8124,11 @@ main:has(.ct-detail-hero--v2) .ct-series-progress__count > span {
 main:has(.ct-detail-hero--v2) .ct-season-dashes {
   margin-top: 10px;
 }
+main .ct-episode-list > .ct-series-progress {
+  max-width: none;
+  margin: 0;
+  padding: 14px 16px 12px;
+}
 main:has(.ct-detail-hero--v2) .ct-season-dash {
   height: 4px;
 }
@@ -8215,6 +8224,205 @@ main:has(.ct-detail-hero--v2) .ct-season-dash {
 .ct-season-picker.is-text .ct-season-cover__short {
   display: inline;
 }
+.ct-season-item {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+.ct-season-info-btn {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ct-season-info-btn:hover {
+  color: var(--color-link);
+}
+.ct-season-picker:not(.is-text) .ct-season-info-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background-color: rgb(0 0 0 / 55%);
+  color: #fff;
+}
+.ct-season-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 55%);
+}
+.ct-season-info-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background-color: rgb(46 46 54);
+}
+.ct-season-info-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+.ct-season-info-body:empty {
+  height: 240px;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(255 255 255 / 4%);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.ct-season-info__head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding-right: 40px;
+}
+.ct-season-info__poster {
+  width: 92px;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+.ct-season-info__title {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 800;
+}
+.ct-season-info .ct-detail-meta {
+  margin-top: 4px;
+  font-size: 14px;
+}
+.ct-season-info__score {
+  margin-top: 8px;
+  color: var(--ct-gold, var(--color-text));
+  font-size: 15px;
+  font-weight: 700;
+}
+.ct-season-info__source {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ct-season-info__synopsis {
+  margin: 16px 0 20px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (min-width: 768px) {
+  .ct-season-info-modal {
+    align-items: center;
+  }
+  .ct-season-info-sheet {
+    max-width: 720px;
+    padding: 28px;
+    border-radius: 24px;
+  }
+}
+.ct-trailers:empty {
+  display: none;
+}
+.ct-trailer-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 260px;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-trailer-card__still {
+  position: relative;
+  display: grid;
+  margin-bottom: 8px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 12px;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-surface);
+}
+.ct-trailer-card__still img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ct-trailer-card__play {
+  position: relative;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 55%);
+  color: #fff;
+}
+.ct-trailer-card:hover .ct-trailer-card__play {
+  background-color: rgb(0 0 0 / 75%);
+}
+.ct-trailer-card__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ct-trailer-card__sub {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.ct-trailer-player {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  padding: 16px;
+  place-items: center;
+  background-color: rgb(0 0 0 / 80%);
+}
+.ct-trailer-player__frame {
+  position: relative;
+  width: min(100%, 1100px);
+  aspect-ratio: 16 / 9;
+}
+.ct-trailer-player__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+}
+.ct-trailer-player__close {
+  position: absolute;
+  top: -44px;
+  right: 0;
+}
+.ct-trailer-btn {
+  display: inline-flex;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ct-trailer-btn:hover {
+  background-color: rgb(255 255 255 / 16%);
+}
 .ct-episode-list {
   overflow: hidden;
   border-radius: var(--ct-radius-md);
@@ -8284,9 +8492,8 @@ main:has(.ct-detail-hero--v2) .ct-season-dash {
   color: var(--color-link);
 }
 .ct-ep-overview {
-  flex-basis: 100%;
-  max-width: 760px;
-  padding: 12px 0 4px 154px;
+  flex: 0 0 100%;
+  padding: 12px max(0px, calc(100% - 914px)) 4px 154px;
   color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 1.5;
@@ -9024,7 +9231,10 @@ main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head, .ct-lists-hea
   overflow-x: auto;
   padding-bottom: 6px;
   scroll-snap-type: x proximity;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+.ct-rail-row.media-grid::-webkit-scrollbar {
+  display: none;
 }
 .ct-rail-row.media-grid > * {
   flex: 0 0 132px;

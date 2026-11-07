@@ -65,6 +65,13 @@
           {% elif media.details.seasons %}
             <span>{% blocktranslate trimmed count count=media.details.seasons %}{{ count }} Season{% plural %}{{ count }} Seasons{% endblocktranslate %}</span>
           {% endif %}
+          {% if media_type == MediaTypes.TV.value or media_type == MediaTypes.ANIME.value %}
+            {% if not public_view|default:False %}
+              {# The whole show's share; each season's count sits under its pill. Always rendered so the live refresh can fill it in. #}
+              {% ct_series_progress media current_instance as series_progress %}
+              <span id="ct-show-percent" data-ct-live {% if not series_progress.percent %}hidden{% endif %}>{% blocktranslate trimmed with percent=series_progress.percent|default:0 %}{{ percent }}% watched{% endblocktranslate %}</span>
+            {% endif %}
+          {% endif %}
         </p>
       {% endwith %}
       <div class="ct-detail-chips">{% include "app/components/detail_score_chips.html" %}</div>
@@ -118,11 +125,6 @@
       {% include "app/components/ct/watch_on.html" %}
     </div>
   </div>
-  {% if not public_view|default:False %}
-    {% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value or media_type == MediaTypes.ANIME.value %}
-      {% include "app/components/ct/series_progress_card.html" %}
-    {% endif %}
-  {% endif %}
 {% else %}
   <div class="ct-detail-hero">
     <div class="ct-detail-poster">

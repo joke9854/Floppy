@@ -18,7 +18,7 @@
           {% for entry in column %}
             {% with event=entry.event item=entry.event.item %}
               <li>
-                <a href="{{ item|media_url }}" class="ct-airing-row">
+                <a href="{% if entry.url %}{{ entry.url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-airing-row">
                   <span class="ct-airing-day{% if entry.is_today %} is-today{% endif %}">
                     <span>{{ entry.day|date:"D" }}</span>
                     <strong>{{ entry.day|date:"j" }}</strong>

@@ -1268,7 +1268,8 @@ def tv(media_id, language=None):
 
 def _carousel_cache_key(media_type, media_id, season_number=None):
     """Return the cache key for a media-details carousel payload."""
-    key = f"tmdb_carousel_{media_type}_{media_id}"
+    # v2: payloads carry "videos" (every trailer and teaser).
+    key = f"tmdb_carousel_v2_{media_type}_{media_id}"
     if season_number is not None:
         key += f"_s{season_number}"
     return key
@@ -1287,6 +1288,23 @@ def _parse_carousel_video(response):
         "name": video.get("name", ""),
         "type": video.get("type", ""),
     }
+
+
+def _parse_carousel_videos(response):
+    """Return every YouTube trailer and teaser from a TMDB videos append.
+
+    Trailers come before teasers, each newest first. Without either, any
+    YouTube video stands in, as ``_parse_carousel_video`` does.
+    """
+    videos = response.get("videos", {}).get("results", []) or []
+    youtube = [v for v in videos if v.get("site") == "YouTube" and v.get("key")]
+    picked = [v for v in youtube if v.get("type") in ("Trailer", "Teaser")] or youtube[:1]
+    picked.sort(key=lambda v: v.get("published_at") or "", reverse=True)
+    picked.sort(key=lambda v: v.get("type") != "Trailer")
+    return [
+        {"key": v["key"], "name": v.get("name", ""), "type": v.get("type", "")}
+        for v in picked
+    ]
 
 
 def _parse_carousel_photos(response):
@@ -1336,6 +1354,8 @@ def carousel_media(media_type, media_id, season_number=None, language=None):
     params = {
         **base_params(language),
         "append_to_response": "videos,images",
+        # Trailers are often only in English or untagged.
+        "include_video_language": f"{(language or settings.TMDB_LANG).split('-')[0]},en,null",
     }
 
     try:
@@ -1363,12 +1383,13 @@ def carousel_media(media_type, media_id, season_number=None, language=None):
                     "season_number": season_number,
                 },
             )
-            data = {"video": None, "photos": []}
+            data = {"video": None, "videos": [], "photos": []}
             cache.set(cache_key, data, CAROUSEL_CACHE_TTL_ABSENT)
             return data
 
     data = {
         "video": _parse_carousel_video(response),
+        "videos": _parse_carousel_videos(response),
         "photos": _parse_carousel_photos(response),
     }
     ttl = (

@@ -76,6 +76,7 @@ from app.track_modal_views import _DummyPodcastWrapper
 from app.view_constants import (
     DETAIL_CAROUSEL_FRAGMENT,
     DETAIL_SECONDARY_FRAGMENT,
+    DETAIL_TRAILERS_FRAGMENT,
     force_live_metadata_cache_key,
 )
 from lists.views_helpers import get_public_list_for_item
@@ -230,6 +231,19 @@ def media_details(
                     media_type, source, media_id
                 )
             },
+            request=request,
+        ).strip()
+        return HttpResponse(html)
+
+    if request.GET.get("fragment") == DETAIL_TRAILERS_FRAGMENT:
+        try:
+            trailers = carousel_media.resolve_trailers(media_type, source, media_id)
+        except services.ProviderAPIError:
+            trailers = []
+        # Stripped for the same :empty reason as the carousel above.
+        html = render_to_string(
+            "app/components/ct/trailers.html",
+            {"trailers": trailers},
             request=request,
         ).strip()
         return HttpResponse(html)

@@ -26,7 +26,7 @@ class TmdbCarouselNotFoundTests(TestCase):
     def test_404_returns_empty_payload_and_is_negative_cached(self, mock_api):
         mock_api.side_effect = _http_error(404)
 
-        expected = {"video": None, "photos": []}
+        expected = {"video": None, "videos": [], "photos": []}
         self.assertEqual(tmdb.carousel_media(MediaTypes.SEASON.value, "999999", 10), expected)
         self.assertEqual(tmdb.carousel_media(MediaTypes.SEASON.value, "999999", 10), expected)
 

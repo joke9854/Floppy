@@ -1,0 +1,75 @@
+{% load i18n %}
+{% comment %}
+  CineTrack Trailers row (P8), the ?fragment=trailers response of a TMDB
+  movie or show page: every trailer and teaser, a show's own first, then each
+  season's. A card or the hero's Trailer button sends ct-trailer with a
+  YouTube key; one player dialog plays it. The hero button is swapped in
+  out-of-band, so it only appears once there is a trailer to play.
+  Context: trailers, from carousel.resolve_trailers.
+{% endcomment %}
+{% if trailers %}
+  <div x-data="{ key: null }"
+       @ct-trailer.window="key = $event.detail.key"
+       @keydown.escape.window="key = null">
+    <div class="ct-row-head">
+      <h2 class="ct-row-title">{% translate "Trailers" %}</h2>
+    </div>
+    <div class="ct-detail-rail">
+      {% for trailer in trailers %}
+        <button type="button"
+                class="ct-trailer-card"
+                @click="$dispatch('ct-trailer', { key: '{{ trailer.key|escapejs }}' })">
+          <span class="ct-trailer-card__still">
+            <img alt=""
+                 class="ct-fade-img"
+                 src="https://img.youtube.com/vi/{{ trailer.key|urlencode }}/mqdefault.jpg"
+                 width="320"
+                 height="180"
+                 loading="lazy"
+                 decoding="async">
+            <span class="ct-trailer-card__play" aria-hidden="true">{% include "app/icons/play.svg" with classes="w-5 h-5" %}</span>
+          </span>
+          <span class="ct-trailer-card__title">{{ trailer.name|default:trailer.type }}</span>
+          <span class="ct-trailer-card__sub">
+            {% if trailer.season %}
+              {% blocktranslate trimmed with number=trailer.season %}Season {{ number }}{% endblocktranslate %} ·
+            {% endif %}
+            {{ trailer.type }}
+          </span>
+        </button>
+      {% endfor %}
+    </div>
+    <template x-teleport="body">
+      <div class="ct-trailer-player"
+           x-show="key"
+           x-transition.opacity.duration.150ms
+           @click.self="key = null"
+           role="dialog"
+           aria-modal="true"
+           aria-label="{% translate "Trailer" %}">
+        <div class="ct-trailer-player__frame">
+          <button type="button"
+                  class="ct-trailer-player__close ct-glass-control"
+                  @click="key = null"
+                  aria-label="{% translate "Close" %}">{% include "app/icons/x.svg" with classes="w-4 h-4" %}</button>
+          <template x-if="key">
+            <iframe :src="'https://www.youtube.com/embed/' + key + '?autoplay=1'"
+                    title="{% translate "Trailer" %}"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+  <span id="ct-trailer-slot" class="contents" hx-swap-oob="true">
+    <button type="button"
+            class="ct-trailer-btn"
+            x-data
+            @click="$dispatch('ct-trailer', { key: '{{ trailers.0.key|escapejs }}' })">
+      {% include "app/icons/play.svg" with classes="w-4 h-4" %}
+      <span>{% translate "Trailer" %}</span>
+    </button>
+  </span>
+{% endif %}

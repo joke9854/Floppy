@@ -286,6 +286,55 @@ def ct_detail_next_episode(media, current_instance):
     }
 
 
+@register.simple_tag(takes_context=True)
+def ct_character_images(context, media):
+    """Return TVDB character pictures keyed by actor name (v2 Characters tab).
+
+    CineTrack Android shows the character's own picture where TVDB has one;
+    the cast keeps the actor's TMDB photo. Shows, their seasons and movies
+    from TMDB only, and only when TVDB is configured. The rows are cached a
+    week, so only a title's first visit reads TVDB. A provider failure falls
+    back to the actor photos.
+    """
+    from app.providers import credentials, services, tvdb
+
+    if not isinstance(media, dict) or media.get("source") != Sources.TMDB.value:
+        return {}
+    media_type = media.get("media_type")
+    if media_type in (MediaTypes.SEASON.value, MediaTypes.ANIME.value):
+        media_type = MediaTypes.TV.value
+    if media_type not in (MediaTypes.TV.value, MediaTypes.MOVIE.value):
+        return {}
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    media_id = media.get("media_id")
+    try:
+        with credentials.current_user_scope(user):
+            if not tvdb.enabled(user):
+                return {}
+            ids = tmdb.external_ids(media_type, media_id)
+            if media_type == MediaTypes.TV.value:
+                tvdb_id = tmdb.get_tvdb_id_override(media_id) or ids.get("tvdb_id")
+            else:
+                imdb_id = str(ids.get("imdb_id") or "").strip()
+                tvdb_id = tvdb.movie_id_for_imdb(imdb_id) if imdb_id else None
+            rows = tvdb.character_images(media_type, tvdb_id) if tvdb_id else []
+    except services.ProviderAPIError:
+        return {}
+    return {
+        row["person_name"].casefold(): row["character_image"]
+        for row in rows
+        if row.get("person_name") and row.get("character_image")
+    }
+
+
+@register.filter
+def ct_character_image(images, person):
+    """Return the TVDB picture of a cast member's character, or ''."""
+    name = person.get("name") if isinstance(person, dict) else None
+    return (images or {}).get(str(name or "").casefold(), "")
+
+
 @register.filter
 def ct_v2_detail_type(media_type):
     """Return whether a detail page takes the Apple layout v2 (A2/A7/A10)."""
@@ -306,6 +355,10 @@ def ct_season_covers(show, current_number=None):
     the season on screen: ``current_number``, else the first regular season.
     """
     seasons = ((show or {}).get("related") or {}).get("seasons") or []
+    try:
+        current_number = int(current_number)
+    except (TypeError, ValueError):
+        current_number = None
     covers = []
     for season in seasons:
         item = _ct_value(season, "item") or season
@@ -1423,25 +1476,14 @@ def media_url(media):
         )
 
     if actual_media_type == MediaTypes.SEASON.value:
+        # There is no season page: a season opens on its show's page.
         season_number = media["season_number"] if is_dict else media.season_number
-        if route_media_type == MediaTypes.ANIME.value:
-            return reverse(
-                "anime_season_details",
-                kwargs={
-                    "source": source,
-                    "media_id": media_id,
-                    "title": slug_title,
-                    "season_number": season_number,
-                },
-            )
-        return reverse(
-            "season_details",
-            kwargs={
-                "source": source,
-                "media_id": media_id,
-                "title": slug_title,
-                "season_number": season_number,
-            },
+        return season_page_url(
+            source,
+            media_id,
+            slug_title,
+            season_number,
+            anime=route_media_type == MediaTypes.ANIME.value,
         )
 
     # For show/movie/etc, route_media_type overrides actual_media_type
@@ -1456,6 +1498,20 @@ def media_url(media):
             "title": slug_title,
         },
     )
+
+
+def season_page_url(source, media_id, title, season_number, *, anime=False):
+    """Return the show page URL with a season selected (``?season=N``)."""
+    url = reverse(
+        "media_details",
+        kwargs={
+            "source": source,
+            "media_type": MediaTypes.ANIME.value if anime else MediaTypes.TV.value,
+            "media_id": media_id,
+            "title": title,
+        },
+    )
+    return f"{url}?season={season_number}"
 
 
 def _untracked_season_next_episode_url(item, seasons, actual_media_type):

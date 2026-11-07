@@ -7,8 +7,9 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.db.models import Case, DateTimeField, Value, When
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
@@ -92,6 +93,24 @@ def season_details(
             request=request,
         ).strip()
         return HttpResponse(html)
+
+    if request.GET.get("fragment") != DETAIL_SECONDARY_FRAGMENT:
+        # There is no season page: the show page selects the season. Its
+        # episode list still loads from this view's secondary fragment.
+        query = request.GET.copy()
+        query.pop("fragment", None)
+        query.pop("episode_page", None)
+        query["season"] = str(season_number)
+        url = reverse(
+            "media_details",
+            kwargs={
+                "source": source,
+                "media_type": parent_media_type or MediaTypes.TV.value,
+                "media_id": media_id,
+                "title": title,
+            },
+        )
+        return redirect(f"{url}?{query.urlencode()}")
 
     detail_view_started_at = time.perf_counter()
     carousel_supported = carousel_media.carousel_supported(

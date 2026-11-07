@@ -938,16 +938,12 @@ def episode_details(
 
     imdb_score = _build_imdb_rating_context(episode_item, MediaTypes.EPISODE.value)
 
-    season_url = reverse(
-        "anime_season_details"
-        if parent_media_type == MediaTypes.ANIME.value
-        else "season_details",
-        kwargs={
-            "source": source,
-            "media_id": media_id,
-            "title": title,
-            "season_number": season_number,
-        },
+    season_url = app_tags.season_page_url(
+        source,
+        media_id,
+        title,
+        season_number,
+        anime=parent_media_type == MediaTypes.ANIME.value,
     )
 
     # Surface the note from the most recent watch that has one, the same way

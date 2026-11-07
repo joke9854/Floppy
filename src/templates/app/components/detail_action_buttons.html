@@ -129,6 +129,12 @@
           <div class="ct-more-row flex w-full items-center gap-2 sm:w-auto sm:flex-wrap"
                x-data="{ moreOpen: false }"
                @keydown.escape.window="moreOpen = false">
+            {% if request.user.theme == "cinetrack" and media.source == "tmdb" %}
+              {% if media_type == MediaTypes.MOVIE.value or media_type == MediaTypes.TV.value %}
+                {# P8: ct/trailers.html swaps the Trailer button in once there is one. #}
+                <span id="ct-trailer-slot" class="contents"></span>
+              {% endif %}
+            {% endif %}
             {% if request.user.theme == "cinetrack" %}
               {% include "app/components/detail_lists_button.html" %}
             {% endif %}

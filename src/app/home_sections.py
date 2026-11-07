@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 
 from django.core.cache import cache
 from django.db.models import Count
+from django.urls import reverse
 from django.utils import timezone
 
 from app.cache_utils import (
@@ -18,7 +19,8 @@ from app.cache_utils import (
     HOME_ROW_CACHE_TTL,
     register_home_row_cache_key,
 )
-from app.models import Episode, Item, Movie, Season, Status
+from app.models import Episode, Item, MediaTypes, Movie, Season, Status
+from app.templatetags.app_tags import slug
 from events.models import Event
 from events.notifications import annotate_finale_events
 
@@ -37,6 +39,33 @@ class AiringEntry:
     day: date
     is_today: bool
     tag: str | None  # "premiere", "finale" or None
+    url: str | None = None  # the episode's page, when the release is one
+
+
+def _airing_url(event: Event) -> str | None:
+    """Return the released episode's detail URL, or None for other releases."""
+    item = event.item
+    if (
+        item.media_type != MediaTypes.SEASON.value
+        or item.season_number is None
+        or event.content_number is None
+    ):
+        return None
+    name = (
+        "anime_episode_details"
+        if item.library_media_type == MediaTypes.ANIME.value
+        else "episode_details"
+    )
+    return reverse(
+        name,
+        kwargs={
+            "source": item.source,
+            "media_id": item.media_id,
+            "title": slug(item.title) or "item",
+            "season_number": item.season_number,
+            "episode_number": event.content_number,
+        },
+    )
 
 
 @dataclass
@@ -64,7 +93,9 @@ def _airing_this_week(user, today: date) -> tuple[list[AiringEntry], int]:
         elif event._is_season_finale:
             tag = "finale"
         day = timezone.localtime(event.datetime).date()
-        entries.append(AiringEntry(event, day, day == today, tag))
+        entries.append(
+            AiringEntry(event, day, day == today, tag, _airing_url(event)),
+        )
     return entries, total
 
 

@@ -29,13 +29,15 @@
     {% if media_type == MediaTypes.SEASON.value %}
       {% ct_season_covers tv media.season_number as covers %}
     {% else %}
-      {% ct_season_covers media next_episode.season_number as covers %}
+      {% firstof request.GET.season next_episode.season_number as selected_season %}
+      {% ct_season_covers media selected_season as covers %}
     {% endif %}
     <section class="ct-detail-section ct-episodes"
              id="ct-episodes"
              {% detail_section_attrs user detail_family "content" "episodes" %}
-             x-data="{ style: localStorage.getItem('ct-season-style') || (window.matchMedia('(min-width: 768px)').matches ? 'covers' : 'text') }"
-             x-init="$watch('style', v => localStorage.setItem('ct-season-style', v))">
+             x-data="{ style: localStorage.getItem('ct-season-style') || (window.matchMedia('(min-width: 768px)').matches ? 'covers' : 'text'), seasonInfo: false, openSeasonInfo(url) { this.seasonInfo = true; const body = document.getElementById('ct-season-info-body'); body.innerHTML = ''; htmx.ajax('GET', url, { target: body, select: '#ct-season-info', swap: 'innerHTML' }); } }"
+             x-init="$watch('style', v => localStorage.setItem('ct-season-style', v))"
+             @keydown.escape.window="seasonInfo = false">
       <div class="ct-row-head">
         <h2 class="ct-row-title">{% translate "Episodes" %}</h2>
         {% if covers|length > 1 %}
@@ -52,8 +54,9 @@
              aria-label="{% translate "Seasons" %}">
           {% for cover in covers %}
             {% if parent_media_type == MediaTypes.ANIME.value or media_type == MediaTypes.ANIME.value %}{% url 'anime_season_details' source=media.source media_id=media.media_id title=media.title|slug season_number=cover.number as season_url %}{% else %}{% url 'season_details' source=media.source media_id=media.media_id title=media.title|slug season_number=cover.number as season_url %}{% endif %}
+            <div class="ct-season-item">
             <a class="ct-season-cover{% if cover.current %} is-current{% endif %}"
-               href="{{ season_url }}"
+               href="{{ request.path }}?season={{ cover.number }}"
                role="tab"
                aria-selected="{{ cover.current|yesno:'true,false' }}"
                {% if media_type != MediaTypes.SEASON.value %}
@@ -61,8 +64,8 @@
                  hx-select="#ct-episode-list"
                  hx-target="#ct-episode-list"
                  hx-swap="outerHTML"
-                 hx-push-url="false"
-                 @click="$el.parentElement.querySelectorAll('.ct-season-cover').forEach(el => { el.classList.toggle('is-current', el === $el); el.setAttribute('aria-selected', el === $el); })"
+                 hx-push-url="{{ request.path }}?season={{ cover.number }}"
+                 @click="$el.closest('.ct-season-picker').querySelectorAll('.ct-season-cover').forEach(el => { el.classList.toggle('is-current', el === $el); el.setAttribute('aria-selected', el === $el); })"
                {% endif %}>
               <span class="ct-season-cover__art">
                 {% if cover.image %}
@@ -78,12 +81,45 @@
               <span class="ct-season-cover__label">{{ cover.label }}</span>
               <span class="ct-season-cover__short">{{ cover.short }}</span>
             </a>
+            {% if media_type != MediaTypes.SEASON.value %}
+              <button type="button"
+                      class="ct-season-info-btn"
+                      @click="openSeasonInfo('{{ season_url|escapejs }}?fragment=secondary')"
+                      title="{% blocktranslate trimmed with season=cover.label %}About {{ season }}{% endblocktranslate %}"
+                      aria-label="{% blocktranslate trimmed with season=cover.label %}About {{ season }}{% endblocktranslate %}">
+                {% include "app/icons/info.svg" with classes="w-4 h-4" %}
+              </button>
+            {% endif %}
+            </div>
           {% endfor %}
         </div>
+      {% endif %}
+      {% if media_type != MediaTypes.SEASON.value and covers %}
+        {# One season info dialog per show page; each pill's info button loads its season into it. #}
+        <template x-teleport="body">
+          <div class="ct-season-info-modal"
+               x-show="seasonInfo"
+               x-transition.opacity.duration.150ms
+               @click.self="seasonInfo = false"
+               role="dialog"
+               aria-modal="true"
+               aria-label="{% translate "Season info" %}">
+            <div class="ct-season-info-sheet">
+              <button type="button"
+                      class="ct-season-info-close ct-glass-control"
+                      @click="seasonInfo = false"
+                      aria-label="{% translate "Close" %}">{% include "app/icons/x.svg" with classes="w-4 h-4" %}</button>
+              <div id="ct-season-info-body" class="ct-season-info-body" aria-live="polite"></div>
+            </div>
+          </div>
+        </template>
       {% endif %}
 
       {% if media_type == MediaTypes.SEASON.value %}
         <div id="ct-episode-list" class="ct-episode-list">
+          {% if not public_view|default:False %}
+            {% include "app/components/ct/series_progress_card.html" with progress_id="ct-season-progress" live_src=request.get_full_path %}
+          {% endif %}
           <div id="episodes-batch">
             {% for episode in media.episodes %}
               {% if media.source and media.media_id and media.season_number is not None and episode.episode_number is not None %}{% if parent_media_type == MediaTypes.ANIME.value %}{% url 'anime_episode_details' source=media.source media_id=media.media_id title=media.title|slug season_number=media.season_number episode_number=episode.episode_number as ep_detail_url %}{% else %}{% url 'episode_details' source=media.source media_id=media.media_id title=media.title|slug season_number=media.season_number episode_number=episode.episode_number as ep_detail_url %}{% endif %}{% endif %}
@@ -91,8 +127,8 @@
             {% endfor %}
             {% if episode_load_more %}
               <div class="detail-episode-load-more flex justify-center pt-2" data-episode-load-more>
-                <a href="?{{ episode_load_more.querystring }}"
-                   hx-get="?{{ episode_load_more.querystring }}"
+                <a href="{{ request.path }}?{{ episode_load_more.querystring }}"
+                   hx-get="{{ request.path }}?{{ episode_load_more.querystring }}"
                    hx-select="#episodes-batch > *"
                    hx-target="closest [data-episode-load-more]"
                    hx-swap="outerHTML"
@@ -136,6 +172,53 @@
         </div>
       </div>
     </section>
+  {% endif %}
+
+  {% if media_type == MediaTypes.SEASON.value %}
+    {# Hidden here; the show page's season info dialog selects #ct-season-info. #}
+    <div hidden>
+      <div id="ct-season-info" class="ct-season-info" x-data="{ tab: 'characters' }">
+        <div class="ct-season-info__head">
+          {% if media.image and media.image != IMG_NONE %}
+            <img alt=""
+                 class="ct-season-info__poster"
+                 src="{{ media.image|tmdb_size:'w185'|image_url }}"
+                 width="185"
+                 height="278"
+                 decoding="async">
+          {% endif %}
+          <div>
+            <h2 class="ct-season-info__title">{{ media.season_title|default:_("Season") }}</h2>
+            <p class="ct-detail-meta">
+              {% with year=media.details|release_year %}{% if year %}<span>{{ year }}</span>{% endif %}{% endwith %}
+              {% if media.details.episodes %}<span>{% blocktranslate trimmed count count=media.details.episodes %}{{ count }} Episode{% plural %}{{ count }} Episodes{% endblocktranslate %}</span>{% endif %}
+              {% if media.details.runtime %}<span>{{ media.details.runtime }}</span>{% endif %}
+            </p>
+            {% if media.score %}
+              <p class="ct-season-info__score">
+                <span aria-hidden="true">★</span> {{ media.score }}
+                <span class="ct-season-info__source">TMDB</span>
+              </p>
+            {% endif %}
+          </div>
+        </div>
+        {% if media.synopsis %}
+          <p class="ct-season-info__synopsis">{{ media.synopsis }}</p>
+        {% endif %}
+        {% if cast_row.total %}
+          {% ct_character_images media as character_images %}
+          <div class="ct-row-head ct-title-toggle" role="tablist">
+            <button type="button" role="tab" class="ct-row-title" :class="{ 'is-off': tab !== 'characters' }" :aria-selected="(tab === 'characters').toString()" @click="tab = 'characters'">{% translate "Characters" %}</button>
+            <button type="button" role="tab" class="ct-row-title" :class="{ 'is-off': tab !== 'cast' }" :aria-selected="(tab === 'cast').toString()" @click="tab = 'cast'">{% translate "Cast" %}</button>
+          </div>
+          <div class="ct-detail-rail">
+            {% for person in cast_row.items %}
+              {% include "app/components/ct/person_card.html" %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
   {% endif %}
 
   {# Your Plays (movies) #}
@@ -201,6 +284,7 @@
         {% endif %}
       </div>
       {% if cast_row.total %}
+        {% ct_character_images media as character_images %}
         <div class="ct-detail-rail" x-show="tab !== 'crew'">
           {% for person in cast_row.items %}
             {% include "app/components/ct/person_card.html" %}
@@ -217,7 +301,14 @@
     </section>
   {% endif %}
 
-  {% if carousel_supported %}
+  {% if media.source == Sources.TMDB.value and media_type == MediaTypes.MOVIE.value or media.source == Sources.TMDB.value and media_type == MediaTypes.TV.value %}
+    {# P8: every trailer and teaser, a show's seasons included; no photos. #}
+    <section class="ct-detail-section ct-trailers"
+             id="ct-trailers"
+             hx-get="{{ request.path }}?fragment=trailers"
+             hx-trigger="load delay:100ms"
+             hx-swap="innerHTML"></section>
+  {% elif carousel_supported %}
     <section class="ct-detail-media" aria-label="{% translate "Trailer and photos" %}">
       <div class="ct-detail-media__frame"
            id="detail-carousel-wrap"

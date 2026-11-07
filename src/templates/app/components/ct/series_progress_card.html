@@ -3,13 +3,16 @@
 {% comment %}
   CineTrack series progress card (W3): watched against total episodes, an
   accent progress line and the season (or episode) dash strip.
-  Context: media, current_instance.
+  Context: media, current_instance; optional progress_id (default
+  ct-series-progress) and live_src, the URL the live refresh re-reads it
+  from when the page itself does not render it (a season on a show page).
 {% endcomment %}
 {% ct_series_progress media current_instance as series_progress %}
 {% if series_progress %}
   <section class="ct-series-progress"
-           id="ct-series-progress"
+           id="{{ progress_id|default:'ct-series-progress' }}"
            data-ct-live
+           {% if live_src %}data-ct-live-src="{{ live_src }}"{% endif %}
            style="--ct-progress: {{ series_progress.percent }}%"
            aria-label="{% translate "Your progress" %}">
     <div class="ct-series-progress__head">

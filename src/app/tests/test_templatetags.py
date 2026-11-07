@@ -919,15 +919,8 @@ class AppTagsTests(TestCase):
 
         # Test with object for Season
         season_url = app_tags.media_url(self.season_item)
-        expected_season_url = reverse(
-            "season_details",
-            kwargs={
-                "source": Sources.TMDB.value,
-                "media_id": "1668",
-                "title": "test-tv-show",
-                "season_number": 1,
-            },
-        )
+        # There is no season page: a season opens on its show's page.
+        expected_season_url = "/details/tmdb/tv/1668/test-tv-show?season=1"
         self.assertEqual(season_url, expected_season_url)
 
         # Test with dict for Season
@@ -1988,3 +1981,33 @@ class DetailScoreChipsTemplateTests(TestCase):
     def test_numeric_score_count_still_renders(self):
         html = self._render(42)
         self.assertIn("42", html)
+
+
+class CharacterImagesTests(TestCase):
+    """v2 Characters tab: TVDB character pictures matched to the TMDB cast."""
+
+    @patch("app.providers.tvdb.character_images")
+    @patch("app.providers.tmdb.external_ids", return_value={"tvdb_id": 371980})
+    @patch("app.providers.tvdb.enabled", return_value=True)
+    def test_season_uses_its_show_characters(self, _enabled, _ids, character_images):
+        character_images.return_value = [
+            {"person_name": "Adam Scott", "character_image": "https://artworks.thetvdb.com/a.jpg"},
+            {"person_name": "Britt Lower", "character_image": None},
+        ]
+        media = {"source": Sources.TMDB.value, "media_type": MediaTypes.SEASON.value, "media_id": "95396"}
+
+        images = app_tags.ct_character_images({"request": None}, media)
+
+        character_images.assert_called_once_with(MediaTypes.TV.value, 371980)
+        self.assertEqual(images, {"adam scott": "https://artworks.thetvdb.com/a.jpg"})
+        self.assertEqual(
+            app_tags.ct_character_image(images, {"name": "Adam Scott"}),
+            "https://artworks.thetvdb.com/a.jpg",
+        )
+        self.assertEqual(app_tags.ct_character_image(images, {"name": "Britt Lower"}), "")
+
+    @patch("app.providers.tvdb.enabled", return_value=False)
+    def test_without_tvdb_the_cast_keeps_actor_photos(self, _enabled):
+        media = {"source": Sources.TMDB.value, "media_type": MediaTypes.TV.value, "media_id": "95396"}
+
+        self.assertEqual(app_tags.ct_character_images({"request": None}, media), {})

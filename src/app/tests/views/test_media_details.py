@@ -6324,69 +6324,40 @@ class MediaDetailsViewTests(TestCase):
         )
         self.assertTrue(response.context["detail_persistence_deferred"])
 
-    @patch("app.providers.services.get_media_metadata")
-    @patch("app.providers.tmdb.process_episodes")
-    def test_season_details_view(self, mock_process_episodes, mock_get_metadata):
-        """Season details should render the shell before deferred episode work."""
-        mock_get_metadata.side_effect = lambda *_args, **_kwargs: {
-            "title": "Test TV Show",
-            "media_id": "1668",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/image.jpg",
-            "season/1": {
-                "title": "Season 1",
-                "season_title": "Season 1",
-                "media_id": "1668",
-                "media_type": MediaTypes.SEASON.value,
+    def test_season_details_redirects_to_the_show_page(self):
+        """There is no season page: it opens the show page with that season selected."""
+        url = reverse(
+            "season_details",
+            kwargs={
                 "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "episodes": [],
-            },
-        }
-
-        mock_process_episodes.return_value = [
-            {
                 "media_id": "1668",
-                "source": Sources.TMDB.value,
-                "media_type": MediaTypes.EPISODE.value,
-                "season_number": 1,
-                "episode_number": 1,
-                "name": "Episode 1",
-                "air_date": "2023-01-01",
-                "watched": False,
+                "title": "test-tv-show",
+                "season_number": 2,
             },
-        ]
+        )
 
-        response = self.client.get(
+        response = self.client.get(url, {"public_view": "1"})
+
+        self.assertRedirects(
+            response,
+            "/details/tmdb/tv/1668/test-tv-show?public_view=1&season=2",
+            fetch_redirect_response=False,
+        )
+        anime = self.client.get(
             reverse(
-                "season_details",
+                "anime_season_details",
                 kwargs={
-                    "source": Sources.TMDB.value,
-                    "media_id": "1668",
-                    "title": "test-tv-show",
-                    "season_number": 1,
+                    "source": Sources.TVDB.value,
+                    "media_id": "79824",
+                    "title": "naruto-shippuden",
+                    "season_number": 0,
                 },
             ),
         )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "app/media_details.html")
-        self.assertIn("media", response.context)
-        self.assertEqual(response.context["media"]["title"], "Season 1")
-        self.assertContains(response, 'id="detail-secondary-content"', html=False)
-        self.assertContains(response, "fragment=secondary")
-        self.assertNotContains(response, "Episode 1")
-        self.assertEqual(response.context["display_provider"], Sources.TMDB.value)
-        self.assertEqual(response.context["identity_provider"], Sources.TMDB.value)
-        mock_process_episodes.assert_not_called()
-
-        mock_get_metadata.assert_called_once_with(
-            "tv_with_seasons",
-            "1668",
-            Sources.TMDB.value,
-            [1],
-            language="en",
+        self.assertRedirects(
+            anime,
+            "/details/tvdb/anime/79824/naruto-shippuden?season=0",
+            fetch_redirect_response=False,
         )
 
     @patch("app.providers.services.get_media_metadata")
@@ -6426,7 +6397,7 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 1,
                 },
             ),
-            {"public_view": "1"},
+            {"public_view": "1", "fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -6584,6 +6555,7 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 0,
                 },
             ),
+            {"fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -6655,6 +6627,7 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 1,
                 },
             ),
+            {"fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -7076,6 +7049,7 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 1,
                 },
             ),
+            {"fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -7138,6 +7112,7 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 1,
                 },
             ),
+            {"fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -7655,7 +7630,8 @@ class MediaDetailsViewTests(TestCase):
             season_item.provider_metadata_status,
             ProviderMetadataStatus.LOCAL_ONLY_MISSING_SEASON.value,
         )
-        self.assertEqual(self.client.get(url).status_code, 200)
+        # The page itself is the show page now.
+        self.assertEqual(self.client.get(url).status_code, 302)
 
     @patch("app.views.trakt_popularity_service.refresh_trakt_popularity")
     @patch("app.providers.tmdb.get_tvdb_episode_image_map")
@@ -8077,75 +8053,13 @@ class MediaDetailsViewTests(TestCase):
                     "season_number": 1,
                 },
             ),
+            {"fragment": "secondary"},
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.context["media"]["image"],
             "https://images.example.com/custom-season.jpg",
-        )
-
-    @patch("app.providers.services.get_media_metadata")
-    @patch("app.providers.tmdb.process_episodes")
-    def test_season_details_swaps_show_and_season_heading_sizes(
-        self,
-        mock_process_episodes,
-        mock_get_metadata,
-    ):
-        mock_process_episodes.return_value = []
-        mock_get_metadata.return_value = {
-            "title": "Test TV Show",
-            "media_id": "1668",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/image.jpg",
-            "season/1": {
-                "title": "Test TV Show",
-                "season_title": "Season 1",
-                "media_id": "1668",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "score": 7.6,
-                "score_count": 42000,
-                "episodes": [],
-            },
-        }
-
-        response = self.client.get(
-            reverse(
-                "season_details",
-                kwargs={
-                    "source": Sources.TMDB.value,
-                    "media_id": "1668",
-                    "title": "test-tv-show",
-                    "season_number": 1,
-                },
-            ),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertRegex(
-            content,
-            r'<div class="mb-1 text-center md:text-start">\s*<div class="inline-flex items-center gap-2 md:flex md:gap-2">\s*<h1 class="text-3xl font-bold cursor-pointer hover:text-indigo-500 transition-colors duration-200">\s*<a href="[^"]+">Test TV Show</a>\s*</h1>',
-        )
-        self.assertIn(
-            'class="relative flex flex-col gap-y-4 md:flex-row md:gap-y-0 items-center justify-between mb-1"',
-            content,
-        )
-        self.assertIn(
-            'aria-label="Select season"',
-            content,
-        )
-        self.assertIn(
-            '@click="open = !open"',
-            content,
-        )
-        self.assertEqual(content.count('aria-label="Select season"'), 2)
-        self.assertNotIn(
-            'class="flex w-full items-center justify-center space-x-2 px-4 py-2',
-            content,
         )
 
     @patch("app.providers.services.get_media_metadata")
@@ -8183,199 +8097,6 @@ class MediaDetailsViewTests(TestCase):
         content = response.content.decode()
         self.assertIn('<h1 class="text-3xl font-bold">The Sound of Music</h1>', content)
         self.assertNotIn('aria-label="Show alternative title"', content)
-
-    @patch("app.providers.services.get_media_metadata")
-    @patch("app.providers.tmdb.process_episodes")
-    def test_anime_season_details_use_tooltip_for_alt_season_title(
-        self,
-        mock_process_episodes,
-        mock_get_metadata,
-    ):
-        mock_process_episodes.return_value = []
-        Item.objects.create(
-            media_id="259640",
-            source=Sources.TVDB.value,
-            media_type=MediaTypes.TV.value,
-            library_media_type=MediaTypes.ANIME.value,
-            title="Sword Art Online",
-            image="https://example.com/sao.jpg",
-        )
-        mock_get_metadata.return_value = {
-            "title": "Sword Art Online",
-            "media_id": "259640",
-            "source": Sources.TVDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "https://example.com/sao.jpg",
-            "season/3": {
-                "title": "Sword Art Online",
-                "season_title": "Alicization",
-                "media_id": "259640",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TVDB.value,
-                "image": "https://example.com/alicization.jpg",
-                "episodes": [],
-            },
-        }
-
-        response = self.client.get(
-            reverse(
-                "season_details",
-                kwargs={
-                    "source": Sources.TVDB.value,
-                    "media_id": "259640",
-                    "title": "sword-art-online",
-                    "season_number": 3,
-                },
-            ),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertRegex(
-            content,
-            r'<h1 class="text-3xl font-bold cursor-pointer hover:text-indigo-500 transition-colors duration-200">\s*<a href="[^"]+">Sword Art Online</a>\s*</h1>\s*<div class="relative shrink-0"',
-        )
-        self.assertIn('aria-label="Show alternative title"', content)
-        self.assertIn(
-            'aria-label="Select season"',
-            content,
-        )
-        self.assertIn(">Season 3</span>", content)
-        self.assertIn("<p>Alicization</p>", content)
-
-    @patch("app.providers.services.get_media_metadata")
-    @patch("app.providers.tmdb.process_episodes")
-    def test_season_details_renders_progress_and_date_subtitle_without_history_card(
-        self,
-        mock_process_episodes,
-        mock_get_metadata,
-    ):
-        self.user.date_format = DateFormatChoices.ISO_8601
-        self.user.time_format = TimeFormatChoices.HH_MM
-        self.user.save(update_fields=["date_format", "time_format"])
-        mock_process_episodes.return_value = []
-        show_item = Item.objects.create(
-            media_id="1668",
-            source=Sources.TMDB.value,
-            media_type=MediaTypes.TV.value,
-            title="Test TV Show",
-            image="http://example.com/image.jpg",
-        )
-        related_tv = TV.objects.create(
-            item=show_item,
-            user=self.user,
-            status=Status.IN_PROGRESS.value,
-        )
-        season_item = Item.objects.create(
-            media_id="1668",
-            source=Sources.TMDB.value,
-            media_type=MediaTypes.SEASON.value,
-            title="Season 1",
-            image="http://example.com/season.jpg",
-            season_number=1,
-        )
-        season = Season.objects.create(
-            item=season_item,
-            user=self.user,
-            related_tv=related_tv,
-            status=Status.IN_PROGRESS.value,
-        )
-        Episode.objects.create(
-            item=Item.objects.create(
-                media_id="1668",
-                source=Sources.TMDB.value,
-                media_type=MediaTypes.EPISODE.value,
-                title="Episode 1",
-                image="http://example.com/episode1.jpg",
-                season_number=1,
-                episode_number=1,
-            ),
-            related_season=season,
-            end_date=datetime(2026, 3, 1, 12, 0, tzinfo=UTC),
-        )
-        Episode.objects.create(
-            item=Item.objects.create(
-                media_id="1668",
-                source=Sources.TMDB.value,
-                media_type=MediaTypes.EPISODE.value,
-                title="Episode 2",
-                image="http://example.com/episode2.jpg",
-                season_number=1,
-                episode_number=2,
-            ),
-            related_season=season,
-            end_date=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
-        )
-        mock_get_metadata.return_value = {
-            "title": "Test TV Show",
-            "media_id": "1668",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/image.jpg",
-            "season/1": {
-                "title": "Test TV Show",
-                "season_title": "Season 1",
-                "media_id": "1668",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "max_progress": 8,
-                "episodes": [],
-            },
-        }
-
-        response = self.client.get(
-            reverse(
-                "season_details",
-                kwargs={
-                    "source": Sources.TMDB.value,
-                    "media_id": "1668",
-                    "title": "test-tv-show",
-                    "season_number": 1,
-                },
-            ),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn(
-            'class="mb-3 flex flex-col items-center justify-between gap-y-4 md:mb-1 md:flex-row md:gap-y-0"',
-            content,
-        )
-        self.assertIn(
-            'aria-label="Select season"',
-            content,
-        )
-        self.assertEqual(content.count('aria-label="Select season"'), 2)
-        history_buttons = re.findall(
-            r'<button[^>]*aria-label="View session history"[^>]*>.*?</button>',
-            content,
-            flags=re.DOTALL,
-        )
-        self.assertEqual(len(history_buttons), 2)
-        self.assertTrue(
-            any("season-progress-desktop-" in button for button in history_buttons),
-        )
-        for button in history_buttons:
-            self.assertNotIn("Season 1", button)
-        self.assertIn("Progress: 2/8", content)
-        self.assertIn("2026-03-01 12:00 - 2026-03-12 12:00", content)
-        self.assertNotIn(
-            '<h2 class="text-sm font-medium text-[var(--color-text-muted)]">Season 1</h2>',
-            content,
-        )
-        self.assertIn(
-            'hx-get="/history/sessions?media_type=tv',
-            content,
-        )
-        trigger_start = content.index('hx-get="/history/sessions')
-        trigger_url = content[trigger_start:].split('"', 2)[1]
-        self.assertEqual(
-            unescape(trigger_url),
-            "/history/sessions?media_type=tv&media_id=1668&source=tmdb&season_number=1",
-        )
-        self.assertEqual(content.count('id="session-history-modal-host"'), 1)
-        self.assertNotIn("Your History", content)
 
     @patch("integrations.tasks.fetch_collection_metadata_for_item.delay")
     @patch("app.providers.services.get_media_metadata")
@@ -9025,18 +8746,7 @@ class MediaDetailsViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         seasons = response.context["media"]["related"]["seasons"]
         self.assertEqual(seasons[0]["item"]["season_number"], 0)
-        self.assertContains(
-            response,
-            reverse(
-                "season_details",
-                kwargs={
-                    "source": Sources.TMDB.value,
-                    "media_id": "114410",
-                    "title": "chainsaw-man",
-                    "season_number": 0,
-                },
-            ),
-        )
+        self.assertContains(response, "/details/tmdb/tv/114410/chainsaw-man?season=0")
         self.assertEqual(mock_get_metadata.call_count, 3)
         self.assertEqual(
             mock_get_metadata.call_args_list[0].args,

@@ -180,6 +180,8 @@ class HomeSectionsTests(TestCase):
         self.assertIn(f'href="{reverse("medialist", args=["tv"])}?status=In%20progress"', home)
         self.assertIn("1 airing this week", home)
         self.assertIn("Airing This Week", rest)
+        # The row opens the airing episode, not its season.
+        self.assertIn('href="/details/tmdb/tv/1668/friends/season/1/episode/9"', rest)
         self.assertIn("Recently Watched", rest)
         self.assertIn(f'href="{reverse("calendar")}"', rest)
         self.assertIn(f'href="{reverse("history")}"', rest)
