@@ -4706,6 +4706,32 @@ main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head, .ct-lists-hea
   border-radius: 0 999px 999px 0;
 }
 
+/* P5: the New List menu, with Public profile as its last row. */
+.ct-lists-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 260px;
+}
+
+.ct-lists-menu .ct-menu-link {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-lists-menu hr {
+  margin: 6px 12px;
+  border-color: rgb(255 255 255 / 8%);
+}
+
+@media (max-width: 639px) {
+  .ct-lists-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
 .ct-lists-bar {
   align-items: center;
   gap: 12px;

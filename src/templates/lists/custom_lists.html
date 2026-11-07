@@ -36,11 +36,14 @@
         {% endif %}
       </div>
       <div class="flex items-center gap-2">
-        <a href="{% url 'user_profile' request.user.username %}"
-           class="ct-lists-profile flex items-center px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer">
-          {% include "app/icons/person.svg" with classes="w-5 h-5 mr-2" %}
-          {% translate "Public Profile" %}
-        </a>
+        {# P5: in v2, Public profile is the last row of the New List menu. #}
+        {% if not ct_shell %}
+          <a href="{% url 'user_profile' request.user.username %}"
+             class="ct-lists-profile flex items-center px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer">
+            {% include "app/icons/person.svg" with classes="w-5 h-5 mr-2" %}
+            {% translate "Public Profile" %}
+          </a>
+        {% endif %}
         <div class="ct-lists-new relative inline-flex" x-data="{ open: false }">
           <button @click="listMode = 'manual'; showModal = true"
                   class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-md hover:bg-indigo-700 transition-colors cursor-pointer border-r border-indigo-500">
@@ -53,36 +56,71 @@
                   type="button">
             {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
           </button>
-          <div class="absolute right-0 top-full mt-2 py-1 w-52 bg-[var(--color-surface-strong)] rounded-md shadow-lg overflow-hidden z-50 border border-gray-700"
-               x-cloak
-               x-show="open"
-               @click.outside="open = false"
-               x-transition:enter="transition ease-out duration-100"
-               x-transition:enter-start="transform opacity-0 scale-95"
-               x-transition:enter-end="transform opacity-100 scale-100"
-               x-transition:leave="transition ease-in duration-75"
-               x-transition:leave-start="transform opacity-100 scale-100"
-               x-transition:leave-end="transform opacity-0 scale-95">
-            <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                    type="button"
-                    @click.stop="open = false; listMode = 'smart'; showModal = true">
-              {% translate "Create Smart List" %}
-            </button>
-            <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                    type="button"
-                    @click.stop="open = false; showTraktModal = true; traktStep = traktDefaultStep">
-              {% translate "Import from Trakt" %}
-            </button>
-            <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                    type="button"
-                    @click.stop="open = false; showMdblistModal = true">
-              {% translate "Import from MDBList" %}
-            </button>
-            <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                    type="button"
-                    @click.stop="open = false; showCsvImportModal = true">
-              {% translate "Import from CSV" %}
-            </button>
+          {% if ct_shell %}
+            <div class="ct-menu ct-lists-menu"
+                 x-cloak
+                 x-show="open"
+                 @click.outside="open = false"
+                 role="menu">
+              <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; listMode = 'manual'; showModal = true">
+                {% include "app/icons/plus.svg" with classes="w-5 h-5" %}
+                {% translate "New list" %}
+              </button>
+              <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; listMode = 'smart'; showModal = true">
+                {% include "app/icons/funnel.svg" with classes="w-5 h-5" %}
+                {% translate "New smart list" %}
+              </button>
+              <hr>
+              <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; showTraktModal = true; traktStep = traktDefaultStep">
+                {% include "app/icons/import.svg" with classes="w-5 h-5" %}
+                {% translate "Import from Trakt" %}
+              </button>
+              <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; showMdblistModal = true">
+                {% include "app/icons/import.svg" with classes="w-5 h-5" %}
+                {% translate "Import from MDBList" %}
+              </button>
+              <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; showCsvImportModal = true">
+                {% include "app/icons/import.svg" with classes="w-5 h-5" %}
+                {% translate "Import CSV" %}
+              </button>
+              <hr>
+              <a href="{% url 'user_profile' request.user.username %}" class="ct-menu-link" role="menuitem">
+                {% include "app/icons/person.svg" with classes="w-5 h-5" %}
+                {% translate "Public profile" %}
+              </a>
+            </div>
+          {% else %}
+            <div class="absolute right-0 top-full mt-2 py-1 w-52 bg-[var(--color-surface-strong)] rounded-md shadow-lg overflow-hidden z-50 border border-gray-700"
+                 x-cloak
+                 x-show="open"
+                 @click.outside="open = false"
+                 x-transition:enter="transition ease-out duration-100"
+                 x-transition:enter-start="transform opacity-0 scale-95"
+                 x-transition:enter-end="transform opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-75"
+                 x-transition:leave-start="transform opacity-100 scale-100"
+                 x-transition:leave-end="transform opacity-0 scale-95">
+              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                      type="button"
+                      @click.stop="open = false; listMode = 'smart'; showModal = true">
+                {% translate "Create Smart List" %}
+              </button>
+              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                      type="button"
+                      @click.stop="open = false; showTraktModal = true; traktStep = traktDefaultStep">
+                {% translate "Import from Trakt" %}
+              </button>
+              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                      type="button"
+                      @click.stop="open = false; showMdblistModal = true">
+                {% translate "Import from MDBList" %}
+              </button>
+              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                      type="button"
+                      @click.stop="open = false; showCsvImportModal = true">
+                {% translate "Import from CSV" %}
+              </button>
+          {% endif %}
           </div>
         </div>
       </div>
@@ -114,6 +152,11 @@
         </nav>
       {% endif %}
 
+      {% comment %}
+        P5: in v2 the search, type filter and sort appear once there are more
+        than six lists (or a search/filter is already active).
+      {% endcomment %}
+      {% if not ct_shell or owned_count|add:shared_count > 6 or request.GET.q or request.GET.media_type %}
       <div class="relative flex-1">
         <input placeholder="{% translate "Search lists..." %}"
                class="w-full py-2 pl-10 pr-4 bg-[var(--color-surface-strong)] rounded-md text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] appearance-none"
@@ -217,6 +260,7 @@
           </div>
         </div>
       </div>
+      {% endif %}
     </div>
 
     {% if custom_lists %}
