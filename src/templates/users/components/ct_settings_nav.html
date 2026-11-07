@@ -2,7 +2,8 @@
 {% comment %}
 v2 settings nav (A5/A22), CineTrack only: three labelled groups. Preferences has
 no row on the boards but holds core tracking options, so it stays (in Library).
-RSS and About are hidden here (their URLs still work); see docs/agents/v2_mockup_gaps.md.
+P4: About sits at the end (it holds the version for bug reports); RSS has no
+row but is linked from the foot of Notifications.
 {% endcomment %}
 {% url 'account' as account_url %}
 {% url 'appearance' as appearance_url %}
@@ -16,6 +17,7 @@ RSS and About are hidden here (their URLs still work); see docs/agents/v2_mockup
 {% url 'export_data' as export_url %}
 {% url 'connected_apps' as connected_apps_url %}
 {% url 'advanced' as advanced_url %}
+{% url 'about' as about_url %}
 <nav class="ct-settings-nav"
      aria-label="{% translate "Settings" %}"
      hx-boost="true"
@@ -84,5 +86,10 @@ RSS and About are hidden here (their URLs still work); see docs/agents/v2_mockup
      {% if request.path == advanced_url %}aria-current="page"{% endif %}>
     {% include "app/icons/settings.svg" with classes="w-[18px] h-[18px]" %}
     <span>{% translate "Advanced" %}</span>
+  </a>
+  <a href="{{ about_url }}"
+     {% if request.path == about_url %}aria-current="page"{% endif %}>
+    {% include "app/icons/info.svg" with classes="w-[18px] h-[18px]" %}
+    <span>{% translate "About" %}</span>
   </a>
 </nav>

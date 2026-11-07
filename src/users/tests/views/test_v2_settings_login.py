@@ -21,15 +21,25 @@ class CineTrackSettingsTests(TestCase):
         )
         self.client.force_login(self.user)
 
-    def test_settings_nav_is_grouped_and_hides_rss_and_about(self):
+    def test_settings_nav_is_grouped_with_about_and_no_rss_row(self):
         response = self.client.get(reverse("account"))
 
         self.assertContains(response, 'class="ct-settings-nav"')
         self.assertContains(response, 'class="ct-settings-group"', count=3)
         self.assertContains(response, "Media types")
         self.assertContains(response, reverse("preferences"))
+        # P4: About returns at the end of the nav; RSS stays out of it.
+        self.assertContains(response, f'href="{reverse("about")}"', count=1)
         self.assertNotContains(response, f'href="{reverse("rss_settings")}"')
-        self.assertNotContains(response, f'href="{reverse("about")}"')
+
+    def test_notifications_link_to_rss(self):
+        """P4: RSS has no nav row, so Notifications links to it."""
+        response = self.client.get(reverse("notifications"))
+
+        self.assertContains(
+            response,
+            f'class="ct-integrations-more" href="{reverse("rss_settings")}"',
+        )
 
     def test_integrations_opens_on_card_grid(self):
         response = self.client.get(reverse("integrations"))
