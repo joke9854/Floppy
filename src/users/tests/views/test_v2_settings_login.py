@@ -10,6 +10,7 @@ from django.urls import reverse
 from app import login_wall
 from app.discover.schemas import CandidateItem
 from integrations.models import PlexAccount
+from users.helpers import IS_FIRST_RUN_CACHE_KEY
 
 
 class CineTrackSettingsTests(TestCase):
@@ -105,6 +106,8 @@ class V2LoginTests(TestCase):
     def test_anonymous_login_uses_v2_layout(self):
         # An existing user, so the page is the sign-in and not the first-run welcome.
         get_user_model().objects.create_user(username="existing", password="testpass123")
+        # An earlier test in the same process may have cached "no users yet".
+        cache.delete(IS_FIRST_RUN_CACHE_KEY)
 
         response = self.client.get(reverse("account_login"))
 
