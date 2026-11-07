@@ -121,13 +121,17 @@
           </div>
 
           {% comment %}
-            v2 phones (P7): only the status pull-down and ⋮ stay in the hero;
-            ⋮ opens these actions (and Fix match) as a bottom sheet. Elsewhere
-            .ct-more-items is display: contents, so the row is unchanged.
+            v2 (P1/P7): the hero keeps the status pull-down, "+" (Add to list)
+            and ⋮; ⋮ opens these actions (and Fix match) as a dropdown on
+            desktop and a bottom sheet on phones. In the classic theme
+            .ct-more-items is display: contents, so the icons stay in the row.
           {% endcomment %}
           <div class="ct-more-row flex w-full items-center gap-2 sm:w-auto sm:flex-wrap"
                x-data="{ moreOpen: false }"
                @keydown.escape.window="moreOpen = false">
+            {% if request.user.theme == "cinetrack" %}
+              {% include "app/components/detail_lists_button.html" %}
+            {% endif %}
             {% if request.user.theme == "cinetrack" %}
               <button type="button"
                       class="ct-more-toggle"
@@ -250,25 +254,9 @@
               </div>
             </div>
 
-            <div x-data="{ listsOpen: false }" class="flex-1 sm:flex-none">
-              <button class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11"
-                      title="{% translate "Add to custom lists" %}"
-                      hx-get="{% media_view_url 'lists_modal' media %}"
-                      hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
-                      hx-target="#{% component_id 'lists' media %}"
-                      hx-trigger="click once"
-                      @click="listsOpen = true">{% include "app/icons/list-add.svg" with classes="w-4 h-4" %}</button>
-
-              <div x-show="listsOpen"
-              @mousedown.self="listsOpen = false"
-                   x-cloak
-                   @keydown.escape.window="listsOpen = false"
-                   class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60">
-                  <div id="{% component_id 'lists' media %}"></div>
-                </div>
-              </div>
-            </div>
+            {% if request.user.theme != "cinetrack" %}
+              {% include "app/components/detail_lists_button.html" %}
+            {% endif %}
 
             <a class="inline-flex h-11 w-full flex-1 items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11 sm:flex-none"
                title="{% translate "View your activity history" %}"
