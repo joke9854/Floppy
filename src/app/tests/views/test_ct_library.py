@@ -260,7 +260,7 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
         self.assertNotContains(response, "Show More Rows")
 
     def test_cinetrack_v2_follows_the_mockup(self, get_tab_rows, *_):
-        """v2 A8/A19: hero actions, card meta line; features the board lacks are hidden."""
+        """v2 A8/A19: hero actions, card meta line; P3 puts Refresh and Hidden in ⋮."""
         get_tab_rows.return_value = self.rows
         self._use_cinetrack()
 
@@ -272,8 +272,8 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, "ct-palette-open")
         self.assertContains(response, 'class="ct-library-sub">Movie · 2024</p>', count=2)
         self.assertContains(response, 'class="ct-row-title">Trending_Right_Now<')
-        self.assertNotContains(response, "Refresh recommendations")
-        self.assertNotContains(response, "switchMedia('hidden')")
+        self.assertContains(response, "Refresh recommendations", count=1)
+        self.assertContains(response, "switchMedia('hidden')", count=1)
         self.assertNotContains(response, "Why.")
         self.assertNotContains(response, "ct-discover-hero__poster")
 

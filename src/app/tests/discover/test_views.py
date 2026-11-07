@@ -251,6 +251,79 @@ class DiscoverViewTests(TestCase):
         mock_get_tab_status.assert_not_called()
 
     @patch("app.views.discover_tab_cache.get_tab_status")
+    @patch("app.views.discover_tab_cache.get_tab_rows")
+    def test_v2_hidden_view_lists_rows_with_unhide(
+        self,
+        mock_get_tab_rows,
+        mock_get_tab_status,
+    ):
+        """P3b: the v2 Hidden view is one list whose rows post an unhide."""
+        self.user.theme = "cinetrack"
+        self.user.save(update_fields=["theme"])
+        hidden_item = self._movie_item(media_id="9006", title="V2 Hidden Item")
+        DiscoverFeedback.objects.create(
+            user=self.user,
+            item=hidden_item,
+            feedback_type=DiscoverFeedbackType.NOT_INTERESTED.value,
+        )
+
+        response = self.client.get(reverse("discover_rows"), {"media_type": "hidden"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="ct-hidden-list"')
+        self.assertContains(response, "V2 Hidden Item")
+        self.assertContains(response, "1 item · it stays out of recommendations")
+        self.assertContains(response, reverse("discover_toggle_hidden"))
+        self.assertContains(
+            response,
+            f'{{"item_id": "{hidden_item.id}", "action": "unhide"}}',
+        )
+        self.assertNotContains(response, "Hidden From Discover")
+        mock_get_tab_rows.assert_not_called()
+        mock_get_tab_status.assert_not_called()
+
+    @patch("app.views.discover_tab_cache.get_tab_status")
+    @patch("app.views.discover_tab_cache.warm_sibling_tabs")
+    @patch("app.views.discover_tab_cache.get_tab_rows")
+    def test_v2_header_splits_type_tabs_and_counts_hidden(
+        self,
+        mock_get_tab_rows,
+        mock_warm_sibling_tabs,
+        mock_get_tab_status,
+    ):
+        """P3: four tabs, the rest under More, and Refresh/Hidden in the ⋮ menu."""
+        self.user.theme = "cinetrack"
+        self.user.save(update_fields=["theme"])
+        mock_get_tab_rows.return_value = []
+        mock_get_tab_status.return_value = {}
+        DiscoverFeedback.objects.create(
+            user=self.user,
+            item=self._movie_item(media_id="9007", title="Counted Hidden"),
+            feedback_type=DiscoverFeedbackType.NOT_INTERESTED.value,
+        )
+
+        response = self.client.get(reverse("discover"), {"media_type": "all"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["hidden_discover_count"], 1)
+        primary = [
+            option["value"]
+            for option in response.context["discover_media_options"]
+            if option.get("primary")
+        ]
+        more = [option["value"] for option in response.context["discover_more_options"]]
+        self.assertEqual(
+            set(primary),
+            {"all", MediaTypes.MOVIE.value, MediaTypes.TV.value, MediaTypes.ANIME.value}
+            & ({"all"} | set(self.user.get_enabled_media_types())),
+        )
+        self.assertNotIn("hidden", more)
+        self.assertFalse(set(primary) & set(more))
+        self.assertContains(response, "switchMedia('hidden')")
+        self.assertContains(response, "refreshRows()")
+        self.assertContains(response, 'class="ct-discover-menu-count">1<')
+
+    @patch("app.views.discover_tab_cache.get_tab_status")
     @patch("app.views.discover_tab_cache.warm_sibling_tabs")
     @patch("app.views.discover_tab_cache.get_tab_rows")
     def test_discover_page_uses_tab_cache(

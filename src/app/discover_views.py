@@ -41,6 +41,12 @@ DISCOVER_ALLOWED_MEDIA_TYPES = {
     MediaTypes.BOARDGAME.value,
 }
 DISCOVER_HIDDEN_SECTION = "hidden"
+# v2 Discover (P3) shows these as tabs; other enabled types go under "More".
+DISCOVER_PRIMARY_MEDIA_TYPES = {
+    MediaTypes.MOVIE.value,
+    MediaTypes.TV.value,
+    MediaTypes.ANIME.value,
+}
 DISCOVER_FAST_LOCAL_PLANNING_MEDIA_TYPES = {
     MediaTypes.TV.value,
     MediaTypes.ANIME.value,
@@ -78,11 +84,12 @@ def _discover_media_options(user):
     if not enabled_media_types:
         enabled_media_types = sorted(DISCOVER_ALLOWED_MEDIA_TYPES)
     return [
-        {"value": "all", "label": "All Media"},
+        {"value": "all", "label": "All Media", "primary": True},
         *[
             {
                 "value": media_type,
                 "label": app_tags.media_type_readable_plural(media_type),
+                "primary": media_type in DISCOVER_PRIMARY_MEDIA_TYPES,
             }
             for media_type in enabled_media_types
         ],
@@ -406,6 +413,16 @@ def discover_page(request):
         rows=rows,
     )
     context["discover_media_options"] = _discover_media_options(request.user)
+    context["discover_more_options"] = [
+        option
+        for option in context["discover_media_options"]
+        if not option.get("primary") and option["value"] != DISCOVER_HIDDEN_SECTION
+    ]
+    if "hidden_discover_count" not in context:
+        context["hidden_discover_count"] = DiscoverFeedback.objects.filter(
+            user=request.user,
+            feedback_type=DiscoverFeedbackType.NOT_INTERESTED.value,
+        ).count()
     return render(request, "app/discover.html", context)
 
 

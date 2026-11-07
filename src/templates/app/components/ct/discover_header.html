@@ -6,11 +6,13 @@
 
   The title with the type segment beside it (below it on phones, where a
   search button opens the palette, as the top bar is hidden on this page).
-  The refresh button and the Hidden view are hidden until the post-redesign
-  review (docs/agents/v2_mockup_gaps.md); further rows load as the page
+  P3: All, Movies, Shows and Anime are tabs; other enabled types sit in a
+  "More" pull-down. The ⋮ menu holds Refresh and the Hidden view (P3b),
+  which replaces this header with its own back link. Menus sit outside the
+  scrolling segment so it cannot clip them. Further rows load as the page
   scrolls (discover.html's load-more sentinel).
 {% endcomment %}
-<div class="ct-discover-head">
+<div class="ct-discover-head" x-show="!isHiddenView()" x-cloak>
   <div class="ct-page-head">
     <h1 class="ct-page-title">{% translate "Discover" %}</h1>
     <button type="button"
@@ -20,16 +22,75 @@
       {% include "app/icons/magnifying-glass.svg" with classes="w-5 h-5" %}
     </button>
   </div>
-  <div class="ct-type-switch" role="group" aria-label="{% translate "Media type" %}">
-    {% for option in discover_media_options %}
-      {% if option.value != "hidden" %}
+  <div class="ct-discover-tools"
+       x-data="{ moreTypesOpen: false, actionsOpen: false }"
+       @keydown.escape.window="moreTypesOpen = false; actionsOpen = false"
+       @click.outside="moreTypesOpen = false; actionsOpen = false">
+    <div class="ct-type-switch" role="group" aria-label="{% translate "Media type" %}">
+      {% for option in discover_media_options %}
+        {% if option.primary %}
+          <button type="button"
+                  @click="switchMedia('{{ option.value }}')"
+                  class="ct-type-pill"
+                  :aria-pressed="selectedMedia === '{{ option.value }}' ? 'true' : 'false'">
+            {% if option.value == "all" %}{% translate "All" %}{% else %}{% translate option.label %}{% endif %}
+          </button>
+        {% endif %}
+      {% endfor %}
+      {% if discover_more_options %}
         <button type="button"
-                @click="switchMedia('{{ option.value }}')"
                 class="ct-type-pill"
-                :aria-pressed="selectedMedia === '{{ option.value }}' ? 'true' : 'false'">
-          {% if option.value == "all" %}{% translate "All" %}{% else %}{% translate option.label %}{% endif %}
+                aria-haspopup="true"
+                :aria-expanded="moreTypesOpen ? 'true' : 'false'"
+                :aria-pressed="moreTypeLabels[selectedMedia] ? 'true' : 'false'"
+                x-data="{ moreTypeLabels: { {% for option in discover_more_options %}'{{ option.value }}': '{% translate option.label as more_label %}{{ more_label|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %} } }"
+                @click="actionsOpen = false; moreTypesOpen = !moreTypesOpen">
+          <span x-text="moreTypeLabels[selectedMedia] || '{% translate "More" as more_text %}{{ more_text|escapejs }}'">{% translate "More" %}</span>
+          {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
         </button>
       {% endif %}
-    {% endfor %}
+    </div>
+    <button type="button"
+            class="ct-discover-actions"
+            aria-label="{% translate "More actions" %}"
+            aria-haspopup="true"
+            :aria-expanded="actionsOpen ? 'true' : 'false'"
+            @click="moreTypesOpen = false; actionsOpen = !actionsOpen">
+      {% include "app/icons/ellipsis.svg" with classes="w-5 h-5" %}
+    </button>
+    {% if discover_more_options %}
+      <div class="ct-menu ct-discover-menu" x-show="moreTypesOpen" x-cloak role="menu">
+        {% for option in discover_more_options %}
+          <button type="button"
+                  class="ct-menu-link"
+                  role="menuitem"
+                  :aria-current="selectedMedia === '{{ option.value }}' ? 'page' : false"
+                  @click="moreTypesOpen = false; switchMedia('{{ option.value }}')">
+            {% translate option.label %}
+          </button>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="ct-menu ct-discover-menu" x-show="actionsOpen" x-cloak role="menu">
+      <button type="button"
+              class="ct-menu-link"
+              role="menuitem"
+              :disabled="refreshing"
+              @click="actionsOpen = false; refreshRows()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" :class="{ 'animate-spin': refreshing }">
+          <path d="M21.5 2v6h-6"></path>
+          <path d="M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
+        </svg>
+        <span>{% translate "Refresh recommendations" %}</span>
+      </button>
+      <button type="button"
+              class="ct-menu-link"
+              role="menuitem"
+              @click="actionsOpen = false; switchMedia('hidden')">
+        {% include "app/icons/eye-closed.svg" with classes="w-5 h-5" %}
+        <span>{% translate "Hidden from Discover" %}</span>
+        {% if hidden_discover_count %}<span class="ct-discover-menu-count">{{ hidden_discover_count }}</span>{% endif %}
+      </button>
+    </div>
   </div>
 </div>

@@ -8934,6 +8934,133 @@ main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head, .ct-lists-hea
     display: none;
   }
 }
+.ct-discover-tools {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+.ct-discover-tools .ct-type-switch {
+  min-width: 0;
+}
+.ct-discover-actions {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ct-discover-actions:hover, .ct-discover-actions[aria-expanded="true"] {
+  background-color: var(--color-surface-hover);
+}
+.ct-discover-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 260px;
+}
+.ct-discover-menu .ct-menu-link {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-discover-menu .ct-menu-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ct-discover-menu-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-hidden-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+  margin-left: -6px;
+  color: var(--color-accent);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ct-hidden-list {
+  margin-top: 32px;
+  border-radius: var(--ct-radius-lg, 20px);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+.ct-hidden-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+}
+.ct-hidden-row + .ct-hidden-row {
+  border-top: 1px solid rgb(255 255 255 / 6%);
+}
+.ct-hidden-poster {
+  width: 40px;
+  height: 60px;
+  flex: none;
+  border-radius: 6px;
+  background-color: var(--color-surface-hover);
+  object-fit: cover;
+}
+.ct-hidden-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ct-hidden-meta {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ct-hidden-unhide {
+  flex: none;
+  height: 32px;
+  padding-inline: 24px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ct-hidden-unhide:hover {
+  background-color: var(--color-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    background-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+  }
+}
+.ct-hidden-unhide:disabled {
+  opacity: 0.5;
+}
+.ct-hidden-empty {
+  margin-top: 32px;
+  color: var(--color-text-muted);
+}
+@media (max-width: 639px) {
+  .ct-hidden-row {
+    gap: 14px;
+    padding: 12px 14px;
+  }
+  .ct-hidden-unhide {
+    padding-inline: 16px;
+  }
+}
 .ct-search-head {
   gap: 20px;
 }
