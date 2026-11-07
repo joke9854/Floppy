@@ -82,6 +82,7 @@ from users.home_screen import (
     serialize_settings_filter_fields,
     serialize_settings_sections,
     toggle_home_row_direction,
+    update_home_row_view,
 )
 from users.models import (
     ActivityHistoryViewChoices,
@@ -851,6 +852,32 @@ def toggle_home_screen_row_direction(request, row_id: int):
     if not is_htmx:
         return redirect("home")
 
+    return _render_home_row(request, row_id)
+
+
+@login_required
+@require_POST
+def update_home_screen_row_view(request, row_id: int):
+    """Change a Home row's sort or progress filter from its v2 header menu (P2)."""
+    if request.user.is_demo:
+        return _htmx_toast_response(
+            "This section is view-only for demo accounts.",
+            status=403,
+        )
+    try:
+        update_home_row_view(
+            request.user,
+            row_id,
+            sort_by=request.POST.get("sort_by") or None,
+            progress=request.POST.get("progress") or None,
+        )
+    except HomeScreenValidationError as exc:
+        return _htmx_toast_response(str(exc), status=422)
+    return _render_home_row(request, row_id)
+
+
+def _render_home_row(request, row_id: int) -> HttpResponse:
+    """Re-render one Home row in place after a header control changed it."""
     home_groups = build_home_page_groups(
         request.user,
         items_limit=14,

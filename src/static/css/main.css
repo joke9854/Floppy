@@ -7035,6 +7035,72 @@ html.cinetrack {
 .ct-row-sort:hover {
   color: var(--color-text-secondary);
 }
+.ct-row-menu-wrap {
+  position: relative;
+  min-width: 0;
+  margin: -4px -10px;
+}
+.ct-row-menu-toggle {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 10px;
+  border-radius: var(--ct-radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ct-row-menu-toggle:hover, .ct-row-menu-toggle[aria-expanded="true"] {
+  background-color: rgb(255 255 255 / 6%);
+}
+.ct-row-menu-toggle .ct-row-title {
+  flex: 0 1 auto;
+}
+.ct-row-menu-toggle .ct-row-sort-label {
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .ct-row-menu-toggle .ct-row-sort-label {
+    display: none;
+  }
+}
+.ct-row-menu-toggle svg {
+  flex: none;
+  align-self: center;
+}
+.ct-row-menu {
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 280px;
+  max-height: min(70vh, 560px);
+}
+.ct-row-menu .ct-menu-link {
+  width: 100%;
+  min-height: 34px;
+  padding-block: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+.ct-row-menu .ct-menu-link[aria-checked="true"] {
+  background-color: rgb(255 255 255 / 8%);
+  color: var(--color-text);
+}
+.ct-row-menu-check {
+  display: inline-grid;
+  width: 18px;
+  flex: none;
+  place-items: center;
+}
+.ct-row-menu hr {
+  margin: 6px 12px;
+  border-color: rgb(255 255 255 / 8%);
+}
 .ct-row-link {
   display: inline-flex;
   flex: none;

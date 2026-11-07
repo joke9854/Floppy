@@ -1720,6 +1720,34 @@ class HomeScreenViewTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.direction, DirectionChoices.DESC)
 
+    def test_home_row_view_menu_sets_sort_and_progress(self):
+        """P2: the v2 row-title menu saves a sort and a progress filter, and rejects others."""
+        self._set_enabled_media_types(MediaTypes.TV.value)
+        self.client.get(reverse("home_screen"))
+        row = HomeScreenRow.objects.filter(
+            user=self.user,
+            media_type=MediaTypes.TV.value,
+            row_type=HomeScreenRowTypeChoices.LIBRARY_QUERY,
+        ).first()
+        url = reverse("update_home_screen_row_view", args=[row.id])
+
+        response = self.client.post(
+            url,
+            {"sort_by": "title", "progress": "caught_up"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.sort_by, "title")
+        self.assertEqual(row.filters["progress"], "caught_up")
+
+        response = self.client.post(url, {"sort_by": "bogus"}, HTTP_HX_REQUEST="true")
+
+        self.assertEqual(response.status_code, 422)
+        row.refresh_from_db()
+        self.assertEqual(row.sort_by, "title")
+
     def test_home_screen_post_rejects_unsupported_filter_for_media_type(self):
         self._set_enabled_media_types(MediaTypes.MOVIE.value)
         self.client.get(reverse("home_screen"))

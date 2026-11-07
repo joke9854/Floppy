@@ -76,6 +76,11 @@ urlpatterns = [
         name="toggle_home_screen_row_direction",
     ),
     path(
+        "settings/home-screen/rows/<int:row_id>/view",
+        views.update_home_screen_row_view,
+        name="update_home_screen_row_view",
+    ),
+    path(
         "settings/toggle-obfuscate-episodes",
         views.toggle_obfuscate_episodes,
         name="toggle_obfuscate_episodes",

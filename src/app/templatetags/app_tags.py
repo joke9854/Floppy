@@ -187,6 +187,7 @@ CT_HOME_VIEWS = frozenset(
         "home_row_artwork_refresh",
         "home_rows_artwork_refresh",
         "toggle_home_screen_row_direction",
+        "update_home_screen_row_view",
     },
 )
 

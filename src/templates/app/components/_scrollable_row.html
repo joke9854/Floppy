@@ -37,23 +37,91 @@
 <div data-home-row-wrapper="true">
 {% endif %}
   {% if not hide_heading and not hx_url and request|uses_ct_home_cards %}
-  {# v2 Home (A1): the title, a muted sort toggle and "See All" at the right. #}
+  {% comment %}
+    v2 Home (A1/P2): the title and "See All" at the right. On library rows the
+    title opens one menu with the row's variant (Show), its sort and direction;
+    each choice re-renders this row in place.
+  {% endcomment %}
   <div class="ct-row-head">
-    <h2 class="ct-row-title">
-      {% if row.summary_inline %}{{ row.title_main }}{% if row.title_detail %} <span class="ct-row-detail">{{ row.title_detail }}</span>{% endif %}{% else %}{{ row.title }}{% endif %}
-    </h2>
-    {% if row.summary_inline %}
-      <button type="button"
-              hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
-              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-              hx-target="closest [data-home-row-wrapper]"
-              hx-swap="outerHTML"
-              data-home-row-sort-toggle="true"
-              aria-label="{% blocktranslate trimmed with value_1=row.title %}Toggle sort direction for {{ value_1 }}{% endblocktranslate %}"
-              class="ct-row-sort">
-        <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
-        <span aria-hidden="true">{% if row.direction == 'asc' %}↑{% else %}↓{% endif %}</span>
-      </button>
+    {% if row.summary_inline and row.sort_choices %}
+      <div class="ct-row-menu-wrap"
+           x-data="{ open: false }"
+           @keydown.escape="open = false"
+           @click.outside="open = false">
+        <button type="button"
+                class="ct-row-menu-toggle"
+                aria-haspopup="true"
+                :aria-expanded="open ? 'true' : 'false'"
+                @click="open = !open">
+          <h2 class="ct-row-title">{{ row.title_main|default:row.title }}</h2>
+          <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
+          {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
+        </button>
+        <div class="ct-menu ct-row-menu" x-show="open" x-cloak role="menu">
+          {% if row.progress %}
+            <p class="ct-menu-label">{% translate "Show" %}</p>
+            {% for value, label in row.progress_options %}
+              <button type="button"
+                      class="ct-menu-link"
+                      role="menuitemradio"
+                      aria-checked="{% if row.progress == value %}true{% else %}false{% endif %}"
+                      hx-post="{% url 'update_home_screen_row_view' row.row_id %}"
+                      hx-vals='{"progress": "{{ value }}"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                      hx-target="closest [data-home-row-wrapper]"
+                      hx-swap="outerHTML">
+                <span class="ct-row-menu-check" aria-hidden="true">{% if row.progress == value %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% endif %}</span>
+                {{ label }}
+              </button>
+            {% endfor %}
+            <hr>
+          {% endif %}
+          <p class="ct-menu-label">{% translate "Sort by" %}</p>
+          {% for choice in row.sort_choices %}
+            <button type="button"
+                    class="ct-menu-link"
+                    role="menuitemradio"
+                    aria-checked="{% if row.sort_by == choice.value %}true{% else %}false{% endif %}"
+                    hx-post="{% url 'update_home_screen_row_view' row.row_id %}"
+                    hx-vals='{"sort_by": "{{ choice.value }}"}'
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                    hx-target="closest [data-home-row-wrapper]"
+                    hx-swap="outerHTML">
+              <span class="ct-row-menu-check" aria-hidden="true">{% if row.sort_by == choice.value %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% endif %}</span>
+              {{ choice.label }}
+            </button>
+          {% endfor %}
+          <hr>
+          <button type="button"
+                  class="ct-menu-link"
+                  role="menuitem"
+                  hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                  hx-target="closest [data-home-row-wrapper]"
+                  hx-swap="outerHTML"
+                  data-home-row-sort-toggle="true">
+            <span class="ct-row-menu-check" aria-hidden="true">{% include "app/icons/arrows-up-down.svg" with classes="w-4 h-4" %}</span>
+            {% if row.direction == 'asc' %}{% translate "Ascending" %}{% else %}{% translate "Descending" %}{% endif %}
+          </button>
+        </div>
+      </div>
+    {% else %}
+      <h2 class="ct-row-title">
+        {% if row.summary_inline %}{{ row.title_main }}{% if row.title_detail %} <span class="ct-row-detail">{{ row.title_detail }}</span>{% endif %}{% else %}{{ row.title }}{% endif %}
+      </h2>
+      {% if row.summary_inline %}
+        <button type="button"
+                hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                hx-target="closest [data-home-row-wrapper]"
+                hx-swap="outerHTML"
+                data-home-row-sort-toggle="true"
+                aria-label="{% blocktranslate trimmed with value_1=row.title %}Toggle sort direction for {{ value_1 }}{% endblocktranslate %}"
+                class="ct-row-sort">
+          <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
+          <span aria-hidden="true">{% if row.direction == 'asc' %}↑{% else %}↓{% endif %}</span>
+        </button>
+      {% endif %}
     {% endif %}
     {% if row.url %}
       <a href="{{ row.url }}" class="ct-row-link">{% translate "See All" %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>

@@ -1183,6 +1183,45 @@ def toggle_home_row_direction(user, row_id: int) -> HomeScreenRow:
     return row
 
 
+def update_home_row_view(
+    user,
+    row_id: int,
+    *,
+    sort_by: str | None = None,
+    progress: str | None = None,
+) -> HomeScreenRow:
+    """Change a library Home row's sort or progress filter from its header menu (P2)."""
+    row = HomeScreenRow.objects.filter(
+        user=user,
+        id=row_id,
+        row_type=HomeScreenRowTypeChoices.LIBRARY_QUERY,
+    ).first()
+    if not row:
+        msg = "Home row not found."
+        raise HomeScreenValidationError(msg)
+
+    update_fields = []
+    if sort_by:
+        allowed = {
+            choice["value"]
+            for choice in get_allowed_sort_choices(row.media_type, row.row_type)
+        }
+        if sort_by not in allowed:
+            msg = f"Unsupported sort for {row.media_type}."
+            raise HomeScreenValidationError(msg)
+        row.sort_by = sort_by
+        update_fields.append("sort_by")
+    if progress:
+        row.filters = validate_library_row_filters(
+            {**(row.filters or {}), "progress": progress},
+            row.media_type,
+        )
+        update_fields.append("filters")
+    if update_fields:
+        row.save(update_fields=update_fields)
+    return row
+
+
 def _as_list(value) -> list:
     """Coerce a legacy scalar or a list/tuple into a list, leaving None distinct."""
     if value is None:
@@ -2540,6 +2579,24 @@ def _build_row_section(
         "summary": row_summary(row, user),
         "summary_inline": home_row_inline_summary(row, user),
         "direction": row.direction,
+        # P2: the v2 row-title menu (Show + Sort by) for library rows.
+        "sort_by": row.sort_by,
+        "sort_choices": (
+            get_allowed_sort_choices(row.media_type, row.row_type)
+            if row.row_type == HomeScreenRowTypeChoices.LIBRARY_QUERY
+            else []
+        ),
+        "progress": (
+            (row.filters or {}).get("progress") or "all"
+            if row.row_type == HomeScreenRowTypeChoices.LIBRARY_QUERY
+            and row.media_type in HOME_PROGRESS_MEDIA_TYPES
+            else None
+        ),
+        "progress_options": [
+            ("not_caught_up", gettext("Not caught up")),
+            ("caught_up", gettext("Caught up")),
+            ("all", gettext("Everything")),
+        ],
         "items": section_entries,
         "total": len(entries),
         "loaded_count": loaded_count,
