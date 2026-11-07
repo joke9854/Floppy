@@ -666,6 +666,27 @@ class DiscoverServiceTests(TestCase):
         self.assertEqual(candidates[0].image, settings.IMG_NONE)
         mock_get_cover_art.assert_not_called()
 
+    @patch("app.discover.provider_candidates.services.api_request")
+    @patch("app.discover.provider_candidates._api_cached_results")
+    def test_music_coming_soon_fetcher_queries_the_musicbrainz_recordings_url(
+        self,
+        mock_cached_results,
+        mock_api_request,
+    ):
+        mock_cached_results.side_effect = lambda *_a, fetcher, **_k: fetcher()
+        mock_api_request.return_value = {"recordings": []}
+
+        _musicbrainz_coming_soon_recording_candidates(
+            row_key="coming_soon",
+            source_reason="Upcoming music",
+            limit=10,
+        )
+
+        self.assertEqual(
+            mock_api_request.call_args.args[2],
+            f"{settings.MUSICBRAINZ_URL.rstrip('/')}/recording/",
+        )
+
     @patch("app.discover.provider_candidates.services.get_media_metadata")
     def test_trakt_ranked_rows_hydrate_first_buffered_reserve_candidate(
         self,

@@ -613,7 +613,7 @@ def _musicbrainz_coming_soon_recording_candidates(
         payload = services.api_request(
             Sources.MUSICBRAINZ.value,
             "GET",
-            f"{musicbrainz.BASE_URL}/recording/",
+            f"{settings.MUSICBRAINZ_URL.rstrip('/')}/recording/",
             params=params,
             headers={
                 "User-Agent": musicbrainz.USER_AGENT,
