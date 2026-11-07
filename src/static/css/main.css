@@ -6683,6 +6683,83 @@ html.cinetrack {
 .ct-more-logout:hover {
   background-color: rgb(255 255 255 / 8%);
 }
+.ct-more-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+.ct-logout-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 55%);
+}
+.ct-logout-sheet {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px calc(24px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background-color: rgb(46 46 54);
+  text-align: center;
+}
+.ct-logout-grabber {
+  width: 36px;
+  height: 5px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 25%);
+}
+.ct-logout-sheet h2 {
+  color: var(--color-text);
+  font-size: 20px;
+  font-weight: 700;
+}
+.ct-logout-sheet p {
+  margin-bottom: 12px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.ct-logout-yes, .ct-logout-no {
+  width: 100%;
+  height: 50px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ct-logout-yes {
+  background-color: rgb(255 107 94 / 22%);
+  color: #ff6b5e;
+}
+.ct-logout-yes:hover {
+  background-color: rgb(255 107 94 / 30%);
+}
+.ct-logout-no {
+  background-color: rgb(255 255 255 / 8%);
+  color: var(--color-text);
+}
+.ct-logout-no:hover {
+  background-color: rgb(255 255 255 / 12%);
+}
+@media (min-width: 768px) {
+  .ct-logout-confirm {
+    align-items: center;
+  }
+  .ct-logout-sheet {
+    max-width: 400px;
+    padding-bottom: 24px;
+    border-radius: 24px;
+  }
+  .ct-logout-grabber {
+    display: none;
+  }
+}
 .ct-poster-card {
   position: relative;
 }

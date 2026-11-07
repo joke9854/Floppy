@@ -21,12 +21,7 @@
     </a>
   </li>
   <li>
-    <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
-      {% csrf_token %}
-      <button type="submit" class="ct-menu-link w-full cursor-pointer">
-        <span aria-hidden="true">{% include "app/icons/logout.svg" with classes="w-5 h-5" %}</span>
-        <span>{% translate "Logout" %}</span>
-      </button>
-    </form>
+    {% translate "Logout" as logout_label %}
+    {% include "app/components/ct/logout_confirm.html" with trigger_class="ct-menu-link w-full cursor-pointer" trigger_label=logout_label trigger_icon="app/icons/logout.svg" close_menu=True %}
   </li>
 </ul>

@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from django import template
 from django.conf import settings
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import formats, timezone
 from django.utils.dateparse import parse_date
@@ -14,7 +15,7 @@ from django.utils.translation import npgettext
 from unidecode import unidecode
 
 from app import backdrops, config, helpers, image_cache
-from app.models import Item, MediaTypes, Sources, Status
+from app.models import CollectionEntry, Item, MediaTypes, Sources, Status, Tag
 from app.providers import tmdb
 from app.services import metadata_resolution
 from users.models import TimeFormatChoices
@@ -29,6 +30,29 @@ def login_wall_posters():
     from app import login_wall
 
     return login_wall.cached_posters()
+
+
+@register.simple_tag
+def ct_more_counts(user):
+    """P6: Lists, Collection and Tags counts for the v2 More sheet.
+
+    The sheet is in every phone page's shell, so the three counts are cached
+    per user for a minute rather than queried on each render.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return {}
+    cache_key = f"ct_more_counts:{user.id}"
+    counts = cache.get(cache_key)
+    if counts is None:
+        from lists.models import CustomList
+
+        counts = {
+            "lists": CustomList.objects.get_user_lists(user).distinct().count(),
+            "collection": CollectionEntry.objects.filter(user=user).count(),
+            "tags": Tag.objects.filter(user=user).count(),
+        }
+        cache.set(cache_key, counts, 60)
+    return counts
 
 
 @register.simple_tag

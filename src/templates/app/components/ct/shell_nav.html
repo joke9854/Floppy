@@ -313,24 +313,28 @@
           <span aria-hidden="true">{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</span>
         </a>
 
+        {% ct_more_counts user as more_counts %}
         <p class="ct-more-label">{% translate "Library" %}</p>
         <ul class="ct-more-group">
           <li>
             <a href="{{ lists_url }}" class="ct-menu-link" {% if request.path == lists_url %}aria-current="page"{% endif %}>
               <span class="ct-more-tile ct-more-tile-blue" aria-hidden="true">{% include "app/icons/list.svg" with classes="w-4 h-4" %}</span>
               <span>{% translate "Lists" %}</span>
+              {% if more_counts.lists %}<span class="ct-more-count">{{ more_counts.lists }}</span>{% endif %}
             </a>
           </li>
           <li>
             <a href="{{ collection_list_url }}" class="ct-menu-link" {% if request.path == collection_list_url %}aria-current="page"{% endif %}>
               <span class="ct-more-tile ct-more-tile-green" aria-hidden="true">{% include "app/icons/cube.svg" with classes="w-4 h-4" %}</span>
               <span>{% translate "Collection" %}</span>
+              {% if more_counts.collection %}<span class="ct-more-count">{{ more_counts.collection }}</span>{% endif %}
             </a>
           </li>
           <li>
             <a href="{{ tag_index_url }}" class="ct-menu-link" {% if request.path == tag_index_url %}aria-current="page"{% endif %}>
               <span class="ct-more-tile ct-more-tile-orange" aria-hidden="true">{% include "app/icons/tag.svg" with classes="w-4 h-4" %}</span>
               <span>{% translate "Tags" %}</span>
+              {% if more_counts.tags %}<span class="ct-more-count">{{ more_counts.tags }}</span>{% endif %}
             </a>
           </li>
           <li>
@@ -381,10 +385,8 @@
           </li>
         </ul>
 
-        <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
-          {% csrf_token %}
-          <button type="submit" class="ct-more-logout">{% translate "Log out" %}</button>
-        </form>
+        {% translate "Log out" as logout_label %}
+        {% include "app/components/ct/logout_confirm.html" with trigger_class="ct-more-logout" trigger_label=logout_label %}
       </div>
     </li>
   </ul>

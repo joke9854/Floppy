@@ -1,0 +1,39 @@
+{% load i18n %}
+{% comment %}
+  P6: v2 log-out asks first. The caller passes the trigger's markup as
+  `trigger_class`/`trigger_label`/`trigger_icon` (and `close_menu` to close
+  the enclosing ctMenu first, for the desktop rail menu); the sheet is teleported to
+  <body> because the glass tab bar's backdrop-filter would trap a fixed child.
+  A bottom sheet on phones, a centred card from md.
+{% endcomment %}
+<div x-data="{ confirmLogout: false }"
+     x-id="['ct-logout-title']"
+     @keydown.escape.window="confirmLogout = false">
+  <button type="button" class="{{ trigger_class }}" @click="{% if close_menu %}close(false); {% endif %}confirmLogout = true">
+    {% if trigger_icon %}
+      <span aria-hidden="true">{% include trigger_icon with classes="w-5 h-5" %}</span>
+    {% endif %}
+    <span>{{ trigger_label }}</span>
+  </button>
+  <template x-teleport="body">
+    <div class="ct-logout-confirm"
+         x-show="confirmLogout"
+         x-transition.opacity.duration.150ms
+         @click.self="confirmLogout = false"
+         role="dialog"
+         aria-modal="true"
+         :aria-labelledby="$id('ct-logout-title')">
+      <form method="post"
+            action="{% url 'account_logout' %}"
+            hx-boost="false"
+            class="ct-logout-sheet">
+        {% csrf_token %}
+        <span class="ct-logout-grabber" aria-hidden="true"></span>
+        <h2 :id="$id('ct-logout-title')">{% translate "Log out of Floppy?" %}</h2>
+        <p>{% translate "You'll need your password to sign back in. Your history stays on the server." %}</p>
+        <button type="submit" class="ct-logout-yes">{% translate "Log Out" %}</button>
+        <button type="button" class="ct-logout-no" @click="confirmLogout = false">{% translate "Cancel" %}</button>
+      </form>
+    </div>
+  </template>
+</div>
