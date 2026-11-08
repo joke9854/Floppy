@@ -14,7 +14,7 @@
   <a href="{{ item|media_url }}" class="ct-search-row__link">
     <img alt=""
          class="ct-search-row__poster"
-         src="{{ item.image|default:IMG_NONE|tmdb_size:'w92'|image_url }}"
+         src="{{ item|ct_poster|default:IMG_NONE|tmdb_size:'w92'|image_url }}"
          width="44"
          height="64"
          loading="lazy"

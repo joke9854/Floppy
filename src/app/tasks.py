@@ -75,6 +75,21 @@ def fetch_backdrop(item):
     backdrops.resolve_backdrop(item)
 
 
+@shared_task(name="Fetch fanart.tv art", ignore_result=True)
+def fetch_fanart(media, user_id=None):
+    """Cache a title's fanart.tv art that was missing when a card rendered.
+
+    The key may be the requesting member's own, so their scope is restored.
+    """
+    from django.contrib.auth import get_user_model
+
+    from app.providers import credentials, fanart
+
+    user = get_user_model().objects.filter(pk=user_id).first() if user_id else None
+    with credentials.current_user_scope(user):
+        fanart.artwork(media)
+
+
 @shared_task(name="Fetch TMDB seasons", ignore_result=True)
 def fetch_tmdb_seasons(media_id, season_numbers, language=None, lock_key=None):
     """Cache the seasons a show page rendered without (see detail_related)."""

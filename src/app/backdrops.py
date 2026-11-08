@@ -83,7 +83,15 @@ def _cache_key(item) -> str | None:
 
 
 def cached_backdrop(item) -> str | None:
-    """Return an already-cached backdrop without triggering provider lookups."""
+    """Return an already-cached backdrop without triggering provider lookups.
+
+    A cached fanart.tv background wins when fanart.tv is configured.
+    """
+    from app.providers import fanart
+
+    background = fanart.cached(item, "background")
+    if background:
+        return background
     key = _cache_key(item)
     return _usable(cache.get(key)) if key else None
 

@@ -413,6 +413,22 @@ def ct_fanart(media, allow_network=True):
     return fanart.artwork(media, allow_network=allow_network)
 
 
+@register.filter
+def ct_poster(item):
+    """Return a card's poster: fanart.tv's when cached, else the item's own.
+
+    A string (a member's card image override) passes through. fanart.tv's
+    posters are full size, so grids use them only through the image cache,
+    which shrinks them; a miss is fetched in the background.
+    """
+    if not item or isinstance(item, str):
+        return item
+    image = item.get("image") if isinstance(item, dict) else getattr(item, "image", None)
+    if image_cache.is_enabled():
+        return fanart.cached(item, "poster") or image
+    return image
+
+
 @register.simple_tag
 def ct_card_backdrop(item):
     """Return a Home card's cached backdrop URL, or None (v2 Home).
@@ -565,7 +581,8 @@ def ct_discover_hero(rows, limit=5):
 
     A missing backdrop is fetched once and cached for 7 days, as on detail
     pages, so a cold fragment waits on at most ``limit`` provider calls. Types
-    without a backdrop source fall back to the poster.
+    without a backdrop source fall back to the poster. A cached fanart.tv
+    background and logo are used when fanart.tv is configured.
     """
     slides = []
     seen = set()
@@ -585,6 +602,7 @@ def ct_discover_hero(rows, limit=5):
                     "candidate": candidate,
                     "row_title": _ct_value(row, "title"),
                     "backdrop": backdrops.resolve_backdrop(candidate),
+                    "logo": fanart.cached(candidate, "logo"),
                 },
             )
             break

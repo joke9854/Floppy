@@ -31,7 +31,7 @@
                    class="ct-agenda-row">
                   <img alt=""
                        class="ct-agenda-poster"
-                       src="{{ release.item.image|tmdb_size:'w154'|image_url }}"
+                       src="{{ release.item|ct_poster|tmdb_size:'w154'|image_url }}"
                        width="40"
                        height="60"
                        loading="lazy"

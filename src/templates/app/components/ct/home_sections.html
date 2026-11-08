@@ -25,7 +25,7 @@
                   </span>
                   <img alt=""
                        class="ct-airing-poster"
-                       src="{{ item.image|default:IMG_NONE|tmdb_size:'w154'|image_url }}"
+                       src="{{ item|ct_poster|default:IMG_NONE|tmdb_size:'w154'|image_url }}"
                        width="40"
                        height="60"
                        loading="lazy"

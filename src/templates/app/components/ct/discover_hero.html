@@ -57,7 +57,7 @@
             {% endif %}
             <div class="ct-discover-hero__fade" aria-hidden="true"></div>
             <div class="ct-discover-hero__body">
-              <a href="{{ candidate|media_url }}" class="ct-discover-hero__title">{{ candidate|display_title:user }}</a>
+              <a href="{{ candidate|media_url }}" class="ct-discover-hero__title{% if slide.logo %} ct-discover-hero__title--logo{% endif %}">{% if slide.logo %}<img alt="{{ candidate|display_title:user }}" src="{{ slide.logo|image_url }}" width="800" height="310" decoding="async">{% else %}{{ candidate|display_title:user }}{% endif %}</a>
               <p class="ct-discover-hero__meta">
                 {{ candidate.media_type|media_type_readable }}{% if candidate.genres %} · {{ candidate.genres.0 }}{% endif %}{% if candidate.release_date %} · {{ candidate.release_date|slice:":4" }}{% endif %}
               </p>

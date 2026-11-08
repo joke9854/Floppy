@@ -28,7 +28,7 @@
             <div class="cursor-pointer">
               <img alt="{% if resolved_media_type == MediaTypes.SEASON.value %}{{ season_card_title_override|default:resolved_season_card_title }}{% else %}{{ resolved_item_title|default:title }}{% endif %}"
                    class="media-card-poster lazyload w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
-                   src="{{ image_override|default:item.image|default:IMG_NONE|image_url }}"
+                   src="{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}"
                    data-image-source="{{ image_source|default:'primary' }}"
                    loading="lazy">
             </div>
@@ -47,9 +47,9 @@
                    class="media-card-poster {% if hover_action_mode != 'discover' %}lazyload{% endif %} w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
                    data-image-source="{{ image_source|default:'primary' }}"
                    {% if hover_action_mode == 'discover' %}
-                   src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item.image|default:IMG_NONE|image_url }}{% endif %}"
+                   src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}{% endif %}"
                    {% else %}
-                   data-src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item.image|default:IMG_NONE|image_url }}{% endif %}"
+                   data-src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}{% endif %}"
                    src="{{ IMG_NONE }}"
                    {% endif %}>
             </a>

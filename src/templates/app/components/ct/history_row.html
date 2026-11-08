@@ -29,7 +29,7 @@
      href="{% if entry.media_type == MediaTypes.MUSIC.value and entry.album %}{{ entry.album|music_album_url }}{% elif entry.media_type == MediaTypes.PODCAST.value and entry.show and entry.show.podcast_uuid %}{% url 'media_details' source='pocketcasts' media_type='podcast' media_id=entry.show.podcast_uuid title=entry.show.slug|default:entry.show.title|slug %}{% else %}{{ entry.item|media_url }}{% endif %}">
     <img alt=""
          class="ct-history-poster ct-fade-img{% if entry.media_type == MediaTypes.MUSIC.value or entry.media_type == MediaTypes.PODCAST.value %} ct-history-poster--square{% endif %}"
-         src="{{ entry.poster|tmdb_size:'w154'|image_url }}"
+         src="{% if entry.media_type == MediaTypes.MOVIE.value %}{{ entry.item|ct_poster|default:entry.poster|tmdb_size:'w154'|image_url }}{% else %}{{ entry.poster|tmdb_size:'w154'|image_url }}{% endif %}"
          width="48"
          height="{% if entry.media_type == MediaTypes.MUSIC.value or entry.media_type == MediaTypes.PODCAST.value %}48{% else %}72{% endif %}"
          loading="lazy"

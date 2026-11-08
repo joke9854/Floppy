@@ -7,7 +7,7 @@
   Context: item, media (optional), entry (optional, for subtitle_override),
   user, IMG_NONE.
 {% endcomment %}
-{% with image=media.card_image_override|default:item.image|default:IMG_NONE %}
+{% with image=media.card_image_override|default:item|ct_poster|default:IMG_NONE %}
   {% with srcset=image|tmdb_srcset %}
     <article class="ct-poster-card group" data-media-type="{{ item.media_type }}" data-poster-accent-scope>
       <a href="{{ item|media_url }}" class="ct-poster-link">

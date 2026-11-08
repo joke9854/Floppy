@@ -89,6 +89,27 @@ class ImageCacheServiceTests(TestCase):
         fetch.assert_called_once()
         self.assertEqual(image_cache.cache_stats()["count"], 1)
 
+    def test_fanart_posters_and_backgrounds_are_shrunk_once_logos_are_not(self):
+        image_cache.set_enabled(True)
+        cases = {
+            "https://assets.fanart.tv/fanart/movies/603/movieposter/p.jpg": ((1000, 1426), "JPEG", (500, 713)),
+            "https://assets.fanart.tv/fanart/tv/281662/showbackground/b.jpg": ((1920, 1080), "JPEG", (1280, 720)),
+            "https://assets.fanart.tv/fanart/tv/281662/hdtvlogo/l.png": ((800, 310), "PNG", (800, 310)),
+        }
+        for url, (size, image_format, expected) in cases.items():
+            output = BytesIO()
+            Image.new("RGB", size, "red").save(output, format=image_format)
+            body = output.getvalue()
+            content_type = "image/jpeg" if image_format == "JPEG" else "image/png"
+            token = image_cache._token_for_url(url)
+            with patch("app.image_cache.requests.get", return_value=_response(body, content_type=content_type)):
+                served = self.client.get(reverse("image_cache", kwargs={"token": token}))
+
+            body = b"".join(served.streaming_content)
+            served.close()
+            with Image.open(BytesIO(body)) as image:
+                self.assertEqual((image.size, image.format), (expected, image_format), url)
+
     def test_disabled_cache_serves_existing_files_but_does_not_download(self):
         source_url = "https://image.tmdb.org/t/p/original/poster.jpg"
         token = image_cache._token_for_url(source_url)
