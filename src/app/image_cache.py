@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import tempfile
+import time
 from contextlib import suppress
 from ipaddress import ip_address
 from pathlib import Path
@@ -25,7 +26,12 @@ logger = logging.getLogger(__name__)
 SETTING_CACHE_KEY = "application_settings:image_caching_enabled"
 SETTING_CACHE_SECONDS = 300
 CACHE_MAX_AGE_SECONDS = 86400
-CACHE_STALE_AFTER_SECONDS = 30 * 24 * 60 * 60
+DAY_SECONDS = 24 * 60 * 60
+RETENTION_CACHE_KEY = "application_settings:image_cache_days"
+DEFAULT_RETENTION_DAYS = 30
+# The nightly check downloads at most this many expired copies again, so one
+# run stays short; the rest are picked up on the following nights.
+REVALIDATE_PER_RUN = 500
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 REQUEST_TIMEOUT = (5, 15)
 MAX_REDIRECTS = 3
@@ -91,6 +97,30 @@ def set_enabled(enabled):
 def invalidate_setting_cache():
     """Invalidate the cached toggle after external/database changes."""
     cache.delete(SETTING_CACHE_KEY)
+    cache.delete(RETENTION_CACHE_KEY)
+
+
+def retention_days():
+    """Return how many days a cached image is kept before it is checked again."""
+    days = cache.get(RETENTION_CACHE_KEY)
+    if isinstance(days, int):
+        return days
+    setting, _ = ApplicationSettings.objects.get_or_create(pk=1)
+    days = setting.image_cache_days or DEFAULT_RETENTION_DAYS
+    cache.set(RETENTION_CACHE_KEY, days, SETTING_CACHE_SECONDS)
+    return days
+
+
+def set_retention_days(days):
+    """Persist the retention (7, 15 or 30 days) and refresh its cached value."""
+    allowed = {value for value, _ in ApplicationSettings._meta.get_field("image_cache_days").choices}
+    if days not in allowed:
+        raise ValueError(days)
+    setting, _ = ApplicationSettings.objects.get_or_create(pk=1)
+    setting.image_cache_days = days
+    setting.save(update_fields=["image_cache_days"])
+    cache.set(RETENTION_CACHE_KEY, days, SETTING_CACHE_SECONDS)
+    return days
 
 
 def _is_private_or_local_hostname(hostname):
@@ -273,7 +303,13 @@ def _fetch_to_disk(url):
         _shrink_fanart(temporary_data, current_url)
 
         content_hash = hashlib.sha256(Path(temporary_data).read_bytes()).hexdigest()
-        metadata = {"content_type": content_type, "etag": f'"{content_hash}"'}
+        # url and fetched_at let the nightly check download it again (revalidate_images).
+        metadata = {
+            "content_type": content_type,
+            "etag": f'"{content_hash}"',
+            "url": url,
+            "fetched_at": time.time(),
+        }
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
@@ -424,9 +460,9 @@ def clear_cache():
 
 
 def cleanup_stale_images():
-    """Remove image entries that have not been accessed for thirty days."""
+    """Remove image entries not accessed within the retention (retention_days)."""
     root = cache_root()
-    cutoff = __import__("time").time() - CACHE_STALE_AFTER_SECONDS
+    cutoff = time.time() - retention_days() * DAY_SECONDS
     removed_count = 0
     removed_bytes = 0
     try:
@@ -451,6 +487,42 @@ def cleanup_stale_images():
         except OSError:
             continue
     return {"removed_count": removed_count, "removed_bytes": removed_bytes}
+
+
+def revalidate_images(limit=REVALIDATE_PER_RUN):
+    """Download copies older than the retention again, to pick up changed art.
+
+    A refetch replaces the copy atomically; a failed one leaves it in place to
+    be tried again next night. Entries cached before the source URL was
+    recorded cannot be refetched here, so they are dropped and come back on
+    their next view.
+    """
+    summary = {"refreshed": 0, "dropped": 0, "failed": 0}
+    if not is_enabled():
+        return summary
+    cutoff = time.time() - retention_days() * DAY_SECONDS
+    try:
+        metadata_paths = list(cache_root().glob("*.json"))
+    except OSError:
+        return summary
+    for metadata_path in metadata_paths:
+        if summary["refreshed"] + summary["failed"] >= limit:
+            break
+        data_path = metadata_path.with_suffix(".data")
+        metadata = _metadata(data_path, metadata_path)
+        if metadata is None:
+            continue
+        url = metadata.get("url")
+        if not url:
+            for path in (data_path, metadata_path):
+                with suppress(OSError):
+                    path.unlink()
+            summary["dropped"] += 1
+            continue
+        if (metadata.get("fetched_at") or 0) > cutoff:
+            continue
+        summary["refreshed" if _fetch_to_disk(url) else "failed"] += 1
+    return summary
 
 
 def format_bytes(value):

@@ -58,7 +58,10 @@ def cleanup_task_results(batch_size=5000):
 
 @shared_task(name="Cleanup image cache", ignore_result=True)
 def cleanup_image_cache():
-    """Remove provider images that have been unused for thirty days."""
+    """Remove unused provider images and download expired copies again.
+
+    Both follow the retention set in Settings > Advanced (image_cache_days).
+    """
     summary = image_cache.cleanup_stale_images()
     if summary["removed_count"]:
         logger.info(
@@ -66,7 +69,10 @@ def cleanup_image_cache():
             summary["removed_count"],
             summary["removed_bytes"],
         )
-    return summary
+    revalidated = image_cache.revalidate_images()
+    if any(revalidated.values()):
+        logger.info("Revalidated cached images: %s", revalidated)
+    return {**summary, **revalidated}
 
 
 @shared_task(name="Fetch card backdrop", ignore_result=True)

@@ -25,6 +25,7 @@ class ImageCacheSettingsTests(TestCase):
 
     def tearDown(self):
         cache.delete(image_cache.SETTING_CACHE_KEY)
+        cache.delete(image_cache.RETENTION_CACHE_KEY)
 
     def test_normal_user_can_view_but_cannot_mutate_or_clear(self):
         self.client.force_login(self.user)
@@ -52,6 +53,11 @@ class ImageCacheSettingsTests(TestCase):
         )
         self.assertRedirects(response, reverse("advanced"))
         self.assertTrue(ApplicationSettings.objects.get(pk=1).image_caching_enabled)
+        self.client.post(reverse("update_image_cache"), {"image_caching_enabled": "1", "image_cache_days": "15"})
+        self.assertEqual(ApplicationSettings.objects.get(pk=1).image_cache_days, 15)
+        # Only 7, 15 and 30 are offered; anything else keeps the current value.
+        self.client.post(reverse("update_image_cache"), {"image_caching_enabled": "1", "image_cache_days": "99"})
+        self.assertEqual(ApplicationSettings.objects.get(pk=1).image_cache_days, 15)
         response = self.client.get(reverse("advanced"))
         self.assertContains(response, "Clear Image Cache")
         soup = BeautifulSoup(response.content, "html.parser")

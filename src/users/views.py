@@ -1921,6 +1921,8 @@ def advanced(request):
     context = {
         "tmdb_proxy_configured": bool(request.user.tmdb_proxy_url),
         "image_caching_enabled": image_cache.is_enabled(),
+        "image_cache_days": image_cache.retention_days(),
+        "image_cache_day_choices": (7, 15, 30),
         "image_cache_stats": image_stats,
         "image_cache_size": image_cache.format_bytes(image_stats["bytes"]),
         "bug_report_title": "[BUG] ",
@@ -1937,9 +1939,13 @@ def update_image_cache(request):
         return HttpResponse(status=403)
     enabled = request.POST.get("image_caching_enabled") == "1"
     image_cache.set_enabled(enabled)
+    try:
+        days = image_cache.set_retention_days(int(request.POST.get("image_cache_days", "")))
+    except ValueError:
+        days = image_cache.retention_days()
     messages.success(
         request,
-        f"External image caching {'enabled' if enabled else 'disabled'}.",
+        f"External image caching {'enabled' if enabled else 'disabled'}; images are kept {days} days.",
     )
     return redirect("advanced")
 

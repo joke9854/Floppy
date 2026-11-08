@@ -178,6 +178,30 @@ class ImageCacheServiceTests(TestCase):
                 404,
             )
 
+    def test_revalidation_refetches_expired_copies_and_drops_legacy_ones(self):
+        image_cache.set_enabled(True)
+        image_cache.set_retention_days(7)
+        self.addCleanup(cache.delete, image_cache.RETENTION_CACHE_KEY)
+        urls = [f"https://image.tmdb.org/t/p/original/{name}.jpg" for name in ("expired", "fresh", "legacy")]
+        with patch("app.image_cache.requests.get", side_effect=lambda *a, **k: _response(_png_bytes())):
+            for url in urls:
+                self.assertTrue(image_cache._fetch_to_disk(url))
+        expired_metadata = image_cache._paths(urls[0])[1]
+        metadata = json.loads(expired_metadata.read_text())
+        self.assertEqual(metadata["url"], urls[0])
+        metadata["fetched_at"] = time.time() - 8 * image_cache.DAY_SECONDS
+        expired_metadata.write_text(json.dumps(metadata))
+        legacy_data, legacy_metadata = image_cache._paths(urls[2])
+        legacy_metadata.write_text(json.dumps({"content_type": "image/png", "etag": '"x"'}))
+
+        with patch("app.image_cache.requests.get", return_value=_response(_png_bytes())) as fetch:
+            summary = image_cache.revalidate_images()
+
+        self.assertEqual(summary, {"refreshed": 1, "dropped": 1, "failed": 0})
+        self.assertEqual(fetch.call_args.args[0], urls[0])
+        self.assertGreater(json.loads(expired_metadata.read_text())["fetched_at"], time.time() - 60)
+        self.assertFalse(legacy_data.exists())
+
     def test_cleanup_removes_old_entries_and_preserves_recent_entries(self):
         image_cache.set_enabled(True)
         body = _png_bytes()
@@ -201,7 +225,7 @@ class ImageCacheServiceTests(TestCase):
                 )
 
         old_data, old_metadata = image_cache._paths(urls[0])
-        old_time = time.time() - image_cache.CACHE_STALE_AFTER_SECONDS - 1
+        old_time = time.time() - image_cache.DEFAULT_RETENTION_DAYS * image_cache.DAY_SECONDS - 1
         os.utime(old_data, (old_time, old_time))
         os.utime(old_metadata, (old_time, old_time))
 

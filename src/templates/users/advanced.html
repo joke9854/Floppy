@@ -1,7 +1,6 @@
 {% extends "users/base.html" %}
 {% load i18n %}
 
-
 {% load app_tags %}
 {% load socialaccount %}
 {% load static %}
@@ -51,7 +50,7 @@
           <h3 class="text-base font-medium">{% translate "External Image Caching" %}</h3>
         </div>
         <p class="text-[var(--color-text-muted)] mb-4 text-sm">
-          {% translate "Proxy artwork from approved metadata providers through Floppy so browsers and API clients do not need direct access to those providers. Cached images use disk space and are removed automatically after 30 days without access." %}
+          {% blocktranslate trimmed with days=image_cache_days %}Proxy artwork from approved metadata providers through Floppy so browsers and API clients do not need direct access to those providers. Cached images use disk space: one unused for {{ days }} days is removed, and a copy older than {{ days }} days is downloaded again overnight so changed artwork shows up.{% endblocktranslate %}
         </p>
         <div class="grid gap-3 sm:grid-cols-2 mb-4 text-sm">
           <div class="rounded-md bg-[var(--color-surface)] px-4 py-3">
@@ -78,6 +77,15 @@
                        class="rounded border-gray-600 bg-[var(--color-surface)] text-indigo-600 focus:ring-indigo-500">
                 {% translate "Enable external image caching" %}
               </label>
+              <label class="flex items-center gap-2 text-sm">
+                {% translate "Keep for" %}
+                <select name="image_cache_days"
+                        class="rounded-md border border-gray-600 bg-[var(--color-surface)] px-2 py-1.5 text-sm">
+                  {% for days in image_cache_day_choices %}
+                    <option value="{{ days }}" {% if days == image_cache_days %}selected{% endif %}>{% blocktranslate trimmed count days=days %}{{ days }} day{% plural %}{{ days }} days{% endblocktranslate %}</option>
+                  {% endfor %}
+                </select>
+              </label>
               <button type="submit"
                       class="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm">
                 {% translate "Save" %}
@@ -95,7 +103,7 @@
           </div>
         {% else %}
           <p class="text-sm text-[var(--color-text-muted)]">{% translate "Only a superuser can change this setting or clear the cache." %}</p>
-          <p class="text-sm mt-1">{% translate "Status:" %} <span class="font-medium">{% if image_caching_enabled %}{% translate "Enabled" %}{% else %}{% translate "Disabled" %}{% endif %}</span></p>
+          <p class="text-sm mt-1">{% translate "Status:" %} <span class="font-medium">{% if image_caching_enabled %}{% translate "Enabled" %}{% else %}{% translate "Disabled" %}{% endif %}</span> · {% blocktranslate trimmed count days=image_cache_days %}kept {{ days }} day{% plural %}kept {{ days }} days{% endblocktranslate %}</p>
         {% endif %}
       </div>
 
