@@ -14,9 +14,11 @@
   check and shows the release year, as the poster card does.
 
   Context: item, media, next_episode (from ct_next_episode, may be None), user,
-  TRACK_TIME, IMG_NONE.
+  TRACK_TIME, IMG_NONE. With a next episode the card opens that episode,
+  otherwise the show.
 {% endcomment %}
 {% ct_card_backdrop item as backdrop %}
+{% if next_episode %}{% next_episode_url item media as card_url %}{% endif %}
 {% with image=media.card_image_override|default:item.image|default:IMG_NONE title=item|display_title:user %}
   {% with srcset=image|tmdb_srcset percent=media|safe_attr:"progress_percentage" %}
     <article class="ct-progress-card"
@@ -24,7 +26,7 @@
              data-media-type="{{ item.media_type }}"
              style="--ct-progress: {{ percent|default:0 }}%; --ct-progress-step: {% if media.max_progress %}{% widthratio 1 media.max_progress 100 %}{% else %}0{% endif %}%">
       <div class="ct-progress-frame">
-        <a href="{{ item|media_url }}" class="ct-progress-media" tabindex="-1" aria-hidden="true">
+        <a href="{% if card_url %}{{ card_url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-progress-media" tabindex="-1" aria-hidden="true">
           {% if backdrop %}
             <img alt=""
                  class="ct-progress-art ct-fade-img"
@@ -85,7 +87,7 @@
         <span class="ct-progress-line" aria-hidden="true"><span></span></span>
         {# djlint:on #}
       </div>
-      <a href="{{ item|media_url }}" class="ct-progress-title">{{ title }}</a>
+      <a href="{% if card_url %}{{ card_url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-progress-title">{{ title }}</a>
       <span class="ct-progress-episode">
         {% if next_episode %}
           <span data-ct-episode-label>S{{ next_episode.season_number }} E{{ next_episode.episode_number }}</span>

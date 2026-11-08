@@ -23,6 +23,20 @@ class ThemeTogglePartialPostTests(TestCase):
         self.user.save()
         self.client.force_login(self.user)
 
+    def test_spoiler_protection_switches_save(self):
+        """Both spoiler switches persist, and the page offers them."""
+        self.client.post(
+            reverse("preferences"),
+            {"obfuscate_episodes": "1", "hide_episode_overviews": "0"},
+        )
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.obfuscate_episodes)
+        self.assertFalse(self.user.hide_episode_overviews)
+        page = self.client.get(reverse("preferences"))
+        self.assertContains(page, 'name="obfuscate_episodes"')
+        self.assertContains(page, 'name="hide_episode_overviews"')
+
     def test_theme_only_post_applies_the_theme(self):
         """The toggle still persists the theme it sends."""
         self.client.post(reverse("preferences"), {"theme": "light"})

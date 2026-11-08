@@ -1,0 +1,45 @@
+{% load app_tags %}
+{% comment %}
+  The v2 detail hero's poster (part="poster") or title (part="title"), with
+  fanart.tv's poster or title logo when there is one. The shell renders both;
+  the secondary fragment re-renders them with fanart_oob after fetching a
+  fanart.tv miss, and htmx swaps them in by id.
+  Context: media, user, fanart (from ct_fanart; {} or None without art).
+{% endcomment %}
+{% if part == "poster" %}
+  {% if fanart.poster %}
+    <img alt="{{ media|display_title:user }}"
+         id="ct-detail-poster-img"
+         {% if fanart_oob %}hx-swap-oob="outerHTML"{% endif %}
+         class="ct-fade-img"
+         src="{{ fanart.poster|image_url }}"
+         width="1000"
+         height="1426"
+         decoding="async"
+         fetchpriority="high">
+  {% else %}
+    {% with srcset=media.image|tmdb_srcset:'w342,w500,w780' %}
+      <img alt="{{ media|display_title:user }}"
+           id="ct-detail-poster-img"
+           class="ct-fade-img"
+           src="{{ media.image|tmdb_size:'w500'|image_url }}"
+           {% if srcset %}srcset="{{ srcset }}" sizes="(min-width: 768px) 260px, 200px"{% endif %}
+           width="500"
+           height="750"
+           decoding="async"
+           fetchpriority="high">
+    {% endwith %}
+  {% endif %}
+{% elif fanart.logo %}
+  <h1 class="ct-detail-title ct-detail-title--logo"
+      id="ct-detail-title"
+      {% if fanart_oob %}hx-swap-oob="outerHTML"{% endif %}>
+    <img alt="{{ media|display_title:user }}"
+         src="{{ fanart.logo|image_url }}"
+         width="800"
+         height="310"
+         decoding="async">
+  </h1>
+{% else %}
+  <h1 class="ct-detail-title" id="ct-detail-title">{{ media|display_title:user }}</h1>
+{% endif %}

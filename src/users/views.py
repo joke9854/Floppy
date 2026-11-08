@@ -1088,6 +1088,10 @@ def preferences(request):
             "hide_completed_recommendations"
         )
         hide_zero_rating_raw = request.POST.get("hide_zero_rating")
+        spoiler_raw = {
+            field: request.POST.get(field)
+            for field in ("obfuscate_episodes", "hide_episode_overviews")
+        }
         progress_bar_raw = request.POST.get("progress_bar")
         # Read these as None-when-absent. The header theme toggle posts only
         # `theme` to this endpoint, so defaulting an absent field to its
@@ -1265,6 +1269,11 @@ def preferences(request):
             if request.user.hide_zero_rating != hide_zero_rating:
                 request.user.hide_zero_rating = hide_zero_rating
                 fields_to_update.append("hide_zero_rating")
+
+        for field, raw in spoiler_raw.items():
+            if raw is not None and getattr(request.user, field) != (raw == "1"):
+                setattr(request.user, field, raw == "1")
+                fields_to_update.append(field)
 
         if progress_bar_raw is not None:
             progress_bar = progress_bar_raw == "1"

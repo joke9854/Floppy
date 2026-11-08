@@ -6,7 +6,8 @@
   episode_row.html's grid card: the still, the episode number, the title, the
   watched time (the shared history line) or the air date, an ⓘ that expands a
   watched episode's overview, and the check circle. Unwatched stills are
-  spoiler-blurred when the user hides them, and those rows get no ⓘ. The
+  spoiler-blurred when the user hides them, and get no ⓘ while the user
+  hides unwatched descriptions (hide_episode_overviews). The
   check is the unchanged detail_episode_track_button inside
   detail_row_actions, so its ids, the track modal and the save responses' OOB
   swaps all work as before; CSS draws it as a circle. The compact list row in
@@ -60,7 +61,7 @@
       </span>
       {% include "app/components/detail_episode_history_line.html" with episode=episode user=user history_oob=False only %}
     </div>
-    {% if episode.overview and episode.history %}
+    {% if episode.overview and episode.history or episode.overview and not user.hide_episode_overviews %}
       <button type="button"
               class="ct-ep-info"
               :class="{ 'is-open': info }"
@@ -76,7 +77,7 @@
         {% include "app/components/detail_row_actions.html" with episode=episode action_media_type=MediaTypes.EPISODE.value track_button_variant="episode" current_instance=current_instance history_item=episode.item detail_return_url=detail_return_url request=request csrf_token=csrf_token TRACK_TIME=TRACK_TIME user=user media_type=media_type MediaTypes=MediaTypes only %}
       </div>
     {% endif %}
-    {% if episode.overview and episode.history %}
+    {% if episode.overview and episode.history or episode.overview and not user.hide_episode_overviews %}
       <p class="ct-ep-overview" x-show="info" x-cloak x-transition.opacity>{{ episode.overview }}</p>
     {% endif %}
   </article>

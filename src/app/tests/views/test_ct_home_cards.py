@@ -115,6 +115,24 @@ class CineTrackHomeCardTests(TestCase):
         self.assertIn("https://image.tmdb.org/t/p/w185/abc.jpg 185w", html)
         self.assertNotIn('class="media-card ', html.split("ct-progress-card", 1)[1][:4000])
 
+    def test_progress_card_opens_the_next_episode(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+        html = self._hydrated_home()
+
+        card = html.split('class="ct-progress-card"', 1)[1][:6000]
+        episode_url = reverse(
+            "episode_details",
+            kwargs={
+                "source": Sources.TMDB.value,
+                "media_id": "1668",
+                "title": "friends",
+                "season_number": 1,
+                "episode_number": 5,
+            },
+        )
+        self.assertIn(f'href="{episode_url}" class="ct-progress-media"', card)
+        self.assertIn(f'href="{episode_url}" class="ct-progress-title"', card)
+
     def test_progress_card_uses_a_cached_backdrop_without_fetching(self):
         self._use_theme(ThemeChoices.CINETRACK)
         cache.set(

@@ -9,10 +9,11 @@
 
   Context: backdrop (URL or None), poster (URL). backdrop_pending: a cache
   miss in the detail shell, which ct/detail_secondary.html replaces by id
-  (backdrop_oob) once it has fetched the backdrop.
+  (backdrop_oob) once it has fetched the backdrop, or a fanart.tv miss (fanart
+  is None), whose background replaces a TMDB one.
 {% endcomment %}
 <div class="ct-detail-backdrop"
-     {% if backdrop_oob %}hx-swap-oob="outerHTML:#ct-detail-backdrop-pending"{% elif backdrop_pending and not backdrop %}id="ct-detail-backdrop-pending"{% endif %}
+     {% if backdrop_oob %}hx-swap-oob="outerHTML:#ct-detail-backdrop-pending"{% elif backdrop_pending and not backdrop or backdrop_pending and fanart is None %}id="ct-detail-backdrop-pending"{% endif %}
      aria-hidden="true">
   {% if backdrop %}
     <img alt=""

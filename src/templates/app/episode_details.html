@@ -341,8 +341,17 @@
 
       {# Overview — mirrors media_details synopsis section #}
       {% if episode and episode.overview %}
-        <div class="mb-6">
+        <div class="mb-6"
+             x-data="{ spoiler: {% if user.is_authenticated and user.hide_episode_overviews and not episode.history %}true{% else %}false{% endif %} }">
+          <p class="ct-spoiler-text" x-show="spoiler" x-cloak>
+            {% include "app/icons/eye-closed.svg" with classes="w-4 h-4" %}
+            <span>{% translate "Description hidden until you watch it" %}</span>
+            <button type="button"
+                    class="ct-row-link"
+                    @click="spoiler = false; $nextTick(() => window.dispatchEvent(new Event('resize')))">{% translate "Reveal" %}</button>
+          </p>
           <div class="relative"
+               x-show="!spoiler"
                x-data="{
                  isExpanded: false,
                  isClamped: false,

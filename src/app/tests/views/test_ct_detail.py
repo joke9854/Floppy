@@ -286,6 +286,40 @@ class CineTrackDetailPageTests(TestCase):
 
         self.assertContains(response, 'id="ct-mark-movie"')
         self.assertContains(response, 'name="save_as_new_entry" value="1"')
+        self.assertContains(response, "Mark as watched")
+        self.assertNotContains(response, "ct-btn-primary is-watched")
+        # "Add to tracker" opens the status list; only Edit details opens the modal.
+        self.assertContains(response, 'class="ct-status-menu"')
+        self.assertContains(response, "Add to tracker")
+        self.assertContains(response, f'action="{reverse("media_save")}"', count=2)
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_completed_movie_shows_a_green_watched_button(self, mock_get_metadata):
+        from app.models import Item, Movie, Status
+
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        item = Item.objects.create(
+            media_id="238",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Test Movie",
+            image="https://image.tmdb.org/t/p/w500/poster.jpg",
+        )
+        # Saving a completed movie reads its runtime from the metadata.
+        mock_get_metadata.return_value = {"max_progress": 1, "details": {}}
+        Movie.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.COMPLETED.value,
+            end_date=timezone.now(),
+        )
+
+        response = self._get(mock_get_metadata)
+
+        self.assertContains(response, 'class="ct-btn-primary is-watched" id="ct-mark-movie" data-ct-open-track')
+        self.assertNotContains(response, "Mark as watched")
+        self.assertNotContains(response, 'name="save_as_new_entry" value="1"')
 
     @patch("app.providers.services.get_media_metadata")
     def test_watch_on_without_a_chosen_region_uses_the_browser_country(self, mock_get_metadata):

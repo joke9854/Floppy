@@ -23,7 +23,9 @@
       {# Top section #}
       {% if ct_shell %}
         {# Cache only, so first paint never waits on the provider; on a miss the secondary fragment (ct_backdrop=1) fetches it and swaps it in. #}
-        {% ct_detail_backdrop media allow_network=False as ct_backdrop %}
+        {% ct_fanart media allow_network=False as fanart %}
+        {% ct_detail_backdrop media allow_network=False as tmdb_backdrop %}
+        {% firstof fanart.background tmdb_backdrop as ct_backdrop %}
         {% include "app/components/ct/detail_hero.html" %}
       {% elif carousel_supported %}
         {# Carousel temporarily disabled below md while the mobile layout gets polished; mobile keeps today's stacked order, md+ gets the new two-row layout. See .detail-carousel-grid in input.css. #}
@@ -77,7 +79,7 @@
       {% if defer_detail_secondary %}
         <div id="detail-secondary-content"
              class="flex flex-col-reverse md:flex-row gap-0 md:gap-10{% if ct_v2_detail %} ct-detail-sections is-loading{% endif %}"
-             hx-get="{{ detail_secondary_fragment_url }}{% if ct_shell and not ct_backdrop %}&ct_backdrop=1{% endif %}"
+             hx-get="{{ detail_secondary_fragment_url }}{% if ct_shell and not ct_backdrop %}&ct_backdrop=1{% endif %}{% if ct_shell and fanart is None %}&ct_fanart=1{% endif %}"
              hx-trigger="load delay:150ms"
              hx-swap="outerHTML">
           <div class="w-full md:w-1/4 md:max-w-[250px] mx-auto lg:mx-0">

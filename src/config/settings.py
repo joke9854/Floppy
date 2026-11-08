@@ -1264,6 +1264,12 @@ TVDB_PIN = config(
     ),
 )
 
+# Optional fanart.tv artwork (logo, poster, background) on movie and show pages.
+FANART_API_KEY = config(
+    "FANART_API_KEY",
+    default=secret("FANART_API_KEY_FILE", ""),
+)
+
 MAL_API = config(
     "MAL_API",
     default=secret(

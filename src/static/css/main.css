@@ -6314,7 +6314,12 @@ html.cinetrack {
 }
 @media (min-width: 48rem) {
   .ct-shell-content {
-    padding-left: 88px;
+    --ct-shell-pad: 88px;
+    padding-left: var(--ct-shell-pad);
+  }
+  .ct-shell-content > main:has(> .container > .ct-detail-backdrop) {
+    margin-left: calc(-1 * var(--ct-shell-pad));
+    padding-left: var(--ct-shell-pad);
   }
 }
 .ct-rail-brand {
@@ -6385,10 +6390,10 @@ html.cinetrack {
     box-shadow: none;
   }
   .ct-rail[data-ct-sidebar="attached"] ~ .ct-shell-content {
-    padding-left: 248px;
+    --ct-shell-pad: 248px;
   }
   .ct-rail[data-ct-sidebar="floating"][data-ct-floating="expanded"] ~ .ct-shell-content {
-    padding-left: 224px;
+    --ct-shell-pad: 224px;
   }
   .ct-rail ~ .ct-shell-content > .ct-topbar {
     display: none;
@@ -7370,9 +7375,9 @@ main:has(> .container > .ct-detail-backdrop) > .container > :not(.ct-detail-back
 .ct-detail-backdrop::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgb(28 27 34 / 62%) 0%, rgb(28 27 34 / 34%) 55%, rgb(28 27 34 / 18%) 100%), linear-gradient(180deg, rgb(28 27 34 / 10%) 0%, rgb(28 27 34 / 45%) 60%, var(--color-page-bg) 100%), radial-gradient(120% 90% at 50% 0%, var(--poster-accent, var(--color-accent)), transparent 72%);
+  background: linear-gradient(90deg, rgb(28 27 34 / 74%) 0%, rgb(28 27 34 / 50%) 55%, rgb(28 27 34 / 32%) 100%), linear-gradient(180deg, rgb(28 27 34 / 18%) 0%, rgb(28 27 34 / 55%) 60%, var(--color-page-bg) 100%), radial-gradient(120% 90% at 50% 0%, var(--poster-accent, var(--color-accent)), transparent 72%);
   @supports (color: color-mix(in lab, red, red)) {
-    background: linear-gradient(90deg, rgb(28 27 34 / 62%) 0%, rgb(28 27 34 / 34%) 55%, rgb(28 27 34 / 18%) 100%), linear-gradient(180deg, rgb(28 27 34 / 10%) 0%, rgb(28 27 34 / 45%) 60%, var(--color-page-bg) 100%), radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 18%, transparent), transparent 72%);
+    background: linear-gradient(90deg, rgb(28 27 34 / 74%) 0%, rgb(28 27 34 / 50%) 55%, rgb(28 27 34 / 32%) 100%), linear-gradient(180deg, rgb(28 27 34 / 18%) 0%, rgb(28 27 34 / 55%) 60%, var(--color-page-bg) 100%), radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 18%, transparent), transparent 72%);
   }
   content: "";
 }
@@ -7899,9 +7904,16 @@ a.ct-ep-title:hover {
 .ct-detail-hero--v2 .ct-detail-poster {
   width: 260px;
 }
-.ct-detail-actions .ct-btn-primary {
+.ct-detail-actions .ct-btn-primary.is-watched {
   background-color: var(--ct-status-completed);
   color: #fff;
+}
+.ct-detail-title--logo img {
+  width: auto;
+  max-width: min(420px, 100%);
+  max-height: 140px;
+  object-fit: contain;
+  object-position: left center;
 }
 .ct-detail-hero--v2 .ct-detail-identity {
   text-align: start;
@@ -8915,6 +8927,13 @@ a.ct-person-link:hover .ct-person-primary {
   color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
+}
+.ct-spoiler-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
 }
 .ct-spoiler__reveal {
   height: 36px;
@@ -10744,6 +10763,14 @@ html.cinetrack main[data-ct-page="calendar"] {
   color: #fff;
   font-size: 20px;
   font-weight: 800;
+}
+.ct-integration-mark.is-logo {
+  background-color: rgb(255 255 255 / 8%);
+}
+.ct-integration-mark.is-logo img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 .ct-integration-name {
   color: var(--color-text);

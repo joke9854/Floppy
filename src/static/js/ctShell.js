@@ -176,7 +176,7 @@ if (!window.__floppyCtShellBound) {
       document.dispatchEvent(new CustomEvent("showToast", {
         detail: { message: help.dataset.noneLeft, type: "info" },
       }));
-      return;
+      return false;
     }
     const { data, row } = next;
     const values = {
@@ -196,25 +196,51 @@ if (!window.__floppyCtShellBound) {
     htmx.ajax("POST", url, { values, swap: "none", source: document.body }).catch(() => {
       if (row) row.dataset.watched = "0";
       if (pinned) delete pinned.dataset.pending;
+      const button = document.querySelector("[data-ct-mark-next]");
+      if (button) {
+        delete button.dataset.watchedAt;
+        button.classList.remove("is-watched");
+      }
       syncMarkNext();
     });
+    return true;
   };
   // v2 detail: the primary button marks the same episode W would and names
-  // it, and that episode's row reads "Up next". Hidden while there is none.
+  // it, and that episode's row reads "Up next". Just marked, it reads a green
+  // "Watched" until the live refresh names the next one; a completed show with
+  // none left keeps it green. Hidden otherwise.
   const syncMarkNext = () => {
     const button = document.querySelector("[data-ct-mark-next]");
     if (!button) return;
+    const label = button.querySelector("[data-ct-mark-next-label]");
+    if (button.dataset.watchedAt) {
+      button.hidden = false;
+      label.textContent = button.dataset.watchedLabel;
+      return;
+    }
     const next = nextEpisode();
-    button.hidden = !next;
-    button.closest(".ct-detail-actions")?.classList.toggle("has-primary", Boolean(next));
+    const done = !next && "ctCompleted" in button.dataset;
+    button.hidden = !next && !done;
+    button.classList.toggle("is-watched", done);
+    button.closest(".ct-detail-actions")?.classList.toggle("has-primary", Boolean(next) || done);
     document.querySelectorAll(".ct-episode-list .ct-ep-row").forEach((row) => {
       row.classList.toggle("is-next", Boolean(next?.row) && row.contains(next.row));
     });
+    if (done) label.textContent = button.dataset.watchedLabel;
     if (!next) return;
-    button.querySelector("[data-ct-mark-next-label]").textContent = button.dataset.label
+    label.textContent = button.dataset.label
       .replace("%(season)s", next.data.seasonNumber)
       .replace("%(episode)s", next.data.episodeNumber);
   };
+  // W and the hero button: mark, and show the button's green "Watched".
+  const markFromHero = (help) => {
+    const button = document.querySelector("[data-ct-mark-next]");
+    if (!markNextEpisode(help) || !button) return;
+    button.dataset.watchedAt = String(Date.now());
+    button.classList.add("is-watched");
+    syncMarkNext();
+  };
+  const openTrack = () => document.querySelector('.ct-detail-hero [data-ct-shortcut="track"]')?.click();
   document.addEventListener("DOMContentLoaded", syncMarkNext);
   document.addEventListener("htmx:afterSettle", syncMarkNext);
   // After a watch is saved, edited or undone, re-fetch this page and swap in
@@ -239,9 +265,17 @@ if (!window.__floppyCtShellBound) {
         parts.forEach((el) => {
           const replacement = fresh.getElementById(el.id);
           if (!replacement) return;
-          const node = document.importNode(replacement, true);
-          el.replaceWith(node);
-          htmx.process(node);
+          const swap = () => {
+            if (!el.isConnected) return;
+            const node = document.importNode(replacement, true);
+            el.replaceWith(node);
+            htmx.process(node);
+            syncMarkNext();
+          };
+          // A just-marked hero button holds its green "Watched" for a beat.
+          const wait = el.dataset.watchedAt ? 1200 - (Date.now() - Number(el.dataset.watchedAt)) : 0;
+          if (wait > 0) setTimeout(swap, wait);
+          else swap();
         });
       }));
       syncMarkNext();
@@ -253,11 +287,19 @@ if (!window.__floppyCtShellBound) {
     if (document.querySelector("[data-ct-live]")) refreshLiveParts();
   });
   document.addEventListener("click", (event) => {
-    const button = event.target instanceof Element ? event.target.closest("[data-ct-mark-next]") : null;
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("[data-ct-open-track]")) {
+      openTrack();
+      return;
+    }
+    const button = event.target.closest("[data-ct-mark-next]");
     const help = document.querySelector("[data-ct-shortcuts]");
     if (!button || !help) return;
-    markNextEpisode(help);
-    syncMarkNext();
+    if (button.classList.contains("is-watched")) {
+      if (!button.dataset.watchedAt) openTrack();
+      return;
+    }
+    markFromHero(help);
   });
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -270,7 +312,7 @@ if (!window.__floppyCtShellBound) {
       window.dispatchEvent(new CustomEvent("ct-shortcuts-open"));
     } else if (key === "w") {
       event.preventDefault();
-      markNextEpisode(help);
+      markFromHero(help);
     } else if (key === "s" || key === "r") {
       const target = document.querySelector(
         `.ct-detail-hero [data-ct-shortcut="${key === "s" ? "track" : "rate"}"]`,

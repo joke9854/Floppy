@@ -856,6 +856,10 @@ class User(AbstractUser):
         default=False,
         help_text="Blur unseen episode thumbnails to avoid spoilers",
     )
+    hide_episode_overviews = models.BooleanField(
+        default=True,
+        help_text="Hide unseen episode descriptions to avoid spoilers",
+    )
 
     # Watch provider region
     watch_provider_region = models.CharField(

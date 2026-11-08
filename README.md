@@ -421,6 +421,7 @@ The only universally required variable is `SECRET`. For Docker installs you shou
 
 - `TMDB_API` - movie and TV metadata from [TMDB](https://www.themoviedb.org/settings/api)
 - `TVDB_API_KEY` / `TVDB_PIN` - TVDB-backed metadata and grouped anime support (`TVDB_PIN` is your **Subscriber PIN**, only required for user-supported API keys)
+- `FANART_API_KEY` - optional [fanart.tv](https://fanart.tv/) API key; movie and show pages then use its title logo, poster and background when it has them
 - `MAL_API` - MyAnimeList **Client ID** for anime metadata ([register here](https://myanimelist.net/apiconfig))
 - `IGDB_ID` / `IGDB_SECRET` - game metadata from [IGDB](https://www.igdb.com/api)
 - `STEAM_API_KEY` - Steam game imports

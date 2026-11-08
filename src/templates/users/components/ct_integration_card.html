@@ -1,8 +1,13 @@
 {% load i18n %}
+{% load static %}
 {# One A5 integration card. href: a page elsewhere (import modal); otherwise the card opens this page's setup panels for `key`. #}
 <div class="ct-integration-card">
   <div class="ct-integration-top">
-    <span class="ct-integration-mark" style="background-color: {{ color }}" aria-hidden="true">{{ letter }}</span>
+    {% if logo %}
+      <span class="ct-integration-mark is-logo" aria-hidden="true"><img src="{% static logo %}" alt="" width="28" height="28"></span>
+    {% else %}
+      <span class="ct-integration-mark" style="background-color: {{ color }}" aria-hidden="true">{{ letter }}</span>
+    {% endif %}
     <div class="min-w-0">
       <p class="ct-integration-name">{{ name }}</p>
       <p class="ct-integration-method">{{ method }}</p>

@@ -40,6 +40,7 @@ APPROVED_IMAGE_HOSTS = frozenset(
     {
         "image.tmdb.org",
         "artworks.thetvdb.com",
+        "assets.fanart.tv",
         "cdn.myanimelist.net",
         "images.igdb.com",
         "covers.openlibrary.org",

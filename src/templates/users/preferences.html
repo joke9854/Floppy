@@ -831,6 +831,46 @@
           </div>
         </div>
 
+        <!-- Blur Unwatched Episode Images -->
+        <div class="p-3 bg-[var(--color-surface-strong)] rounded-md mb-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-[var(--color-text-secondary)] text-sm font-medium">{% translate "Blur Unwatched Episode Images" %}</label>
+              <p class="text-[var(--color-text-muted)] text-xs mt-1">{% translate "Spoiler protection: blur the stills of episodes you haven't watched." %}</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="hidden" name="obfuscate_episodes" value="0">
+              <input class="sr-only peer"
+                     type="checkbox"
+                     name="obfuscate_episodes"
+                     value="1"
+                     {% if user.obfuscate_episodes %}checked{% endif %}>
+              <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600">
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Hide Unwatched Episode Descriptions -->
+        <div class="p-3 bg-[var(--color-surface-strong)] rounded-md mb-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-[var(--color-text-secondary)] text-sm font-medium">{% translate "Hide Unwatched Episode Descriptions" %}</label>
+              <p class="text-[var(--color-text-muted)] text-xs mt-1">{% translate "Spoiler protection: keep the overview of episodes you haven't watched behind Reveal." %}</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="hidden" name="hide_episode_overviews" value="0">
+              <input class="sr-only peer"
+                     type="checkbox"
+                     name="hide_episode_overviews"
+                     value="1"
+                     {% if user.hide_episode_overviews %}checked{% endif %}>
+              <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition peer-checked:bg-indigo-600">
+              </div>
+            </label>
+          </div>
+        </div>
+
         <!-- Quick Season Updates -->
         <div class="p-3 bg-[var(--color-surface-strong)] rounded-md mb-4">
           <div class="flex flex-col items-start gap-1 mb-2">

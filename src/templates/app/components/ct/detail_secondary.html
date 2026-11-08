@@ -19,7 +19,16 @@
 {% if watch_on and request.GET.fragment == "secondary" and media_type != MediaTypes.SEASON.value %}
   {% include "app/components/ct/watch_on.html" with watch_on_oob=True %}
 {% endif %}
-{% if request.GET.ct_backdrop %}
+{# The shell missed fanart.tv's art (ct_fanart=1): fetch it and swap in the background, poster and logo. #}
+{% if request.GET.ct_fanart %}
+  {% ct_fanart media as fresh_fanart %}
+  {% if fresh_fanart.background %}
+    {% include "app/components/ct/detail_backdrop.html" with backdrop=fresh_fanart.background poster=media.image backdrop_oob=True %}
+  {% endif %}
+  {% if fresh_fanart.poster %}{% include "app/components/ct/detail_fanart.html" with part="poster" fanart=fresh_fanart fanart_oob=True %}{% endif %}
+  {% if fresh_fanart.logo %}{% include "app/components/ct/detail_fanart.html" with part="title" fanart=fresh_fanart fanart_oob=True %}{% endif %}
+{% endif %}
+{% if request.GET.ct_backdrop and not fresh_fanart.background %}
   {% ct_detail_backdrop media as fresh_backdrop %}
   {% if fresh_backdrop %}
     {% include "app/components/ct/detail_backdrop.html" with backdrop=fresh_backdrop poster=media.image backdrop_oob=True %}

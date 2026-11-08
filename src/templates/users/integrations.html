@@ -211,7 +211,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'jellyfin'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/jellyfin-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Jellyfin Integration (Official Repo)" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "Connect Jellyfin to automatically track your watching progress. Use this method if your server has access to the official Jellyfin plugin repository." %}</p>
@@ -288,7 +288,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'jellyfin'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/jellyfin-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Jellyfin Integration (Unofficial Repo)" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "An alternative setup using an unofficial webhook plugin from a community repository. Use this method if the official Jellyfin plugin repository is not accessible from your server." %}</p>
@@ -395,7 +395,7 @@
          x-transition.opacity.duration.150ms>
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center">
-          {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+          <img src="{% static 'img/jellyfin-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
           <h3 class="text-base font-medium">{% translate "Floppy → Jellyfin" %}</h3>
         </div>
         {% if jellyfin_account and jellyfin_account.is_connected %}
@@ -596,7 +596,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'plex'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/plex-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Plex Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "Connect Plex to automatically track your watching progress." %}</p>
@@ -1063,7 +1063,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'emby'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/emby-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Emby Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "Connect Emby to automatically track your watching progress." %}</p>
@@ -1107,7 +1107,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'kodi'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/kodi-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Kodi Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "Connect Kodi to automatically track your watching progress." %}</p>
@@ -1148,7 +1148,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'stremio'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/stremio-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Stremio Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">
@@ -1205,7 +1205,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'seerr'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/seerr-logo.svg' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Seerr Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">{% translate "Use a Seerr webhook to automatically add requested/approved media into Floppy." %}</p>
@@ -1485,7 +1485,7 @@
          x-show="activeIntegration === 'all' || activeIntegration === 'nuvio' || activeIntegration === 'api'"
          x-transition.opacity.duration.150ms>
       <div class="flex items-center mb-3">
-        {% include "app/icons/server.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
+        <img src="{% static 'img/nuvio-logo.png' %}" alt="" class="w-5 h-5 mr-2 object-contain" width="20" height="20">
         <h3 class="text-base font-medium">{% translate "Nuvio Integration" %}</h3>
       </div>
       <p class="text-[var(--color-text-muted)] mb-4 text-sm">

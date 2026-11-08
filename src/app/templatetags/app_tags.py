@@ -17,7 +17,7 @@ from unidecode import unidecode
 
 from app import backdrops, config, helpers, image_cache
 from app.models import CollectionEntry, Item, MediaTypes, Sources, Status, Tag
-from app.providers import tmdb
+from app.providers import fanart, tmdb
 from app.services import metadata_resolution
 from users.models import TimeFormatChoices
 from users.templatetags.user_tags import user_date_format, user_time_format
@@ -400,6 +400,17 @@ def ct_detail_backdrop(media, allow_network=True):
     provider; the secondary fragment fetches the miss and swaps it in.
     """
     return backdrops.resolve_backdrop(media, allow_network=allow_network)
+
+
+@register.simple_tag
+def ct_fanart(media, allow_network=True):
+    """Return a movie or show page's fanart.tv {logo, poster, background}.
+
+    ``{}`` without art or without FANART_API_KEY. The detail shell passes
+    ``allow_network=False`` and gets ``None`` on a miss; the secondary fragment
+    (ct_fanart=1) fetches it and swaps the art in.
+    """
+    return fanart.artwork(media, allow_network=allow_network)
 
 
 @register.simple_tag

@@ -7,11 +7,12 @@
      {% if swap_oob %}hx-swap-oob="outerHTML"{% endif %}
      x-data="{ trackOpen: {% if track_open %}true{% else %}false{% endif %} }"
      class="w-full sm:w-auto sm:shrink-0">
-  {% if current_instance and request.user.theme == "cinetrack" %}
+  {% if request.user.theme == "cinetrack" %}
     {% comment %}
       v2 quick status pull-down (boards A2/A10): each status is one POST to
       media_status, which changes only the status; Edit details opens the full
-      track window as the button used to.
+      track window as the button used to. An untracked title gets the same
+      list as "Add to tracker": a status posts to media_save, which adds it.
     {% endcomment %}
     <div class="ct-status-menu"
          x-data="{ statusOpen: false }"
@@ -24,14 +25,24 @@
               :aria-expanded="statusOpen ? 'true' : 'false'"
               @click="statusOpen = !statusOpen">
         {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
-        <span class="font-medium">{{ current_instance.status|media_status_readable }}</span>
+        <span class="font-medium">
+          {% if current_instance %}{{ current_instance.status|media_status_readable }}{% else %}{% translate "Add to tracker" %}{% endif %}
+        </span>
         {% include "app/icons/chevron-down.svg" with classes="w-4 h-4 shrink-0" %}
       </button>
       <div class="ct-status-menu__panel" role="menu" x-show="statusOpen" x-cloak x-transition.opacity>
-        <form method="post" action="{% url 'media_status' %}">
+        <form method="post" action="{% if current_instance %}{% url 'media_status' %}{% else %}{% url 'media_save' %}{% endif %}">
           {% csrf_token %}
-          <input type="hidden" name="media_type" value="{{ current_instance.item.media_type }}">
-          <input type="hidden" name="instance_id" value="{{ current_instance.id }}">
+          {% if current_instance %}
+            <input type="hidden" name="media_type" value="{{ current_instance.item.media_type }}">
+            <input type="hidden" name="instance_id" value="{{ current_instance.id }}">
+          {% else %}
+            <input type="hidden" name="media_id" value="{{ media.media_id }}">
+            <input type="hidden" name="source" value="{{ media.source }}">
+            <input type="hidden" name="media_type" value="{{ media.media_type }}">
+            {% if media.season_number is not None %}<input type="hidden" name="season_number" value="{{ media.season_number }}">{% endif %}
+            {% if media.library_media_type %}<input type="hidden" name="library_media_type" value="{{ media.library_media_type }}">{% endif %}
+          {% endif %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           {% for value, label in Status.choices %}
             <button type="submit"
@@ -52,7 +63,7 @@
                 role="menuitem"
                 class="ct-status-menu__item"
                 hx-get="{% media_view_url 'track_modal' media %}"
-                hx-vals='{"return_url": "{{ return_url }}", "instance_id": "{{ current_instance.id }}"{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
+                hx-vals='{"return_url": "{{ return_url }}"{% if current_instance %}, "instance_id": "{{ current_instance.id }}"{% endif %}{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
                 hx-target="#{% component_id 'track' media %}"
                 hx-trigger="click"
                 @click="statusOpen = false; trackOpen = true">
