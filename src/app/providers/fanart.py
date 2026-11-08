@@ -76,7 +76,7 @@ def _payload(item, slot) -> dict:
 
 def _key(media, kind) -> str:
     """Return the cache key for a title: its page's own source and id."""
-    return f"fanart_v2_{media.get('source')}_{kind}_{media.get('media_id')}"
+    return f"fanart_v3_{media.get('source')}_{kind}_{media.get('media_id')}"
 
 
 def _memo() -> dict | None:
@@ -177,12 +177,18 @@ def _fanart_id(kind, media) -> str | None:
     return str(tvdb_id) if tvdb_id else None
 
 
-def _pick(images) -> str | None:
-    """Return the best image URL: the site language, then English, then none."""
-    if not images:
-        return None
+def _pick(images, *, any_language=False) -> str | None:
+    """Return the best image URL: the site language, then English, then none.
+
+    A poster or logo in another language is skipped, so the provider's own art
+    stays; a background rarely carries text, so any one will do.
+    """
     language = (settings.TMDB_LANG or "en").split("-")[0]
     rank = {language: 0, "en": 1, "00": 2, "": 2}
+    if not any_language:
+        images = [image for image in images or [] if (image.get("lang") or "") in rank]
+    if not images:
+        return None
     best = min(
         images,
         key=lambda image: (
@@ -198,7 +204,7 @@ def _parse(kind, data) -> dict:
     art = {}
     for slot, types in ART_TYPES[kind].items():
         for art_type in types:
-            url = _pick(data.get(art_type))
+            url = _pick(data.get(art_type), any_language=slot == "background")
             if url:
                 art[slot] = url
                 break

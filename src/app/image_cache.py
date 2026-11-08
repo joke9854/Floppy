@@ -304,28 +304,30 @@ def _fetch_to_disk(url):
 
 # fanart.tv serves only full-size art (posters ~1000px wide, backgrounds
 # 1920px), so the cached copy is shrunk once to what a page draws: card and
-# hero posters, and full-width backdrops. Logos are already small.
-FANART_MAX_WIDTH = {"poster": 500, "background": 1280}
+# hero posters, and full-width backdrops. Its URLs (/fanart/<name>.jpg) do not
+# say which art type they are, so the shape does: a portrait image is a poster,
+# a landscape JPEG a background. Logos are transparent PNGs and already small.
+FANART_POSTER_WIDTH = 500
+FANART_BACKGROUND_WIDTH = 1280
 
 
 def _shrink_fanart(path, url):
     """Downsize a fanart.tv poster or background in place, keeping its format."""
-    parsed = urlparse(url)
-    if parsed.hostname != "assets.fanart.tv":
-        return
-    # /fanart/<kind>/<id>/<art type>/<file>
-    art_type = parsed.path.rsplit("/", 2)[-2] if parsed.path.count("/") > 1 else ""
-    slot = "poster" if art_type.endswith("poster") else "background" if art_type.endswith("background") else None
-    if slot is None:
+    if urlparse(url).hostname != "assets.fanart.tv":
         return
     from PIL import Image
 
     with Image.open(path) as image:
         width, height = image.size
-        max_width = FANART_MAX_WIDTH[slot]
+        image_format = image.format
+        if height > width:
+            max_width = FANART_POSTER_WIDTH
+        elif image_format == "JPEG":
+            max_width = FANART_BACKGROUND_WIDTH
+        else:
+            return
         if width <= max_width:
             return
-        image_format = image.format
         resized = image.convert("RGB") if image_format == "JPEG" else image.copy()
         resized.thumbnail((max_width, round(height * max_width / width)))
     resized.save(path, format=image_format, quality=85, optimize=True)

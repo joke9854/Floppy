@@ -92,9 +92,9 @@ class ImageCacheServiceTests(TestCase):
     def test_fanart_posters_and_backgrounds_are_shrunk_once_logos_are_not(self):
         image_cache.set_enabled(True)
         cases = {
-            "https://assets.fanart.tv/fanart/movies/603/movieposter/p.jpg": ((1000, 1426), "JPEG", (500, 713)),
-            "https://assets.fanart.tv/fanart/tv/281662/showbackground/b.jpg": ((1920, 1080), "JPEG", (1280, 720)),
-            "https://assets.fanart.tv/fanart/tv/281662/hdtvlogo/l.png": ((800, 310), "PNG", (800, 310)),
+            "https://assets.fanart.tv/fanart/the-matrix-5f8c1a2b3c4d5.jpg": ((1000, 1426), "JPEG", (500, 713)),
+            "https://assets.fanart.tv/fanart/daredevil-5f8c1a2b3c4d6.jpg": ((1920, 1080), "JPEG", (1280, 720)),
+            "https://assets.fanart.tv/fanart/daredevil-5f8c1a2b3c4d7.png": ((800, 310), "PNG", (800, 310)),
         }
         for url, (size, image_format, expected) in cases.items():
             output = BytesIO()

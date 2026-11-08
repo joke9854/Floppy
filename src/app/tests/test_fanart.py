@@ -74,7 +74,21 @@ class FanartArtworkTests(TestCase):
     def test_a_title_without_art_is_cached_as_empty(self):
         with patch("app.providers.services.api_request", side_effect=_not_found()):
             self.assertEqual(fanart.artwork(MOVIE), {})
-        self.assertEqual(cache.get("fanart_v2_tmdb_movies_238"), {})
+        self.assertEqual(cache.get("fanart_v3_tmdb_movies_238"), {})
+
+    def test_posters_and_logos_in_other_languages_are_skipped(self):
+        data = {
+            "movieposter": [{"url": "ru.jpg", "lang": "ru", "likes": "9"}],
+            "hdmovielogo": [
+                {"url": "ru.png", "lang": "ru", "likes": "9"},
+                {"url": "none.png", "lang": "00", "likes": "0"},
+            ],
+            "moviebackground": [{"url": "bg-ru.jpg", "lang": "ru", "likes": "1"}],
+        }
+        with patch("app.providers.services.api_request", return_value=data):
+            art = fanart.artwork(MOVIE)
+
+        self.assertEqual(art, {"logo": "none.png", "background": "bg-ru.jpg"})
 
     def test_tmdb_shows_use_their_tvdb_id(self):
         show = {
@@ -157,7 +171,7 @@ class FanartEverywhereTests(TestCase):
         self.assertEqual(backdrops.cached_backdrop(self.episode), BACKGROUND)
 
     def test_grid_posters_use_fanart_only_through_the_resizing_image_cache(self):
-        cache.set("fanart_v2_tmdb_tv_61889", {"poster": POSTER})
+        cache.set("fanart_v3_tmdb_tv_61889", {"poster": POSTER})
 
         image_cache.set_enabled(False)
         self.assertEqual(ct_poster(self.show), self.show.image)
@@ -175,7 +189,7 @@ class FanartEverywhereTests(TestCase):
             title="Test Movie",
             image="https://image.tmdb.org/t/p/w500/m.jpg",
         )
-        cache.set("fanart_v2_tmdb_tv_61889", {"poster": POSTER})
+        cache.set("fanart_v3_tmdb_tv_61889", {"poster": POSTER})
         image_cache.set_enabled(True)
 
         with credentials.current_user_scope(user), self.captureOnCommitCallbacks() as queued:
@@ -184,14 +198,14 @@ class FanartEverywhereTests(TestCase):
                 self.assertEqual(ct_poster(self.show), POSTER)
                 self.assertEqual(ct_poster(movie), movie.image)
 
-        self.assertFalse([c for c in get.call_args_list if str(c.args[0]).startswith("fanart_v2_")])
+        self.assertFalse([c for c in get.call_args_list if str(c.args[0]).startswith("fanart_v3_")])
 
         # The movie's miss is still fetched in the background.
         self.assertEqual(len(queued), 1)
 
     @override_settings(FANART_API_KEY="")
     def test_without_a_key_cards_keep_their_own_art(self):
-        cache.set("fanart_v2_tmdb_tv_61889", {"poster": POSTER, "background": BACKGROUND})
+        cache.set("fanart_v3_tmdb_tv_61889", {"poster": POSTER, "background": BACKGROUND})
         image_cache.set_enabled(True)
 
         with patch("app.providers.services.api_request") as request:
@@ -230,7 +244,7 @@ class FanartDetailPageTests(TestCase):
         }
 
     def test_cached_art_renders_in_the_shell(self):
-        cache.set("fanart_v2_tmdb_movies_238", {"logo": LOGO, "poster": POSTER, "background": BACKGROUND})
+        cache.set("fanart_v3_tmdb_movies_238", {"logo": LOGO, "poster": POSTER, "background": BACKGROUND})
 
         response = self.client.get(self.url)
 
