@@ -364,7 +364,7 @@
               <dt>{% if key == "first_air_date" %}{% translate "Aired" %}{% elif key == "studios" and media_type != MediaTypes.MOVIE.value %}{% translate "Network" %}{% else %}{{ key|no_underscore|title }}{% endif %}</dt>
               <dd>
                 {% if key == "first_air_date" %}
-                  {{ value|user_date_format:user }}{% if media.details.last_air_date %} – {{ media.details.last_air_date|user_date_format:user }}{% endif %}
+                  {{ value|user_date_format:user }}{% if media.details.last_air_date and media.details.last_air_date != value %} – {{ media.details.last_air_date|user_date_format:user }}{% endif %}
                 {% elif value|is_list %}
                   {% for item in value %}{{ item|iso_date_format:request.user }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 {% elif key == "release_date" or key == "air_date" %}
@@ -386,7 +386,8 @@
         {% include "app/components/detail_history_section.html" %}
       </div>
     {% endif %}
-    <div class="ct-detail-section ct-detail-classic">
+    {# Nothing collected: the section is hidden, its dialog stays for the hero's More > collection button. #}
+    <div class="ct-detail-section ct-detail-classic{% if not has_collection_data and not collection_stats.collected_episodes %} is-empty{% endif %}">
       {% include "app/components/detail_collection_section.html" %}
     </div>
   {% endif %}

@@ -765,7 +765,16 @@ html.cinetrack {
     flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: none;
+    /* Visible, so a clipped last item (Stats) reads as "scroll for more". */
+    scrollbar-color: rgb(255 255 255 / 18%) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* A laptop screen (900px) fits every item with slightly shorter rows. */
+  @media (max-height: 960px) {
+    :is(.ct-rail[data-ct-sidebar="attached"], .ct-rail[data-ct-floating="expanded"], .ct-rail[data-ct-floating="hover"]:is(:hover, :focus-within)) .ct-rail-list .ct-rail-link {
+      height: 34px;
+    }
   }
 
   :is(.ct-rail[data-ct-sidebar="attached"], .ct-rail[data-ct-floating="expanded"], .ct-rail[data-ct-floating="hover"]:is(:hover, :focus-within)) .ct-rail-list::-webkit-scrollbar {
@@ -1931,6 +1940,9 @@ main:has(> .container > .ct-detail-backdrop) {
   background-image: linear-gradient(
     180deg,
     var(--color-page-bg) 0,
+    /* Plain under the backdrop, whose fade ends in the page colour: a short
+       page (the sections still loading) would otherwise show a seam there. */
+    var(--color-page-bg) min(72vh, 640px),
     color-mix(in srgb, var(--poster-accent, var(--color-accent)) 7%, var(--color-page-bg)) 100%
   );
 }
@@ -2614,7 +2626,18 @@ a.ct-ep-title:hover {
   color: #fff;
 }
 
-/* A fanart.tv title logo in place of the title text. */
+/* A fanart.tv title logo in place of the title text, which shows until the
+   logo has loaded. */
+.ct-detail-title--logo img:not(.is-loaded) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+}
+
+.ct-detail-title--logo:has(img.is-loaded) .ct-detail-title__text {
+  display: none;
+}
+
 .ct-detail-title--logo img {
   width: auto;
   max-width: min(420px, 100%);
@@ -7356,6 +7379,14 @@ html.light .theme-toggle-icon-moon {
 
 .media-card-poster {
   object-fit: cover;
+  transition: opacity 0.2s ease;
+}
+
+/* A grid poster stays blank (the card's surface) until lazysizes has loaded
+   it, instead of showing the placeholder glyph over a half-built card. */
+.media-card-poster.lazyload,
+.media-card-poster.lazyloading {
+  opacity: 0;
 }
 
 .series-graph-trigger:hover .series-graph-tooltip,
@@ -8915,4 +8946,50 @@ html.light .theme-toggle-icon-moon {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* v2 detail pages reuse the classic Collection and History sections; give them
+   the v2 section head, card and accent instead of the classic indigo. */
+.ct-detail-classic h2 {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.ct-detail-classic .bg-indigo-600 {
+  border-radius: 9999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+}
+
+.ct-detail-classic .bg-indigo-600:hover {
+  filter: brightness(1.1);
+}
+
+.ct-detail-classic > div > .bg-\[var\(--color-surface\)\] {
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: 16px;
+}
+
+.ct-detail-classic h3 {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* Nothing collected: hide the Collection section but keep its dialog, which
+   the hero's More > collection button opens. */
+.ct-detail-sections > .ct-detail-classic.is-empty {
+  margin: 0;
+  padding: 0;
+}
+
+.ct-detail-classic.is-empty h2,
+.ct-detail-classic.is-empty [data-ct-collection-add],
+.ct-detail-classic.is-empty > div > .bg-\[var\(--color-surface\)\] {
+  display: none;
+}
+
+.ct-detail-classic.is-empty > div > div:first-child {
+  margin: 0;
 }

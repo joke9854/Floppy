@@ -164,7 +164,7 @@ class MetadataSettingsPageTests(TestCase):
 
         response = self.client.get(reverse("metadata_settings"))
 
-        self.assertContains(response, "You are not a superuser")
+        self.assertContains(response, "you are not a superuser")
         self.assertContains(response, "promote_superuser member")
 
     def test_every_provider_offers_a_personal_key(self, _probe):
@@ -200,7 +200,7 @@ class MetadataSettingsPageTests(TestCase):
 
         response = self.client.get(reverse("metadata_settings"))
 
-        self.assertNotContains(response, "You are not a superuser")
+        self.assertNotContains(response, "you are not a superuser")
         self.assertNotContains(response, "promote_superuser")
 
     @patch("users.metadata_views.preflight.in_container", return_value=False)

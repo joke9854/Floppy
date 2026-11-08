@@ -34,7 +34,10 @@
   <h1 class="ct-detail-title ct-detail-title--logo"
       id="ct-detail-title"
       {% if fanart_oob %}hx-swap-oob="outerHTML"{% endif %}>
+    {# The text title holds the place until the logo has loaded (ctShell.js marks it .is-loaded). #}
+    <span class="ct-detail-title__text">{{ media|display_title:user }}</span>
     <img alt="{{ media|display_title:user }}"
+         class="ct-fade-img"
          src="{{ fanart.logo|image_url }}"
          width="800"
          height="310"

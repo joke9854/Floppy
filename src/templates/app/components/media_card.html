@@ -180,7 +180,7 @@
           {% endif %}
 
           {% if not recommend_mode and not public_view|default:False %}
-            <div class="media-card-overlay absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-in-out{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}"
+            <div x-cloak class="media-card-overlay absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-in-out{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}"
                  :class="revealed ? 'opacity-100 pointer-events-auto media-card-overlay-revealed' : 'opacity-0 pointer-events-none'"
                  {% if enable_bulk_select %}x-show="!selectMode"{% endif %}>
               {# Darkening background layer #}

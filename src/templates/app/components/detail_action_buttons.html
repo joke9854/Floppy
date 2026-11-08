@@ -264,6 +264,16 @@
               {% include "app/components/detail_lists_button.html" %}
             {% endif %}
 
+            {% if request.user.theme == "cinetrack" and not public_view and media_type != MediaTypes.PODCAST.value %}
+              {# Opens the Collection dialog, which stays on the page while an empty section is hidden. #}
+              <button type="button"
+                      class="inline-flex h-11 w-full flex-1 items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11 sm:flex-none"
+                      title="{% translate "Add collection data" %}"
+                      aria-label="{% translate "Add collection data" %}"
+                      @click="document.querySelector('[data-ct-collection-add]')?.click()">
+                {% include "app/icons/cube.svg" with classes="w-4 h-4" %}
+              </button>
+            {% endif %}
             <a class="inline-flex h-11 w-full flex-1 items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11 sm:flex-none"
                title="{% translate "View your activity history" %}"
                href="{% url 'history' %}?{% if media_type == MediaTypes.SEASON.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ media.media_id|urlencode }}&source={{ media.source|urlencode }}&season_number={{ media.season_number }}{% elif media_type == MediaTypes.TV.value %}media_type={{ MediaTypes.TV.value }}&media_id={{ media.media_id|urlencode }}&source={{ media.source|urlencode }}{% elif media_type == MediaTypes.PODCAST.value and podcast_show %}media_type={{ MediaTypes.PODCAST.value }}&podcast_show={{ podcast_show.id }}{% else %}media_type={{ media_type }}&media_id={{ media.media_id|urlencode }}&source={{ media.source|urlencode }}{% endif %}{% if media_type == MediaTypes.GAME.value or media_type == MediaTypes.BOARDGAME.value %}&logging_style=sessions{% endif %}">

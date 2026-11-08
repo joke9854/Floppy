@@ -591,18 +591,24 @@ def ct_library_subtitle(media):
     return _(dict(Status.choices).get(status, status)) if status else ""
 
 
+HERO_TRIES_PER_ROW = 3
+
+
 @register.simple_tag
 def ct_discover_hero(rows, limit=5):
     """Return the Discover hero slides: one candidate per row, in row order (W4).
 
-    A missing backdrop is fetched once and cached for 7 days, as on detail
-    pages, so a cold fragment waits on at most ``limit`` provider calls. Types
-    without a backdrop source fall back to the poster. A cached fanart.tv
+    A slide needs a backdrop (a poster alone reads as an almost black slide),
+    so a title without one is skipped for the row's next, up to
+    ``HERO_TRIES_PER_ROW`` per row. A missing backdrop is fetched once and
+    cached for 7 days, as on detail pages, so a cold fragment waits on at most
+    ``limit * HERO_TRIES_PER_ROW`` provider calls. A cached fanart.tv
     background and logo are used when fanart.tv is configured.
     """
     slides = []
     seen = set()
     for row in rows or []:
+        tries = 0
         for candidate in _ct_value(row, "items") or []:
             image = _ct_value(candidate, "image")
             identity = (
@@ -612,12 +618,18 @@ def ct_discover_hero(rows, limit=5):
             )
             if not image or image == settings.IMG_NONE or identity in seen:
                 continue
+            if tries >= HERO_TRIES_PER_ROW:
+                break
+            tries += 1
             seen.add(identity)
+            backdrop = backdrops.resolve_backdrop(candidate)
+            if not backdrop:
+                continue
             slides.append(
                 {
                     "candidate": candidate,
                     "row_title": _ct_value(row, "title"),
-                    "backdrop": backdrops.resolve_backdrop(candidate),
+                    "backdrop": backdrop,
                     "logo": fanart.cached(candidate, "logo"),
                 },
             )

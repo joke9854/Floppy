@@ -99,22 +99,23 @@
           <div class="min-h-[130px] p-1 rounded-md relative bg-[var(--color-surface-muted)] opacity-40"></div>
         {% else %}
           <div data-calendar-day
-               class="min-h-[130px] p-1 rounded-md relative bg-[var(--color-surface-strong)] cursor-pointer hover:bg-[var(--color-surface-hover)] {% if day == today.day and month == today.month and year == today.year %}ring-2 ring-indigo-500{% endif %}">
-            <div class="text-right text-sm p-1 font-medium {% if day == today.day and month == today.month and year == today.year %}bg-indigo-500 text-white rounded-full w-7 h-7 flex items-center justify-center ml-auto{% endif %}">
+               class="min-h-[130px] p-1 rounded-md relative bg-[var(--color-surface-strong)] cursor-pointer hover:bg-[var(--color-surface-hover)] {% if day == today.day and month == today.month and year == today.year %}ring-2 ring-[var(--color-accent)]{% elif year < today.year or year == today.year and month < today.month or year == today.year and month == today.month and day < today.day %}opacity-55{% endif %}">
+            <div class="text-right text-sm p-1 font-medium {% if day == today.day and month == today.month and year == today.year %}bg-[var(--color-accent)] text-[var(--color-accent-contrast)] rounded-full w-7 h-7 flex items-center justify-center ml-auto{% endif %}">
               {{ day }}
             </div>
-            <div class="mt-1 space-y-1 max-h-20 overflow-y-auto">
+            <div class="mt-1 space-y-1 max-h-24 overflow-y-auto">
               {% for release in release_dict|get_item:day %}
                 <a data-release-media-type="{{ release.item.media_type }}" data-release-status="{{ release.status|default:'' }}" href="{{ release.item|media_url }}" class="block">
-                  <div class="flex items-center gap-1 px-1 py-0.5 text-xs rounded hover:bg-[var(--color-surface-muted)] transition-colors">
+                  <div class="flex items-start gap-1 px-1 py-0.5 text-xs leading-snug rounded hover:bg-[var(--color-surface-muted)] transition-colors">
                     {% with color=release.item.media_type|media_color %}
                       {% icon release.item.media_type is_active=False extra_classes=color|add:" w-4 h-4 shrink-0" %}
                     {% endwith %}
-                    <span class="truncate" title="{{ release }} {{ release|user_event_time:user }}">{{ release }} {{ release|user_event_time:user }}</span>
+                    <span class="line-clamp-2 break-words" title="{{ release }} {{ release|user_event_time:user }}">{{ release }} {{ release|user_event_time:user }}</span>
                   </div>
                 </a>
               {% endfor %}
-              <div data-empty-state class="hidden text-xs text-[var(--color-text-muted)] px-1 py-0.5">{% translate "No releases" %}</div>
+              {# Kept for calendar.html's filter script; an empty day stays blank. #}
+              <div data-empty-state class="hidden"></div>
             </div>
           </div>
         {% endif %}

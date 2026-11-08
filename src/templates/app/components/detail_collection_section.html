@@ -9,7 +9,8 @@
   <div class="flex items-center justify-between mb-4 mt-6">
     <h2 class="text-xl font-bold">{% translate "Collection" %}</h2>
     <div x-data="{ collectionOpen: false }">
-      <button class="p-2 text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+      <button data-ct-collection-add
+              class="p-2 text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
               hx-get="{% media_view_url 'collection_modal' media %}"
               hx-vals='{"return_url": "{{ detail_return_url|urlencode }}", "season_number": "{{ media.season_number|default:'' }}", "episode_number": "{{ media.episode_number|default:'' }}"}'
               hx-target="#{% component_id 'collection' media %}"

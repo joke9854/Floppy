@@ -135,9 +135,13 @@ class CineTrackDiscoverHeroTests(TestCase):
 
     def test_one_slide_per_row_with_cached_backdrop(self):
         cache.set("tmdb_backdrop_movie_1", BACKDROP)
+        cache.set("tmdb_backdrop_movie_5", BACKDROP)
         rows = [
             _row("trending", _candidate("1"), _candidate("2")),
-            _row("picks", _candidate("1"), _candidate("3", image=None), _candidate("4")),
+            # 4 has no backdrop (an almost black slide), so the row moves on to 5.
+            _row("picks", _candidate("1"), _candidate("3", image=None), _candidate("4"), _candidate("5")),
+            # Three tries per row, so 9 is never asked for.
+            _row("more", _candidate("6"), _candidate("7"), _candidate("8"), _candidate("9")),
         ]
 
         with patch(
@@ -146,14 +150,14 @@ class CineTrackDiscoverHeroTests(TestCase):
         ):
             slides = ct_discover_hero(rows)
 
-        self.assertEqual([slide["candidate"].media_id for slide in slides], ["1", "4"])
-        self.assertEqual([slide["backdrop"] for slide in slides], [BACKDROP, None])
+        self.assertEqual([slide["candidate"].media_id for slide in slides], ["1", "5"])
+        self.assertEqual([slide["backdrop"] for slide in slides], [BACKDROP, BACKDROP])
         self.assertEqual(slides[1]["row_title"], "Picks")
 
     def test_limit_caps_the_slides(self):
         rows = [_row(f"r{i}", _candidate(str(i))) for i in range(8)]
 
-        with patch("app.backdrops.resolve_backdrop", return_value=None):
+        with patch("app.backdrops.resolve_backdrop", return_value=BACKDROP):
             self.assertEqual(len(ct_discover_hero(rows, limit=5)), 5)
 
 

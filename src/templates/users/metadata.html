@@ -15,33 +15,30 @@
          closeModal() { this.activeModal = null }
        }">
     {% if not can_edit_instance %}
-      <div class="bg-[var(--color-surface)] rounded-lg p-6 space-y-3">
-        <div class="flex items-center">
-          {% include "app/icons/padlock.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
-          <h2 class="text-xl font-semibold">{% translate "You are not a superuser" %}</h2>
-        </div>
-        <p class="text-sm text-[var(--color-text-muted)]">
-          {% translate "Instance-wide keys can only be changed by a superuser, so those fields are read-only for you. Every provider still accepts a personal key of your own, which is used for your requests instead of the instance key." %}
-        </p>
-        <div class="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3 text-xs text-gray-300 space-y-2">
-          <p class="text-indigo-200 font-medium">
-            {% if instance_has_superuser %}
-              {% translate "Ask an administrator, or promote your own account" %}
-            {% else %}
-              {% translate "This instance has no superuser yet" %}
-            {% endif %}
-          </p>
+      {# One line: instance keys are read-only; the promote command is one click away. #}
+      <details class="group bg-[var(--color-surface)] rounded-lg px-4 py-3 text-sm">
+        <summary class="flex cursor-pointer list-none items-center gap-2 text-[var(--color-text-secondary)] [&::-webkit-details-marker]:hidden">
+          {% include "app/icons/padlock.svg" with classes="w-4 h-4 shrink-0 text-[var(--color-link)]" %}
+          <span class="min-w-0 flex-1">{% translate "Instance keys are read-only: you are not a superuser. Personal keys still work." %}</span>
+          <span class="shrink-0 text-[var(--color-link)] group-open:hidden">{% translate "How to become one" %}</span>
+        </summary>
+        <div class="mt-3 space-y-2 text-xs text-[var(--color-text-muted)]">
           <p>
+            {% if instance_has_superuser %}
+              {% translate "Ask an administrator, or promote your own account." %}
+            {% else %}
+              {% translate "This instance has no superuser yet." %}
+            {% endif %}
             {% translate "Floppy does not make anyone a superuser during setup, so a fresh install has none. Run this" %}
             {% if in_container %}{% translate "on the host running the container" %}{% else %}{% translate "where Floppy is installed" %}{% endif %}:
           </p>
-          <pre class="overflow-x-auto rounded bg-[var(--color-surface)] p-2 text-indigo-200"><code>{{ promote_command }}</code></pre>
+          <pre class="overflow-x-auto rounded bg-[var(--color-page-bg)] p-2 text-[var(--color-text-secondary)]"><code>{{ promote_command }}</code></pre>
           <p>
             {% translate "Then sign out and back in. Shell access already lets you do anything to this instance, so this grants nothing you could not do there already. Add" %}
-            <code class="text-indigo-200">--list</code> {% translate "to see every account first." %}
+            <code>--list</code> {% translate "to see every account first." %}
           </p>
         </div>
-      </div>
+      </details>
     {% endif %}
 
     {% if provider_summary %}
