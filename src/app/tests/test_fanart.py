@@ -10,7 +10,7 @@ from app import backdrops, image_cache
 from app.models import Item, MediaTypes, Sources
 from app.providers import credentials, fanart
 from app.providers.services import ProviderAPIError
-from app.templatetags.app_tags import ct_poster
+from app.templatetags.app_tags import ct_poster, ct_prefetch_posters
 from users.models import ThemeChoices
 
 LOGO = "https://assets.fanart.tv/fanart/movies/238/hdmovielogo/the-logo.png"
@@ -164,6 +164,30 @@ class FanartEverywhereTests(TestCase):
         image_cache.set_enabled(True)
         self.assertEqual(ct_poster(self.show), POSTER)
         self.assertEqual(ct_poster("https://example.com/override.jpg"), "https://example.com/override.jpg")
+
+    def test_a_prefetched_grid_reads_the_cache_once(self):
+        """One get_many for the grid, then no per-card cache reads."""
+        user = get_user_model().objects.create_user(username="grid", password="12345")
+        movie = Item.objects.create(
+            media_id="238",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Test Movie",
+            image="https://image.tmdb.org/t/p/w500/m.jpg",
+        )
+        cache.set("fanart_v2_tmdb_tv_61889", {"poster": POSTER})
+        image_cache.set_enabled(True)
+
+        with credentials.current_user_scope(user), self.captureOnCommitCallbacks() as queued:
+            ct_prefetch_posters([{"item": self.show}, {"item": movie}], "item")
+            with patch.object(cache, "get", wraps=cache.get) as get:
+                self.assertEqual(ct_poster(self.show), POSTER)
+                self.assertEqual(ct_poster(movie), movie.image)
+
+        self.assertFalse([c for c in get.call_args_list if str(c.args[0]).startswith("fanart_v2_")])
+
+        # The movie's miss is still fetched in the background.
+        self.assertEqual(len(queued), 1)
 
     @override_settings(FANART_API_KEY="")
     def test_without_a_key_cards_keep_their_own_art(self):

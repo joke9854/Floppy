@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterator
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -413,6 +414,22 @@ def ct_fanart(media, allow_network=True):
     return fanart.artwork(media, allow_network=allow_network)
 
 
+@register.simple_tag
+def ct_prefetch_posters(entries, attr=""):
+    """Load a grid's cached fanart.tv posters in one round trip (see ct_poster).
+
+    ``attr`` names the field holding each entry's item ("item"), or "" when
+    the entries are the items. A one-shot iterator is left alone: reading it
+    here would empty the grid.
+    """
+    if not entries or isinstance(entries, Iterator) or not image_cache.is_enabled():
+        return ""
+    if attr:
+        entries = [_ct_value(entry, attr) for entry in entries]
+    fanart.prefetch([entry for entry in entries if entry])
+    return ""
+
+
 @register.filter
 def ct_poster(item):
     """Return a card's poster: fanart.tv's when cached, else the item's own.
@@ -424,9 +441,8 @@ def ct_poster(item):
     if not item or isinstance(item, str):
         return item
     image = item.get("image") if isinstance(item, dict) else getattr(item, "image", None)
-    if image_cache.is_enabled():
-        return fanart.cached(item, "poster") or image
-    return image
+    poster = fanart.cached(item, "poster")
+    return poster if poster and image_cache.is_enabled() else image
 
 
 @register.simple_tag

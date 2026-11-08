@@ -74,6 +74,45 @@ def _payload(item, slot) -> dict:
     }
 
 
+def _key(media, kind) -> str:
+    """Return the cache key for a title: its page's own source and id."""
+    return f"fanart_v2_{media.get('source')}_{kind}_{media.get('media_id')}"
+
+
+def _memo() -> dict | None:
+    """Return the request's prefetched cache entries, kept on its user."""
+    user = credentials._resolve_user(None)
+    if user is None:
+        return None
+    memo = getattr(user, "_fanart_art", None)
+    if memo is None:
+        memo = user._fanart_art = {}
+    return memo
+
+
+def prefetch(items, slot="poster") -> None:
+    """Read a grid's cached art in one round trip, before its cards render.
+
+    Each card's ``cached`` call then reads the request's memo instead of the
+    cache; a miss is remembered as None and still queues its fetch.
+    """
+    if not items or not enabled():
+        return
+    memo = _memo()
+    if memo is None:
+        return
+    keys = set()
+    for item in items:
+        media = _payload(item, slot)
+        kind = _kind(media)
+        if kind is not None:
+            keys.add(_key(media, kind))
+    missing = [key for key in keys if key not in memo]
+    if missing:
+        found = cache.get_many(missing)
+        memo.update({key: found.get(key) for key in missing})
+
+
 def cached(item, slot) -> str | None:
     """Return a card's cached fanart.tv logo, poster or background, or None.
 
@@ -179,8 +218,9 @@ def artwork(media, *, allow_network=True) -> dict | None:
     if kind is None:
         return {}
     # Keyed by the page's own id, so the shell reads it without a TVDB lookup.
-    key = f"fanart_v2_{media.get('source')}_{kind}_{media.get('media_id')}"
-    cached = cache.get(key)
+    key = _key(media, kind)
+    memo = _memo() if not allow_network else None
+    cached = memo.get(key) if memo is not None and key in memo else cache.get(key)
     if cached is not None:
         return cached
     if not allow_network:

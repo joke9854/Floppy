@@ -8,6 +8,7 @@
   and square art the poster card doesn't model.
 {% endcomment %}
 {% with landscape_types="tv season anime" %}
+{% ct_prefetch_posters media_list_items|default:media_list.items "item" %}
 {% for entry in media_list_items|default:media_list.items %}
   {% ct_next_episode entry as next_episode %}
   {% if entry.item.media_type == 'music' or entry.item.media_type == 'podcast' %}
