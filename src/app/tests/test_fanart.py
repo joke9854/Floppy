@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from app.models import MediaTypes, Sources
-from app.providers import fanart
+from app.providers import credentials, fanart
 from app.providers.services import ProviderAPIError
 from users.models import ThemeChoices
 
@@ -35,6 +35,16 @@ class FanartArtworkTests(TestCase):
         with patch("app.providers.services.api_request") as request:
             self.assertEqual(fanart.artwork(MOVIE), {})
         request.assert_not_called()
+
+    @override_settings(FANART_API_KEY="")
+    def test_a_key_saved_in_settings_metadata_enables_it(self):
+        credentials.set_instance("fanart", {"api_key": "saved-key"})
+        self.addCleanup(credentials.clear_instance, "fanart")
+
+        with patch("app.providers.services.api_request", return_value={}) as request:
+            fanart.artwork(MOVIE)
+
+        self.assertEqual(request.call_args.kwargs["params"], {"api_key": "saved-key"})
 
     def test_picks_the_site_language_then_the_most_liked(self):
         data = {

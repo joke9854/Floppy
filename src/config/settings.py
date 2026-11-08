@@ -1265,6 +1265,7 @@ TVDB_PIN = config(
 )
 
 # Optional fanart.tv artwork (logo, poster, background) on movie and show pages.
+# Also settable in Settings > Metadata; this is the environment fallback.
 FANART_API_KEY = config(
     "FANART_API_KEY",
     default=secret("FANART_API_KEY_FILE", ""),

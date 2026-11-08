@@ -127,6 +127,10 @@ SOURCES_CONFIG = {
         "name": "GPodder",
         "logo": static("favicon/apple-touch-icon.png"),
     },
+    "fanart": {
+        "name": "fanart.tv",
+        "logo": static("img/fanart-logo.png"),
+    },
     "lastfm": {
         "name": "Last.fm",
         "logo": static("img/lastfm-logo.png"),

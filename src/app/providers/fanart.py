@@ -1,6 +1,7 @@
 """Optional fanart.tv artwork: a title's logo, poster and background.
 
-Used only when ``FANART_API_KEY`` is set. Movies are looked up by their TMDB id,
+Used only when a fanart.tv key is set in Settings > Metadata (or through
+``FANART_API_KEY``). Movies are looked up by their TMDB id,
 shows by their TVDB id (fanart.tv files TV under TVDB). A lookup is cached for
 7 days, an empty result too, so a title without art is not asked for again.
 """
@@ -12,7 +13,7 @@ from django.conf import settings
 from django.core.cache import cache
 
 from app.models import MediaTypes, Sources
-from app.providers import services
+from app.providers import credentials, services
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ ART_TYPES = {
 
 def enabled() -> bool:
     """Return whether fanart.tv artwork is configured."""
-    return bool(settings.FANART_API_KEY)
+    return credentials.is_configured("fanart")
 
 
 def _lookup(media) -> tuple[str, str] | None:
@@ -108,7 +109,7 @@ def artwork(media, *, allow_network=True) -> dict | None:
             "fanart",
             "GET",
             f"{BASE_URL}/{kind}/{fanart_id}",
-            params={"api_key": settings.FANART_API_KEY},
+            params={"api_key": credentials.get("fanart", "api_key")},
         )
     except services.ProviderAPIError as error:
         # fanart.tv answers 404 for a title it has no art for.

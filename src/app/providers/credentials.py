@@ -199,6 +199,18 @@ def _validate_trakt(values):
     )
 
 
+def _validate_fanart(values):
+    """Check a fanart.tv key with one movie lookup."""
+    api_key = values.get("api_key", "")
+    if not api_key:
+        return None
+    return _probe(
+        "GET",
+        "https://webservice.fanart.tv/v3/movies/603",
+        params={"api_key": api_key},
+    )
+
+
 def _validate_tmdb(values):
     """Check a TMDB key against the configuration endpoint."""
     api_key = values.get("api_key", "")
@@ -275,6 +287,15 @@ REGISTRY: dict[str, ProviderCredentialSpec] = {
             description="Movie and TV metadata.",
             docs_url="https://www.themoviedb.org/settings/api",
             fields=(CredentialField("api_key", "API key", "TMDB_API"),),
+        ),
+        ProviderCredentialSpec(
+            slug="fanart",
+            user_scope=True,
+            validator=_validate_fanart,
+            label="fanart.tv",
+            description="Optional title logos, posters and backgrounds for movies and shows.",
+            docs_url="https://fanart.tv/get-an-api-key/",
+            fields=(CredentialField("api_key", "API key", "FANART_API_KEY"),),
         ),
         ProviderCredentialSpec(
             slug="mal",
