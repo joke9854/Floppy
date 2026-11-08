@@ -1136,3 +1136,50 @@ class PersonDetailViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+
+class CineTrackPersonPageTests(TestCase):
+    """P9: the v2 person page (hero, Known For, one filmography list)."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(username="ct-person", password="12345")
+        self.user.theme = "cinetrack"
+        self.user.save(update_fields=["theme"])
+        self.client.force_login(self.user)
+
+    @patch("app.providers.tmdb.person")
+    def test_renders_hero_known_for_and_filmography(self, mock_person):
+        mock_person.return_value = {
+            "person_id": "123",
+            "source": Sources.TMDB.value,
+            "name": "Jane Star",
+            "image": "http://example.com/jane.jpg",
+            "biography": "Jane is an actor.",
+            "known_for_department": "Acting",
+            "birth_date": "1970-01-15",
+            "place_of_birth": "Boston, Massachusetts",
+            "filmography": [
+                {"media_id": "1", "media_type": MediaTypes.MOVIE.value, "title": "Small Film", "year": 2020,
+                 "credit_type": "cast", "role": "Lead", "department": "Acting", "vote_count": 10},
+                {"media_id": "2", "media_type": MediaTypes.TV.value, "title": "Big Show", "year": 2018,
+                 "credit_type": "cast", "role": "Guest", "department": "Acting", "vote_count": 900},
+                {"media_id": "3", "media_type": MediaTypes.MOVIE.value, "title": "Directed Film", "year": 2015,
+                 "credit_type": "crew", "role": "Director", "department": "Directing", "vote_count": 5000},
+            ],
+        }
+
+        response = self.client.get(
+            reverse("person_detail", kwargs={"source": Sources.TMDB.value, "person_id": "123", "name": "jane-star"}),
+        )
+
+        content = response.content.decode()
+        self.assertContains(response, 'class="ct-detail-hero ct-detail-hero--v2"')
+        self.assertContains(response, "Boston, Massachusetts")
+        # Known For takes on-screen credits by votes, so the directed film is left out.
+        known_for = [entry["title"] for entry in response.context["known_for"]]
+        self.assertEqual(known_for, ["Big Show", "Small Film"])
+        self.assertEqual(content.count('class="ct-credit"'), 3)
+        self.assertIn("Filmography", content)
+        self.assertNotIn("Information", content)
+        self.assertIsNotNone(response.context["person_age"])

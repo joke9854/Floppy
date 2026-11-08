@@ -277,6 +277,41 @@ class CineTrackDetailPageTests(TestCase):
         self.assertContains(response, "via JustWatch")
 
 
+    @patch("app.providers.services.get_media_metadata")
+    def test_untracked_movie_offers_mark_watched(self, mock_get_metadata):
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+
+        response = self._get(mock_get_metadata)
+
+        self.assertContains(response, 'id="ct-mark-movie"')
+        self.assertContains(response, 'name="save_as_new_entry" value="1"')
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_watch_on_without_a_chosen_region_uses_the_browser_country(self, mock_get_metadata):
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        mock_get_metadata.return_value = {
+            "media_id": "238",
+            "title": "Test Movie",
+            "media_type": MediaTypes.MOVIE.value,
+            "source": Sources.TMDB.value,
+            "image": "https://image.tmdb.org/t/p/w500/poster.jpg",
+            "providers": {
+                "IT": {"flatrate": [{"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.png"}]},
+            },
+        }
+
+        response = self.client.get(
+            f"{self.url}?fragment=secondary",
+            headers={"accept-language": "it,it-IT;q=0.9,en;q=0.8"},
+        )
+
+        # The secondary fragment swaps the row into the hero's empty slot.
+        self.assertContains(response, 'id="ct-watch-on" hx-swap-oob="outerHTML"')
+        self.assertContains(response, "Netflix")
+
+
 class CineTrackWatchOnTests(TestCase):
     """v2: the "Watch on" row keeps rent/buy, after subscription."""
 

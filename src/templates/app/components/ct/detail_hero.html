@@ -99,8 +99,8 @@
             <span data-ct-mark-next-label></span>
             <kbd class="ct-btn-kbd" aria-hidden="true">W</kbd>
           </button>
-        {% elif current_instance.status == Status.PLANNING.value and not public_view|default:False %}
-          {# A planned movie: one click logs a play. A new Completed row takes over the plan's score and notes and replaces it. #}
+        {% elif media_type == MediaTypes.MOVIE.value and not public_view|default:False and user.is_authenticated and not current_instance or media_type == MediaTypes.MOVIE.value and not public_view|default:False and current_instance.status == Status.PLANNING.value %}
+          {# An untracked or planned movie: one click logs a play. A new Completed row takes over a plan's score and notes and replaces it. #}
           <form method="post" action="{% url 'media_save' %}" class="contents">
             {% csrf_token %}
             <input type="hidden" name="media_id" value="{{ media.media_id }}">
@@ -122,7 +122,7 @@
         <div class="ct-action-bar">{% include "app/components/detail_action_buttons.html" %}</div>
       </div>
       {% include "app/components/detail_synopsis.html" %}
-      {% include "app/components/ct/watch_on.html" %}
+      {% include "app/components/ct/watch_on.html" with watch_on_slot=True %}
     </div>
   </div>
 {% else %}

@@ -1,7 +1,10 @@
+from datetime import date
+
 from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from app import (
@@ -34,6 +37,22 @@ from app.providers import (
 from users.models import MediaSortChoices
 
 logger = __import__("logging").getLogger(__name__)
+
+
+KNOWN_FOR_LIMIT = 10
+
+
+def _person_age(person_data):
+    """Return a person's age (at death, if they died), or None without a birth date."""
+    try:
+        born = date.fromisoformat(str(person_data.get("birth_date") or ""))
+    except ValueError:
+        return None
+    try:
+        until = date.fromisoformat(str(person_data.get("death_date") or ""))
+    except ValueError:
+        until = timezone.localdate()
+    return until.year - born.year - ((until.month, until.day) < (born.month, born.day))
 
 
 @require_GET
@@ -567,6 +586,17 @@ def person_detail(request, source, person_id, name):
             return list(reversed(entries))
         return entries
 
+    # v2 (P9) "Known For": the most-voted on-screen credits (any credit for
+    # authors and crew-only people), one per title, before filters apply.
+    known_for_pool = [
+        e for e in filmography if e.get("credit_type") == "cast"
+    ] or filmography
+    known_for = sorted(
+        known_for_pool,
+        key=lambda e: e.get("vote_count") or 0,
+        reverse=True,
+    )[:KNOWN_FOR_LIMIT]
+
     # Collect tracked items from the unfiltered watched list for filter option building.
     watched_items_for_filter_data = [
         e["tracked_item"] for e in watched_filmography if e.get("tracked_item")
@@ -639,6 +669,8 @@ def person_detail(request, source, person_id, name):
         "watched_show_count": watched_show_count,
         "watched_book_count": watched_book_count,
         "filmography": filmography,
+        "known_for": known_for,
+        "person_age": _person_age(person_data),
         "history_filter_url": history_filter_url,
         "tracked_plays_count": tracked_plays_count,
         "tracked_hours_count": tracked_hours_count,

@@ -16,6 +16,9 @@
   {% ct_detail_next_episode media current_instance as next_episode %}
 {% endif %}
 {# The shell read the backdrop from cache only and missed (ct_backdrop=1): fetch it here and swap it in. #}
+{% if watch_on and request.GET.fragment == "secondary" and media_type != MediaTypes.SEASON.value %}
+  {% include "app/components/ct/watch_on.html" with watch_on_oob=True %}
+{% endif %}
 {% if request.GET.ct_backdrop %}
   {% ct_detail_backdrop media as fresh_backdrop %}
   {% if fresh_backdrop %}

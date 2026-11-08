@@ -9,6 +9,9 @@
 {% endblock title %}
 
 {% block content %}
+  {% if ct_shell %}
+    {% include "app/components/ct/person_page.html" %}
+  {% else %}
   {% include "app/components/filter_toolbar_scripts.html" %}
 
   <div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-10 md:mb-8">
@@ -269,4 +272,5 @@
       </div>
     </div>
   </div>
+{% endif %}
 {% endblock content %}

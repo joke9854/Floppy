@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Floppy's missing-artwork placeholder: the app's dark surface with a faint
+       accent glow and a centred film mark. Square, so object-fit: cover keeps
+       the mark centred on posters (2:3), stills (16:9) and portraits alike. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#2c2b35"/>
+      <stop offset="1" stop-color="#1c1b22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.2" r="0.8">
+      <stop offset="0" stop-color="#6aa8ff" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#6aa8ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <rect width="400" height="400" fill="url(#glow)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.26" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="148" y="160" width="104" height="80" rx="14"/>
+    <path d="M148 182h104M148 218h104"/>
+    <path d="M168 160v22M200 160v22M232 160v22M168 218v22M200 218v22M232 218v22"/>
+  </g>
+</svg>

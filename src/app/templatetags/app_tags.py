@@ -6,6 +6,7 @@ from uuid import uuid4
 from django import template
 from django.conf import settings
 from django.core.cache import cache
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import formats, timezone
 from django.utils.dateparse import parse_date
@@ -149,7 +150,13 @@ def no_underscore(arg1):
 
 @register.filter
 def image_url(value):
-    """Return a safe Floppy image proxy URL when external caching is enabled."""
+    """Return a safe Floppy image proxy URL when external caching is enabled.
+
+    The stored "no image" placeholder (IMG_NONE, persisted on rows) renders
+    as Floppy's own artwork; comparisons against IMG_NONE are unaffected.
+    """
+    if value and value == settings.IMG_NONE:
+        return static("img/ct-placeholder.svg")
     return image_cache.rewrite_image_url(value)
 
 

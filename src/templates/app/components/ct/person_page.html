@@ -1,0 +1,156 @@
+{% load i18n %}
+{% load app_tags %}
+{% load user_tags %}
+{% comment %}
+  CineTrack person page (P9), in place of person_detail.html's classic body:
+  the detail hero (portrait, name, role · born · birthplace, your numbers with
+  them, History and source actions, the biography), then the titles you have
+  watched, Known For and the filmography as one grouped list (All / Movies /
+  Shows, newest or oldest first, a watched check per credit, the first 20
+  until "All N credits"). The classic page's filters are not in the mockup.
+  Context: as person_detail.html, plus known_for and person_age.
+{% endcomment %}
+{% include "app/components/ct/detail_backdrop.html" with backdrop=None poster=person.image %}
+<a class="ct-detail-back ct-glass-control"
+   href="{% url 'home' %}"
+   @click="if (history.length > 1 && document.referrer.startsWith(location.origin)) { $event.preventDefault(); history.back(); }"
+   aria-label="{% translate "Back" %}">
+  {% include "app/icons/chevron-left.svg" with classes="w-5 h-5" %}
+</a>
+<div class="ct-detail-hero ct-detail-hero--v2">
+  <div class="ct-detail-poster">
+    <img alt="{{ person.name }}"
+         class="ct-fade-img"
+         src="{{ person.image|default:IMG_NONE|image_url }}"
+         width="500"
+         height="750"
+         decoding="async"
+         fetchpriority="high">
+  </div>
+  <div class="ct-detail-identity">
+    <h1 class="ct-detail-title">{{ person.name }}</h1>
+    <p class="ct-detail-meta">
+      {% if person.known_for_department %}<span>{{ person.known_for_department }}</span>{% endif %}
+      {% if person.birth_date %}
+        <span>
+          {% if person.death_date %}
+            {{ person.birth_date|user_date_format:user }} – {{ person.death_date|user_date_format:user }}{% if person_age is not None %} ({{ person_age }}){% endif %}
+          {% else %}
+            {% blocktranslate trimmed with date=person.birth_date|user_date_format:user %}Born {{ date }}{% endblocktranslate %}{% if person_age is not None %} ({{ person_age }}){% endif %}
+          {% endif %}
+        </span>
+      {% endif %}
+      {% if person.place_of_birth %}<span>{{ person.place_of_birth }}</span>{% endif %}
+    </p>
+    {% if user.is_authenticated and watched_filmography %}
+      <p class="ct-person-stats">
+        <span>{% blocktranslate trimmed count count=watched_filmography|length %}{{ count }} title watched{% plural %}{{ count }} titles watched{% endblocktranslate %}</span>
+        {% if is_author %}
+          {% if watched_book_count %}<span>{% blocktranslate trimmed count count=watched_book_count %}{{ count }} read{% plural %}{{ count }} read{% endblocktranslate %}</span>{% endif %}
+        {% else %}
+          {% if watched_movie_count %}<span>{% blocktranslate trimmed count count=watched_movie_count %}{{ count }} movie{% plural %}{{ count }} movies{% endblocktranslate %}</span>{% endif %}
+          {% if watched_show_count %}<span>{% blocktranslate trimmed count count=watched_show_count %}{{ count }} show{% plural %}{{ count }} shows{% endblocktranslate %}</span>{% endif %}
+          {% if tracked_hours_count %}<span>{% blocktranslate trimmed with time=tracked_hours_count %}{{ time }} together{% endblocktranslate %}</span>{% endif %}
+        {% endif %}
+      </p>
+    {% endif %}
+    <div class="ct-detail-actions">
+      {% if user.is_authenticated %}
+        <a class="ct-trailer-btn" href="{{ history_filter_url }}">
+          {% include "app/icons/history.svg" with classes="w-4 h-4" %}
+          <span>{% translate "View in History" %}</span>
+        </a>
+      {% endif %}
+      {% if source_url %}
+        <a class="ct-trailer-btn" href="{{ source_url }}" target="_blank" rel="noopener noreferrer">
+          <span>{{ source|source_readable|default:source }}</span>
+          {% include "app/icons/external-link.svg" with classes="w-4 h-4" %}
+        </a>
+      {% endif %}
+    </div>
+    {% if person.biography %}
+      <div class="ct-person-bio" x-data="{ open: false }">
+        <p :class="{ 'is-clamped': !open }" class="is-clamped">{{ person.biography|linebreaksbr }}</p>
+        <button type="button" class="ct-row-link" @click="open = !open" x-text="open ? '{% translate "Show less" %}' : '{% translate "Read more" %}'">{% translate "Read more" %}</button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="ct-detail-sections">
+  {% if user.is_authenticated and watched_filmography %}
+    <section class="ct-detail-section">
+      <div class="ct-row-head">
+        <h2 class="ct-row-title">{% if is_author %}{% translate "You've Read" %}{% else %}{% translate "You've Watched" %}{% endif %}</h2>
+      </div>
+      <div class="ct-detail-rail">
+        {% for entry in watched_filmography %}
+          {% include "app/components/ct/person_credit_card.html" with watched=True %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if known_for %}
+    <section class="ct-detail-section">
+      <div class="ct-row-head">
+        <h2 class="ct-row-title">{% translate "Known For" %}</h2>
+      </div>
+      <div class="ct-detail-rail">
+        {% for entry in known_for %}
+          {% include "app/components/ct/person_credit_card.html" with watched=entry.is_watched %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if filmography %}
+    <section class="ct-detail-section ct-filmography"
+             x-data="{ type: 'all', oldest: false, all: false }">
+      <div class="ct-row-head ct-title-toggle" role="tablist">
+        <h2 class="ct-row-title">{% if is_author %}{% translate "Bibliography" %}{% else %}{% translate "Filmography" %}{% endif %}</h2>
+        {% if not is_author and watched_movie_count is not None %}
+          <button type="button" role="tab" class="ct-row-title ct-filmography__tab" :class="{ 'is-off': type !== 'all' }" @click="type = 'all'">{% translate "All" %}</button>
+          <button type="button" role="tab" class="ct-row-title ct-filmography__tab" :class="{ 'is-off': type !== 'movie' }" @click="type = 'movie'">{% translate "Movies" %}</button>
+          <button type="button" role="tab" class="ct-row-title ct-filmography__tab" :class="{ 'is-off': type !== 'tv' }" @click="type = 'tv'">{% translate "Shows" %}</button>
+        {% endif %}
+        <button type="button"
+                class="ct-row-link ct-filmography__sort"
+                @click="oldest = !oldest"
+                x-text="oldest ? '{% translate "Oldest first" %}' : '{% translate "Newest first" %}'">{% translate "Newest first" %}</button>
+      </div>
+      <ol class="ct-filmography__list" :class="{ 'is-oldest': oldest, 'is-all': all }" :data-type="type">
+        {% for entry in filmography %}
+          <li class="ct-credit" data-type="{{ entry.media_type }}">
+            <a href="{{ entry|media_url }}" class="ct-credit__link">
+              <img alt=""
+                   class="ct-credit__thumb ct-fade-img"
+                   src="{{ entry.image|default:IMG_NONE|tmdb_size:'w92'|image_url }}"
+                   width="40"
+                   height="60"
+                   loading="lazy"
+                   decoding="async">
+              <span class="ct-credit__year">{{ entry.year|default:"—" }}</span>
+              <span class="ct-credit__text">
+                <span class="ct-credit__title">{{ entry.title }}</span>
+                <span class="ct-credit__role">
+                  {% if entry.role %}{{ entry.role }} · {% endif %}{{ entry.media_type|media_type_readable }}{% if entry.all_departments|length > 1 %} · {{ entry.all_departments|join:", " }}{% endif %}
+                </span>
+              </span>
+              <span class="ct-credit__check{% if entry.is_watched %} is-watched{% endif %}"
+                    {% if entry.is_watched %}title="{% translate "Watched" %}"{% endif %}>
+                {% if entry.is_watched %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% endif %}
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ol>
+      {% if filmography|length > 20 %}
+        <button type="button" class="ct-row-link ct-filmography__more" x-show="!all" @click="all = true">
+          {% blocktranslate trimmed count count=filmography|length %}All {{ count }} credit{% plural %}All {{ count }} credits{% endblocktranslate %}
+          {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
+        </button>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>

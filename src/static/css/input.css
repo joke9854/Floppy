@@ -1939,12 +1939,15 @@ main:has(> .container > .ct-detail-backdrop) > .container > :not(.ct-detail-back
   pointer-events: none;
 }
 
+/* The landscape art stays sharp under a light veil: darker on the text side
+   and fading into the page at the bottom. Without one, only the accent glow. */
 .ct-detail-backdrop::after {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(28 27 34 / 30%) 0%, rgb(28 27 34 / 72%) 58%, var(--color-page-bg) 100%),
-    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 26%, transparent), transparent 72%);
+    linear-gradient(90deg, rgb(28 27 34 / 62%) 0%, rgb(28 27 34 / 34%) 55%, rgb(28 27 34 / 18%) 100%),
+    linear-gradient(180deg, rgb(28 27 34 / 10%) 0%, rgb(28 27 34 / 45%) 60%, var(--color-page-bg) 100%),
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 18%, transparent), transparent 72%);
   content: "";
 }
 
@@ -1953,13 +1956,6 @@ main:has(> .container > .ct-detail-backdrop) > .container > :not(.ct-detail-back
   height: 100%;
   object-fit: cover;
   object-position: center 25%;
-  filter: blur(18px) saturate(1.15);
-  transform: scale(1.08);
-}
-
-.ct-detail-backdrop__img.is-poster {
-  filter: blur(40px) saturate(1.3);
-  transform: scale(1.4);
 }
 
 .ct-detail-hero {
@@ -2601,7 +2597,13 @@ a.ct-ep-title:hover {
 }
 
 .ct-detail-hero--v2 .ct-detail-poster {
-  width: 220px;
+  width: 260px;
+}
+
+/* The hero's watch action is always green, whatever the poster accent. */
+.ct-detail-actions .ct-btn-primary {
+  background-color: var(--ct-status-completed);
+  color: #fff;
 }
 
 .ct-detail-hero--v2 .ct-detail-identity {
@@ -3114,6 +3116,173 @@ main:has(.ct-detail-hero--v2) .ct-season-dash {
     padding: 28px;
     border-radius: 24px;
   }
+}
+
+/* Templates that print the stored IMG_NONE placeholder straight into src
+   (lazyload stand-ins, classic cards) show Floppy's own artwork instead.
+   content on <img> works in Chromium and Safari; image_url already does this
+   server-side for the v2 templates. */
+img[src^="data:image/svg+xml;base64,PHN2ZyBpZD0iZ2x5cGhpY29ucy1iYXNpYyIg"] {
+  content: url("../img/ct-placeholder.svg");
+  object-fit: cover;
+}
+
+/* P9 person page: your numbers, the clamped biography, the watched badge on
+   credit posters and the filmography as one grouped list like the episodes. */
+.ct-person-stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: var(--color-link);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ct-person-stats > span + span::before {
+  margin-inline: 7px;
+  color: var(--color-text-muted);
+  content: "·";
+}
+
+.ct-person-bio {
+  max-width: 640px;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.ct-person-bio p.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.ct-person-bio .ct-row-link {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.ct-credit-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+.ct-filmography__sort {
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.ct-filmography__list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+
+.ct-filmography__list.is-oldest {
+  flex-direction: column-reverse;
+}
+
+/* The first 20 credits until "All N credits"; a type tab shows all of its own. */
+.ct-filmography__list:not(.is-all, .is-oldest)[data-type="all"] > .ct-credit:nth-child(n + 21),
+.ct-filmography__list.is-oldest:not(.is-all)[data-type="all"] > .ct-credit:nth-last-child(n + 21),
+.ct-filmography__list[data-type="movie"] > .ct-credit:not([data-type="movie"]),
+.ct-filmography__list[data-type="tv"] > .ct-credit:not([data-type="tv"]) {
+  display: none;
+}
+
+.ct-filmography__list:not([data-type="all"]) + .ct-filmography__more {
+  display: none;
+}
+
+.ct-credit + .ct-credit {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-credit__link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 16px;
+}
+
+.ct-credit__link:hover {
+  background-color: rgb(255 255 255 / 3%);
+}
+
+.ct-credit__thumb {
+  flex: none;
+  width: 40px;
+  height: 60px;
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  object-fit: cover;
+}
+
+.ct-credit__year {
+  flex: none;
+  width: 40px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-credit__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-credit__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-credit__role {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-credit__check {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1.5px solid rgb(255 255 255 / 28%);
+  border-radius: 999px;
+}
+
+.ct-credit__check.is-watched {
+  border-color: transparent;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+.ct-filmography__more {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+  cursor: pointer;
 }
 
 /* P8 Trailers row, its player and the hero's Trailer button. */

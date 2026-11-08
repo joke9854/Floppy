@@ -4,10 +4,13 @@
   CineTrack "Watch on" row (Apple layout v2, A2/A10): logo chips under the
   overview, subscription first, then rent/buy, then TMDB's JustWatch link.
   TMDB gives no prices, so a rent/buy chip names the offer only.
-  Context: watch_on from tmdb.watch_on_providers.
+  Context: watch_on from tmdb.watch_on_providers. watch_on_slot: the shell
+  render, which keeps an empty #ct-watch-on when it has no providers (it reads
+  stored metadata); watch_on_oob: the secondary fragment, which has TMDB's
+  fresh providers and swaps the row in.
 {% endcomment %}
 {% if watch_on %}
-  <div class="ct-watch-on">
+  <div class="ct-watch-on" id="ct-watch-on" {% if watch_on_oob %}hx-swap-oob="outerHTML"{% endif %}>
     <span class="ct-watch-on__label">{% translate "Watch on" %}</span>
     {% for provider in watch_on.subscription|slice:":4" %}
       <span class="ct-watch-chip">
@@ -27,4 +30,6 @@
       <a class="ct-watch-on__via" href="{{ watch_on.link }}" target="_blank" rel="noopener noreferrer">{% translate "via JustWatch" %}</a>
     {% endif %}
   </div>
+{% elif watch_on_slot %}
+  <div id="ct-watch-on" hidden></div>
 {% endif %}

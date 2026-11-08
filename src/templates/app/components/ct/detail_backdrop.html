@@ -1,7 +1,8 @@
 {% load app_tags %}
 {% comment %}
-  CineTrack detail backdrop (W3): the show or movie backdrop, blurred, fading
-  into the page; the poster stands in when there is none. A hidden w92 copy of
+  CineTrack detail backdrop (W3): the show or movie's landscape backdrop under
+  a light veil, fading into the page. Without one there is no image (a cut-down
+  poster read as a mistake), only the accent glow. A hidden w92 copy of
   the poster is sampled for the page accent (posterAccent.js sets it on the
   ct_shell <main>, so the whole page takes the tint). Visible TMDB images never
   carry crossorigin: a CORS fetch of a URL already cached without CORS fails.
@@ -20,14 +21,6 @@
          {% with srcset=backdrop|tmdb_srcset:'w780,w1280' %}{% if srcset %}srcset="{{ srcset }}" sizes="100vw"{% endif %}{% endwith %}
          width="1280"
          height="720"
-         decoding="async"
-         fetchpriority="low">
-  {% elif poster %}
-    <img alt=""
-         class="ct-detail-backdrop__img is-poster ct-fade-img"
-         src="{{ poster|tmdb_size:'w342'|image_url }}"
-         width="342"
-         height="513"
          decoding="async"
          fetchpriority="low">
   {% endif %}

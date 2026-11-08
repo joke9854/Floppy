@@ -2011,3 +2011,11 @@ class CharacterImagesTests(TestCase):
         media = {"source": Sources.TMDB.value, "media_type": MediaTypes.TV.value, "media_id": "95396"}
 
         self.assertEqual(app_tags.ct_character_images({"request": None}, media), {})
+
+
+class PlaceholderImageTests(TestCase):
+    def test_img_none_renders_as_floppy_placeholder(self):
+        from django.conf import settings
+
+        self.assertTrue(app_tags.image_url(settings.IMG_NONE).endswith("img/ct-placeholder.svg"))
+        self.assertEqual(app_tags.image_url(""), app_tags.image_cache.rewrite_image_url(""))

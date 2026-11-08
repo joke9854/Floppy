@@ -1,0 +1,24 @@
+{% load app_tags %}
+{% comment %}
+  CineTrack person page (P9) poster card for one credit: the ct poster card
+  look, a green check when watched, the year below.
+  Context: entry (a person filmography entry), watched, IMG_NONE.
+{% endcomment %}
+<article class="ct-poster-card">
+  <a href="{{ entry|media_url }}" class="ct-poster-link">
+    <span class="ct-poster-frame">
+      <img alt="{{ entry.title }}"
+           class="ct-poster-img ct-fade-img"
+           src="{{ entry.image|default:IMG_NONE|tmdb_size:'w342'|image_url }}"
+           width="342"
+           height="513"
+           loading="lazy"
+           decoding="async">
+      {% if watched %}
+        <span class="ct-credit-badge" aria-label="Watched">{% include "app/icons/checkmark.svg" with classes="w-3.5 h-3.5" %}</span>
+      {% endif %}
+    </span>
+    <span class="ct-poster-title">{{ entry.title }}</span>
+    <span class="ct-poster-sub">{{ entry.year|default:"" }}</span>
+  </a>
+</article>

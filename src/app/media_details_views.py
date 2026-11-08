@@ -209,6 +209,29 @@ def _get_tv_runtime_display_fallback(detail_item, media_metadata):
     return None
 
 
+COUNTRY_CODE_LENGTH = 2  # ISO 3166-1 alpha-2, as TMDB keys its regions
+
+
+def _watch_on_region(request, region):
+    """Return the region for the v2 "Watch on" row.
+
+    The user's chosen region, else the country of their browser language,
+    else of TMDB_LANG: "Watch on" shows by default, unlike the classic
+    provider list, which waits for a chosen region.
+    """
+    if region and region != "UNSET":
+        return region
+    languages = [
+        entry.split(";")[0]
+        for entry in request.headers.get("Accept-Language", "").split(",")
+    ]
+    for language in [*languages, settings.TMDB_LANG]:
+        _, _, country = language.strip().partition("-")
+        if len(country) == COUNTRY_CODE_LENGTH and country.isalpha():
+            return country.upper()
+    return None
+
+
 @login_not_required
 @require_GET
 def media_details(
@@ -1829,7 +1852,7 @@ def media_details(
         # the item keeps TMDB's last raw per-region payload.
         watch_on = tmdb.watch_on_providers(
             watch_provider_payload or getattr(detail_item, "watch_providers", None),
-            watch_provider_region,
+            _watch_on_region(request, watch_provider_region),
         )
 
         if request.user.is_authenticated and request.user.pinned_watch_providers:
