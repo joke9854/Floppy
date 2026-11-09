@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import tempfile
@@ -46,6 +47,9 @@ class ImageCacheServiceTests(TestCase):
     def tearDown(self):
         image_cache.invalidate_setting_cache()
         self.settings_override.disable()
+        # Unconsumed FileResponses sit in reference cycles and keep their file
+        # open until collected; Windows cannot delete an open file.
+        gc.collect()
         self.data_dir.cleanup()
 
     def test_toggle_is_read_from_the_shared_cache_once_per_request(self):

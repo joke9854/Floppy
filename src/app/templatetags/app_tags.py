@@ -219,14 +219,11 @@ def ct_next_episode(entry):
     if media is None or not entry.show_progress_controls:
         return None
     if item.media_type == MediaTypes.SEASON.value:
-        if not hasattr(media, "next_episode_number"):
+        if not callable(getattr(media, "next_episode_number", None)):
             return None
         season_item, episode_number = item, media.next_episode_number()
     elif item.media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value):
-        if getattr(media, "seasons", None) is None or not hasattr(
-            media,
-            "next_episode_target",
-        ):
+        if getattr(media, "seasons", None) is None or not callable(getattr(media, "next_episode_target", None)):
             return None
         target = media.next_episode_target()
         if target is None:
@@ -274,7 +271,7 @@ def ct_detail_next_episode(media, current_instance):
                 "library_media_type": library_media_type,
             }
         return None
-    if current_instance is None or not hasattr(current_instance, "next_episode_target"):
+    if current_instance is None or not callable(getattr(current_instance, "next_episode_target", None)):
         return None
     target = current_instance.next_episode_target()
     if target is None or target[1] is None:
@@ -566,17 +563,19 @@ def ct_library_subtitle(media):
     if status == Status.IN_PROGRESS.value:
         media_type = media.item.media_type
         target = None
-        if media_type == MediaTypes.SEASON.value and hasattr(
-            media,
-            "next_episode_number",
+        # Library cards are MediaListEntry wrappers whose __getattr__ returns
+        # None for attributes the wrapped row lacks, so hasattr() is always
+        # True there; test for a callable instead.
+        if media_type == MediaTypes.SEASON.value and callable(
+            getattr(media, "next_episode_number", None),
         ):
             episode = media.next_episode_number()
             if episode is not None:
                 return _("E%(episode)s next") % {"episode": episode}
-        elif media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value) and hasattr(
-            media,
-            "next_episode_target",
-        ):
+        elif media_type in (
+            MediaTypes.TV.value,
+            MediaTypes.ANIME.value,
+        ) and callable(getattr(media, "next_episode_target", None)):
             target = media.next_episode_target()
         if target is not None and target[0].item.season_number is not None:
             return _("S%(season)s E%(episode)s next") % {
@@ -1629,7 +1628,7 @@ def _untracked_season_next_episode_url(item, seasons, actual_media_type):
 
 def _next_episode_number_for_season_item(item, media):
     """Resolve a season-card target from locally known released episodes."""
-    if hasattr(media, "next_episode_number"):
+    if callable(getattr(media, "next_episode_number", None)):
         return media.next_episode_number()
 
     is_dict = isinstance(item, dict)
@@ -1737,7 +1736,7 @@ def next_episode_url(item, media):
 
         next_episode_target = (
             media.next_episode_target()
-            if hasattr(media, "next_episode_target")
+            if callable(getattr(media, "next_episode_target", None))
             else None
         )
         if next_episode_target is None:

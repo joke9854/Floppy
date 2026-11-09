@@ -162,13 +162,25 @@ class ListsViewTests(TestCase):
         self.assertEqual(response.context["custom_lists"].paginator.count, 32)
         self.assertEqual(load.call_count, 20)
 
-    def test_cover_loads_only_first_membership(self):
-        """The cover endpoint must not prefetch the entire list."""
+    def test_cover_loads_only_first_four_memberships(self):
+        """The v2 cover strip loads four posters, never the entire list."""
         CustomListItem.objects.create(
             custom_list=self.list1,
             item=self.item2,
             added_by=self.user,
         )
+        for index in range(3):
+            item = Item.objects.create(
+                media_id=str(100 + index),
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.MOVIE.value,
+                title=f"Extra {index}",
+            )
+            CustomListItem.objects.create(
+                custom_list=self.list1,
+                item=item,
+                added_by=self.user,
+            )
         self.client.force_login(self.user)
         with (
             patch.object(
@@ -182,8 +194,8 @@ class ListsViewTests(TestCase):
                 reverse("list_cover_image", args=[self.list1.id])
             )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(load.call_count, 1)
-        self.assertContains(response, self.item1.image)
+        self.assertEqual(load.call_count, 4)
+        self.assertContains(response, "ct-list-cover", html=False)
 
     @patch.object(get_user_model(), "update_preference")
     def test_lists_view_search_filter(self, mock_update_preference):

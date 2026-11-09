@@ -39,7 +39,7 @@
   </span>
   {% if crew %}
     <span class="ct-person-primary">{{ person.name|default:_("Unknown") }}</span>
-    <span class="ct-person-secondary">{{ person.role|default:person.department }}</span>
+    <span class="ct-person-secondary">{% firstof person.role person.department %}</span>
   {% else %}
     <span class="ct-person-primary" x-show="tab === 'characters'">{{ person.role|default:person.name }}</span>
     <span class="ct-person-secondary" x-show="tab === 'characters'">{{ person.name }}</span>

@@ -181,6 +181,18 @@
             {% if episode.source and episode.media_id and episode.episode_number %}{% url 'anime_episode_details' source=episode.source media_id=episode.media_id title=media.title|slug season_number=episode.season_number|default:0 episode_number=episode.episode_number as ep_detail_url %}{% endif %}
             {% include "app/components/ct/episode_row.html" %}
           {% endfor %}
+          {% if episode_load_more %}
+            <div class="detail-episode-load-more flex justify-center pt-2" data-episode-load-more>
+              <a href="{{ request.path }}?{{ episode_load_more.querystring }}"
+                 hx-get="{{ request.path }}?{{ episode_load_more.querystring }}"
+                 hx-select="#episodes-batch > *"
+                 hx-target="closest [data-episode-load-more]"
+                 hx-swap="outerHTML"
+                 class="ct-row-link">
+                {% blocktranslate trimmed with value_1=episode_load_more.label %}Show {{ value_1 }}{% endblocktranslate %}
+              </a>
+            </div>
+          {% endif %}
         </div>
       </div>
     </section>

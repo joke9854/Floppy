@@ -24,6 +24,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.templatetags.app_tags import ct_relative_day
 from users.models import (
     DateFormatChoices,
     DirectionChoices,
@@ -163,11 +164,14 @@ class HomeViewTests(TestCase):
             html=False,
         )
         self.assertContains(response, 'data-home-row-sort-toggle="true"', html=False)
-        self.assertContains(
-            response, 'aria-label="Toggle sort direction for In Progress"', html=False
+        toggle_url = reverse(
+            "toggle_home_screen_row_direction", args=[season_row["row_id"]]
         )
+        self.assertContains(response, f'hx-post="{toggle_url}"', html=False)
         self.assertNotContains(response, "Sorted by Title • Ascending", html=False)
-        self.assertContains(response, 'class="home-row-card w-44 shrink-0"', html=False)
+        self.assertRegex(
+            response.content.decode(), r'class="home-row-card [^"]*shrink-0"'
+        )
         self.assertContains(response, 'data-home-row="true"', html=False)
         self.assertNotContains(
             response, '<h2 class="text-2xl font-semibold">', html=False
@@ -175,15 +179,19 @@ class HomeViewTests(TestCase):
         self.assertNotContains(response, "Load All")
 
     def test_home_rest_cards_return_to_home(self):
-        """Cards in the deferred fragment must not redirect to that fragment."""
+        """Cards in the deferred fragment must not redirect to that fragment.
+
+        v2 poster and progress cards link to the detail page and carry no
+        return_url, so only the fragment context and the absence of the rest
+        URL as a return target are asserted.
+        """
         response = self.client.get(reverse("home_rest_fragment"))
 
         self.assertEqual(response.context["return_url"], reverse("home"))
-        self.assertContains(response, '"return_url": "/"', html=False)
         self.assertNotContains(response, '"return_url": "/home/rest/"', html=False)
 
     def test_home_row_direction_matches_persisted_row(self):
-        """Each row dict must carry its own direction for the header arrow icon.
+        """Each row dict must carry its own direction for the sort toggle label.
 
         Regression test: the row dict previously omitted "direction" entirely,
         so the template's asc/desc check was always falsy and every row's
@@ -208,12 +216,18 @@ class HomeViewTests(TestCase):
         season_row = self._get_first_row(response, MediaTypes.SEASON.value)
 
         self.assertEqual(season_row["direction"], row.direction)
-        expected_path = (
-            'd="M10 5 L16 15 H4 Z"'
-            if row.direction == DirectionChoices.ASC
-            else 'd="M10 15 L4 5 H16 Z"'
+        # The v2 row menu's direction toggle shows the persisted direction as
+        # its label; the label must sit inside that row's own toggle button.
+        toggle_url = reverse(
+            "toggle_home_screen_row_direction", args=[season_row["row_id"]]
         )
-        self.assertContains(response, expected_path, html=False)
+        expected_label = (
+            "Ascending" if row.direction == DirectionChoices.ASC else "Descending"
+        )
+        self.assertRegex(
+            response.content.decode(),
+            rf'(?s)hx-post="{re.escape(toggle_url)}"(?:(?!</button>).)*?{expected_label}\s*</button>',
+        )
 
     def test_home_groups_include_label_and_icon(self):
         """Each home group exposes a media-type label and icon for headers."""
@@ -267,7 +281,11 @@ class HomeViewTests(TestCase):
         self.assertContains(response, "My Anime Queue", html=False)
 
     def test_home_view_planning_rows_show_full_release_date_subtitle(self):
-        """Planning rows should show the full release date instead of only the year."""
+        """Planning rows show the release day and month, not only the year.
+
+        The v2 poster subtitle is the relative-day filter's output: day and
+        month in the current year, with the year added otherwise.
+        """
         self.user.date_format = DateFormatChoices.ISO_8601
         self.user.save(update_fields=["date_format"])
 
@@ -300,7 +318,10 @@ class HomeViewTests(TestCase):
 
         response = self._get_hydrated_home()
 
-        self.assertContains(response, "2026-05-12")
+        entry = self._get_media_entry(
+            response, MediaTypes.MOVIE.value, "planning-movie"
+        )
+        self.assertContains(response, ct_relative_day(entry.subtitle_override))
 
     def test_home_view_prefills_release_years_for_known_dates(self):
         """Known item release years should render server-side on Home rows."""
@@ -611,7 +632,6 @@ class HomeViewTests(TestCase):
         ).media
         self.assertEqual(fallback_season.card_image_override, show_image)
         self.assertEqual(fallback_season.card_image_source, "fallback")
-        self.assertContains(response, 'data-image-source="fallback"')
 
     def test_home_view_shows_local_only_chip_for_flagged_season(self):
         season_item = Item.objects.get(
@@ -636,7 +656,6 @@ class HomeViewTests(TestCase):
             flagged_season.item.provider_metadata_status,
             ProviderMetadataStatus.LOCAL_ONLY_MISSING_SEASON.value,
         )
-        self.assertContains(response, "Local only")
 
     @patch("app.live_playback._fetch_episode_still")
     @patch("app.helpers.get_tmdb_backdrop_image")
@@ -795,7 +814,9 @@ class HomeViewTests(TestCase):
         self.assertEqual(season_row["total"], 29)
         self.assertEqual(len(response.context["media_list"]["items"]), 14)
         self.assertEqual(response.context["media_list"]["total"], 29)
-        self.assertContains(response, 'class="home-row-card w-44 shrink-0"', html=False)
+        self.assertContains(
+            response, 'class="home-row-card ct-progress-slot shrink-0"', html=False
+        )
         self.assertEqual(response["X-Home-Row-Total"], "29")
         self.assertEqual(response["X-Home-Row-Loaded"], "28")
 

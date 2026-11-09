@@ -72,7 +72,7 @@
       <dl class="ct-info-grid">
         {% for person in episode_metadata.crew|slice:":9" %}
           <div>
-            <dt>{{ person.role|default:person.department }}</dt>
+            <dt>{% firstof person.role person.department %}</dt>
             <dd>
               {% if person.person_id and person.name %}
                 <a href="{% url 'person_detail' source=source person_id=person.person_id name=person.name|slug %}">{{ person.name }}</a>

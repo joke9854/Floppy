@@ -79,7 +79,7 @@ class BoostedNavigationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "app/media_list.html")
-        self.assertIn(b"<aside", response.content)
+        self.assertIn(b"data-ct-shell", response.content)
 
     def test_lists_htmx_request_returns_fragment(self):
         """In-page HTMX requests keep getting the list grid fragment."""

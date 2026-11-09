@@ -154,7 +154,10 @@ class HistoryModalViewTests(TestCase):
             html=False,
         )
         self.assertContains(response, '"standard_modal": "1"', html=False)
-        self.assertContains(response, ">8<", html=False)
+        self.assertRegex(
+            response.content.decode(),
+            r'(?s)ct-history-score">.*?\b8\s*</span>',
+        )
         self.assertNotContains(
             response,
             f'hx-get="{reverse("history_modal", kwargs={"source": Sources.TMDB.value, "media_type": MediaTypes.MOVIE.value, "media_id": "238"})}"',
@@ -186,7 +189,10 @@ class HistoryModalViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, ">9.5<", html=False)
+        self.assertRegex(
+            response.content.decode(),
+            r'(?s)ct-history-score">.*?\b9\.5\s*</span>',
+        )
 
 
 class SessionHistoryModalTests(TestCase):
