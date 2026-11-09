@@ -19,7 +19,7 @@
   {# Form CSS lives in the content block so boosted navigation keeps it #}
   {{ form.media.css }}
   <div x-data="{ showModal: false, listMode: 'manual', showTraktModal: false, showMdblistModal: false, showCsvImportModal: false, traktDefaultStep: {% if trakt_has_credentials %}3{% else %}1{% endif %}, traktStep: {% if trakt_has_credentials %}3{% else %}1{% endif %} }">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 ct-lists-head">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ct-lists-head">
       <div>
           <h1 class="ct-page-title">{% translate "Lists" %}</h1>
           <p class="ct-page-sub">
@@ -87,7 +87,7 @@
         </div>
       </div>
 
-    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row gap-4 mb-6 ct-lists-bar"
+    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row ct-lists-bar"
          x-data="{ scope: '{{ current_scope|default:''|escapejs }}', sort: '{{ current_sort }}', direction: '{{ current_direction|default:'desc' }}', mediaType: '{{ current_media_type }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
            {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %}
            'all': '{{ media_i18n_16|escapejs }}'
