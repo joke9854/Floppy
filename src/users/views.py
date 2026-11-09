@@ -100,7 +100,6 @@ from users.models import (
     ScrobbleWatchedPercentChoices,
     SessionDurationChoices,
     SidebarStyleChoices,
-    ThemeChoices,
     TimeFormatChoices,
     TitleDisplayPreferenceChoices,
     TopTalentSortChoices,
@@ -939,20 +938,13 @@ def ui_preferences(request):
 
 @require_http_methods(["GET", "POST"])
 def appearance(request):
-    """Configure application colors and detail page composition."""
+    """Configure the sidebar and detail page composition."""
     if request.method == "POST":
         if request.user.is_demo:
             messages.error(request, "This section is view-only for demo accounts.")
             return redirect("appearance")
 
-        theme = request.POST.get("theme")
-        if theme not in ThemeChoices.values:
-            messages.error(request, "Unsupported theme.")
-            return redirect("appearance")
         try:
-            custom_theme = appearance_config.parse_custom_theme(
-                request.POST.get("custom_theme")
-            )
             detail_layouts = appearance_config.parse_detail_layouts(
                 request.POST.get("detail_layouts")
             )
@@ -972,15 +964,11 @@ def appearance(request):
             messages.error(request, "Unsupported sidebar option.")
             return redirect("appearance")
 
-        request.user.theme = theme
-        request.user.custom_theme = custom_theme
         request.user.detail_page_layouts = detail_layouts
         request.user.sidebar_style = sidebar_style
         request.user.floating_sidebar = floating_sidebar
         request.user.save(
             update_fields=[
-                "theme",
-                "custom_theme",
                 "detail_page_layouts",
                 "sidebar_style",
                 "floating_sidebar",
@@ -989,29 +977,9 @@ def appearance(request):
         messages.success(request, "Appearance updated")
         return redirect("appearance")
 
-    saved_palette = (
-        request.user.custom_theme
-        if isinstance(request.user.custom_theme, dict)
-        else {}
-    )
-    palette = {
-        key: saved_palette.get(key, definition["default"])
-        for key, definition in appearance_config.CUSTOM_THEME_COLORS.items()
-    }
-    palette.update(
-        {
-            key: saved_palette.get(key, definition["default"])
-            for key, definition in appearance_config.CUSTOM_THEME_EFFECTS.items()
-        }
-    )
     context = {
-        "theme_presets": appearance_config.THEME_PRESETS,
-        "custom_theme_colors": appearance_config.CUSTOM_THEME_COLORS,
-        "custom_theme_effects": appearance_config.CUSTOM_THEME_EFFECTS,
-        "appearance_theme": request.user.theme,
         "sidebar_styles": SidebarStyleChoices.choices,
         "floating_sidebar_choices": FloatingSidebarChoices.choices,
-        "custom_theme_json": palette,
         "detail_layout_families_json": appearance_config.DETAIL_LAYOUT_FAMILIES,
         "detail_layouts_json": appearance_config.resolved_detail_layouts(
             request.user.detail_page_layouts
@@ -1073,7 +1041,6 @@ def preferences(request):
         # Process form submission for user preferences
         selected_media_types = request.POST.getlist("media_types_checkboxes")
         date_format = request.POST.get("date_format")
-        theme = request.POST.get("theme")
         ui_language = request.POST.get("ui_language")
         logo_style = request.POST.get("logo_style")
         time_format = request.POST.get("time_format")
@@ -1093,9 +1060,8 @@ def preferences(request):
             for field in ("obfuscate_episodes", "hide_episode_overviews")
         }
         progress_bar_raw = request.POST.get("progress_bar")
-        # Read these as None-when-absent. The header theme toggle posts only
-        # `theme` to this endpoint, so defaulting an absent field to its
-        # "off" value silently reset preferences the user never touched.
+        # Read these as None-when-absent: a form that posts only some fields
+        # must not reset the preferences the user never touched.
         _qsu_raw = request.POST.get("quick_season_update_mobile")
         from users.models import QuickSeasonUpdateChoices
 
@@ -1137,14 +1103,6 @@ def preferences(request):
         ):
             request.user.date_format = date_format
             fields_to_update.append("date_format")
-
-        if (
-            theme
-            and theme in ThemeChoices.values
-            and request.user.theme != theme
-        ):
-            request.user.theme = theme
-            fields_to_update.append("theme")
 
         if (
             logo_style

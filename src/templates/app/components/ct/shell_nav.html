@@ -7,8 +7,8 @@
   labelled sidebar (attached) or a floating bar (floating_sidebar: expand on
   hover, always expanded or icons only). The modes are CSS only, keyed on the
   data attributes. Below md, a glass bottom nav with the More sheet (A18).
-  Rendered by base.html only when the user's theme is "cinetrack"; classic
-  themes keep the sidebar. Menus use the ctMenu component in
+  Rendered by base.html only when ct_shell is set (signed in, not a public
+  page). Menus use the ctMenu component in
   static/js/ctShell.js.
 {% endcomment %}
 {% url 'discover' as discover_url %}

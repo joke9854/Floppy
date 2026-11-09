@@ -10,30 +10,26 @@
 {% endblock title %}
 
 {% block settings_head %}
-  {% if ct_shell %}
-    <header class="ct-settings-head">
-      <h2>{% translate "Integrations" %}</h2>
-      <p>{% translate "Connect the places you watch. Floppy marks plays as they happen." %}</p>
-    </header>
-  {% endif %}
+  <header class="ct-settings-head">
+    <h2>{% translate "Integrations" %}</h2>
+    <p>{% translate "Connect the places you watch. Floppy marks plays as they happen." %}</p>
+  </header>
 {% endblock settings_head %}
 
 {% block settings_content %}
   {# CineTrack (A5) starts on the card grid; a card opens one integration's panels below. #}
   <div class="space-y-6"
-       x-data="{ activeIntegration: '{% if ct_shell %}grid{% else %}all{% endif %}', fromHistory: false }"
-       x-init="const deepLinkTag = new URLSearchParams(window.location.search).get('open'); if (deepLinkTag) { activeIntegration = deepLinkTag; }{% if ct_shell %}
+       x-data="{ activeIntegration: 'grid', fromHistory: false }"
+       x-init="const deepLinkTag = new URLSearchParams(window.location.search).get('open'); if (deepLinkTag) { activeIntegration = deepLinkTag; }
                {# Each panel is a history entry (?open=), so Back returns to the grid. #}
                $watch('activeIntegration', (value) => {
                  if (fromHistory) { fromHistory = false; return; }
                  const url = new URL(window.location.href);
                  if (value === 'grid') { url.searchParams.delete('open'); } else { url.searchParams.set('open', value); }
                  history.pushState({ ctIntegration: value }, '', url);
-               });{% endif %}"
-       {% if ct_shell %}@popstate.window="const tag = new URLSearchParams(window.location.search).get('open') || 'grid'; if (tag !== activeIntegration) { fromHistory = true; activeIntegration = tag; }"{% endif %}>
-    {% if ct_shell %}
-      {% include "users/components/ct_integrations_grid.html" %}
-    {% endif %}
+               });"
+       @popstate.window="const tag = new URLSearchParams(window.location.search).get('open') || 'grid'; if (tag !== activeIntegration) { fromHistory = true; activeIntegration = tag; }">
+    {% include "users/components/ct_integrations_grid.html" %}
     {% if match_review_references %}
       <section class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-5">
         <h2 class="text-lg font-semibold">{% translate "Matching review" %}</h2>
@@ -87,17 +83,10 @@
         </a>
       </div>
     {% endif %}
-  <div class="{% if ct_shell %}ct-integrations-panels{% else %}bg-[var(--color-surface)] rounded-lg p-6{% endif %}">
-    {% if not ct_shell %}
-      <div class="flex items-center mb-4">
-        {% include "app/icons/database.svg" with classes="w-6 h-6 text-[var(--color-link)] mr-3" %}
-        <h2 class="text-xl font-semibold">{% translate "Integrations" %}</h2>
-      </div>
-      <p class="text-[var(--color-text-muted)] mb-5 text-sm">{% translate "Connect your media servers and services via webhooks to automatically track your watching progress." %}</p>
-    {% endif %}
+  <div class="ct-integrations-panels">
 
     {# API Token #}
-    <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6"{% if ct_shell %} x-show="activeIntegration === 'api'"{% endif %}>
+    <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6" x-show="activeIntegration === 'api'">
       <div class="flex items-center mb-3">
         {% include "app/icons/padlock.svg" with classes="w-5 h-5 text-[var(--color-link)] mr-2" %}
         <h3 class="text-base font-medium">{% translate "Legacy API key" %}</h3>
@@ -137,74 +126,11 @@
       </div>
     </div>
 
-    <div{% if ct_shell %} x-show="activeIntegration === 'api'"{% endif %}>
+    <div x-show="activeIntegration === 'api'">
       {% include "users/components/integration_tokens.html" %}
     </div>
 
     {# Filter bar (CineTrack uses the card grid instead) #}
-    {% if not ct_shell %}
-    <div class="bg-[var(--color-surface-strong)] rounded-lg p-4 mb-5">
-      <p class="text-sm text-[var(--color-text-secondary)] mb-3">{% translate "Jump to integration:" %}</p>
-      <div class="flex flex-wrap gap-2">
-        <button type="button"
-                @click="activeIntegration = 'all'"
-                :aria-pressed="activeIntegration === 'all'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'all' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "All" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'jellyfin'"
-                :aria-pressed="activeIntegration === 'jellyfin'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'jellyfin' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Jellyfin" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'plex'"
-                :aria-pressed="activeIntegration === 'plex'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'plex' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Plex" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'emby'"
-                :aria-pressed="activeIntegration === 'emby'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'emby' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Emby" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'kodi'"
-                :aria-pressed="activeIntegration === 'kodi'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'kodi' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Kodi" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'stremio'"
-                :aria-pressed="activeIntegration === 'stremio'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'stremio' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Stremio" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'seerr'"
-                :aria-pressed="activeIntegration === 'seerr'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'seerr' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Seerr" %}
-        </button>
-        <button type="button"
-                @click="activeIntegration = 'nuvio'"
-                :aria-pressed="activeIntegration === 'nuvio'"
-                class="px-3 py-1.5 text-xs rounded-md border transition-colors cursor-pointer"
-                :class="activeIntegration === 'nuvio' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-indigo-500 hover:text-[var(--color-text)]'">
-          {% translate "Nuvio" %}
-        </button>
-      </div>
-    </div>
-    {% endif %}
 
     {# Jellyfin Official #}
     <div class="bg-[var(--color-surface-strong)] p-5 rounded-lg mb-6"

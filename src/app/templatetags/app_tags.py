@@ -187,7 +187,7 @@ def tmdb_srcset(value, sizes="w185,w342,w500"):
 
 
 # Views whose Home rows render the CineTrack cards; detail recommendations
-# reuse home_grid.html and keep the classic card until W3.
+# reuse home_grid.html and keep the plain card.
 CT_HOME_VIEWS = frozenset(
     {
         "home",
@@ -203,13 +203,8 @@ CT_HOME_VIEWS = frozenset(
 @register.filter
 def uses_ct_home_cards(request):
     """Return whether this request renders Home rows with the CineTrack cards."""
-    user = getattr(request, "user", None)
     match = getattr(request, "resolver_match", None)
-    return (
-        getattr(user, "theme", None) == "cinetrack"
-        and match is not None
-        and match.url_name in CT_HOME_VIEWS
-    )
+    return match is not None and match.url_name in CT_HOME_VIEWS
 
 
 @register.simple_tag

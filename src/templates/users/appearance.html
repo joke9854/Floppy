@@ -6,102 +6,26 @@
 {% endblock title %}
 
 {% block settings_head %}
-  {% if ct_shell %}
-    <header class="ct-settings-head">
-      <h2>Appearance</h2>
-      <p>Changes apply after saving.</p>
-    </header>
-  {% endif %}
+  <header class="ct-settings-head">
+    <h2>Appearance</h2>
+    <p>Changes apply after saving.</p>
+  </header>
 {% endblock settings_head %}
 
 {% block settings_content %}
   {{ detail_layout_families_json|json_script:"detail-layout-families" }}
   {{ detail_layouts_json|json_script:"detail-layout-values" }}
-  {{ custom_theme_json|json_script:"custom-theme-values" }}
 
-  {# CineTrack (A22): Sidebar first, theme tiles, no section icons; see .ct-appearance in input.css. #}
+  {# CineTrack (A22): Sidebar first, no section icons; see .ct-appearance in input.css. #}
   <form method="post"
-        class="space-y-8{% if ct_shell %} ct-appearance{% endif %}"
+        class="space-y-8 ct-appearance"
         x-data="appearanceEditor()"
         x-init="init()">
     {% csrf_token %}
-    <input type="hidden" name="theme" :value="theme">
-    <input type="hidden" name="custom_theme" :value="JSON.stringify(palette)">
     <input type="hidden" name="detail_layouts" :value="JSON.stringify(layouts)">
-
-    <section class="preferences-section">
-      <div class="preferences-section-header">
-        <div class="preferences-section-icon">{% include "app/icons/sun.svg" with classes="w-5 h-5" %}</div>
-        <div>
-          <h2>Theme</h2>
-          <p>Choose a starting point, then make it yours.</p>
-        </div>
-      </div>
-
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {% for value, preset in theme_presets.items %}
-          {% if not preset.hidden or value == appearance_theme %}
-          <button type="button"
-                  @click="theme = '{{ value }}'"
-                  :aria-pressed="(theme === '{{ value }}').toString()"
-                  :class="theme === '{{ value }}' ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30' : 'border-[var(--color-surface-border)] hover:border-[var(--color-text-muted)]'"
-                  class="flex items-center gap-3 rounded-xl border bg-[var(--color-surface)] p-4 text-left transition-colors cursor-pointer">
-            <span class="theme-swatch theme-swatch-{{ value }}" aria-hidden="true"></span>
-            {% if ct_shell %}
-              {# djlint:off H020 #}
-              <span class="ct-theme-preview" data-theme="{{ value }}" aria-hidden="true"><span></span><span></span><span></span></span>
-              {# djlint:on #}
-            {% endif %}
-            <span class="font-medium">{{ preset.label }}</span>
-          </button>
-          {% endif %}
-        {% endfor %}
-      </div>
-
-      <div x-show="theme === 'custom'"
-           x-cloak
-           class="mt-5 rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-panel)] p-4">
-        <h3 class="mb-4 font-semibold">Custom palette</h3>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {% for key, color in custom_theme_colors.items %}
-            <label class="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-surface)] p-3">
-              <span class="text-sm text-[var(--color-text-secondary)]">{{ color.label }}</span>
-              <span class="flex items-center gap-2">
-                <input type="color"
-                       x-model="palette.{{ key }}"
-                       class="h-9 w-11 cursor-pointer rounded border-0 bg-transparent p-0"
-                       aria-label="{{ color.label }} color">
-                <code class="text-xs text-[var(--color-text-muted)]"
-                      x-text="palette.{{ key }}"></code>
-              </span>
-            </label>
-          {% endfor %}
-        </div>
-        <div class="mt-5 grid gap-4 lg:grid-cols-3">
-          {% for key, effect in custom_theme_effects.items %}
-            <label class="rounded-lg bg-[var(--color-surface)] p-3">
-              <span class="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span class="text-[var(--color-text-secondary)]">{{ effect.label }}</span>
-                <output class="font-mono text-xs text-[var(--color-text-muted)]"
-                        x-text="palette.{{ key }} + '{{ effect.unit }}'"></output>
-              </span>
-              <input type="range"
-                     min="{{ effect.min }}"
-                     max="{{ effect.max }}"
-                     step="{{ effect.step }}"
-                     x-model.number="palette.{{ key }}"
-                     class="w-full accent-[var(--color-accent)]"
-                     aria-label="{{ effect.label }}">
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
 
     {# The CineTrack shell's desktop sidebar (A22). Phones always use the bottom tab bar. #}
     <section class="preferences-section"
-             x-show="theme === 'cinetrack'"
-             x-cloak
              x-data="{ sidebarStyle: '{{ request.user.sidebar_style|escapejs }}', floating: '{{ request.user.floating_sidebar|escapejs }}' }">
       <div class="preferences-section-header">
         <div class="preferences-section-icon">{% include "app/icons/sidebar.svg" with classes="w-5 h-5" %}</div>
@@ -156,7 +80,7 @@
     </section>
 
     {# Not on A22: hidden for CineTrack (docs/agents/v2_mockup_gaps.md); its state still posts unchanged. #}
-    <section class="preferences-section"{% if ct_shell %} hidden{% endif %}>
+    <section class="preferences-section" hidden>
       <div class="preferences-section-header">
         <div class="preferences-section-icon">{% include "app/icons/vertical-sliders.svg" with classes="w-5 h-5" %}</div>
         <div>
@@ -225,11 +149,9 @@
       </template>
     </section>
 
-    {% if ct_shell %}
-      <p class="ct-appearance-note" x-show="theme === 'cinetrack'">
-        Floating applies on screens 1024 px and wider; phones always use the bottom tab bar.
-      </p>
-    {% endif %}
+    <p class="ct-appearance-note">
+      Floating applies on screens 1024 px and wider; phones always use the bottom tab bar.
+    </p>
 
     <div class="preferences-actions">
       <div>
@@ -246,14 +168,11 @@
   <script>
     function appearanceEditor() {
       return {
-        theme: '{{ appearance_theme|escapejs }}',
-        palette: {},
         families: {},
         layouts: {},
         selectedFamily: '',
 
         init() {
-          this.palette = JSON.parse(document.getElementById('custom-theme-values').textContent);
           this.families = JSON.parse(document.getElementById('detail-layout-families').textContent);
           this.layouts = JSON.parse(document.getElementById('detail-layout-values').textContent);
           this.selectedFamily = Object.keys(this.families)[0] || '';

@@ -45,24 +45,11 @@ class CineTrackShellTests(TestCase):
                 self.assertNotContains(response, "<aside")
                 self.assertNotContains(response, "isMobileMenuOpen = !isMobileMenuOpen")
 
-    def test_classic_theme_keeps_the_sidebar(self):
-        self._use_theme(ThemeChoices.DARK)
-        response = self.client.get(reverse("home"))
-        self.assertContains(response, "<aside")
-        self.assertNotContains(response, "ct-rail")
-        self.assertNotContains(response, "data-ct-shell")
-
-    def test_view_transition_opt_in_skips_pages_that_never_opt_in(self):
-        self._use_theme(ThemeChoices.CINETRACK)
+    def test_view_transition_opt_in_is_rendered_on_the_shell(self):
         response = self.client.get(reverse("home"))
         self.assertContains(response, "@view-transition { navigation: auto; }")
         self.assertContains(response, 'addEventListener("pageswap"')
         self.assertContains(response, 'pathname.startsWith("/accounts/")')
-
-        self._use_theme(ThemeChoices.DARK)
-        response = self.client.get(reverse("home"))
-        self.assertNotContains(response, "@view-transition")
-        self.assertNotContains(response, "pageswap")
 
     def test_current_page_is_marked_for_assistive_tech(self):
         self._use_theme(ThemeChoices.CINETRACK)

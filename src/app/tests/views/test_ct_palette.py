@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from app.models import Item, MediaTypes, Movie, Sources
-from users.models import Status, ThemeChoices
+from users.models import Status
 
 
 class CommandPaletteTests(TestCase):
@@ -69,12 +69,8 @@ class CommandPaletteTests(TestCase):
         self.assertNotContains(response, reverse("medialist", args=["movie"]))
         self.assertContains(response, "Search online for")
 
-    def test_palette_renders_in_cinetrack_shell_only(self):
-        classic = self.client.get(reverse("home"))
-        self.user.theme = ThemeChoices.CINETRACK
-        self.user.save(update_fields=["theme"])
-        cinetrack = self.client.get(reverse("home"))
+    def test_palette_renders_in_the_shell(self):
+        response = self.client.get(reverse("home"))
 
-        self.assertNotContains(classic, 'x-data="ctPalette"')
-        self.assertContains(cinetrack, 'x-data="ctPalette"')
-        self.assertContains(cinetrack, reverse("command_palette"))
+        self.assertContains(response, 'x-data="ctPalette"')
+        self.assertContains(response, reverse("command_palette"))

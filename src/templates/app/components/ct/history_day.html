@@ -1,11 +1,10 @@
 {% load i18n %}
 {% load app_tags %}
 {% comment %}
-  CineTrack History day group (W5), included by history_day.html for the
-  cinetrack theme (the load-more fragment has no base, so it gates on
-  request.user.theme). One row per play at its exact local time, so a rewatch
-  is its own row. Keeps the classic root id/class, the load-more endpoint and
-  its `closest .history-day` target.
+  CineTrack History day group (W5), included by history_day.html (the
+  load-more fragment's only template). One row per play at its exact local
+  time, so a rewatch is its own row. Keeps the root id/class, the load-more
+  endpoint and its `closest .history-day` target.
 {% endcomment %}
 <section id="history-day-{{ day.day_key|default:'unknown' }}"
          class="history-day ct-history-day">

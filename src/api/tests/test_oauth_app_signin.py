@@ -803,14 +803,7 @@ class AppSessionsTests(SignInTestCase):
             body["results"][0]["stack_trace"], "java.lang.IllegalStateException: mine"
         )
 
-    def test_settings_nav_links_the_page_in_cinetrack_only(self):
-        self.user.theme = "cinetrack"
-        self.user.save(update_fields=["theme"])
+    def test_settings_nav_links_the_connected_apps_page(self):
         self.assertContains(
-            self.browser.get(reverse("account")), reverse("connected_apps")
-        )
-        self.user.theme = "dark"
-        self.user.save(update_fields=["theme"])
-        self.assertNotContains(
             self.browser.get(reverse("account")), reverse("connected_apps")
         )

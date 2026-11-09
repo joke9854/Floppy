@@ -4,9 +4,6 @@ from pathlib import Path
 from django.conf import settings
 from django.test import SimpleTestCase
 
-from users.appearance import THEME_PRESETS
-from users.models import ThemeChoices
-
 # Tailwind's stock `dark:` variant compiles to `@media (prefers-color-scheme:
 # dark)`. Floppy instead resolves the theme server-side and stamps `light` or
 # `dark` on <html> from user.theme, so the two disagree for anyone whose chosen
@@ -66,67 +63,21 @@ class ThemeTokenContractTests(SimpleTestCase):
             f"text-[var(--color-text-muted)]. Found: {offenders}",
         )
 
-    def test_system_light_tokens_exclude_every_explicit_theme(self):
-        """An OS light preference must not override a saved theme preset."""
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
-        explicit_themes = [theme for theme in THEME_PRESETS if theme != "system"]
-        selector = ":root" + "".join(
-            f":not(.{theme})" for theme in explicit_themes
-        )
-
-        self.assertIn(selector, css)
-
-    def test_curated_theme_registry_matches_persisted_choices(self):
-        """Every displayed preset must be accepted and persistable."""
-        expected = {
-            "catppuccin_mocha",
-            "dracula",
-            "nord",
-            "gruvbox",
-            "oled",
-            "plex",
-        }
-
-        self.assertLessEqual(expected, set(THEME_PRESETS))
-        self.assertEqual(set(THEME_PRESETS), set(ThemeChoices.values))
-
-    def test_header_toggle_treats_explicit_presets_as_dark(self):
-        """A light OS must not make the toggle misread a dark preset as light."""
-        template = Path(settings.BASE_DIR, "templates", "base.html").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("(!hasExplicitTheme && systemPrefersLight)", template)
-        self.assertIn("html.classList.remove(...explicitThemes)", template)
-
-    def test_root_element_receives_every_explicit_theme_class(self):
-        template = Path(settings.BASE_DIR, "templates", "base.html").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn(
-            "user.is_authenticated and user.theme != 'system' %}{{ user.theme }}",
-            template,
-        )
-
-    def test_every_explicit_theme_defines_shape_and_motion(self):
-        """Radius and movement are part of each preset's identity."""
+    def test_cinetrack_defines_shape_and_motion(self):
+        """Radius and movement are part of the CineTrack theme's identity."""
         css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
             encoding="utf-8"
         )
 
-        for theme in (theme for theme in THEME_PRESETS if theme != "system"):
-            block = re.search(rf"html\.{theme}\s*\{{(?P<body>.*?)\n\}}", css, re.DOTALL)
-            self.assertIsNotNone(block, theme)
-            for token in (
-                "--theme-radius",
-                "--motion-duration",
-                "--motion-distance",
-                "--motion-ease",
-            ):
-                self.assertIn(token, block.group("body"), f"{theme}: {token}")
+        block = re.search(r"html\.cinetrack\s*\{(?P<body>.*?)\n\}", css, re.DOTALL)
+        self.assertIsNotNone(block)
+        for token in (
+            "--theme-radius",
+            "--motion-duration",
+            "--motion-distance",
+            "--motion-ease",
+        ):
+            self.assertIn(token, block.group("body"), token)
 
     def test_accent_backgrounds_use_a_theme_contrast_token(self):
         """Bright accent presets must not leave white text unreadable."""
@@ -143,10 +94,9 @@ class ThemeTokenContractTests(SimpleTestCase):
         css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
             encoding="utf-8"
         )
-        for theme in (theme for theme in THEME_PRESETS if theme != "system"):
-            block = re.search(rf"html\.{theme}\s*\{{(?P<body>.*?)\n\}}", css, re.DOTALL)
-            self.assertIsNotNone(block, theme)
-            self.assertIn("--color-accent-contrast", block.group("body"), theme)
+        block = re.search(r"html\.cinetrack\s*\{(?P<body>.*?)\n\}", css, re.DOTALL)
+        self.assertIsNotNone(block)
+        self.assertIn("--color-accent-contrast", block.group("body"))
 
     def test_motion_has_an_accessibility_killswitch(self):
         css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(

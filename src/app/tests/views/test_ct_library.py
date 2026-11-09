@@ -185,16 +185,6 @@ class CineTrackMediaListTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, 'id="filter-form"', count=1)
         self.assertContains(response, 'id="loading-indicator"', count=1)
 
-    def test_classic_theme_keeps_the_title_row(self):
-        response = self.client.get(reverse("medialist", args=[MediaTypes.TV.value]))
-
-        self.assertNotContains(response, "ct-library-head")
-        self.assertNotContains(response, "ct-status-tab")
-        self.assertContains(response, '<h1 class="text-3xl font-bold">')
-        self.assertNotContains(response, "ct-toolbar")
-        self.assertNotContains(response, "ct-library-grid")
-        self.assertContains(response, "media-settings-menu-desktop")
-
     def test_cinetrack_v2_toolbar_and_grid(self):
         """A3: status segment and toolbar share a row; the grid is restyled."""
         self._use_cinetrack()
@@ -281,17 +271,6 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
         self.assertNotContains(response, "Why.")
         self.assertNotContains(response, "ct-discover-hero__poster")
 
-    def test_classic_page_is_unchanged(self, get_tab_rows, *_):
-        get_tab_rows.return_value = self.rows
-
-        response = self.client.get(reverse("discover"))
-
-        self.assertContains(response, "UNDER CONSTRUCTION")
-        self.assertContains(response, "Show More Rows")
-        self.assertNotContains(response, "ct-discover")
-        self.assertNotContains(response, "ctHero(")
-        self.assertNotContains(response, "data-horizontal-drag")
-
 
 @override_settings(IMAGE_CACHE_ENABLED=False)
 @patch("app.providers.services.search")
@@ -354,8 +333,3 @@ class CineTrackSearchTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, 'class="ct-search-row__add"', count=1)
         self.assertNotContains(response, "Online Results")
 
-    def test_classic_header(self, mock_search):
-        response = self._get(mock_search)
-
-        self.assertNotContains(response, "ct-search-head")
-        self.assertContains(response, "Search Results")

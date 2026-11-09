@@ -17,6 +17,9 @@ migration_0090 = import_module(
 migration_0132 = import_module(
     "users.migrations.0132_user_appearance",
 )
+migration_0140 = import_module(
+    "users.migrations.0140_cinetrack_only_theme",
+)
 
 
 class _FakeCursor:
@@ -271,4 +274,19 @@ class Migration0132AppearanceTests(SimpleTestCase):
                 "logo_text_weight",
                 "logo_text_spacing",
             },
+        )
+
+
+class Migration0140CinetrackOnlyThemeTests(SimpleTestCase):
+    def test_moves_every_non_cinetrack_user_to_cinetrack(self):
+        user_model = MagicMock()
+        apps = MagicMock()
+        apps.get_model.return_value = user_model
+
+        migration_0140.move_to_cinetrack(apps, None)
+
+        apps.get_model.assert_called_once_with("users", "User")
+        user_model.objects.exclude.assert_called_once_with(theme="cinetrack")
+        user_model.objects.exclude.return_value.update.assert_called_once_with(
+            theme="cinetrack",
         )

@@ -32,7 +32,6 @@ from app.models import (
 from app.providers import hardcover, services, tmdb
 from app.services import bulk_episode_tracking, library_migration, metadata_resolution
 from app.services.metadata_fallback import stored_metadata_fallback
-from users.models import ThemeChoices
 
 RUNTIME_UNKNOWN_AIRED = 999998  # aired but runtime unknown
 logger = logging.getLogger(__name__)
@@ -445,7 +444,7 @@ def _render_standard_track_modal(
             )
             if existing_in_progress:
                 initial_data["status"] = Status.IN_PROGRESS.value
-            elif request.user.theme == ThemeChoices.CINETRACK:
+            else:
                 # v2 Add: a title found in Search is a plan, not a finished
                 # watch dated today (the model's Completed default).
                 initial_data["status"] = Status.PLANNING.value

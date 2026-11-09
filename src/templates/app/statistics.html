@@ -610,7 +610,7 @@
   }">
   
   {# Cache refresh notification banner #}
-  <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}{% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %}{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
+  <div class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}md:left-[88px]{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
     <div class="w-full max-w-xl px-4 pointer-events-auto">
       <div x-show="cacheRefreshing && !metadataRefreshing"
            x-cloak
@@ -937,10 +937,8 @@
           <path d="M2.66 8.43a10 10 0 1 1 .57 8.38"></path>
         </svg>
       </button>
-      {% if ct_shell %}
         <a href="{% url 'statistics_recap' %}"
            class="flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] rounded-lg transition duration-200 border border-gray-700 shadow-sm text-sm font-medium text-[var(--color-text)]">{% translate "Monthly recap" %}</a>
-      {% endif %}
       </div>
     </div>
 
@@ -1863,7 +1861,7 @@
   }">
     {# FAB button #}
     <button @click="open = true"
-            class="{% if ct_shell %}ct-fab {% endif %}fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
+            class="ct-fab fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
             title="{% translate "Statistics preferences" %}"
             aria-label="{% translate "Statistics preferences" %}">
       {% include "app/icons/vertical-sliders.svg" with classes="w-5 h-5" %}

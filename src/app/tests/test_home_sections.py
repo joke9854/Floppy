@@ -186,16 +186,6 @@ class HomeSectionsTests(TestCase):
         self.assertIn(f'href="{reverse("calendar")}"', rest)
         self.assertIn(f'href="{reverse("history")}"', rest)
 
-    def test_classic_home_has_no_sections(self):
-        self.user.theme = ThemeChoices.DARK
-        self.user.save(update_fields=["theme"])
-
-        home = self.client.get(reverse("home")).content.decode()
-        rest = self.client.get(reverse("home_rest_fragment")).content.decode()
-
-        self.assertNotIn("ct-page-sub", home)
-        self.assertNotIn("Recently Watched", rest)
-
 
 class RecentlyWatchedRelativeDayTests(TestCase):
     """Board A1: Recently Watched says Today, Yesterday or 2 Nov."""

@@ -6,20 +6,21 @@ neither failure is visible in the theme the author has open.
 
 ## How a theme is selected
 
-`user.theme` holds a key from `users.appearance.THEME_PRESETS`. The collection
-includes the system, light, dark and custom states; Catppuccin Mocha, Dracula,
-Nord and Gruvbox classics; OLED, Glass Cinema and Plex-inspired modern themes;
-plus Projector and Video Store; and CineTrack, the Android app's palette. `base.html` writes every explicit choice onto
-the root element:
+CineTrack is the only theme. `user.theme` still exists (it is exported and read
+by clients) but has one value, `cinetrack`; migration `users.0140` moved every
+account onto it. `base.html` writes the class unconditionally, for signed-in,
+public and anonymous pages alike:
 
 ```html
-<html class="{% if user.theme != 'system' %}{{ user.theme }}{% endif %}">
+<html class="{% block html_theme %}cinetrack{% endblock html_theme %}">
 ```
 
-`system` writes no class, which lets the operating system preference decide.
+There is no theme picker, header light/dark toggle or custom palette. The
+`custom_theme` column is kept, unused, so the upgrade deletes no saved data.
 
-Only `system` follows the operating system preference. Presets and the custom
-palette are explicit states. Any token change must be checked in every state.
+`ct_shell` in `base.html` decides only whether the v2 navigation chrome renders:
+signed in and not a public view. Public and anonymous pages (public lists,
+public detail links) keep their own sidebar-less layout under the same palette.
 
 ## Tokens
 
@@ -131,22 +132,16 @@ name as a string literal will have that class compiled into the stylesheet. The
 banned-utility list in `test_theme_tokens.py` assembles its names from
 concatenated parts to avoid exactly that.
 
-## Persisting a theme change
+## Persisting preferences
 
-The header toggle gets every explicit class from `THEME_PRESETS`, removes them,
-applies `light` or `dark` immediately, and posts `theme=<value>` alone to the preferences view. That view
-therefore reads every field with a
-presence check rather than a fallback: a field that defaulted when absent would
-be reset on every toggle. `users.tests.views.test_theme_toggle` pins this.
+The preferences view reads every field with a presence check rather than a
+fallback, so a form that posts only some fields does not reset the rest.
+`users.tests.views.test_theme_toggle` pins this.
 
-Settings > Appearance owns preset selection, the custom palette, and detail
-page composition. It validates the complete payload before saving any part.
-Values passed to Django's `json_script` must remain Python dictionaries; the
-filter performs the single required serialization before Alpine parses them.
-
-The compact sun/moon switcher is rendered only for the basic `system`, `light`,
-and `dark` themes. Presets and custom palettes are changed only from Appearance;
-otherwise a single click would silently replace the user's selected design.
+Settings > Appearance owns the sidebar style and detail page composition. It
+validates the complete payload before saving any part. Values passed to Django's
+`json_script` must remain Python dictionaries; the filter performs the single
+required serialization before Alpine parses them.
 
 `PATCH /api/v1/user/preferences/` follows the same rule and ignores any field
-the body omits. It does not currently accept `theme`.
+the body omits. It does not accept `theme`.

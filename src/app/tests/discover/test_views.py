@@ -209,7 +209,7 @@ class DiscoverViewTests(TestCase):
             [entry.item.title for entry in response.context["hidden_discover_entries"]],
             ["Newer Hidden", "Older Hidden"],
         )
-        self.assertContains(response, "Hidden From Discover")
+        self.assertContains(response, 'class="ct-hidden-list"')
         self.assertTrue(
             any(
                 option["value"] == "hidden"
@@ -245,7 +245,7 @@ class DiscoverViewTests(TestCase):
         self.assertEqual(response["X-Discover-Media-Type"], "hidden")
         self.assertEqual(response["X-Discover-Show-More"], "0")
         self.assertNotIn("X-Discover-Activity-Version", response)
-        self.assertContains(response, "Hidden From Discover")
+        self.assertContains(response, 'class="ct-hidden-view"')
         self.assertContains(response, "Hidden Fragment Item")
         mock_get_tab_rows.assert_not_called()
         mock_get_tab_status.assert_not_called()
@@ -579,12 +579,13 @@ class DiscoverViewTests(TestCase):
     @patch("app.views.discover_tab_cache.get_tab_status")
     @patch("app.views.discover_tab_cache.warm_sibling_tabs")
     @patch("app.views.discover_tab_cache.get_tab_rows")
-    def test_discover_page_renders_date_and_score_subtitle(
+    def test_discover_page_renders_year_subtitle_without_match_score(
         self,
         mock_get_tab_rows,
         mock_warm_sibling_tabs,
         mock_get_tab_status,
     ):
+        """v2 cards show "Type · Year" and hide the match score (v2_mockup_gaps.md)."""
         mock_get_tab_rows.return_value = [
             self._row(final_score=0.912, release_date="2026-03-04"),
         ]
@@ -593,14 +594,14 @@ class DiscoverViewTests(TestCase):
         response = self.client.get(reverse("discover"), {"media_type": "movie"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "91% Taste match")
-        self.assertContains(response, "2026-03-04")
+        self.assertContains(response, 'class="ct-library-sub">Movie · 2026</p>')
+        self.assertNotContains(response, "Taste match")
         mock_warm_sibling_tabs.assert_called_once()
 
     @patch("app.views.discover_tab_cache.get_tab_status")
     @patch("app.views.discover_tab_cache.warm_sibling_tabs")
     @patch("app.views.discover_tab_cache.get_tab_rows")
-    def test_discover_page_renders_date_only_subtitle_when_score_missing(
+    def test_discover_page_renders_year_subtitle_when_score_missing(
         self,
         mock_get_tab_rows,
         _mock_warm_sibling_tabs,
@@ -618,7 +619,7 @@ class DiscoverViewTests(TestCase):
         response = self.client.get(reverse("discover"), {"media_type": "movie"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "2026-03-04")
+        self.assertContains(response, 'class="ct-library-sub">Movie · 2026</p>')
         self.assertNotContains(response, "% match")
 
     @patch("app.views.discover_tab_cache.get_tab_status")

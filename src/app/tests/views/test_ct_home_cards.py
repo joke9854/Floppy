@@ -197,22 +197,6 @@ class CineTrackHomeCardTests(TestCase):
         self.assertIn("data-home-row-sort-toggle", html)
         self.assertNotIn('aria-label="Scroll right"', html)
 
-    def test_classic_home_keeps_the_classic_heading(self):
-        self._use_theme(ThemeChoices.DARK)
-        html = self._hydrated_home()
-
-        self.assertNotIn("ct-page-title", html)
-        self.assertNotIn("ct-row-head", html)
-        self.assertIn('aria-label="Scroll right"', html)
-
-    def test_classic_theme_keeps_the_classic_card(self):
-        self._use_theme(ThemeChoices.DARK)
-        html = self._hydrated_home()
-
-        self.assertNotIn("ct-progress-card", html)
-        self.assertNotIn("ct-poster-card", html)
-        self.assertIn('class="home-row-card w-44 shrink-0"', html)
-
     def test_load_more_rows_use_the_same_cards(self):
         self._use_theme(ThemeChoices.CINETRACK)
         response = self.client.get(reverse("home"))
@@ -301,17 +285,3 @@ class CineTrackHomeCardTests(TestCase):
             )
         self.assertFalse(Episode.objects.filter(id=watched.id).exists())
         self.assertEqual(Episode.objects.filter(related_season=self.season).count(), before - 1)
-
-    def test_classic_episode_toast_has_no_undo(self):
-        """Classic themes keep the toast exactly as before."""
-        self._use_theme(ThemeChoices.CINETRACK)
-        fields = self._check_fields()
-        self._use_theme(ThemeChoices.DARK)
-        fields["end_date"] = "2026-10-26T21:14:37"
-
-        response = self._post_check(fields)
-
-        self.assertEqual(
-            json.loads(response["HX-Trigger"])["showToast"],
-            {"message": "Added watch for episode 5.", "type": "success"},
-        )

@@ -404,7 +404,6 @@ from users.models import (
     HomeSortChoices,
     MediaSortChoices,
     MediaStatusChoices,
-    ThemeChoices,
     TopTalentSortChoices,
 )
 
@@ -511,9 +510,7 @@ def home(request):
 
 
 def _ct_home_sections(user):
-    """Return the v2 Home sections for the CineTrack theme, else None."""
-    if getattr(user, "theme", None) != ThemeChoices.CINETRACK:
-        return None
+    """Return the v2 Home sections for the signed-in user."""
     return home_sections.build_home_sections(user)
 
 

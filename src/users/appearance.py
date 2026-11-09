@@ -1,70 +1,6 @@
 import json
-import re
 
 from django.core.exceptions import ValidationError
-
-THEME_PRESETS = {
-    "system": {"label": "System default"},
-    "light": {"label": "Light"},
-    "dark": {"label": "Dark"},
-    "cinetrack": {"label": "CineTrack"},
-    "catppuccin_mocha": {"label": "Catppuccin Mocha"},
-    "dracula": {"label": "Dracula"},
-    "nord": {"label": "Nord"},
-    "gruvbox": {"label": "Gruvbox"},
-    "oled": {"label": "OLED"},
-    # Hidden from new choices (E2); users already on it still see it selected.
-    "glass": {"label": "Glass cinema", "hidden": True},
-    "plex": {"label": "Plex inspired"},
-    "projector": {"label": "Projector"},
-    "video_store": {"label": "Video store"},
-    "custom": {"label": "Custom palette"},
-}
-BASIC_THEME_KEYS = frozenset(("system", "light", "dark"))
-
-CUSTOM_THEME_COLORS = {
-    "page_bg": {"label": "Page", "default": "#10141f", "token": "page-bg"},
-    "surface": {"label": "Cards", "default": "#1b2233", "token": "surface"},
-    "panel": {"label": "Panels", "default": "#202940", "token": "panel"},
-    "text": {"label": "Text", "default": "#f6f1df", "token": "text"},
-    "muted": {"label": "Muted text", "default": "#adb7cc", "token": "text-muted"},
-    "accent": {"label": "Accent", "default": "#ffb454", "token": "accent"},
-    "accent_text": {
-        "label": "Text on accent",
-        "default": "#111827",
-        "token": "accent-contrast",
-    },
-}
-
-CUSTOM_THEME_EFFECTS = {
-    "radius": {
-        "label": "Corner radius",
-        "default": 12,
-        "min": 0,
-        "max": 28,
-        "step": 2,
-        "token": "radius",
-        "unit": "px",
-    },
-    "blur": {
-        "label": "Backdrop blur",
-        "default": 12,
-        "min": 0,
-        "max": 24,
-        "step": 2,
-        "token": "blur",
-        "unit": "px",
-    },
-    "surface_opacity": {
-        "label": "Surface opacity",
-        "default": 82,
-        "min": 40,
-        "max": 100,
-        "step": 2,
-        "token": "surface-opacity",
-        "unit": "%",
-    },
-}
 
 
 def _zone(label, *sections):
@@ -238,12 +174,10 @@ DETAIL_LAYOUT_FAMILIES = {
     },
 }
 
-_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 _INVALID_LAYOUT = "Invalid detail layout configuration."
 _INVALID_FAMILY = "Unsupported detail page family."
 _INVALID_ZONE = "Unsupported detail page zone."
 _INVALID_SECTION = "Unsupported detail page section."
-_INVALID_PALETTE = "Invalid custom palette."
 
 
 def default_detail_layouts():
@@ -298,53 +232,3 @@ def parse_detail_layouts(raw_payload):
             cleaned_family[zone_key] = section_keys
         cleaned[family_key] = cleaned_family
     return cleaned
-
-
-def parse_custom_theme(raw_payload):
-    """Parse allowlisted custom colours and bounded visual effects."""
-    try:
-        payload = json.loads(raw_payload or "{}")
-    except json.JSONDecodeError as exc:
-        raise ValidationError(_INVALID_PALETTE) from exc
-    if not isinstance(payload, dict):
-        raise ValidationError(_INVALID_PALETTE)
-    cleaned = {}
-    for key, value in payload.items():
-        if key in CUSTOM_THEME_COLORS:
-            if not isinstance(value, str) or not _HEX_COLOR.fullmatch(value):
-                raise ValidationError(_INVALID_PALETTE)
-            cleaned[key] = value.lower()
-        elif key in CUSTOM_THEME_EFFECTS:
-            definition = CUSTOM_THEME_EFFECTS[key]
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, int)
-                or not definition["min"] <= value <= definition["max"]
-                or (value - definition["min"]) % definition["step"]
-            ):
-                raise ValidationError(_INVALID_PALETTE)
-            cleaned[key] = value
-    return cleaned
-
-
-def custom_theme_css(saved_palette):
-    """Serialize validated palette values as CSS custom properties."""
-    if not isinstance(saved_palette, dict):
-        return ""
-    declarations = []
-    for key, definition in CUSTOM_THEME_COLORS.items():
-        value = saved_palette.get(key)
-        if isinstance(value, str) and _HEX_COLOR.fullmatch(value):
-            declarations.append(f"--color-{definition['token']}: {value.lower()}")
-    for key, definition in CUSTOM_THEME_EFFECTS.items():
-        value = saved_palette.get(key)
-        if (
-            isinstance(value, int)
-            and not isinstance(value, bool)
-            and definition["min"] <= value <= definition["max"]
-            and not (value - definition["min"]) % definition["step"]
-        ):
-            declarations.append(
-                f"--theme-{definition['token']}: {value}{definition['unit']}"
-            )
-    return "; ".join(declarations)

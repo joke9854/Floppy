@@ -202,22 +202,9 @@ class DateFormatChoices(models.TextChoices):
 
 
 class ThemeChoices(models.TextChoices):
-    """Choices for UI theme preference."""
+    """The UI theme. CineTrack v2 is the only one; the column stays for exports."""
 
-    SYSTEM = "system", _("System default")
-    LIGHT = "light", _("Light")
-    DARK = "dark", _("Dark")
     CINETRACK = "cinetrack", _("CineTrack")
-    CATPPUCCIN_MOCHA = "catppuccin_mocha", _("Catppuccin Mocha")
-    DRACULA = "dracula", _("Dracula")
-    NORD = "nord", _("Nord")
-    GRUVBOX = "gruvbox", _("Gruvbox")
-    OLED = "oled", _("OLED")
-    GLASS = "glass", _("Glass cinema")
-    PLEX = "plex", _("Plex inspired")
-    PROJECTOR = "projector", _("Projector")
-    VIDEO_STORE = "video_store", _("Video store")
-    CUSTOM = "custom", _("Custom palette")
 
 
 class UiLanguageChoices(models.TextChoices):
@@ -1110,7 +1097,7 @@ class User(AbstractUser):
 
     theme = models.CharField(
         max_length=20,
-        default=ThemeChoices.SYSTEM,
+        default=ThemeChoices.CINETRACK,
         choices=ThemeChoices.choices,
     )
 

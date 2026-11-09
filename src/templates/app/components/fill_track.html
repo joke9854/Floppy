@@ -195,7 +195,7 @@
           <div class="flex items-center justify-between gap-4 mt-6">
             <div class="flex items-center gap-2">
               {# v2: nothing to delete on an untracked title, so no disabled Delete either. #}
-              {% if not general_existing_instance and user.theme == "cinetrack" %}
+              {% if not general_existing_instance %}
               {% elif media_type == "episode" %}
                 <button type="button"
                         hx-post="{{ general_delete_formaction }}"

@@ -19,9 +19,8 @@
   {# Form CSS lives in the content block so boosted navigation keeps it #}
   {{ form.media.css }}
   <div x-data="{ showModal: false, listMode: 'manual', showTraktModal: false, showMdblistModal: false, showCsvImportModal: false, traktDefaultStep: {% if trakt_has_credentials %}3{% else %}1{% endif %}, traktStep: {% if trakt_has_credentials %}3{% else %}1{% endif %} }">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8{% if ct_shell %} ct-lists-head{% endif %}">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 ct-lists-head">
       <div>
-        {% if ct_shell %}
           <h1 class="ct-page-title">{% translate "Lists" %}</h1>
           <p class="ct-page-sub">
             {% blocktranslate trimmed count count=owned_count %}{{ count }} list{% plural %}{{ count }} lists{% endblocktranslate %}
@@ -30,20 +29,9 @@
               {% blocktranslate trimmed count count=shared_count %}{{ count }} shared with you{% plural %}{{ count }} shared with you{% endblocktranslate %}
             {% endif %}
           </p>
-        {% else %}
-          <h1 class="text-3xl font-bold mb-2">{% translate "Lists" %}</h1>
-          <p class="text-[var(--color-text-muted)]">{% translate "Organize and share your media lists" %}</p>
-        {% endif %}
       </div>
       <div class="flex items-center gap-2">
         {# P5: in v2, Public profile is the last row of the New List menu. #}
-        {% if not ct_shell %}
-          <a href="{% url 'user_profile' request.user.username %}"
-             class="ct-lists-profile flex items-center px-4 py-2 bg-[var(--color-surface-strong)] text-[var(--color-text)] rounded-md hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer">
-            {% include "app/icons/person.svg" with classes="w-5 h-5 mr-2" %}
-            {% translate "Public Profile" %}
-          </a>
-        {% endif %}
         <div class="ct-lists-new relative inline-flex" x-data="{ open: false }">
           <button @click="listMode = 'manual'; showModal = true"
                   class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-md hover:bg-indigo-700 transition-colors cursor-pointer border-r border-indigo-500">
@@ -56,7 +44,6 @@
                   type="button">
             {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
           </button>
-          {% if ct_shell %}
             <div class="ct-menu ct-lists-menu"
                  x-cloak
                  x-show="open"
@@ -89,44 +76,11 @@
                 {% translate "Public profile" %}
               </a>
             </div>
-          {% else %}
-            <div class="absolute right-0 top-full mt-2 py-1 w-52 bg-[var(--color-surface-strong)] rounded-md shadow-lg overflow-hidden z-50 border border-gray-700"
-                 x-cloak
-                 x-show="open"
-                 @click.outside="open = false"
-                 x-transition:enter="transition ease-out duration-100"
-                 x-transition:enter-start="transform opacity-0 scale-95"
-                 x-transition:enter-end="transform opacity-100 scale-100"
-                 x-transition:leave="transition ease-in duration-75"
-                 x-transition:leave-start="transform opacity-100 scale-100"
-                 x-transition:leave-end="transform opacity-0 scale-95">
-              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                      type="button"
-                      @click.stop="open = false; listMode = 'smart'; showModal = true">
-                {% translate "Create Smart List" %}
-              </button>
-              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                      type="button"
-                      @click.stop="open = false; showTraktModal = true; traktStep = traktDefaultStep">
-                {% translate "Import from Trakt" %}
-              </button>
-              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                      type="button"
-                      @click.stop="open = false; showMdblistModal = true">
-                {% translate "Import from MDBList" %}
-              </button>
-              <button class="block w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                      type="button"
-                      @click.stop="open = false; showCsvImportModal = true">
-                {% translate "Import from CSV" %}
-              </button>
-          {% endif %}
           </div>
         </div>
       </div>
-    </div>
 
-    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row gap-4 mb-6{% if ct_shell %} ct-lists-bar{% endif %}"
+    {% translate "All Types" as media_i18n_16 %}<div class="flex flex-col md:flex-row gap-4 mb-6 ct-lists-bar"
          x-data="{ scope: '{{ current_scope|default:''|escapejs }}', sort: '{{ current_sort }}', direction: '{{ current_direction|default:'desc' }}', mediaType: '{{ current_media_type }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
            {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %}
            'all': '{{ media_i18n_16|escapejs }}'
@@ -143,7 +97,7 @@
         <input type="hidden" name="scope" x-model="scope">
       </form>
 
-      {% if ct_shell and shared_count or ct_shell and current_scope == "shared" %}
+      {% if shared_count or current_scope == "shared" %}
         <nav class="ct-segment ct-lists-scope" aria-label="{% translate "Lists" %}">
           <a href="?scope=mine"
              {% if current_scope != "shared" %}aria-current="page"{% endif %}>{% translate "My Lists" %}</a>
@@ -156,7 +110,7 @@
         P5: in v2 the search, type filter and sort appear once there are more
         than six lists (or a search/filter is already active).
       {% endcomment %}
-      {% if not ct_shell or owned_count|add:shared_count > 6 or request.GET.q or request.GET.media_type %}
+      {% if owned_count|add:shared_count > 6 or request.GET.q or request.GET.media_type %}
       <div class="relative flex-1">
         <input placeholder="{% translate "Search lists..." %}"
                class="w-full py-2 pl-10 pr-4 bg-[var(--color-surface-strong)] rounded-md text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] appearance-none"
@@ -265,7 +219,7 @@
 
     {% if custom_lists %}
       <div id="lists-grid"
-           class="{% if ct_shell %}ct-lists-grid{% else %}grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4{% endif %}"
+           class="ct-lists-grid"
            hx-history="false">
         {% include "lists/components/list_grid.html" %}
       </div>

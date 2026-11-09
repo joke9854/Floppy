@@ -11,7 +11,7 @@
     {% with first=episode.history.0 watched=episode.history|watched_count %}
       {% if first.dropped and watched == 0 %}
         {% translate "Dropped" %}
-      {% elif user.theme == "cinetrack" %}
+      {% elif user.is_authenticated %}
         {% if watched > 1 %}{% blocktranslate trimmed %}Watched {{ watched }} times{% endblocktranslate %} · {% translate "last" %}{% else %}{% translate "Watched" %}{% endif %}
         {% if first.end_date %}{{ first.end_date|datetime_format:user }}{% endif %}
       {% else %}

@@ -68,7 +68,7 @@
   <div x-show="cacheRefreshing"
        x-cloak
        x-transition
-       class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}{% if ct_shell %}md:left-[88px]{% else %}lg:left-64{% endif %}{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
+       class="fixed top-24 right-0 left-0 {% block messages_sidebar_offset %}md:left-[88px]{% endblock messages_sidebar_offset %} z-50 flex justify-center pointer-events-none mb-4">
     <div class="w-full max-w-xl px-4 pointer-events-auto">
       <div class="flex items-center gap-2 rounded-md border px-3 py-2 shadow-lg toast-info opacity-0"
            x-init="setTimeout(() => $el.classList.add('opacity-100', 'transform-none'), 10); $el.classList.add('transition', 'duration-300', 'ease-out', 'transform', 'translate-y-[-1rem]')">
@@ -82,9 +82,7 @@
     </div>
   </div>
   
-{% if ct_shell %}
-  {% include "app/components/ct/history_header.html" %}
-{% endif %}
+{% include "app/components/ct/history_header.html" %}
 <div class="history-page">
   {# Month-based navigation header #}
   {# Left = toward present (newer), Right = toward past (older) #}
@@ -104,15 +102,6 @@
             </svg>
             <span>{{ current_year }}</span>
           </a>
-        {% elif not ct_shell %}
-          {# v2 shows no control at all where there is nothing newer: a disabled chip reads as a live one there. #}
-          <span class="flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] cursor-not-allowed text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
-              <path d="m11 17-5-5 5-5"></path>
-              <path d="m18 17-5-5 5-5"></path>
-            </svg>
-            <span>{{ current_year }}</span>
-          </span>
         {% endif %}
 
         {# Newer month button (toward present) #}
@@ -125,13 +114,6 @@
             </svg>
             <span>{{ next_month_name }}</span>
           </a>
-        {% elif not ct_shell %}
-          <span class="flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] cursor-not-allowed text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
-              <path d="m15 18-6-6 6-6"></path>
-            </svg>
-            <span>{{ next_month_name }}</span>
-          </span>
         {% endif %}
       </div>
 
@@ -459,7 +441,6 @@
     this.go('{% url 'history' %}' + (qs ? '?' + qs : ''));
   },
   go(url) {
-    {% if ct_shell %}
     // M4: the CineTrack shell swaps the results in place with a cross-fade
     // (innerHTML, transition:true). htmx.swap, not htmx.ajax: the entrance
     // guard in base.html would turn a full-page response into a reload. A
@@ -482,7 +463,6 @@
         .catch(() => { window.location.href = url; });
       return;
     }
-    {% endif %}
     window.location.href = url;
   },
   clear() {
@@ -600,11 +580,11 @@
     if (!term) return this.availableImpliedGenres;
     return this.availableImpliedGenres.filter(g => g.toLowerCase().includes(term));
   }
-}"{% if ct_shell %}
-   @ct-history-type.window="selectedMediaTypes = $event.detail ? [$event.detail] : []; apply()"{% endif %}>
+}"
+   @ct-history-type.window="selectedMediaTypes = $event.detail ? [$event.detail] : []; apply()">
   {# FAB button #}
   <button @click="open = true"
-          class="{% if ct_shell %}ct-fab {% endif %}fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
+          class="ct-fab fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
           title="{% translate "Filter history" %}"
           aria-label="{% translate "Filter history" %}">
     {% include "app/icons/funnel.svg" with classes="w-5 h-5" %}

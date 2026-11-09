@@ -5,27 +5,10 @@ from django.templatetags.static import static
 from django.utils import formats, timezone
 from django.utils.html import format_html
 
-from users.appearance import (
-    BASIC_THEME_KEYS,
-    THEME_PRESETS,
-    custom_theme_css,
-    resolved_detail_layouts,
-)
+from users.appearance import resolved_detail_layouts
 from users.models import DateFormatChoices, TimeFormatChoices
 
 register = template.Library()
-
-
-@register.simple_tag
-def explicit_theme_classes():
-    """Return the authoritative set of classes replaced by the theme toggle."""
-    return " ".join(theme for theme in THEME_PRESETS if theme != "system")
-
-
-@register.filter
-def is_basic_theme(theme):
-    """Return whether the compact light/dark switcher may change this theme."""
-    return theme in BASIC_THEME_KEYS
 
 
 @register.filter
@@ -218,19 +201,6 @@ def date_format_display(format_value):
     return format_display_map.get(format_value, format_value)
 
 
-@register.filter
-def theme_display(theme_value):
-    """Display the human-readable name for theme values."""
-    preset = THEME_PRESETS.get(theme_value)
-    return preset["label"] if preset else theme_value
-
-
-@register.simple_tag
-def custom_theme_style(user):
-    """Return validated inline theme tokens for the custom preset."""
-    if not getattr(user, "is_authenticated", False) or user.theme != "custom":
-        return ""
-    return custom_theme_css(user.custom_theme)
 
 
 @register.simple_tag

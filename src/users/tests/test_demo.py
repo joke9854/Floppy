@@ -109,7 +109,7 @@ class EnsureDemoUserTests(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.email, DEMO_EMAIL)
         self.assertTrue(user.check_password(DEMO_PASSWORD))
-        self.assertEqual(user.theme, "system")
+        self.assertEqual(user.theme, "cinetrack")
 
 
 class DemoDefaultTests(TestCase):

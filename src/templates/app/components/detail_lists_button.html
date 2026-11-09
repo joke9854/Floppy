@@ -1,14 +1,14 @@
 {% load i18n %}
 {% load app_tags %}
-{# Add to list: "+" beside ⋮ in v2 (P1/P7), an icon after Tags in the classic row. #}
-<div x-data="{ listsOpen: false }" class="{% if request.user.theme == "cinetrack" %}ct-more-add {% endif %}flex-1 sm:flex-none">
-  <button class="{% if request.user.theme != "cinetrack" %}inline-flex h-11 w-full items-center justify-center rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm transition-colors duration-200 hover:bg-[var(--color-surface-muted)] cursor-pointer sm:size-11 sm:w-11{% endif %}"
+{# Add to list: "+" beside ⋮ in v2 (P1/P7). #}
+<div x-data="{ listsOpen: false }" class="ct-more-add flex-1 sm:flex-none">
+  <button
           title="{% translate "Add to custom lists" %}"
           hx-get="{% media_view_url 'lists_modal' media %}"
           hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
           hx-target="#{% component_id 'lists' media %}"
           hx-trigger="click once"
-          @click="listsOpen = true">{% if request.user.theme == "cinetrack" %}{% include "app/icons/plus.svg" with classes="w-5 h-5" %}{% else %}{% include "app/icons/list-add.svg" with classes="w-4 h-4" %}{% endif %}</button>
+          @click="listsOpen = true">{% include "app/icons/plus.svg" with classes="w-5 h-5" %}</button>
 
   <div x-show="listsOpen"
   @mousedown.self="listsOpen = false"

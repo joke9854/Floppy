@@ -9,7 +9,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.models import Item, MediaTypes, Movie, Sources, Status
-from users.models import ThemeChoices
 
 
 class StatisticsRecapTests(TestCase):
@@ -105,13 +104,8 @@ class StatisticsRecapTests(TestCase):
         self.assertContains(response, "Still counting this month.")
         self.assertNotContains(response, "Nothing tracked this month yet.")
 
-    def test_statistics_links_to_recap_only_in_cinetrack(self):
+    def test_statistics_links_to_recap(self):
         recap_url = reverse("statistics_recap")
 
-        response = self.client.get(reverse("statistics"))
-        self.assertNotContains(response, f'href="{recap_url}"')
-
-        self.user.theme = ThemeChoices.CINETRACK
-        self.user.save(update_fields=["theme"])
         response = self.client.get(reverse("statistics"))
         self.assertContains(response, f'href="{recap_url}"')

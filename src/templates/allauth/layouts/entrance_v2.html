@@ -7,8 +7,6 @@ static copy. The poster wall shows TMDB's trending posters (public, cached by
 app.login_wall); until the cache is warm it shows the board's placeholder tiles.
 {% endcomment %}
 
-{% block html_theme %}cinetrack{% endblock html_theme %}
-
 {% block extra_head %}
   {{ block.super }}
   {# Lets base.html's htmx:beforeSwap guard spot a sign-in page returned to a boosted or fragment request. #}

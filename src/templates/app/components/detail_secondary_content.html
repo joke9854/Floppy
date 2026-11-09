@@ -4,7 +4,7 @@
 {% load user_tags %}
 {% load humanize %}
 {% load static %}
-{% if request.user.is_authenticated and request.user.theme == "cinetrack" and not public_view|default:False and media_type|ct_v2_detail_type %}
+{% if request.user.is_authenticated and not public_view|default:False and media_type|ct_v2_detail_type %}
   {% include "app/components/ct/detail_secondary.html" %}
 {% else %}
 {% detail_layout_family media_type as detail_family %}
@@ -167,7 +167,7 @@
           </div>
         {% endif %}
 
-        {% if request.user.theme == "cinetrack" and not public_view|default:False %}{% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value %}
+        {% if request.user.is_authenticated and not public_view|default:False %}{% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value %}
           {% include "app/components/ct/series_progress_card.html" %}
         {% endif %}{% endif %}
 

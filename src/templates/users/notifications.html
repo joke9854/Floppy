@@ -177,11 +177,9 @@
         {% include "users/components/excluded_items.html" with excluded_items=user.notification_excluded_items.all %}
       </div>
     </div>
-    {% if request.user.theme == "cinetrack" %}
-      {# P4: RSS has no row in the v2 settings nav, so it is linked from here. #}
-      <a class="ct-integrations-more" href="{% url 'rss_settings' %}">{% translate "RSS feeds for Discover rows" %}
-        {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
-      </a>
-    {% endif %}
+    {# P4: RSS has no row in the v2 settings nav, so it is linked from here. #}
+    <a class="ct-integrations-more" href="{% url 'rss_settings' %}">{% translate "RSS feeds for Discover rows" %}
+      {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
+    </a>
   </div>
 {% endblock settings_content %}

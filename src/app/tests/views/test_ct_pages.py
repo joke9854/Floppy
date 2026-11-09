@@ -69,35 +69,14 @@ class CineTrackHistoryTests(_ThemeMixin, TestCase):
         import calendar
 
         next_month = calendar.month_abbr[timezone.localdate().month % 12 + 1]
-        classic = self.client.get(reverse("history"))
-        self.assertContains(classic, f"<span>{next_month}</span>")
-
-        self._use_cinetrack()
         response = self.client.get(reverse("history"))
 
         self.assertNotContains(response, f"<span>{next_month}</span>")
         self.assertNotContains(response, "cursor-not-allowed text-sm")
 
-    def test_cinetrack_rows_keep_the_card_endpoints_and_ids(self):
-        classic = self.client.get(reverse("history")).content.decode()
-        self._use_cinetrack()
-        cinetrack = self.client.get(reverse("history")).content.decode()
-
-        for marker in ('hx-target="#track-', 'hx-target="#lists-', 'id="track-', 'id="lists-', 'id="history-day-'):
-            self.assertEqual(classic.count(marker), cinetrack.count(marker), marker)
-
-    def test_classic_history_keeps_the_cards(self):
-        response = self.client.get(reverse("history"))
-
-        self.assertTemplateNotUsed(response, "app/components/ct/history_day.html")
-        self.assertContains(response, "media-card bg-")
-        self.assertNotContains(response, "ct-history-row")
-        self.assertNotContains(response, "htmx.swap(page")
-        self.assertNotContains(response, "data-ct-page")
-
 
 class CineTrackPageShellTests(_ThemeMixin, TestCase):
-    """W5: Calendar, Stats, Lists and Settings restyle only under the ct theme."""
+    """W5: Calendar, Stats, Lists and Settings render their CineTrack pages."""
 
     def test_calendar_adds_the_phone_agenda(self):
         self._use_cinetrack()
@@ -108,12 +87,6 @@ class CineTrackPageShellTests(_ThemeMixin, TestCase):
         self.assertContains(response, "ct-calendar")
         self.assertContains(response, 'class="ct-cal-mode md:hidden"')
         self.assertContains(response, 'class="ct-agenda"')
-
-    def test_classic_calendar_is_unchanged(self):
-        response = self.client.get(reverse("calendar"))
-
-        self.assertNotContains(response, "ct-calendar")
-        self.assertNotContains(response, "ct-agenda")
 
     def test_pages_carry_the_ct_marker(self):
         self._use_cinetrack()
@@ -129,21 +102,10 @@ class CineTrackPageShellTests(_ThemeMixin, TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, marker)
 
-    def test_settings_nav_cross_fades_only_in_cinetrack(self):
-        classic = self.client.get(reverse("account"))
-        self._use_cinetrack()
-        cinetrack = self.client.get(reverse("account"))
+    def test_settings_nav_cross_fades(self):
+        response = self.client.get(reverse("account"))
 
-        self.assertNotContains(classic, "transition:true")
-        self.assertContains(cinetrack, 'hx-swap="innerHTML transition:true"', count=3)
-
-    def test_classic_pages_have_no_ct_marker(self):
-        for name in ("statistics", "lists", "account"):
-            with self.subTest(name=name):
-                response = self.client.get(reverse(name))
-                self.assertNotContains(response, "data-ct-page")
-                self.assertNotContains(response, "ct-settings")
-                self.assertNotContains(response, "ct-fab")
+        self.assertContains(response, 'hx-swap="innerHTML transition:true"', count=3)
 
 
 class CineTrackSignInPagesTests(_ThemeMixin, TestCase):
@@ -164,20 +126,13 @@ class CineTrackSignInPagesTests(_ThemeMixin, TestCase):
         )
 
     def test_authorize_page_renders_with_the_same_form(self):
-        classic = self._authorize()
-        self._use_cinetrack()
-        cinetrack = self._authorize()
+        response = self._authorize()
 
-        self.assertEqual(cinetrack.status_code, 200)
-        self.assertTemplateUsed(cinetrack, "oauth2_provider/authorize.html")
-        self.assertNotContains(classic, "ct-entrance")
-        self.assertContains(cinetrack, "ct-entrance")
-        self.assertContains(cinetrack, 'id="authorizationForm"')
-        self.assertContains(cinetrack, 'name="allow"')
-        self.assertEqual(
-            sorted(classic.context["form"].fields),
-            sorted(cinetrack.context["form"].fields),
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "oauth2_provider/authorize.html")
+        self.assertContains(response, "ct-entrance")
+        self.assertContains(response, 'id="authorizationForm"')
+        self.assertContains(response, 'name="allow"')
 
     def test_device_page_renders(self):
         self._use_cinetrack()

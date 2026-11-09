@@ -30,7 +30,7 @@ from lists.views_helpers import (
     _order_expression,
     _resolve_list_sort_direction,
 )
-from users.models import ListSortChoices, ThemeChoices
+from users.models import ListSortChoices
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +144,11 @@ def lists(request):
             Q(name__icontains=search_query) | Q(description__icontains=search_query),
         )
 
-    # v2 Lists (A13): CineTrack splits the page into "My Lists" (the default)
-    # and "Shared with Me"; other themes keep one combined grid.
+    # v2 Lists (A13): the page splits into "My Lists" (the default) and
+    # "Shared with Me".
     scope = request.GET.get("scope", "")
     if scope not in ("mine", "shared"):
-        scope = "mine" if request.user.theme == ThemeChoices.CINETRACK else ""
+        scope = "mine"
     if scope == "mine":
         custom_lists = custom_lists.filter(owner=request.user)
     elif scope == "shared":
@@ -337,7 +337,7 @@ def list_cover_image(request, list_id):
     custom_list = get_object_or_404(CustomList, id=list_id)
     if not custom_list.user_can_view(request.user):
         return HttpResponseForbidden()
-    if getattr(request.user, "theme", None) == ThemeChoices.CINETRACK:
+    if request.user.is_authenticated:
         # v2 Lists (A13): a strip of the first four posters, from local items.
         posters = [
             membership.item

@@ -2,7 +2,7 @@
 {% load i18n %}
 {% load app_tags %}
 {% load user_tags %}
-{% if request.user.theme == "cinetrack" and not public_view|default:False %}
+{% if request.user.is_authenticated and not public_view|default:False %}
   {% include "app/components/ct/episode_row.html" %}
 {% else %}
 <div class="bg-[var(--color-surface)] rounded-lg overflow-hidden shadow-lg"

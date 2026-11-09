@@ -1178,7 +1178,7 @@ def episode_save(request):
             "type": "success",
         }
         # M5: a CineTrack toast can undo the play it just added.
-        if not instance_id and request.user.theme == "cinetrack":
+        if not instance_id:
             toast["undo"] = {
                 "url": reverse("media_delete"),
                 "instanceId": episode.id,

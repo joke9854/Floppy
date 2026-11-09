@@ -58,7 +58,7 @@ class SignupViewTests(TestCase):
             ["tv", "season", "movie", "anime"],
         )
         existing.refresh_from_db()
-        self.assertEqual(existing.theme, "system")
+        self.assertEqual(existing.theme, "cinetrack")
         self.assertTrue(existing.book_enabled)
 
     def test_duplicate_username_returns_form_error_not_500(self):

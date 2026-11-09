@@ -46,17 +46,6 @@ class CineTrackListsPageTests(TestCase):
         self.assertEqual([custom_list.name for custom_list in response.context["custom_lists"]], ["Theirs"])
         self.assertContains(response, "Shared")
 
-    def test_classic_theme_keeps_one_combined_grid(self):
-        response = self.client.get(reverse("lists"))
-
-        self.assertCountEqual(
-            [custom_list.name for custom_list in response.context["custom_lists"]],
-            ["Mine", "Theirs"],
-        )
-        self.assertNotContains(response, "ct-lists-scope")
-        self.assertNotContains(response, "ct-list-card")
-        self.assertContains(response, "Organize and share your media lists")
-
     def test_cover_is_a_poster_strip_for_cinetrack(self):
         for index in range(5):
             item = Item.objects.create(
@@ -69,11 +58,8 @@ class CineTrackListsPageTests(TestCase):
             CustomListItem.objects.create(custom_list=self.mine, item=item)
         url = reverse("list_cover_image", args=[self.mine.id])
 
-        classic = self.client.get(url)
-        self._use_cinetrack()
-        cinetrack = self.client.get(url)
+        response = self.client.get(url)
 
-        self.assertNotContains(classic, "ct-list-cover")
-        self.assertContains(cinetrack, "ct-list-cover")
-        self.assertContains(cinetrack, "<img", count=4)
-        self.assertContains(cinetrack, "/w185/0.jpg")
+        self.assertContains(response, "ct-list-cover")
+        self.assertContains(response, "<img", count=4)
+        self.assertContains(response, "/w185/0.jpg")

@@ -881,9 +881,11 @@ class TrackModalViewTests(TestCase):
         self.assertEqual(content.count("suggestionRuntimeMinutes: '95'"), 2)
         self.assert_release_shortcut_labels(response)
         self.assertNotContains(response, "Save Image")
-        # Classic keeps the model's Completed default and a disabled Delete.
-        self.assertNotIn("status", response.context["form"].initial)
-        self.assertContains(response, ">Delete</button>")
+        # v2 Add defaults a found title to Planning, not the model's Completed.
+        self.assertEqual(
+            response.context["form"].initial["status"],
+            Status.PLANNING.value,
+        )
 
     @patch("app.providers.services.get_media_metadata")
     def test_cinetrack_add_defaults_to_planning_without_delete(self, mock_get_metadata):
@@ -1747,8 +1749,8 @@ class EpisodeTrackButtonTests(TestCase):
         request = RequestFactory().get("/details/tmdb/tv/1668/show/season/1/episode/2")
         return render_to_string(template_name, context, request=request)
 
-    def test_hero_button_creates_without_history(self):
-        """With nothing watched the hero button opens the modal in create mode."""
+    def test_hero_button_marks_unwatched_episode_in_one_click(self):
+        """With nothing watched the hero button is the one-click quick watch form."""
         markup = self.render_button(
             "app/components/detail_episode_hero_track_button.html",
             {
@@ -1760,7 +1762,9 @@ class EpisodeTrackButtonTests(TestCase):
             },
         )
 
-        self.assertIn('"is_create": "1"', markup)
+        self.assertIn('hx-post="' + reverse("episode_save"), markup)
+        self.assertIn('name="episode_number" value="2"', markup)
+        self.assertIn("data-ct-mark-episode", markup)
         self.assertNotIn("instance_id", markup)
         self.assertIn("Mark Watched", markup)
 

@@ -6,9 +6,9 @@
 {# Once a watch exists the button edits it (instance_id) instead of stacking another one, so status/start date/notes prefill and Delete is usable. "Save as new entry" records a rewatch directly. #}
 {# v2: an unwatched episode marks in one click, like the show page and Home; the toast undoes it and data-ct-live re-renders this button after the undo. Watched episodes still open the track window to edit. #}
 <div id="episode-track-button-{{ source }}-{{ media_id }}-{{ season_number }}-{{ episode_number }}"
-     {% if request.user.theme == "cinetrack" %}data-ct-live{% endif %}
+     data-ct-live
      {% if track_button_oob %}hx-swap-oob="true"{% endif %}>
-  {% if not episode.history and request.user.theme == "cinetrack" %}
+  {% if not episode.history %}
     {% watch_operation_id as quick_watch_operation_id %}
     <form hx-post="{% url 'episode_save' %}?next={{ track_return_url|default:request.path|urlencode }}"
           hx-swap="none"
@@ -30,18 +30,13 @@
   {% else %}
   <button type="button"
           hx-get="{% url 'track_modal' source=source media_type='episode' media_id=media_id season_number=season_number %}"
-          hx-vals='{"return_url": "{{ track_return_url|default:request.path|urlencode }}", "episode_number": "{{ episode_number }}", {% if episode.history %}"instance_id": "{{ episode.history.0.id }}"{% else %}"is_create": "1"{% endif %}}'
+          hx-vals='{"return_url": "{{ track_return_url|default:request.path|urlencode }}", "episode_number": "{{ episode_number }}", "instance_id": "{{ episode.history.0.id }}"}'
           hx-target="#episode-track-modal-{{ source }}-{{ media_id }}-{{ season_number }}-{{ episode_number }}"
           hx-trigger="click"
           @click="trackOpen = true"
-          class="inline-flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3 text-white shadow-sm transition duration-300 cursor-pointer sm:w-auto {% if episode.history %}bg-indigo-600 hover:bg-indigo-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %}">
-    {% if episode.history %}
-      {% include "app/icons/eye.svg" with classes="w-5 h-5 shrink-0" %}
-      <span class="font-medium">{% translate "Watched" %}</span>
-    {% else %}
-      {% include "app/icons/eye-closed.svg" with classes="w-5 h-5 shrink-0" %}
-      <span class="font-medium">{% translate "Mark Watched" %}</span>
-    {% endif %}
+          class="inline-flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3 text-white shadow-sm transition duration-300 cursor-pointer sm:w-auto bg-indigo-600 hover:bg-indigo-700">
+    {% include "app/icons/eye.svg" with classes="w-5 h-5 shrink-0" %}
+    <span class="font-medium">{% translate "Watched" %}</span>
   </button>
   {% endif %}
 </div>

@@ -9,7 +9,6 @@ from django.dispatch import receiver
 
 from app.models import MediaTypes
 from users.demo import ensure_demo_user
-from users.models import ThemeChoices
 
 # Media types a new account starts with; the rest are one switch away in Settings.
 NEW_ACCOUNT_MEDIA_TYPES = frozenset(
@@ -58,9 +57,8 @@ def apply_session_duration(sender, request, user, **kwargs):
 
 @receiver(user_signed_up)
 def apply_new_account_defaults(sender, request, user, **kwargs):
-    """Start a newly signed-up account on CineTrack with TV, Movies and Anime."""
-    user.theme = ThemeChoices.CINETRACK
-    update_fields = ["theme"]
+    """Start a newly signed-up account with TV, Movies and Anime."""
+    update_fields = []
     for media_type in MediaTypes.values:
         field_name = f"{media_type}_enabled"
         if hasattr(user, field_name):

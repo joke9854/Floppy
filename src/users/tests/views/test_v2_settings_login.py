@@ -64,42 +64,16 @@ class CineTrackSettingsTests(TestCase):
         self.assertContains(response, 'aria-label="Connect Jellyfin"')
         self.assertContains(response, 'aria-label="Set up Emby"')
 
-    def test_appearance_uses_theme_tiles_and_hides_detail_layouts(self):
+    def test_appearance_hides_detail_layouts(self):
         response = self.client.get(reverse("appearance"))
 
         self.assertContains(response, "ct-appearance")
-        self.assertContains(response, 'class="ct-theme-preview" data-theme="cinetrack"')
         self.assertContains(response, 'class="preferences-section" hidden')
 
     def test_connected_apps_links_to_integrations_api_view(self):
         response = self.client.get(reverse("connected_apps"))
 
         self.assertContains(response, f'{reverse("integrations")}?open=api#connected-apps')
-
-
-class ClassicSettingsTests(TestCase):
-    def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            username="classic-settings",
-            password="testpass123",
-            theme="dark",
-        )
-        self.client.force_login(self.user)
-
-    def test_integrations_keep_filter_bar_and_classic_nav(self):
-        response = self.client.get(reverse("integrations"))
-
-        self.assertContains(response, "activeIntegration: 'all'")
-        self.assertContains(response, "Jump to integration")
-        self.assertNotContains(response, "ct-integrations-grid")
-        self.assertNotContains(response, "ct-settings-nav")
-        self.assertContains(response, f'href="{reverse("rss_settings")}"')
-
-    def test_appearance_keeps_detail_layouts(self):
-        response = self.client.get(reverse("appearance"))
-
-        self.assertNotContains(response, "ct-theme-preview")
-        self.assertNotContains(response, 'class="preferences-section" hidden')
 
 
 class V2LoginTests(TestCase):
