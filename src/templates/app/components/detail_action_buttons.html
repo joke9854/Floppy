@@ -11,6 +11,8 @@
       {% translate "Fix match" %}
     </a>
   {% endif %}
+  {# H025: each if/elif/else branch opens its own wrapper div, closed once after the branches. #}
+  {# djlint:off H025 #}
   {% if not activity_subtitle and media.score_count is None and not trakt_score and not imdb_score and not mal_score and not user_medias %}
     <div class="order-1 mt-5 mb-6 flex flex-col gap-3 sm:order-2 sm:flex-row sm:flex-wrap sm:items-center">
     {% elif not activity_subtitle and media.score_count is None and not trakt_score and not imdb_score and not mal_score and user_medias and not current_instance %}
@@ -233,3 +235,4 @@
         {% endif %}
       </div>
     {% endif %}
+  {# djlint:on H025 #}

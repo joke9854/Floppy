@@ -29,7 +29,10 @@ HTMX stops automatically — same pattern as prefetch_artist_covers.
     <div class="grid justify-start gap-2"
          style="grid-template-columns: max-content {% for _ in graph_data.seasons %}3rem {% endfor %};">
 
+      {# H020: intentionally empty spacer cell, first column of the season grid #}
+      {# djlint:off H020 #}
       <div></div>
+      {# djlint:on H020 #}
       {% for season in graph_data.seasons %}
         <div class="text-center text-[11px] font-semibold text-[var(--color-text-muted)]">{{ season.label }}</div>
       {% endfor %}

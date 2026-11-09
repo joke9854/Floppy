@@ -20,7 +20,7 @@
             <span class="px-2 py-1 rounded-md whitespace-nowrap {% if slug == onboarding_active_step %}bg-indigo-600 text-white{% elif slug in onboarding_completed_steps %}bg-[var(--color-surface-strong)] text-[var(--color-text-secondary)]{% else %}text-[var(--color-text-muted)]{% endif %}">
               {{ label }}
             </span>
-            {% if not forloop.last %}<span>&rsaquo;</span>{% endif %}
+            {% if not forloop.last %}<span>›</span>{% endif %}
           {% endfor %}
         </div>
         <a href="{% url 'home' %}" class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] underline">

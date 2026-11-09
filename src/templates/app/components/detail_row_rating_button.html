@@ -34,13 +34,7 @@
         {% for rating_value in rating_range %}
           <button @click="if (rating == {{ rating_value }}) { rating = null; } else { rating = {{ rating_value }}; } showRatingPopup = false; isHovering = false"
                   @mouseenter="hoverRating = {{ rating_value }}"
-                  {% if rating_kind == "episode" %}
-                    hx-post="{% url 'update_episode_score' episode_score_target_id episode.episode_number %}"
-                  {% elif rating_kind == "music" %}
-                    hx-post="{% url 'update_track_score' music_instance.id %}"
-                  {% else %}
-                    hx-post="{% url 'update_media_score' action_media_type rating_instance.id %}"
-                  {% endif %}
+                  hx-post="{% if rating_kind == 'episode' %}{% url 'update_episode_score' episode_score_target_id episode.episode_number %}{% elif rating_kind == 'music' %}{% url 'update_track_score' music_instance.id %}{% else %}{% url 'update_media_score' action_media_type rating_instance.id %}{% endif %}"
                   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                   hx-vals='{"score": {{ rating_value }}, "toggle": true}'
                   hx-trigger="click"
