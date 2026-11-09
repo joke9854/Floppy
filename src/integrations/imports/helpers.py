@@ -655,13 +655,10 @@ def create_import_schedule(
     extra_kwargs: Optional dictionary of additional task kwargs to persist.
     """
     try:
-        import_time = (
-            datetime.datetime.strptime(import_time, "%H:%M")
-            .astimezone(
-                timezone.get_default_timezone(),
-            )
-            .time()
-        )
+        # The user enters wall-clock time in Floppy's TIME_ZONE, which the
+        # crontab below uses as is. (astimezone() here converted from the OS
+        # zone: a no-op when they match, a shift when not, OSError on Windows.)
+        import_time = datetime.time.fromisoformat(import_time)
     except ValueError:
         messages.error(request, "Invalid import time.")
         return

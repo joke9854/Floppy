@@ -29,6 +29,20 @@ class MediaSearchViewTests(TestCase):
         self.client.login(**self.credentials)
 
     @patch("app.providers.services.search")
+    def test_search_without_query_parameters_renders(self, mock_search):
+        """A bare /search falls back to the saved type and an empty query."""
+        mock_search.return_value = {
+            "page": 1,
+            "total_results": 0,
+            "total_pages": 0,
+            "results": [],
+        }
+
+        response = self.client.get(reverse("search"))
+
+        self.assertEqual(response.status_code, 200)
+
+    @patch("app.providers.services.search")
     def test_media_search_view(self, mock_search):
         """Test the media search view."""
         mock_search.return_value = {

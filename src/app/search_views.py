@@ -114,7 +114,7 @@ def _matched_title(item_obj, search_query, user):
 @require_GET
 def media_search(request):
     """Return the media search page."""
-    requested_media_type = request.GET["media_type"]
+    requested_media_type = request.GET.get("media_type")
     if request.user.is_authenticated:
         media_type = request.user.update_preference(
             "last_search_type",
@@ -124,7 +124,7 @@ def media_search(request):
         media_type = requested_media_type
     else:
         media_type = MediaTypes.TV.value
-    query = request.GET["q"]
+    query = request.GET.get("q", "")
     page = int(request.GET.get("page", 1))
     layout = request.GET.get("layout", "grid")
 
