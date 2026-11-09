@@ -32,22 +32,29 @@
       </div>
       <div class="flex items-center gap-2">
         {# P5: in v2, Public profile is the last row of the New List menu. #}
-        <div class="ct-lists-new relative inline-flex" x-data="{ open: false }">
-          <button @click="listMode = 'manual'; showModal = true"
+        <div class="ct-lists-new relative inline-flex"
+             x-data="ctMenu"
+             @keydown.escape="close()"
+             @click.outside="close(false)"
+             @focusout="onFocusOut($event)">
+          <button @click="open = false; listMode = 'manual'; showModal = true"
                   class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-md hover:bg-indigo-700 transition-colors cursor-pointer border-r border-indigo-500">
             {% include "app/icons/plus.svg" with classes="w-5 h-5 mr-2" %}
             {% translate "New List" %}
           </button>
-          <button @click="open = !open"
+          <button x-ref="toggle"
+                  @click="toggle()"
                   class="flex items-center px-2 py-2 bg-indigo-600 text-white rounded-r-md hover:bg-indigo-700 transition-colors cursor-pointer"
                   aria-label="{% translate "More list actions" %}"
+                  aria-haspopup="true"
+                  :aria-expanded="open ? 'true' : 'false'"
                   type="button">
             {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
           </button>
             <div class="ct-menu ct-lists-menu"
+                 x-ref="panel"
                  x-cloak
                  x-show="open"
-                 @click.outside="open = false"
                  role="menu">
               <button type="button" class="ct-menu-link" role="menuitem" @click.stop="open = false; listMode = 'manual'; showModal = true">
                 {% include "app/icons/plus.svg" with classes="w-5 h-5" %}

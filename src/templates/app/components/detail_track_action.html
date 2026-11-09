@@ -14,22 +14,24 @@
     list as "Add to tracker": a status posts to media_save, which adds it.
   {% endcomment %}
   <div class="ct-status-menu"
-       x-data="{ statusOpen: false }"
-       @click.outside="statusOpen = false"
-       @keydown.escape.window="statusOpen = false">
+       x-data="ctMenu"
+       @keydown.escape="close()"
+       @click.outside="close(false)"
+       @focusout="onFocusOut($event)">
     <button type="button"
+            x-ref="toggle"
             data-ct-shortcut="track"
             class="inline-flex w-full items-center justify-center gap-3 rounded-xl bg-indigo-600 px-5 py-3 text-white shadow-sm transition duration-300 hover:bg-indigo-700 cursor-pointer sm:w-auto"
             aria-haspopup="menu"
-            :aria-expanded="statusOpen ? 'true' : 'false'"
-            @click="statusOpen = !statusOpen">
+            :aria-expanded="open ? 'true' : 'false'"
+            @click="toggle()">
       {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
       <span class="font-medium">
         {% if current_instance %}{{ current_instance.status|media_status_readable }}{% else %}{% translate "Add to tracker" %}{% endif %}
       </span>
       {% include "app/icons/chevron-down.svg" with classes="w-4 h-4 shrink-0" %}
     </button>
-    <div class="ct-status-menu__panel" role="menu" x-show="statusOpen" x-cloak x-transition.opacity>
+    <div class="ct-status-menu__panel" x-ref="panel" role="menu" x-show="open" x-cloak x-transition.opacity>
       <form method="post" action="{% if current_instance %}{% url 'media_status' %}{% else %}{% url 'media_save' %}{% endif %}">
         {% csrf_token %}
         {% if current_instance %}
@@ -65,7 +67,7 @@
               hx-vals='{"return_url": "{{ return_url }}"{% if current_instance %}, "instance_id": "{{ current_instance.id }}"{% endif %}{% if track_action_update %}, "track_action_update": "1"{% endif %}{% if edition_id %}, "edition_id": "{{ edition_id }}"{% endif %}}'
               hx-target="#{% component_id 'track' media %}"
               hx-trigger="click"
-              @click="statusOpen = false; trackOpen = true">
+              @click="open = false; trackOpen = true">
         <span>{% translate "Edit details" %}</span>
       </button>
     </div>
