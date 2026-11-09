@@ -24,7 +24,7 @@ class ImageCacheSettingsTests(TestCase):
         image_cache.set_enabled(False)
 
     def tearDown(self):
-        cache.delete(image_cache.SETTING_CACHE_KEY)
+        image_cache.invalidate_setting_cache()
         cache.delete(image_cache.RETENTION_CACHE_KEY)
 
     def test_normal_user_can_view_but_cannot_mutate_or_clear(self):

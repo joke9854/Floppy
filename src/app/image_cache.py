@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from django.conf import settings
 from django.core.cache import cache
+from django.core.signals import request_started
 from django.core.signing import BadSignature, Signer
 from django.http import FileResponse, HttpResponse, HttpResponseNotFound
 from django.urls import reverse
@@ -25,6 +26,19 @@ logger = logging.getLogger(__name__)
 
 SETTING_CACHE_KEY = "application_settings:image_caching_enabled"
 SETTING_CACHE_SECONDS = 300
+# A page renders one image URL per poster, and each asked Redis for the toggle
+# (~100 round trips on a season page). The answer is kept in-process for the
+# rest of the request (reset when the next one starts) and at most this long,
+# which bounds it in Celery workers, where no request starts.
+LOCAL_SETTING_SECONDS = 5
+_local_setting = {"value": None, "expires": 0.0}
+
+
+def _forget_local_setting(**_kwargs):
+    _local_setting["value"] = None
+
+
+request_started.connect(_forget_local_setting, dispatch_uid="image_cache_setting")
 CACHE_MAX_AGE_SECONDS = 86400
 DAY_SECONDS = 24 * 60 * 60
 RETENTION_CACHE_KEY = "application_settings:image_cache_days"
@@ -68,16 +82,27 @@ def cache_root():
     return Path(settings.FLOPPY_DATA_DIR) / "image-cache"
 
 
+def _remember_locally(enabled):
+    _local_setting["value"] = enabled
+    _local_setting["expires"] = time.monotonic() + LOCAL_SETTING_SECONDS
+    return enabled
+
+
 def _setting_value():
     """Read the toggle, creating the singleton lazily for old installs."""
+    if _local_setting["value"] is not None and time.monotonic() < _local_setting[
+        "expires"
+    ]:
+        return _local_setting["value"]
+
     enabled = cache.get(SETTING_CACHE_KEY)
     if isinstance(enabled, bool):
-        return enabled
+        return _remember_locally(enabled)
 
     setting, _ = ApplicationSettings.objects.get_or_create(pk=1)
     enabled = bool(setting.image_caching_enabled)
     cache.set(SETTING_CACHE_KEY, enabled, SETTING_CACHE_SECONDS)
-    return enabled
+    return _remember_locally(enabled)
 
 
 def is_enabled():
@@ -91,6 +116,7 @@ def set_enabled(enabled):
     setting.image_caching_enabled = bool(enabled)
     setting.save(update_fields=["image_caching_enabled"])
     cache.set(SETTING_CACHE_KEY, bool(enabled), SETTING_CACHE_SECONDS)
+    _forget_local_setting()
     return bool(enabled)
 
 
@@ -98,6 +124,7 @@ def invalidate_setting_cache():
     """Invalidate the cached toggle after external/database changes."""
     cache.delete(SETTING_CACHE_KEY)
     cache.delete(RETENTION_CACHE_KEY)
+    _forget_local_setting()
 
 
 def retention_days():

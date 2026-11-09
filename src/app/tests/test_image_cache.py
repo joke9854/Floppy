@@ -6,6 +6,7 @@ from io import BytesIO
 from unittest.mock import Mock, patch
 
 from django.core.cache import cache
+from django.core.signals import request_started
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
@@ -39,13 +40,28 @@ class ImageCacheServiceTests(TestCase):
         self.data_dir = tempfile.TemporaryDirectory()
         self.settings_override = override_settings(FLOPPY_DATA_DIR=self.data_dir.name)
         self.settings_override.enable()
-        cache.delete(image_cache.SETTING_CACHE_KEY)
+        image_cache.invalidate_setting_cache()
         image_cache.set_enabled(False)
 
     def tearDown(self):
-        cache.delete(image_cache.SETTING_CACHE_KEY)
+        image_cache.invalidate_setting_cache()
         self.settings_override.disable()
         self.data_dir.cleanup()
+
+    def test_toggle_is_read_from_the_shared_cache_once_per_request(self):
+        image_cache.set_enabled(True)
+        url = "https://image.tmdb.org/t/p/w500/poster.jpg"
+        request_started.send(sender=self.__class__)
+
+        with patch.object(image_cache.cache, "get", wraps=cache.get) as cache_get:
+            for _ in range(50):
+                image_cache.rewrite_image_url(url)
+            reads_in_request = cache_get.call_count
+            request_started.send(sender=self.__class__)
+            image_cache.rewrite_image_url(url)
+
+        self.assertEqual(reads_in_request, 1)
+        self.assertEqual(cache_get.call_count, 2)
 
     def test_approved_urls_rewrite_but_manual_and_local_urls_do_not(self):
         image_cache.set_enabled(True)
@@ -217,12 +233,14 @@ class ImageCacheServiceTests(TestCase):
             ],
         ):
             for url in urls:
+                # Close the streamed FileResponse, as Django's handler does;
+                # an open handle blocks the cleanup's unlink on Windows.
                 self.client.get(
                     reverse(
                         "image_cache",
                         kwargs={"token": image_cache._token_for_url(url)},
                     ),
-                )
+                ).close()
 
         old_data, old_metadata = image_cache._paths(urls[0])
         old_time = time.time() - image_cache.DEFAULT_RETENTION_DAYS * image_cache.DAY_SECONDS - 1
