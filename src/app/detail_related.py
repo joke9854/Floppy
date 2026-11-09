@@ -171,10 +171,15 @@ def enrich_detail_seasons(
     return details, seasons
 
 
-def enrich_detail_related_cards(request, media_metadata, *, media_type, tracking_user):
-    """Attach tracking and season labels using the owner selected by the view."""
+def enrich_detail_related_cards(
+    request, media_metadata, *, media_type, tracking_user, skip_sections=()
+):
+    """Attach tracking and season labels using the owner selected by the view.
+
+    Sections in ``skip_sections`` keep their provider items unchanged.
+    """
     for section_name, related_items in media_metadata["related"].items():
-        if related_items:
+        if related_items and section_name not in skip_sections:
             enriched_related_items = helpers.enrich_items_with_user_data(
                 request,
                 related_items,

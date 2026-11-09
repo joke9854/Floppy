@@ -20,6 +20,7 @@ from app import backdrops, config, helpers, image_cache
 from app.models import CollectionEntry, Item, MediaTypes, Sources, Status, Tag
 from app.providers import fanart, tmdb
 from app.services import metadata_resolution
+from app.view_constants import V2_DETAIL_MEDIA_TYPES
 from users.models import TimeFormatChoices
 from users.templatetags.user_tags import user_date_format, user_time_format
 
@@ -338,12 +339,7 @@ def ct_character_image(images, person):
 @register.filter
 def ct_v2_detail_type(media_type):
     """Return whether a detail page takes the Apple layout v2 (A2/A7/A10)."""
-    return media_type in {
-        MediaTypes.MOVIE.value,
-        MediaTypes.TV.value,
-        MediaTypes.SEASON.value,
-        MediaTypes.ANIME.value,
-    }
+    return media_type in V2_DETAIL_MEDIA_TYPES
 
 
 @register.simple_tag

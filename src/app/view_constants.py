@@ -1,3 +1,5 @@
+from app.models.choices import MediaTypes
+
 LOCAL_ONLY_MISSING_SEASON_BANNER = (
     "Season metadata is missing from the provider, which usually means your "
     "media server and the provider number this show's seasons differently. "
@@ -15,3 +17,13 @@ FORCE_LIVE_METADATA_TIMEOUT = 60  # seconds
 def force_live_metadata_cache_key(item_id):
     """Cache key signalling a detail view must skip the stored-metadata shortcut."""
     return f"force_live_metadata_{item_id}"
+
+# Detail pages that take the Apple layout v2 (A2/A7/A10) for signed-in viewers.
+V2_DETAIL_MEDIA_TYPES = frozenset(
+    {
+        MediaTypes.MOVIE.value,
+        MediaTypes.TV.value,
+        MediaTypes.SEASON.value,
+        MediaTypes.ANIME.value,
+    },
+)

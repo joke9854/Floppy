@@ -77,6 +77,7 @@ from app.view_constants import (
     DETAIL_CAROUSEL_FRAGMENT,
     DETAIL_SECONDARY_FRAGMENT,
     DETAIL_TRAILERS_FRAGMENT,
+    V2_DETAIL_MEDIA_TYPES,
     force_live_metadata_cache_key,
 )
 from lists.views_helpers import get_public_list_for_item
@@ -1627,6 +1628,13 @@ def media_details(
             media_metadata,
             media_type=media_type,
             tracking_user=list_owner,
+            # v2 season covers read only the provider item, never the tracking
+            # row, so loading every tracked season with its episodes is waste.
+            skip_sections=(
+                {"seasons"}
+                if not public_view and media_type in V2_DETAIL_MEDIA_TYPES
+                else ()
+            ),
         )
 
     # For music tracks, get linked artist and album for navigation
@@ -2015,6 +2023,8 @@ def media_details(
             )
             if media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value)
             and display_provider in {Sources.TMDB.value, Sources.TVDB.value}
+            # Graphs render only in the score chips, which the shell owns.
+            and not render_secondary_only
             else None
         ),
         "trakt_series_graph_data": (
@@ -2023,6 +2033,7 @@ def media_details(
                 display_provider, media_id, use_trakt=True
             )
             if media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value)
+            and not render_secondary_only
             else None
         ),
         "imdb_series_graph_data": (
@@ -2031,6 +2042,7 @@ def media_details(
                 display_provider, media_id, use_imdb=True
             )
             if media_type in (MediaTypes.TV.value, MediaTypes.ANIME.value)
+            and not render_secondary_only
             else None
         ),
         "metadata_provider_options": metadata_provider_options,

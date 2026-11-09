@@ -47,6 +47,8 @@
     </div>
   {% endif %}
 
+  {# v2 episode rows show only the check (see .ct-episode-list in detail.css). #}
+  {% if not check_only %}
   {% if episode.item or media_type == MediaTypes.SEASON.value or action_media_type == MediaTypes.COMIC_ISSUE.value %}
     <div x-data="{ listsOpen: false }">
       <button class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition duration-300 cursor-pointer"
@@ -113,4 +115,5 @@
       {% endwith %}
     {% endif %}
   {% endwith %}
+  {% endif %}
 </div>

@@ -74,7 +74,7 @@
     {% endif %}
     {% if not public_view|default:False %}
       <div class="ct-ep-actions">
-        {% include "app/components/detail_row_actions.html" with episode=episode action_media_type=MediaTypes.EPISODE.value track_button_variant="episode" current_instance=current_instance history_item=episode.item detail_return_url=detail_return_url request=request csrf_token=csrf_token TRACK_TIME=TRACK_TIME user=user media_type=media_type MediaTypes=MediaTypes only %}
+        {% include "app/components/detail_row_actions.html" with check_only=True episode=episode action_media_type=MediaTypes.EPISODE.value track_button_variant="episode" current_instance=current_instance history_item=episode.item detail_return_url=detail_return_url request=request csrf_token=csrf_token TRACK_TIME=TRACK_TIME user=user media_type=media_type MediaTypes=MediaTypes only %}
       </div>
     {% endif %}
     {% if episode.overview and episode.history or episode.overview and not user.hide_episode_overviews %}

@@ -13,6 +13,7 @@ from django.db.utils import OperationalError
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escapejs
 from django.utils.translation import override
 
 from app import statistics_cache
@@ -736,13 +737,11 @@ class MediaDetailsViewTests(TestCase):
                 args=[Sources.COMICVINE.value, MediaTypes.COMIC_ISSUE.value, "114214"],
             ),
         )
-        self.assertContains(
-            response,
-            reverse(
-                "update_media_score",
-                args=[MediaTypes.COMIC_ISSUE.value, tracked_issue.id],
-            ),
+        rate_url = reverse(
+            "update_media_score",
+            args=[MediaTypes.COMIC_ISSUE.value, tracked_issue.id],
         )
+        self.assertContains(response, f"rateUrl: '{escapejs(rate_url)}'")
         self.assertContains(response, 'x-data="{ trackOpen: false }"', count=2)
         self.assertContains(
             response,
@@ -6769,7 +6768,8 @@ class MediaDetailsViewTests(TestCase):
             response, "app/components/detail_secondary_content.html"
         )
         self.assertContains(response, "Episode 1")
-        self.assertContains(
+        # v2 rows render only the check; lists live on the episode page.
+        self.assertNotContains(
             response,
             reverse(
                 "lists_modal",
@@ -8615,7 +8615,8 @@ class MediaDetailsViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         seasons = response.context["media"]["related"]["seasons"]
-        self.assertEqual(seasons[0]["item"]["season_number"], 0)
+        # v2 keeps provider season items as they are (no tracking lookup).
+        self.assertEqual(seasons[0]["season_number"], 0)
         self.assertContains(response, "/details/tmdb/tv/114410/chainsaw-man?season=0")
         self.assertEqual(mock_get_metadata.call_count, 3)
         self.assertEqual(
