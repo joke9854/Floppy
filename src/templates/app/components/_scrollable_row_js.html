@@ -45,24 +45,6 @@
     row.appendChild(sentinel);
   }
 
-  function reloadHomeRow(row, rowId) {
-    row._prevScrollLeft = row.scrollLeft;
-    row.dataset.fullReload = 'true';
-    htmx.ajax('GET', `/?load_row=${rowId}&offset=0`, {
-      target: row,
-      swap: 'innerHTML',
-    });
-  }
-
-  if (!window.__floppyHomeRowRefreshBound) {
-    window.__floppyHomeRowRefreshBound = true;
-    document.body.addEventListener('refreshHomeRow', function(event) {
-      const rowId = event.detail && event.detail.rowId;
-      if (!rowId) return;
-      const row = document.querySelector(`#media-grid-row-${rowId}`);
-      if (row) reloadHomeRow(row, rowId);
-    });
-  }
 
   function triggerHomeRowLoadMore(row) {
     const { loaded, total } = getHomeRowCounts(row);
@@ -297,24 +279,12 @@
   document.body.addEventListener('htmx:afterSwap', function(event) {
     const row = event.detail.target;
     if (row && row.matches('[data-home-row="true"]')) {
-      const isFullReload = row.dataset.fullReload === 'true';
-      if (isFullReload) {
-        delete row.dataset.fullReload;
-        delete row.dataset.homeRowExhausted;
-        const obs = homeRowObservers.get(row);
-        if (obs) { obs.disconnect(); homeRowObservers.delete(row); }
-        row.dataset.homeRowBound = 'false';
-        if (row._prevScrollLeft !== undefined) {
-          row.scrollLeft = row._prevScrollLeft;
-          delete row._prevScrollLeft;
-        }
-      }
       const pendingOffset = Number.parseInt(row.dataset.pendingOffset || '0', 10);
       syncHomeRowSentinel(row);
       syncHomeRowLoadedCount(row);
       row.dataset.stickToEnd = 'false';
       const newLoadedCount = Number.parseInt(row.dataset.loadedCount || '0', 10);
-      if (!isFullReload && row.dataset.pendingOffset !== undefined && newLoadedCount <= pendingOffset) {
+      if (row.dataset.pendingOffset !== undefined && newLoadedCount <= pendingOffset) {
         // The response appended no new cards even though the client still
         // believed more items existed — stop retrying this row for good,
         // regardless of what total says, to avoid looping on the same offset.

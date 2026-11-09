@@ -133,15 +133,18 @@ class HomeTests(FloppyApiTestCase):
     """GET /home returns serialized home groups."""
 
     def test_home_groups(self):
-        """Groups include the user's tracked media rows, fully serialized."""
+        """Groups are the Home sections in order, one row each, with cards."""
         response = self.call_api("get", "api_home", headers=self.auth_headers)
         self.assertEqual(response.status_code, HTTP.OK)
         groups = response.json()["groups"]
         self.assertTrue(groups)
-        first_rows = groups[0]["rows"]
-        self.assertTrue(first_rows)
-        self.assertIn("items", first_rows[0])
-        row_item = first_rows[0]["items"][0]
+        section_order = ["in_progress", "airing", "recent", "coming_soon"]
+        keys = [group["media_type"] for group in groups]
+        self.assertEqual(keys, [key for key in section_order if key in keys])
+        first_row = groups[0]["rows"][0]
+        self.assertEqual(first_row["row_id"], groups[0]["media_type"])
+        self.assertTrue(first_row["items"])
+        row_item = first_row["items"][0]
         # Regression guard for the HomeRowEntry serializer_map gap: items must
         # not fall back to a bare {"title": ...} dict.
         self.assertIn("id", row_item)

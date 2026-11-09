@@ -31,7 +31,6 @@ _CHOICE_PREFERENCE_FIELDS = (
     "title_display_preference",
     "top_talent_sort_by",
     "rating_scale",
-    "show_planned_on_home",
     "anime_library_mode",
     "quick_season_update_mobile",
     "session_duration",
@@ -46,7 +45,6 @@ _BOOLEAN_PREFERENCE_FIELDS = (
     "auto_pause_in_progress_enabled",
     "obfuscate_episodes",
     "clickable_media_cards",
-    "home_show_media_type_headers",
 )
 
 # Fields whose change requires the web view's statistics-cache refresh.
@@ -84,7 +82,6 @@ class UserPreferencesValuesSerializer(serializers.Serializer):
     title_display_preference = serializers.CharField()
     top_talent_sort_by = serializers.CharField()
     rating_scale = serializers.CharField()
-    show_planned_on_home = serializers.CharField()
     anime_library_mode = serializers.CharField()
     quick_season_update_mobile = serializers.CharField()
     session_duration = serializers.IntegerField()
@@ -96,7 +93,6 @@ class UserPreferencesValuesSerializer(serializers.Serializer):
     auto_pause_in_progress_enabled = serializers.BooleanField()
     obfuscate_episodes = serializers.BooleanField()
     clickable_media_cards = serializers.BooleanField()
-    home_show_media_type_headers = serializers.BooleanField()
 
 
 class UserPreferencesResponseSerializer(serializers.Serializer):

@@ -1,11 +1,27 @@
 {% load i18n %}
 {% load app_tags %}
 {% comment %}
-  v2 Home fixed sections (boards A1/A6): Airing This Week, a two-column
-  grouped list (one column on phones, as A6), and Recently Watched, a row of
-  poster cards. Data from app.home_sections.build_home_sections.
-  Context: home_sections, user.
+  v2 Home fixed sections (boards A1/A6), in order: In Progress (a row of
+  cards), Airing This Week (a two-column grouped list, one column on phones,
+  as A6), Recently Watched (a row of poster cards) and Coming Soon (a list).
+  Empty sections are not rendered. Data from app.home_sections.build_home_sections.
+  Context: home_sections, user, IMG_NONE.
 {% endcomment %}
+{% if home_sections.in_progress %}
+  <section class="ct-home-section" aria-labelledby="ct-progress-title">
+    <div class="ct-row-head">
+      <h2 id="ct-progress-title" class="ct-row-title">{% translate "In Progress" %}</h2>
+    </div>
+    <div class="ct-recent-row home-row-scrollbar-hidden"
+         data-horizontal-drag="true"
+         tabindex="0"
+         role="region"
+         aria-labelledby="ct-progress-title">
+      {% comment %}ct/home_grid.html reads media_list_items first; media_list only has to resolve.{% endcomment %}
+      {% include "app/components/ct/home_grid.html" with media_list_items=home_sections.in_progress media_list=home_sections %}
+    </div>
+  </section>
+{% endif %}
 {% if home_sections.airing %}
   <section class="ct-home-section" aria-labelledby="ct-airing-title">
     <div class="ct-row-head">
@@ -16,39 +32,7 @@
       {% for column in home_sections.airing %}
         <ul class="ct-airing-list ct-card">
           {% for entry in column %}
-            {% with event=entry.event item=entry.event.item %}
-              <li>
-                <a href="{% if entry.url %}{{ entry.url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-airing-row">
-                  <span class="ct-airing-day{% if entry.is_today %} is-today{% endif %}">
-                    <span>{{ entry.day|date:"D" }}</span>
-                    <strong>{{ entry.day|date:"j" }}</strong>
-                  </span>
-                  <img alt=""
-                       class="ct-airing-poster"
-                       src="{{ item|ct_poster|default:IMG_NONE|tmdb_size:'w154'|image_url }}"
-                       width="40"
-                       height="60"
-                       loading="lazy"
-                       decoding="async">
-                  <span class="ct-airing-text">
-                    <span class="ct-airing-title">{{ item.title }}</span>
-                    <span class="ct-airing-sub">
-                      {% if item.season_number is not None and event.content_number %}S{{ item.season_number }} E{{ event.content_number }}{% elif event.readable_content_number %}{{ event.readable_content_number }}{% else %}{{ item.media_type|media_type_readable }}{% endif %}
-                      {% with time=event|user_event_time:user %}
-                        {# user_event_time reads "at 21:00"; the row shows just the time. #}
-                        {% if time %}· {{ time|slice:"3:" }}{% endif %}
-                      {% endwith %}
-                    </span>
-                  </span>
-                  {% if entry.tag == "finale" %}
-                    <span class="ct-airing-tag">{% translate "Finale" %}</span>
-                  {% elif entry.tag == "premiere" %}
-                    <span class="ct-airing-tag is-premiere">{% translate "Premiere" %}</span>
-                  {% endif %}
-                  <span class="ct-airing-chevron" aria-hidden="true">{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</span>
-                </a>
-              </li>
-            {% endwith %}
+            {% include "app/components/ct/home_airing_item.html" with entry=entry %}
           {% endfor %}
         </ul>
       {% endfor %}
@@ -71,6 +55,20 @@
           {% include "app/components/ct/poster_card.html" with item=entry.item media=entry.media entry=entry %}
         </div>
       {% endfor %}
+    </div>
+  </section>
+{% endif %}
+{% if home_sections.coming_soon %}
+  <section class="ct-home-section" aria-labelledby="ct-coming-title">
+    <div class="ct-row-head">
+      <h2 id="ct-coming-title" class="ct-row-title">{% translate "Coming Soon" %}</h2>
+    </div>
+    <div class="ct-airing">
+      <ul class="ct-airing-list ct-card">
+        {% for entry in home_sections.coming_soon %}
+          {% include "app/components/ct/home_airing_item.html" with entry=entry %}
+        {% endfor %}
+      </ul>
     </div>
   </section>
 {% endif %}

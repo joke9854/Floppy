@@ -17,7 +17,6 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
@@ -73,17 +72,6 @@ from users.forms import (
     RegenerateRecoveryCodesForm,
     UserUpdateForm,
 )
-from users.home_screen import (
-    HomeScreenValidationError,
-    build_home_page_groups,
-    get_home_configurable_media_types,
-    save_home_screen_configuration,
-    search_home_screen_lists,
-    serialize_settings_filter_fields,
-    serialize_settings_sections,
-    toggle_home_row_direction,
-    update_home_row_view,
-)
 from users.models import (
     ActivityHistoryViewChoices,
     DateFormatChoices,
@@ -94,7 +82,6 @@ from users.models import (
     ImportModeChoices,
     MediaCardSubtitleDisplayChoices,
     MobileGridLayoutChoices,
-    PlannedHomeDisplayChoices,
     RatingScaleChoices,
     ScrobbleWatchedPercentChoices,
     SessionDurationChoices,
@@ -748,163 +735,6 @@ def sidebar(request):
     return render(request, "users/sidebar.html", context)
 
 
-@require_http_methods(["GET", "POST"])
-def home_screen(request):
-    """Render and persist Home screen row settings."""
-    if request.method == "POST":
-        if request.user.is_demo:
-            messages.error(request, "This section is view-only for demo accounts.")
-            return redirect("home_screen")
-
-        try:
-            save_home_screen_configuration(
-                request.user,
-                request.POST.get("home_screen_sections", "[]"),
-            )
-        except HomeScreenValidationError as exc:
-            messages.error(request, str(exc))
-        else:
-            request.user.home_show_media_type_headers = bool(
-                request.POST.get("show_media_type_headers"),
-            )
-            request.user.save(update_fields=["home_show_media_type_headers"])
-            messages.success(request, "Home screen updated successfully.")
-        return redirect("home_screen")
-
-    context = {
-        "home_screen_sections_json": json.dumps(
-            serialize_settings_sections(request.user), cls=DjangoJSONEncoder
-        ),
-        "show_media_type_headers": request.user.home_show_media_type_headers,
-        "home_screen_list_search_url": reverse("home_screen_list_search"),
-        "home_screen_filter_fields_url": reverse("home_screen_filter_fields"),
-        "direction_choices_json": json.dumps(
-            [
-                {"value": "asc", "label": "Ascending"},
-                {"value": "desc", "label": "Descending"},
-            ],
-        ),
-    }
-    return render(request, "users/home_screen.html", context)
-
-
-@require_GET
-def home_screen_list_search(request):
-    """Return accessible list suggestions for the Home screen settings page."""
-    return JsonResponse(
-        {
-            "results": search_home_screen_lists(
-                request.user,
-                request.GET.get("q", ""),
-                request.GET.get("media_type", ""),
-            ),
-        },
-    )
-
-
-@require_GET
-def home_screen_filter_fields(request):
-    """Return filter field options for one Home Screen settings section.
-
-    Computed on demand rather than eagerly for every section: a full
-    smart-rule facet scan per media type is too expensive to run for every
-    section on every page load when the UI only shows one section's filters
-    at a time.
-    """
-    media_type = request.GET.get("media_type", "")
-    allowed_media_types = get_home_configurable_media_types(
-        request.user, include_disabled_season=False
-    )
-    if media_type not in allowed_media_types:
-        raise Http404
-    return JsonResponse(
-        {"filter_fields": serialize_settings_filter_fields(request.user, media_type)},
-    )
-
-
-@login_required
-@require_POST
-def toggle_home_screen_row_direction(request, row_id: int):
-    """Flip a Home screen row direction.
-
-    HTMX requests get the row re-rendered in place; plain form posts (no JS)
-    fall back to a full redirect back to Home.
-    """
-    is_htmx = bool(request.headers.get("HX-Request"))
-
-    if request.user.is_demo:
-        message = "This section is view-only for demo accounts."
-        if is_htmx:
-            return _htmx_toast_response(message, status=403)
-        messages.error(request, message)
-        return redirect("home")
-
-    try:
-        toggle_home_row_direction(request.user, row_id)
-    except HomeScreenValidationError as exc:
-        if is_htmx:
-            return _htmx_toast_response(str(exc), status=422)
-        messages.error(request, str(exc))
-        return redirect("home")
-
-    if not is_htmx:
-        return redirect("home")
-
-    return _render_home_row(request, row_id)
-
-
-@login_required
-@require_POST
-def update_home_screen_row_view(request, row_id: int):
-    """Change a Home row's sort or progress filter from its v2 header menu (P2)."""
-    if request.user.is_demo:
-        return _htmx_toast_response(
-            "This section is view-only for demo accounts.",
-            status=403,
-        )
-    try:
-        update_home_row_view(
-            request.user,
-            row_id,
-            sort_by=request.POST.get("sort_by") or None,
-            progress=request.POST.get("progress") or None,
-        )
-    except HomeScreenValidationError as exc:
-        return _htmx_toast_response(str(exc), status=422)
-    return _render_home_row(request, row_id)
-
-
-def _render_home_row(request, row_id: int) -> HttpResponse:
-    """Re-render one Home row in place after a header control changed it."""
-    home_groups = build_home_page_groups(
-        request.user,
-        items_limit=14,
-        only_row_id=row_id,
-        refresh_row_cache=True,
-    )
-    row = next(
-        (
-            section_row
-            for group in home_groups
-            for section_row in group["rows"]
-            if section_row["row_id"] == row_id
-        ),
-        None,
-    )
-    if row is None:
-        return HttpResponse("")
-    return render(
-        request,
-        "app/components/_scrollable_row.html",
-        {
-            "row": row,
-            "user": request.user,
-            "MediaTypes": MediaTypes,
-            "IMG_NONE": settings.IMG_NONE,
-        },
-    )
-
-
 def _htmx_toast_response(message: str, *, status: int) -> HttpResponse:
     """Return an empty HTMX response that only triggers an error toast."""
     response = HttpResponse(status=status)
@@ -1235,16 +1065,6 @@ def preferences(request):
         ):
             request.user.quick_season_update_mobile = quick_season_update_mobile
             fields_to_update.append("quick_season_update_mobile")
-
-        show_planned_on_home = request.POST.get("show_planned_on_home")
-
-        if (
-            show_planned_on_home
-            in [choice[0] for choice in PlannedHomeDisplayChoices.choices]
-            and request.user.show_planned_on_home != show_planned_on_home
-        ):
-            request.user.show_planned_on_home = show_planned_on_home
-            fields_to_update.append("show_planned_on_home")
 
         auto_pause_enabled = request.POST.get("auto_pause_enabled") == "1"
         raw_rules = request.POST.get("auto_pause_rules", "[]")

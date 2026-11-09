@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from app import home_sections
 from app.cache_utils import clear_home_row_cache_for_user
-from app.models import Episode, Item, MediaTypes, Movie, Season, Sources, Status
+from app.models import Anime, Episode, Item, MediaTypes, Movie, Season, Sources, Status
 from events.models import Event
 from users.models import ThemeChoices
 
@@ -153,6 +153,171 @@ class HomeSectionsTests(TestCase):
         titles = [entry.item.title for entry in sections["recent"]]
         self.assertEqual(titles, ["Friends"])
 
+    def test_in_progress_mixes_shows_anime_and_movies_by_last_activity(self):
+        movie_item = Item.objects.create(
+            media_id="550",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Fight Club",
+            image=POSTER,
+        )
+        Movie.objects.create(
+            item=movie_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+            progress=1,
+            progressed_at=self.now - timedelta(hours=1),
+        )
+        anime_item = Item.objects.create(
+            media_id="1",
+            source=Sources.MAL.value,
+            media_type=MediaTypes.ANIME.value,
+            title="Test Anime",
+            image=POSTER,
+        )
+        Anime.objects.create(
+            item=anime_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+            progress=3,
+            progressed_at=self.now - timedelta(days=2),
+        )
+        completed_item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image=POSTER,
+        )
+        Movie.objects.create(
+            item=completed_item,
+            user=self.user,
+            status=Status.COMPLETED.value,
+        )
+
+        sections = home_sections.build_home_sections(self.user)
+
+        self.assertEqual(
+            [entry.item.title for entry in sections["in_progress"]],
+            ["Fight Club", "Test Anime", "Friends"],
+        )
+
+    def _season_with_events(self, media_id, title, days_by_episode):
+        item = Item.objects.create(
+            media_id=media_id,
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            season_number=1,
+            title=title,
+            image=POSTER,
+        )
+        Season.objects.create(
+            item=item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        for number, days in days_by_episode:
+            Event.objects.create(
+                item=item,
+                content_number=number,
+                datetime=self.now + timedelta(days=days),
+            )
+        return item
+
+    def test_coming_soon_has_one_entry_per_show_soonest_first(self):
+        self._season_with_events("2222", "Other Show", [(1, 20), (2, 21)])
+        self._season_with_events("3333", "Far Show", [(1, 120)])
+        movie_item = Item.objects.create(
+            media_id="7777",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Dune",
+            image=POSTER,
+        )
+        Movie.objects.create(
+            item=movie_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+        )
+        Event.objects.create(item=movie_item, datetime=self.now + timedelta(days=40))
+
+        sections = home_sections.build_home_sections(self.user)
+
+        self.assertEqual(
+            [entry.event.item.title for entry in sections["coming_soon"]],
+            ["Other Show", "Dune"],
+        )
+        self.assertEqual(
+            [entry.event.content_number for entry in sections["coming_soon"]],
+            [1, None],
+        )
+
+    def test_coming_soon_leaves_out_titles_that_air_this_week(self):
+        Event.objects.create(
+            item=self.season_item,
+            content_number=9,
+            datetime=self.now + timedelta(days=1),
+        )
+        Event.objects.create(
+            item=self.season_item,
+            content_number=10,
+            datetime=self.now + timedelta(days=30),
+        )
+
+        sections = home_sections.build_home_sections(self.user)
+
+        self.assertEqual(sections["coming_soon"], [])
+        self.assertEqual(
+            [entry.event.content_number for entry in self._airing(sections)],
+            [9],
+        )
+
+    def test_home_renders_the_four_sections_in_order(self):
+        self.user.theme = ThemeChoices.CINETRACK
+        self.user.save(update_fields=["theme"])
+        self._season_with_events("2222", "Other Show", [(1, 20)])
+        Event.objects.create(
+            item=self.season_item,
+            content_number=9,
+            datetime=self.now + timedelta(days=1),
+        )
+
+        html = self.client.get(reverse("home")).content.decode()
+
+        positions = [
+            html.index(title)
+            for title in (
+                "In Progress",
+                "Airing This Week",
+                "Recently Watched",
+                "Coming Soon",
+            )
+        ]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn("Nothing to show yet", html)
+
+    def test_home_hides_sections_with_nothing_to_show(self):
+        empty_user = get_user_model().objects.create_user(
+            username="empty",
+            password="12345",
+        )
+        self.client.force_login(empty_user)
+
+        response = self.client.get(reverse("home"))
+
+        html = response.content.decode()
+        for heading in (
+            "In Progress",
+            "Airing This Week",
+            "Recently Watched",
+            "Coming Soon",
+        ):
+            self.assertNotIn(heading, html)
+        self.assertContains(response, "Nothing to show yet")
+
+    def test_home_screen_settings_page_is_gone(self):
+        self.assertEqual(self.client.get("/settings/home-screen").status_code, 404)
+
     def test_sections_are_cached_and_cleared_with_the_home_rows(self):
         home_sections.build_home_sections(self.user)
         with patch.object(home_sections, "_catch_up") as count:
@@ -174,17 +339,14 @@ class HomeSectionsTests(TestCase):
         )
 
         home = self.client.get(reverse("home")).content.decode()
-        rest = self.client.get(reverse("home_rest_fragment")).content.decode()
 
         self.assertIn("4 episodes to catch up on", home)
         self.assertIn(f'href="{reverse("medialist", args=["tv"])}?status=In%20progress"', home)
         self.assertIn("1 airing this week", home)
-        self.assertIn("Airing This Week", rest)
         # The row opens the airing episode, not its season.
-        self.assertIn('href="/details/tmdb/tv/1668/friends/season/1/episode/9"', rest)
-        self.assertIn("Recently Watched", rest)
-        self.assertIn(f'href="{reverse("calendar")}"', rest)
-        self.assertIn(f'href="{reverse("history")}"', rest)
+        self.assertIn('href="/details/tmdb/tv/1668/friends/season/1/episode/9"', home)
+        self.assertIn(f'href="{reverse("calendar")}"', home)
+        self.assertIn(f'href="{reverse("history")}"', home)
 
 
 class RecentlyWatchedRelativeDayTests(TestCase):

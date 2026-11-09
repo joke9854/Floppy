@@ -208,10 +208,8 @@ def album_save(request):
         request,
         fallback_media_type=MediaTypes.MUSIC.value,
     )
-    home_row_id = request.GET.get("home_row_id") or request.POST.get("home_row_id", "")
 
     tracker = AlbumTracker.objects.filter(user=request.user, album=album).first()
-    old_status = getattr(tracker, "status", None)
 
     form = AlbumTrackerForm(request.POST, instance=tracker, user=request.user)
     if form.is_valid():
@@ -231,8 +229,6 @@ def album_save(request):
                     "type": "success",
                 },
             }
-            if home_row_id and old_status != tracker.status:
-                htmx_trigger["refreshHomeRow"] = {"rowId": int(home_row_id)}
             response = HttpResponse(status=204)
             response["HX-Trigger"] = json.dumps(htmx_trigger)
             return response

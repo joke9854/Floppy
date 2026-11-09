@@ -20,8 +20,6 @@ from app.tests.test_query_counts import (
     seed_tv_library,
 )
 from lists.models import CustomList, CustomListItem
-from users.home_screen import ensure_home_screen_rows
-from users.models import HomeScreenRowTypeChoices
 
 
 def setUpModule():
@@ -78,15 +76,6 @@ class AppPageBenchmarkTests(TestCase):
             ],
         )
 
-        ensure_home_screen_rows(cls.user)
-        cls.tv_home_row = (
-            cls.user.home_screen_rows.filter(
-                media_type=MediaTypes.TV.value,
-                row_type=HomeScreenRowTypeChoices.LIBRARY_QUERY,
-            )
-            .order_by("position", "id")
-            .first()
-        )
 
     def setUp(self):
         cache.clear()
@@ -121,10 +110,6 @@ class AppPageBenchmarkTests(TestCase):
     def test_app_page_benchmarks(self):
         results = [
             self._benchmark_route("/"),
-            self._benchmark_route(
-                f"/?load_row={self.tv_home_row.id}&offset=0",
-                HTTP_HX_REQUEST="true",
-            ),
             self._benchmark_route(
                 reverse("list_detail", args=[self.custom_list.public_reference])
             ),

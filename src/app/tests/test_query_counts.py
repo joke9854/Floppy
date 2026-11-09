@@ -35,8 +35,6 @@ from app.models import (
 )
 from app.tv_sort import RUNTIME_UNKNOWN_AIRED
 from lists.models import CustomList, CustomListItem
-from users.home_screen import ensure_home_screen_rows
-from users.models import HomeScreenRowTypeChoices
 
 
 def setUpModule():
@@ -55,7 +53,9 @@ EPISODES_PER_SEASON = 5
 
 # Query budgets. Exact counts are pinned so regressions fail loudly;
 # update deliberately when page behavior changes.
-HOME_PAGE_MAX_QUERIES = 120
+# The four Home sections render in one request (no deferred rest fragment), so
+# this counts every section's cards, not only the first group.
+HOME_PAGE_MAX_QUERIES = 140
 TV_LIST_RUNTIME_SORT_MAX_QUERIES = (
     38  # +3 from prefetch on all_media (prevents N+1 for duplicate-watch users)
 )
@@ -82,9 +82,6 @@ GAME_LIST_START_DATE_SORT_LIBRARY_SIZE = 150
 GAME_LIST_START_DATE_SORT_MAX_QUERIES = (
     15  # pinned after the SQL pushdown fast path (#1004) — was scanning the
     # entire status-filtered library before slicing to the page
-)
-HOME_ROW_FRAGMENT_MAX_QUERIES = (
-    123  # +2 from the Tags column Prefetch (#457); +1 from the provider-credential read
 )
 CUSTOM_LIST_DETAIL_MAX_QUERIES = 34  # +3 from prefilled release-year metadata;
 # +1 from the custom-list collaborators prefetch
@@ -278,15 +275,6 @@ class QueryCountTests(TestCase):
                 ).order_by("id")[:10]
             ],
         )
-        ensure_home_screen_rows(cls.user)
-        cls.tv_home_row = (
-            cls.user.home_screen_rows.filter(
-                media_type=MediaTypes.TV.value,
-                row_type=HomeScreenRowTypeChoices.LIBRARY_QUERY,
-            )
-            .order_by("position", "id")
-            .first()
-        )
 
     def setUp(self):
         """Reset cache state and log in."""
@@ -340,15 +328,6 @@ class QueryCountTests(TestCase):
     def test_home_page_query_budget(self):
         """Home page stays within its query budget."""
         self._assert_query_budget("/", HOME_PAGE_MAX_QUERIES, "home page")
-
-    def test_home_row_fragment_query_budget(self):
-        """Home-row HTMX fragment stays within its query budget."""
-        self._assert_query_budget_with_kwargs(
-            f"{reverse('home')}?load_row={self.tv_home_row.id}&offset=0",
-            HOME_ROW_FRAGMENT_MAX_QUERIES,
-            "home row fragment",
-            HTTP_HX_REQUEST="true",
-        )
 
     def test_tv_list_runtime_sort_query_budget(self):
         """Runtime-sorted TV list stays within its query budget."""

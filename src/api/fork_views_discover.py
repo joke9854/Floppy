@@ -8,6 +8,7 @@ from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
+from app import home_sections
 from app.discover import tab_cache as discover_tab_cache
 from app.discover_views import (
     _discover_hidden_entries,
@@ -16,6 +17,7 @@ from app.discover_views import (
     _resolve_discover_media_type_for_user,
 )
 from app.helpers import is_item_collected
+from app.home_sections import HomeRowEntry
 from app.models import (
     CollectionEntry,
     DiscoverFeedback,
@@ -23,7 +25,6 @@ from app.models import (
     Item,
     MediaTypes,
 )
-from users.home_screen import build_home_page_groups
 
 from .contract_serializers import DetailErrorSerializer
 from .serializers import serialize_data
@@ -163,7 +164,7 @@ class HomeRowSerializer(serializers.Serializer):
 
 
 class HomeGroupSerializer(serializers.Serializer):
-    """Home rows for one media type."""
+    """Home rows for one section (one row each, see HomeView)."""
 
     media_type = serializers.CharField()
     label = serializers.CharField()
@@ -385,9 +386,34 @@ class DiscoverHiddenView(drf_views.APIView):
         )
 
 
+HOME_API_SECTIONS = (
+    ("in_progress", "In Progress"),
+    ("airing", "Airing This Week"),
+    ("recent", "Recently Watched"),
+    ("coming_soon", "Coming Soon"),
+)
+
+
+def _home_api_entries(sections: dict, key: str) -> tuple[list, int]:
+    """Return a section's API cards and its total, as HomeRowEntry objects."""
+    if key == "airing":
+        releases = [entry for column in sections["airing"] for entry in column]
+        return (
+            [HomeRowEntry(entry.event.item, show_progress_controls=False) for entry in releases],
+            sections["airing_count"],
+        )
+    if key == "coming_soon":
+        releases = sections["coming_soon"]
+        return (
+            [HomeRowEntry(entry.event.item, show_progress_controls=False) for entry in releases],
+            len(releases),
+        )
+    return sections[key], len(sections[key])
+
+
 # /api/v1/home/
 class HomeView(drf_views.APIView):
-    """The user's home rows — the same groups the web home page renders."""
+    """The user's Home sections, the same four the web Home page renders."""
 
     @extend_schema(
         responses={
@@ -404,37 +430,34 @@ class HomeView(drf_views.APIView):
                 {"detail": "Invalid limit parameter"},
                 status=HTTP.BAD_REQUEST,
             )
-        groups = build_home_page_groups(request.user, items_limit)
+        sections = home_sections.build_home_sections(request.user)
         payload = []
-        for group in groups:
-            rows = []
-            for row in group["rows"]:
-                items = []
-                for entry in row.get("items", []):
-                    try:
-                        items.append(serialize_data(entry))
-                    except Exception:
-                        logger.exception("Failed to serialize home row entry")
-                        title = getattr(
-                            getattr(entry, "item", None),
-                            "title",
-                            None,
-                        ) or getattr(entry, "title", None)
-                        items.append({"title": title})
-                rows.append(
-                    {
-                        "row_id": row.get("row_id"),
-                        "title": row.get("title"),
-                        "summary": row.get("summary"),
-                        "total": row.get("total"),
-                        "items": items,
-                    },
-                )
+        for key, title in HOME_API_SECTIONS:
+            entries, total = _home_api_entries(sections, key)
+            if not entries:
+                continue
+            items = []
+            for entry in entries[:items_limit]:
+                try:
+                    items.append(serialize_data(entry))
+                except Exception:
+                    logger.exception("Failed to serialize home entry")
+                    items.append({"title": entry.item.title})
+            # Home has no media-type groups now: the section key stands in
+            # for media_type and row_id.
             payload.append(
                 {
-                    "media_type": group["media_type"],
-                    "label": group["label"],
-                    "rows": rows,
+                    "media_type": key,
+                    "label": title,
+                    "rows": [
+                        {
+                            "row_id": key,
+                            "title": title,
+                            "summary": None,
+                            "total": total,
+                            "items": items,
+                        },
+                    ],
                 },
             )
         return Response({"groups": payload}, status=HTTP.OK)

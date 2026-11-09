@@ -23,7 +23,6 @@
 {% url 'notifications' as notifications_url %}
 {% url 'sidebar' as sidebar_url %}
 {% url 'preferences' as preferences_url %}
-{% url 'home_screen' as home_screen_url %}
 {% url 'integrations' as integrations_url %}
 {% url 'import_data' as import_url %}
 {% url 'export_data' as export_url %}
@@ -35,7 +34,7 @@
 {% if media_type or request.path == lists_url or is_library_more_page %}
   {% firstof "1" as is_library_page %}
 {% endif %}
-{% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == ui_preferences_url or request.path == appearance_url or request.path == preferences_url or request.path == home_screen_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}
+{% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == ui_preferences_url or request.path == appearance_url or request.path == preferences_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}
   {% firstof "1" as is_settings_page %}
 {% endif %}
 {% ct_library_types user as library %}

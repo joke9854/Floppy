@@ -9,7 +9,6 @@ row but is linked from the foot of Notifications.
 {% url 'appearance' as appearance_url %}
 {% url 'notifications' as notifications_url %}
 {% url 'sidebar' as sidebar_url %}
-{% url 'home_screen' as home_screen_url %}
 {% url 'integrations' as integrations_url %}
 {% url 'metadata_settings' as metadata_url %}
 {% url 'preferences' as preferences_url %}
@@ -44,11 +43,6 @@ row but is linked from the foot of Notifications.
      {% if request.path == sidebar_url %}aria-current="page"{% endif %}>
     {% include "app/icons/book-open.svg" with classes="w-[18px] h-[18px]" %}
     <span>{% translate "Media types" %}</span>
-  </a>
-  <a href="{{ home_screen_url }}"
-     {% if request.path == home_screen_url %}aria-current="page"{% endif %}>
-    {% include "app/icons/house.svg" with classes="w-[18px] h-[18px]" %}
-    <span>{% translate "Home screen" %}</span>
   </a>
   <a href="{{ integrations_url }}"
      {% if request.path == integrations_url %}aria-current="page"{% endif %}>

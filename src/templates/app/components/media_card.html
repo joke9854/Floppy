@@ -269,7 +269,7 @@
                     <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                             title="{% translate "Edit tracking" %}"
                             hx-get="{% url 'podcast_show_track_modal' podcast_show.id %}"
-                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"{% if home_row_id %}, "home_row_id": "{{ home_row_id }}"{% endif %}}'
+                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"}'
                             hx-target="#podcast-show-track-modal-{{ podcast_show.id }}-{{ media.id }}"
                             hx-trigger="click once"
                             @click="trackOpen = true">
@@ -279,7 +279,7 @@
                     <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                             title="{% translate "Edit tracking" %}"
                             hx-get="{% url 'album_track_modal' media.album.id %}"
-                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"{% if home_row_id %}, "home_row_id": "{{ home_row_id }}"{% endif %}}'
+                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"}'
                             hx-target="#album-track-modal-{{ media.album.id }}"
                             hx-trigger="click once"
                             @click="trackOpen = true">
@@ -289,7 +289,7 @@
                     <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                             title="{% translate "Edit tracking" %}"
                             hx-get="{% url 'artist_track_modal' media.artist.id %}"
-                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"{% if home_row_id %}, "home_row_id": "{{ home_row_id }}"{% endif %}}'
+                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}"}'
                             hx-target="#artist-track-modal-{{ media.artist.id }}"
                             hx-trigger="click once"
                             @click="trackOpen = true">
@@ -299,7 +299,7 @@
                     <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition duration-200 cursor-pointer"
                             title="{% translate "Add to tracker" %}"
                             hx-get="{% media_view_url 'track_modal' item %}"
-                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}", "instance_id": "{{ media.id }}"{% if home_row_id %}, "home_row_id": "{{ home_row_id }}"{% endif %}}'
+                            hx-vals='{"return_url": "{{ card_return_url|urlencode }}", "instance_id": "{{ media.id }}"}'
                             hx-target="#{% component_id 'track' item media.id %}"
                             hx-trigger="click once"
                             @click="trackOpen = true">

@@ -187,16 +187,11 @@ def tmdb_srcset(value, sizes="w185,w342,w500"):
     )
 
 
-# Views whose Home rows render the CineTrack cards; detail recommendations
+# Views whose Home sections render the CineTrack cards; detail recommendations
 # reuse home_grid.html and keep the plain card.
 CT_HOME_VIEWS = frozenset(
     {
         "home",
-        "home_rest_fragment",
-        "home_row_artwork_refresh",
-        "home_rows_artwork_refresh",
-        "toggle_home_screen_row_direction",
-        "update_home_screen_row_view",
     },
 )
 

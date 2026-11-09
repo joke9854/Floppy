@@ -59,27 +59,6 @@ urlpatterns = [
     path("settings/ui", views.ui_preferences, name="ui_preferences"),
     path("settings/appearance", views.appearance, name="appearance"),
     path("settings/sidebar", views.sidebar, name="sidebar"),
-    path("settings/home-screen", views.home_screen, name="home_screen"),
-    path(
-        "settings/home-screen/lists",
-        views.home_screen_list_search,
-        name="home_screen_list_search",
-    ),
-    path(
-        "settings/home-screen/filter-fields",
-        views.home_screen_filter_fields,
-        name="home_screen_filter_fields",
-    ),
-    path(
-        "settings/home-screen/rows/<int:row_id>/toggle-direction",
-        views.toggle_home_screen_row_direction,
-        name="toggle_home_screen_row_direction",
-    ),
-    path(
-        "settings/home-screen/rows/<int:row_id>/view",
-        views.update_home_screen_row_view,
-        name="update_home_screen_row_view",
-    ),
     path(
         "settings/toggle-obfuscate-episodes",
         views.toggle_obfuscate_episodes,

@@ -254,7 +254,6 @@ def media_save(request):
         request.GET.get("next") or request.POST.get("return_url") or "",
         safe="",
     )
-    home_row_id = request.GET.get("home_row_id") or ""
     old_status = getattr(instance, "status", None) if instance_id else None
     action_verb = "Added" if not instance_id else "Updated"
     action_label = (
@@ -469,8 +468,6 @@ def media_save(request):
                     "type": "success",
                 },
             }
-            if home_row_id and instance_id and old_status != media.status:
-                htmx_trigger["refreshHomeRow"] = {"rowId": int(home_row_id)}
             response["HX-Trigger"] = json.dumps(
                 htmx_trigger,
             )

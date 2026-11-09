@@ -604,7 +604,6 @@ def _palette_pages(user):
         (settings_group, gettext("Appearance"), reverse("appearance")),
         (settings_group, gettext("Notifications"), reverse("notifications")),
         (settings_group, gettext("Sidebar"), reverse("sidebar")),
-        (settings_group, gettext("Home screen"), reverse("home_screen")),
         (settings_group, gettext("Integrations"), reverse("integrations")),
         (settings_group, gettext("Import"), reverse("import_data")),
         (settings_group, gettext("Export"), reverse("export_data")),

@@ -7,51 +7,6 @@
 {% endblock title %}
 
 {% block content %}
-  {# Styles live in the content block so boosted navigation keeps them #}
-  <style>
-    @media (max-width: 639.98px) {
-      .home-row-heading {
-        flex-wrap: nowrap;
-        max-width: 100%;
-        min-width: 0;
-      }
-
-      .home-row-heading-title,
-      .home-row-heading-detail,
-      .home-row-heading-sort-label {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .home-row-heading-title,
-      .home-row-heading-detail-wrap,
-      .home-row-heading-sort-form,
-      .home-row-heading-sort-button,
-      .home-row-heading-sort-label {
-        min-width: 0;
-      }
-
-      .home-row-heading-detail-wrap,
-      .home-row-heading-sort-form {
-        flex-shrink: 1;
-      }
-
-      .home-row-heading-sort-form,
-      .home-row-heading-sort-button {
-        max-width: 100%;
-      }
-
-      .home-row-heading-sort-form {
-        display: inline-flex;
-      }
-
-      .home-row-heading-separator,
-      .home-row-heading-sort-icon {
-        flex-shrink: 0;
-      }
-    }
-  </style>
   <div class="space-y-4 sm:space-y-8{% if request|uses_ct_home_cards %} ct-home{% endif %}">
     {% if request|uses_ct_home_cards %}
       {# v2 Home (A1): a large title and the bell; no eyebrow. #}
@@ -97,44 +52,16 @@
         {% include "app/components/active_playback_card.html" %}
       {% endif %}
     </div>
-    {% include "app/components/home_groups.html" %}
-    {% if home_sections and not defer_remaining_groups %}
-      {% include "app/components/ct/home_sections.html" %}
-    {% endif %}
-    {% if defer_remaining_groups %}
-      {% comment %}
-        Remaining groups hydrate asynchronously so first paint only pays
-        for the first group's rows.
-      {% endcomment %}
-      <div hx-get="{% url 'home_rest_fragment' %}"
-           hx-trigger="load"
-           hx-swap="outerHTML"
-           class="space-y-4 sm:space-y-8">
-        <section class="space-y-4 animate-pulse" aria-hidden="true">
-          <div class="h-6 w-40 bg-gray-700 rounded"></div>
-          <div class="flex gap-4 overflow-hidden">
-            <div class="home-row-card w-44 h-64 shrink-0 bg-[var(--color-surface)] rounded-lg"></div>
-            <div class="home-row-card w-44 h-64 shrink-0 bg-[var(--color-surface)] rounded-lg"></div>
-            <div class="home-row-card w-44 h-64 shrink-0 bg-[var(--color-surface)] rounded-lg"></div>
-            <div class="home-row-card w-44 h-64 shrink-0 bg-[var(--color-surface)] rounded-lg"></div>
-          </div>
-        </section>
-      </div>
-    {% endif %}
-    {% include "app/components/home_artwork_poller.html" with poll_row_ids=artwork_poll_row_ids initial=True %}
-    {% if not home_groups %}
+    {% include "app/components/ct/home_sections.html" %}
+    {% if not home_sections.in_progress and not home_sections.airing and not home_sections.recent and not home_sections.coming_soon %}
       <div class="flex flex-col items-center justify-center py-16 sm:py-32 px-3 sm:px-4 bg-[var(--color-surface)] rounded-lg">
         <div class="bg-[var(--color-surface-strong)] rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
           {% include "app/icons/pulse.svg" with classes="w-8 h-8 text-[var(--color-text-muted)]" %}
         </div>
-        <h3 class="text-xl font-semibold mb-2">{% trans "Nothing is configured for Home yet" %}</h3>
-        <p class="text-[var(--color-text-muted)] text-center max-w-md mb-4">
-          {% trans "Add or enable rows from the Home Screen settings page to populate this view." %}
+        <h3 class="text-xl font-semibold mb-2">{% trans "Nothing to show yet" %}</h3>
+        <p class="text-[var(--color-text-muted)] text-center max-w-md">
+          {% trans "Track a show, anime or movie to see it here." %}
         </p>
-        <div class="pt-4">
-          <a href="{% url 'home_screen' %}"
-             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">{% trans "Open Home Screen Settings" %}</a>
-        </div>
       </div>
     {% endif %}
   </div>

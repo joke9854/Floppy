@@ -26,8 +26,6 @@ from app.models import (
 )
 from events.models import Event
 from lists.models import CustomListItem
-from users import home_screen
-from users.models import HomeScreenRow, HomeScreenRowTypeChoices
 
 from .base import FloppyApiTestCase
 
@@ -171,26 +169,6 @@ class MediaListFilterParityTests(FloppyApiTestCase):
         self.assertNotIn(
             "1001", [entry.item.media_id for entry in response.context["media_list"].object_list],
         )
-        row = HomeScreenRow.objects.create(
-            user=self.user1,
-            media_type="tv",
-            position=0,
-            row_type=HomeScreenRowTypeChoices.LIBRARY_QUERY,
-            filters={"progress": "not_caught_up"},
-        )
-        section = home_screen._build_row_section(self.user1, row, "tv", 14)
-        self.assertNotIn(
-            self.tv_medias[0].item_id, [entry.item.pk for entry in section["items"]],
-        )
-        row.filters = {"progress": "caught_up"}
-        row.save()
-        cache.clear()
-        section = home_screen._build_row_section(self.user1, row, "tv", 14)
-        caught_up = {
-            entry.item.pk: entry for entry in section["items"]
-        }
-        self.assertIn(self.tv_medias[0].item_id, caught_up)
-        self.assertEqual(caught_up[self.tv_medias[0].item_id].media.progress, 3)
 
     def test_next_episode_missing_item_degrades_gracefully(self):
         """No matching local Item leaves enrichment fields None/empty, not a 500."""

@@ -10,10 +10,10 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from app.home_sections import HomeRowEntry
 from app.models import Episode, Item, MediaTypes, Season, Sources, Status
 from app.templatetags.app_tags import tmdb_size, tmdb_srcset
 from events.models import Event
-from users.home_screen import HomeRowEntry
 from users.models import ThemeChoices
 
 POSTER = "https://image.tmdb.org/t/p/w500/abc.jpg"
@@ -51,6 +51,8 @@ class CineTrackHomeCardTests(TestCase):
     """W2: Home rows use the CineTrack cards for the CineTrack theme only."""
 
     def setUp(self):
+        # Home sections and backdrop lock keys are cached per user id, and ids repeat across tests.
+        cache.clear()
         self.credentials = {"username": "cards", "password": "12345"}
         self.user = get_user_model().objects.create_user(**self.credentials)
         self.client.login(**self.credentials)
@@ -97,10 +99,7 @@ class CineTrackHomeCardTests(TestCase):
     def _hydrated_home(self):
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
-        html = response.content.decode()
-        if response.context.get("defer_remaining_groups"):
-            html += self.client.get(reverse("home_rest_fragment")).content.decode()
-        return html
+        return response.content.decode()
 
     def test_cinetrack_home_renders_progress_card_with_check_form(self):
         self._use_theme(ThemeChoices.CINETRACK)
@@ -194,26 +193,7 @@ class CineTrackHomeCardTests(TestCase):
         self.assertIn(f'href="{reverse("notifications")}"', html)
         self.assertIn('class="ct-row-head"', html)
         self.assertIn('class="ct-row-link"', html)
-        self.assertIn("data-home-row-sort-toggle", html)
         self.assertNotIn('aria-label="Scroll right"', html)
-
-    def test_load_more_rows_use_the_same_cards(self):
-        self._use_theme(ThemeChoices.CINETRACK)
-        response = self.client.get(reverse("home"))
-        row_id = next(
-            row["row_id"]
-            for group in response.context["home_groups"]
-            for row in group["rows"]
-        )
-        response = self.client.get(
-            reverse("home"),
-            {"load_row": row_id, "offset": 0},
-            HTTP_HX_REQUEST="true",
-        )
-        self.assertEqual(response.status_code, 200)
-        html = response.content.decode()
-        self.assertTrue("ct-progress-card" in html or "ct-poster-card" in html)
-        self.assertNotIn('class="media-card ', html)
 
     def _check_fields(self):
         html = self._hydrated_home()

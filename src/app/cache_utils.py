@@ -262,11 +262,6 @@ HOME_ROW_CACHE_TTL = 60 * 10
 _HOME_ROW_REGISTRY_TEMPLATE = f"{HOME_ROW_CACHE_PREFIX}_registry_{{user_id}}"
 
 
-def build_home_row_cache_key(user_id: int, row_id: int, items_limit: int) -> str:
-    """Cache key for one built home-row section."""
-    return f"{HOME_ROW_CACHE_PREFIX}_{user_id}_{row_id}_{items_limit}"
-
-
 def _home_row_registry_key(user_id: int) -> str:
     return _HOME_ROW_REGISTRY_TEMPLATE.format(user_id=user_id)
 

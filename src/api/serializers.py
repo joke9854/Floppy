@@ -9,6 +9,7 @@ from app import helpers as app_helpers
 from app.backdrops import resolve_backdrop  # FORK: horizontal artwork
 from app.helpers import build_provider_ids
 from app.history_entry_builders import _serialize_show
+from app.home_sections import HomeRowEntry
 from app.models import (
     TV,
     Anime,
@@ -32,7 +33,6 @@ from app.models import (
 from app.templatetags.app_tags import media_url
 from events.models import Event
 from lists.models import CustomList, CustomListItem
-from users.home_screen import HomeRowEntry
 
 from .changes_history_processor import (
     get_changes_from_diff,
@@ -1060,7 +1060,7 @@ class UntrackedMediaSerializer(serializers.Serializer):
 
 
 class HomeRowEntrySerializer(serializers.Serializer):
-    """Serialize a users.home_screen.HomeRowEntry (a Home row card)."""
+    """Serialize an app.home_sections.HomeRowEntry (a Home card)."""
 
     def to_representation(self, instance):
         """Delegate to MediaSerializer/UntrackedMediaSerializer based on tracking."""

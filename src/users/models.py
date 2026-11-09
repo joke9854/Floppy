@@ -67,17 +67,6 @@ class FloppyUserManager(DjangoUserManager):
         )
 
 
-class HomeSortChoices(models.TextChoices):
-    """Choices for home page sort options."""
-
-    UPCOMING = "upcoming", _("Upcoming")
-    RECENT = "recent", _("Recent")
-    COMPLETION = "completion", _("Completion")
-    EPISODES_LEFT = "episodes_left", _("Episodes Left")
-    TITLE = "title", _("Title")
-    RANDOM = "random", _("Random")
-
-
 class MediaSortChoices(models.TextChoices):
     """Choices for media list sort options."""
 
@@ -407,21 +396,6 @@ class TitleDisplayPreferenceChoices(models.TextChoices):
     AUTO = "auto", _("Auto (if available)")
 
 
-class PlannedHomeDisplayChoices(models.TextChoices):
-    """Choices for how planned items are displayed on home page."""
-
-    DISABLED = "disabled", _("Disabled")
-    COMBINED = "combined", _("Combined")
-    SEPARATED = "separated", _("Separated")
-
-
-class HomeScreenRowTypeChoices(models.TextChoices):
-    """Supported row sources for the configurable home screen."""
-
-    LIBRARY_QUERY = "library_query", _("Library Row")
-    CUSTOM_LIST = "custom_list", _("List / Smart List")
-    RECENTLY_UNRATED = "recently_unrated", _("Recently Played - Not Rated")
-
 
 # kept: unrenamed model field/class names and help_text below (avoids a migration; see plan)
 class JellyseerrDefaultAddedStatusChoices(models.TextChoices):
@@ -503,12 +477,6 @@ class User(AbstractUser):
         max_length=10,
         default="",
         blank=True,
-    )
-
-    home_sort = models.CharField(
-        max_length=20,
-        default=HomeSortChoices.UPCOMING,
-        choices=HomeSortChoices,
     )
 
     # Media type preferences: TV Shows
@@ -1284,21 +1252,6 @@ class User(AbstractUser):
         choices=QuickSeasonUpdateChoices.choices,
         help_text="Controls quick season update buttons and next-episode pill on home screen cards",
     )
-    show_planned_on_home = models.CharField(
-        max_length=20,
-        default=PlannedHomeDisplayChoices.DISABLED,
-        choices=PlannedHomeDisplayChoices.choices,
-        help_text="Show planned items on the home screen alongside in-progress items",
-    )
-    home_show_media_type_headers = models.BooleanField(
-        default=False,
-        help_text="Show a media-type header (icon + name) above each group of home screen rows",
-    )
-    home_screen_media_type_order = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="User's preferred order of media-type sections on the Home screen",
-    )
     sidebar_media_type_order = models.JSONField(
         default=list,
         blank=True,
@@ -1349,10 +1302,6 @@ class User(AbstractUser):
             models.CheckConstraint(
                 name="last_search_type_valid",
                 condition=models.Q(last_search_type__in=VALID_SEARCH_TYPES),
-            ),
-            models.CheckConstraint(
-                name="home_sort_valid",
-                condition=models.Q(home_sort__in=HomeSortChoices.values),
             ),
             models.CheckConstraint(
                 name="tv_layout_valid",
@@ -2302,71 +2251,6 @@ class UserRecoveryCode(models.Model):
         """Mark this code as used."""
         self.used_at = timezone.now()
         self.save(update_fields=["used_at"])
-
-
-class HomeScreenRow(models.Model):
-    """Persisted home screen row configuration owned by a user."""
-
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="home_screen_rows",
-    )
-    media_type = models.CharField(
-        max_length=16,
-        choices=MediaTypes.choices,
-    )
-    position = models.PositiveIntegerField(default=0)
-    enabled = models.BooleanField(default=True)
-    title = models.CharField(max_length=100, blank=True, default="")
-    row_type = models.CharField(
-        max_length=32,
-        choices=HomeScreenRowTypeChoices.choices,
-        default=HomeScreenRowTypeChoices.LIBRARY_QUERY,
-    )
-    custom_list = models.ForeignKey(
-        "lists.CustomList",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="home_screen_rows",
-    )
-    sort_by = models.CharField(max_length=32, default=MediaSortChoices.TITLE)
-    direction = models.CharField(
-        max_length=4,
-        default=DirectionChoices.ASC,
-        choices=DirectionChoices.choices,
-    )
-    filters = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        """Model and field configuration."""
-
-        ordering = ["media_type", "position", "id"]
-        constraints = [
-            models.CheckConstraint(
-                name="home_screen_row_media_type_valid",
-                condition=models.Q(media_type__in=VALID_HOME_SCREEN_MEDIA_TYPES),
-            ),
-            models.CheckConstraint(
-                name="home_screen_row_row_type_valid",
-                condition=models.Q(row_type__in=HomeScreenRowTypeChoices.values),
-            ),
-            models.CheckConstraint(
-                name="home_screen_row_direction_valid",
-                condition=models.Q(direction__in=DirectionChoices.values),
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["user", "media_type", "position"]),
-            models.Index(fields=["user", "enabled"]),
-        ]
-
-    def __str__(self):
-        """Return a compact label for admin/debug use."""
-        return f"{self.user_id}:{self.media_type}:{self.row_type}:{self.position}"
 
 
 class CineTrackCrashReport(models.Model):

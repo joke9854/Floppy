@@ -8,7 +8,6 @@ from django_celery_beat.models import CrontabSchedule, IntervalSchedule, Periodi
 from django_celery_results.models import TaskResult
 
 from users.models import (
-    HomeSortChoices,
     MediaSortChoices,
     MediaStatusChoices,
     MediaTypes,
@@ -42,66 +41,6 @@ class UserUpdatePreferenceTests(TestCase):
         """Set up test data."""
         self.credentials = {"username": "test", "password": "12345"}
         self.user = get_user_model().objects.create_user(**self.credentials)
-
-    def test_update_preference_no_new_value(self):
-        """Test update_preference when no new value is provided."""
-        # Set initial value
-        self.user.home_sort = HomeSortChoices.UPCOMING
-        self.user.save()
-
-        # Call update_preference with no new value
-        result = self.user.update_preference("home_sort", None)
-
-        # Should return current value
-        self.assertEqual(result, HomeSortChoices.UPCOMING)
-        # Should not change the value
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.home_sort, HomeSortChoices.UPCOMING)
-
-    def test_update_preference_same_value(self):
-        """Test update_preference when the new value is the same as current."""
-        # Set initial value
-        self.user.home_sort = HomeSortChoices.UPCOMING
-        self.user.save()
-
-        # Call update_preference with same value
-        result = self.user.update_preference("home_sort", HomeSortChoices.UPCOMING)
-
-        # Should return current value
-        self.assertEqual(result, HomeSortChoices.UPCOMING)
-        # Should not change the value
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.home_sort, HomeSortChoices.UPCOMING)
-
-    def test_update_preference_valid_value(self):
-        """Test update_preference with a valid new value."""
-        # Set initial value
-        self.user.home_sort = HomeSortChoices.UPCOMING
-        self.user.save()
-
-        # Call update_preference with new valid value
-        result = self.user.update_preference("home_sort", HomeSortChoices.TITLE)
-
-        # Should return new value
-        self.assertEqual(result, HomeSortChoices.TITLE)
-        # Should change the value
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.home_sort, HomeSortChoices.TITLE)
-
-    def test_update_preference_invalid_value(self):
-        """Test update_preference with an invalid new value."""
-        # Set initial value
-        self.user.home_sort = HomeSortChoices.UPCOMING
-        self.user.save()
-
-        # Call update_preference with invalid value
-        result = self.user.update_preference("home_sort", "invalid_value")
-
-        # Should return current value
-        self.assertEqual(result, HomeSortChoices.UPCOMING)
-        # Should not change the value
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.home_sort, HomeSortChoices.UPCOMING)
 
     def test_update_preference_accepts_multiple_statuses(self):
         """Media-list status preferences accept a comma-separated selection."""

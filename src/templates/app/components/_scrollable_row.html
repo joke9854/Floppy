@@ -6,7 +6,7 @@
 
   Required:
     row     — row data dict (row_id, title, title_main, title_detail, summary,
-              summary_inline, direction, items, total, loaded_count,
+              items, total, loaded_count,
               card_width_class, grid_class, show_played_chip)
 
   Optional:
@@ -28,168 +28,26 @@
      x-init="$watch('open', v => localStorage.setItem('{{ collapse_key }}', v))">
 {% endif %}
 {# djlint:on #}
-{% comment %}
-  Artwork polling is coalesced into a single shared poller (see
-  home_artwork_poller.html); rows just carry a stable id so the poller's
-  out-of-band swaps can target them.
-{% endcomment %}
-{% if row.poll_for_covers or force_artwork_anchor %}
-<div id="home-music-row-artwork-{{ row.row_id }}" data-home-row-wrapper="true"{% if oob_swap %} hx-swap-oob="outerHTML"{% endif %}>
-{% else %}
-<div data-home-row-wrapper="true">
-{% endif %}
-  {% if not hide_heading and not hx_url and request|uses_ct_home_cards %}
-  {% comment %}
-    v2 Home (A1/P2): the title and "See All" at the right. On library rows the
-    title opens one menu with the row's variant (Show), its sort and direction;
-    each choice re-renders this row in place.
-  {% endcomment %}
-  <div class="ct-row-head">
-    {% if row.summary_inline and row.sort_choices %}
-      <div class="ct-row-menu-wrap"
-           x-data="ctMenu"
-           @keydown.escape="close()"
-           @click.outside="close(false)"
-           @focusout="onFocusOut($event)">
-        <button type="button"
-                x-ref="toggle"
-                class="ct-row-menu-toggle"
-                aria-haspopup="true"
-                :aria-expanded="open ? 'true' : 'false'"
-                @click="toggle()">
-          <h2 class="ct-row-title">{{ row.title_main|default:row.title }}</h2>
-          <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
-          {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
-        </button>
-        <div class="ct-menu ct-row-menu" x-ref="panel" x-show="open" x-cloak role="menu">
-          {% if row.progress %}
-            <p class="ct-menu-label">{% translate "Show" %}</p>
-            {% for value, label in row.progress_options %}
-              <button type="button"
-                      class="ct-menu-link"
-                      role="menuitemradio"
-                      aria-checked="{% if row.progress == value %}true{% else %}false{% endif %}"
-                      hx-post="{% url 'update_home_screen_row_view' row.row_id %}"
-                      hx-vals='{"progress": "{{ value }}"}'
-                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                      hx-target="closest [data-home-row-wrapper]"
-                      hx-swap="outerHTML">
-                <span class="ct-row-menu-check" aria-hidden="true">{% if row.progress == value %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% endif %}</span>
-                {{ label }}
-              </button>
-            {% endfor %}
-            <hr>
-          {% endif %}
-          <p class="ct-menu-label">{% translate "Sort by" %}</p>
-          {% for choice in row.sort_choices %}
-            <button type="button"
-                    class="ct-menu-link"
-                    role="menuitemradio"
-                    aria-checked="{% if row.sort_by == choice.value %}true{% else %}false{% endif %}"
-                    hx-post="{% url 'update_home_screen_row_view' row.row_id %}"
-                    hx-vals='{"sort_by": "{{ choice.value }}"}'
-                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                    hx-target="closest [data-home-row-wrapper]"
-                    hx-swap="outerHTML">
-              <span class="ct-row-menu-check" aria-hidden="true">{% if row.sort_by == choice.value %}{% include "app/icons/checkmark.svg" with classes="w-4 h-4" %}{% endif %}</span>
-              {{ choice.label }}
-            </button>
-          {% endfor %}
-          <hr>
-          <button type="button"
-                  class="ct-menu-link"
-                  role="menuitem"
-                  hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                  hx-target="closest [data-home-row-wrapper]"
-                  hx-swap="outerHTML"
-                  data-home-row-sort-toggle="true">
-            <span class="ct-row-menu-check" aria-hidden="true">{% include "app/icons/arrows-up-down.svg" with classes="w-4 h-4" %}</span>
-            {% if row.direction == 'asc' %}{% translate "Ascending" %}{% else %}{% translate "Descending" %}{% endif %}
-          </button>
-        </div>
-      </div>
-    {% else %}
-      <h2 class="ct-row-title">
-        {% if row.summary_inline %}{{ row.title_main }}{% if row.title_detail %} <span class="ct-row-detail">{{ row.title_detail }}</span>{% endif %}{% else %}{{ row.title }}{% endif %}
-      </h2>
-      {% if row.summary_inline %}
-        <button type="button"
-                hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
-                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                hx-target="closest [data-home-row-wrapper]"
-                hx-swap="outerHTML"
-                data-home-row-sort-toggle="true"
-                aria-label="{% blocktranslate trimmed with value_1=row.title %}Toggle sort direction for {{ value_1 }}{% endblocktranslate %}"
-                class="ct-row-sort">
-          <span class="ct-row-sort-label">{{ row.summary_inline }}</span>
-          <span aria-hidden="true">{% if row.direction == 'asc' %}↑{% else %}↓{% endif %}</span>
-        </button>
-      {% endif %}
-    {% endif %}
-    {% if row.url %}
-      <a href="{{ row.url }}" class="ct-row-link">{% translate "See All" %}{% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}</a>
-    {% endif %}
-  </div>
-  {% elif not hide_heading %}
+<div>
+  {% if not hide_heading %}
   <div class="mb-2 flex items-start justify-between gap-3">
     <div class="min-w-0 flex-1">
-      {% if row.summary_inline %}
-        <h3 class="home-row-heading flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          {% if row.url %}<a href="{{ row.url }}" class="home-row-heading-link inline-flex flex-wrap items-baseline gap-x-2 rounded-sm hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500">{% endif %}
-          <span class="home-row-heading-title text-lg font-semibold leading-none text-[var(--color-text)]">{{ row.title_main }}</span>
-          {% if row.title_detail %}
-            <span class="home-row-heading-detail-wrap inline-flex items-center gap-x-2">
-              <span class="home-row-heading-separator text-lg font-semibold leading-none text-[var(--color-text)]"
-                    aria-hidden="true">•</span>
-              <span class="home-row-heading-detail text-lg font-semibold leading-none text-[var(--color-text)]">{{ row.title_detail }}</span>
-            </span>
-          {% endif %}
-          {% if row.url %}</a>{% endif %}
-          <button type="button"
-                  hx-post="{% url 'toggle_home_screen_row_direction' row.row_id %}"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                  hx-target="closest [data-home-row-wrapper]"
-                  hx-swap="outerHTML"
-                  data-home-row-sort-toggle="true"
-                  aria-label="{% blocktranslate trimmed with value_1=row.title %}Toggle sort direction for {{ value_1 }}{% endblocktranslate %}"
-                  class="home-row-heading-sort-form home-row-heading-sort-button inline-flex items-center ml-3.5 text-sm font-medium leading-none text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-sm">
-            <span class="home-row-heading-sort-label">{{ row.summary_inline }}</span>
-            {% if row.direction == 'asc' %}
-              <svg xmlns="http://www.w3.org/2000/svg"
-                   viewBox="0 0 20 20"
-                   class="home-row-heading-sort-icon w-4 h-4 ml-2"
-                   aria-hidden="true">
-                <path d="M10 5 L16 15 H4 Z" fill="currentColor"></path>
-              </svg>
-            {% else %}
-              <svg xmlns="http://www.w3.org/2000/svg"
-                   viewBox="0 0 20 20"
-                   class="home-row-heading-sort-icon w-4 h-4 ml-2"
-                   aria-hidden="true">
-                <path d="M10 15 L4 5 H16 Z" fill="currentColor"></path>
-              </svg>
-            {% endif %}
-          </button>
-        </h3>
-      {% else %}
-        <h3 class="text-lg font-semibold flex items-baseline gap-x-2">
-          {% if row.url %}
-            <a href="{{ row.url }}" class="rounded-sm hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500">{{ row.title }}</a>
-          {% else %}
-            {{ row.title }}
-          {% endif %}
-          {% if row.view_all_url and row.view_all_text %}
-            <a href="{{ row.view_all_url }}"
-               target="_blank"
-               rel="noreferrer"
-               class="text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)] transition-colors">
-              {{ row.view_all_text }}
-            </a>
-          {% endif %}
-        </h3>
-        {% if row.summary %}<p class="text-sm text-[var(--color-text-muted)]">{{ row.summary }}</p>{% endif %}
-      {% endif %}
+      <h3 class="text-lg font-semibold flex items-baseline gap-x-2">
+        {% if row.url %}
+          <a href="{{ row.url }}" class="rounded-sm hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500">{{ row.title }}</a>
+        {% else %}
+          {{ row.title }}
+        {% endif %}
+        {% if row.view_all_url and row.view_all_text %}
+          <a href="{{ row.view_all_url }}"
+             target="_blank"
+             rel="noreferrer"
+             class="text-sm font-medium text-[var(--color-link)] hover:text-[var(--color-link-hover)] transition-colors">
+            {{ row.view_all_text }}
+          </a>
+        {% endif %}
+      </h3>
+      {% if row.summary %}<p class="text-sm text-[var(--color-text-muted)]">{{ row.summary }}</p>{% endif %}
     </div>
     <div class="flex items-center gap-0.5 shrink-0">
       <button type="button"
@@ -254,9 +112,6 @@
   </div>
   {% if collapse_key %}
   </div>
-  {% endif %}
-  {% if row.poll_for_covers %}
-    <p class="text-xs text-[var(--color-text-muted)] mt-1">{% translate "Refreshing artwork..." %}</p>
   {% endif %}
 </div>
 {% if collapse_key %}

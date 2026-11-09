@@ -354,7 +354,6 @@ def podcast_show_save(request):
         request,
         fallback_media_type=MediaTypes.PODCAST.value,
     )
-    home_row_id = request.GET.get("home_row_id") or request.POST.get("home_row_id", "")
 
     tracker = PodcastShowTracker.objects.filter(user=request.user, show=show).first()
     old_status = getattr(tracker, "status", None)
@@ -389,8 +388,6 @@ def podcast_show_save(request):
                     "type": "success",
                 },
             }
-            if home_row_id and old_status != tracker.status:
-                htmx_trigger["refreshHomeRow"] = {"rowId": int(home_row_id)}
             response = HttpResponse(status=204)
             response["HX-Trigger"] = json.dumps(htmx_trigger)
             return response

@@ -18,17 +18,16 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_not_required, login_required
+from django.contrib.auth.decorators import login_not_required
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.paginator import EmptyPage, Paginator
 from django.db import IntegrityError
-from django.db.models import F, Max, Min, Q
+from django.db.models import F, Max, Min
 from django.db.models.functions import ExtractDay, ExtractMonth, TruncDate
 from django.db.utils import OperationalError
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import NoReverseMatch, reverse
 from django.utils import formats, timezone
@@ -399,9 +398,7 @@ from integrations import anime_mapping
 from integrations.models import CollectionSourceState
 from lists.models import CustomList
 from lists.views_helpers import get_public_list_for_item
-from users.home_screen import build_home_page_groups
 from users.models import (
-    HomeSortChoices,
     MediaSortChoices,
     MediaStatusChoices,
     TopTalentSortChoices,
@@ -418,300 +415,26 @@ def serve_image_cache(request, token):
 
 
 def home(request):
-    """Home page with media items in progress."""
+    """Home page: the four fixed sections, all read from local data."""
     try:
-        items_limit = 14
-        try:
-            load_row_id = int(request.GET.get("load_row", ""))
-        except (TypeError, ValueError):
-            load_row_id = None
-        try:
-            load_row_offset = max(int(request.GET.get("offset", "0")), 0)
-        except (TypeError, ValueError):
-            load_row_offset = 0
-
-        # First paint renders only the first group; the rest hydrates via
-        # home_rest_fragment. Row-append requests build only their target shelf.
-        defer_remaining_groups = load_row_id is None
-        home_groups = build_home_page_groups(
-            request.user,
-            items_limit,
-            load_row_id=load_row_id,
-            load_row_offset=load_row_offset,
-            append_only=bool(request.headers.get("HX-Request") and load_row_id),
-            only_row_id=load_row_id if request.headers.get("HX-Request") else None,
-            first_group_only=defer_remaining_groups,
-        )
-
-        if request.headers.get("HX-Request") and load_row_id:
-            target_row = next(
-                (
-                    row
-                    for group in home_groups
-                    for row in group["rows"]
-                    if row["row_id"] == load_row_id
-                ),
-                None,
-            )
-            if target_row is None:
-                return HttpResponse("")
-            response = render(
-                request,
-                "app/components/home_grid.html",
-                {
-                    "media_list": target_row,
-                    "user": request.user,
-                    "MediaTypes": MediaTypes,
-                    "IMG_NONE": settings.IMG_NONE,
-                },
-            )
-            # The client's data-total-count is frozen at the initial page
-            # render (home_grid.html carries no total/loaded data), so
-            # report the freshly computed values on every load-more
-            # response to keep it in sync.
-            response["X-Home-Row-Total"] = str(target_row["total"])
-            response["X-Home-Row-Loaded"] = str(target_row["loaded_count"])
-            return response
-
-        context = {
-            "user": request.user,
-            "home_groups": home_groups,
-            "items_limit": items_limit,
-            "active_playback_card": live_playback.build_home_playback_card(
-                request.user
-            ),
-            "MediaTypes": MediaTypes,
-            "IMG_NONE": settings.IMG_NONE,
-            "defer_remaining_groups": defer_remaining_groups and bool(home_groups),
-            "home_sections": _ct_home_sections(request.user),
-            "artwork_poll_row_ids": [
-                row["row_id"]
-                for group in home_groups
-                for row in group["rows"]
-                if row.get("poll_for_covers")
-            ],
-        }
-        return render(request, "app/home.html", context)
+        sections = _ct_home_sections(request.user)
+        active_playback_card = live_playback.build_home_playback_card(request.user)
     except OperationalError:
         logger.exception("Database error in home view")
-        # Return empty state on database error
-        context = {
-            "user": request.user,
-            "home_groups": [],
-            "items_limit": 14,
-            "database_error": True,
-            "active_playback_card": None,
-            "MediaTypes": MediaTypes,
-            "IMG_NONE": settings.IMG_NONE,
-            "defer_remaining_groups": False,
-            "artwork_poll_row_ids": [],
-        }
-        return render(request, "app/home.html", context)
+        sections, active_playback_card = {}, None
+    context = {
+        "user": request.user,
+        "home_sections": sections,
+        "active_playback_card": active_playback_card,
+        "MediaTypes": MediaTypes,
+        "IMG_NONE": settings.IMG_NONE,
+    }
+    return render(request, "app/home.html", context)
 
 
 def _ct_home_sections(user):
     """Return the v2 Home sections for the signed-in user."""
     return home_sections.build_home_sections(user)
-
-
-@require_GET
-def home_rest_fragment(request):
-    """Deferred home content: every group after the first.
-
-    The shell renders the first group synchronously; this fragment supplies
-    the rest (served from the per-row cache when warm) plus an out-of-band
-    update of the artwork poller covering all groups.
-    """
-    home_groups = build_home_page_groups(request.user, items_limit=14)
-    return render(
-        request,
-        "app/components/home_rest_fragment.html",
-        {
-            "user": request.user,
-            "home_groups": home_groups[1:],
-            "home_sections": _ct_home_sections(request.user),
-            "artwork_poll_row_ids": [
-                row["row_id"]
-                for group in home_groups
-                for row in group["rows"]
-                if row.get("poll_for_covers")
-            ],
-            "MediaTypes": MediaTypes,
-            "IMG_NONE": settings.IMG_NONE,
-            "return_url": reverse("home"),
-        },
-    )
-
-
-def _queue_missing_cover_prefetch(user):
-    """Queue album-cover prefetch tasks for any artists/albums missing art."""
-    from django.db.models import Q
-
-    from app.models import AlbumTracker, ArtistTracker
-    from app.tasks import prefetch_album_covers_batch
-
-    artist_ids: set[int] = set()
-    artist_ids.update(
-        ArtistTracker.objects.filter(user=user)
-        .filter(Q(artist__image="") | Q(artist__image=settings.IMG_NONE))
-        .values_list("artist_id", flat=True)
-        .distinct()
-    )
-    artist_ids.update(
-        AlbumTracker.objects.filter(user=user)
-        .filter(Q(album__image="") | Q(album__image=settings.IMG_NONE))
-        .exclude(album__artist__isnull=True)
-        .values_list("album__artist_id", flat=True)
-        .distinct()
-    )
-    for artist_id in artist_ids:
-        cache_key = f"music:cover-prefetch:{artist_id}"
-        if cache.add(cache_key, True, 60 * 10):
-            try:
-                prefetch_album_covers_batch.delay([artist_id], limit_per_artist=5)
-            except Exception:  # pragma: no cover - defensive
-                cache.delete(cache_key)
-
-
-def _artwork_cover_fingerprint(user):
-    """Cheap fingerprint of the user's missing-cover state.
-
-    The artwork poller only exists to pick up cover-art writes (Artist,
-    Album, PodcastShow images), which don't fire user-scoped row-cache
-    invalidation. Three indexed counts are enough to detect "a cover
-    arrived since the last poll" without rebuilding any rows.
-    """
-    from app.models import AlbumTracker, ArtistTracker, PodcastShowTracker
-
-    missing_artist = (
-        ArtistTracker.objects.filter(user=user)
-        .filter(Q(artist__image="") | Q(artist__image=settings.IMG_NONE))
-        .count()
-    )
-    missing_album = (
-        AlbumTracker.objects.filter(user=user)
-        .filter(Q(album__image="") | Q(album__image=settings.IMG_NONE))
-        .count()
-    )
-    missing_show = (
-        PodcastShowTracker.objects.filter(user=user)
-        .filter(Q(show__image="") | Q(show__image=settings.IMG_NONE))
-        .count()
-    )
-    return (missing_artist, missing_album, missing_show)
-
-
-@require_GET
-@login_required
-def home_rows_artwork_refresh(request):
-    """Coalesced HTMX polling endpoint for music/podcast row artwork.
-
-    One request refreshes every polled row: rebuilds them in a single
-    build_home_page_groups pass (bypassing and rewriting the row cache,
-    since cover updates don't fire user-scoped invalidation signals),
-    returns each row as an out-of-band swap, and re-renders the poller —
-    which self-terminates once no row still needs covers.
-
-    Rebuilding the rows materializes the user's whole music/podcast
-    library (multi-second on large libraries), so when the missing-cover
-    fingerprint is unchanged since the last poll the rebuild is skipped
-    and only the poller is re-armed.
-    """
-    raw_ids = request.GET.get("ids", "")
-    row_ids = {int(part) for part in raw_ids.split(",") if part.strip().isdigit()}
-    if not row_ids:
-        return render(
-            request,
-            "app/components/home_artwork_poller.html",
-            {"poll_row_ids": []},
-        )
-
-    cover_state = _artwork_cover_fingerprint(request.user)
-    cover_state_key = f"home_artwork_cover_state_{request.user.id}"
-    if cache.get(cover_state_key) == cover_state:
-        # No cover changed since the last poll: keep polling (and keep
-        # retrying prefetch, it has its own cooldown) without paying the
-        # row rebuild.
-        _queue_missing_cover_prefetch(request.user)
-        return render(
-            request,
-            "app/components/home_artwork_poller.html",
-            {"poll_row_ids": sorted(row_ids)},
-        )
-
-    home_groups = build_home_page_groups(
-        request.user,
-        items_limit=14,
-        only_row_ids=row_ids,
-        refresh_row_cache=True,
-    )
-    rows = [r for group in home_groups for r in group["rows"] if r["row_id"] in row_ids]
-
-    if any(row.get("poll_for_covers") for row in rows):
-        _queue_missing_cover_prefetch(request.user)
-
-    row_fragments = [
-        render_to_string(
-            "app/components/_scrollable_row.html",
-            {
-                "row": row,
-                "user": request.user,
-                "MediaTypes": MediaTypes,
-                "IMG_NONE": settings.IMG_NONE,
-                "force_artwork_anchor": True,
-                "oob_swap": True,
-            },
-            request=request,
-        )
-        for row in rows
-    ]
-    poller = render_to_string(
-        "app/components/home_artwork_poller.html",
-        {
-            "poll_row_ids": sorted(
-                row["row_id"] for row in rows if row.get("poll_for_covers")
-            ),
-        },
-        request=request,
-    )
-    cache.set(cover_state_key, cover_state, 60 * 60)
-    return HttpResponse(poller + "".join(row_fragments))
-
-
-@require_GET
-@login_required
-def home_row_artwork_refresh(request, row_id: int):
-    """Legacy single-row artwork refresh (superseded by the coalesced poll).
-
-    Re-renders one row, refreshing its cache; still used as a fallback URL.
-    """
-    home_groups = build_home_page_groups(
-        request.user,
-        items_limit=14,
-        only_row_id=row_id,
-        refresh_row_cache=True,
-    )
-    row = next(
-        (r for group in home_groups for r in group["rows"] if r["row_id"] == row_id),
-        None,
-    )
-    if row is None:
-        return HttpResponse("")
-
-    if row.get("poll_for_covers"):
-        _queue_missing_cover_prefetch(request.user)
-
-    return render(
-        request,
-        "app/components/_scrollable_row.html",
-        {
-            "row": row,
-            "user": request.user,
-            "MediaTypes": MediaTypes,
-            "IMG_NONE": settings.IMG_NONE,
-            "force_artwork_anchor": True,
-        },
-    )
 
 
 def trakt_series_graph_fragment(request, source, media_id):
@@ -2064,7 +1787,6 @@ __all__ = [
     "ExtractMonth",
     "F",
     "Game",
-    "HomeSortChoices",
     "InvalidOperation",
     "ItemPersonCredit",
     "ItemTag",

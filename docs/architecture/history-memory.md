@@ -143,13 +143,6 @@ These build every matching entry and then emit a page of it:
   `podcast_show`, `media_id`/`source`. The day index is keyed by media type,
   so these still go through the builder.
 - The web history view (`app/history_views.py`) calls the builder directly.
-- A custom-list home row (`users/home_screen.py::_custom_list_entries`)
-  hydrates every item in the list to emit ten cards. Its watch-providers
-  cost is gone, but slicing in SQL first needs an ordering contract this
-  code does not have: the home sort keys live on the per-media-type media
-  model (`date_added` sorts by `media.created_at`, not by the list's own
-  `date_added`), and duplicate media rows per item are resolved in Python
-  afterwards.
 
 They are all far cheaper than they were, because the item projection applies
 to the builder itself, but they remain O(matching history) in entry
