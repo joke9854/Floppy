@@ -1,0 +1,266 @@
+/* CineTrack History, Stats and shared page wrappers: day groups and filter buttons. */
+/* CineTrack History, Calendar, Stats, Lists, Settings and sign-in pages (W5).
+   Restyle only: the pages keep their markup, ids and endpoints. They are found
+   by the page marker base.html puts on <main> (or a ct class), take the
+   deepened accent for their indigo utilities as the W4 pages do, and the
+   CineTrack radii for their panels. */
+html.cinetrack main:is([data-ct-page="history"], [data-ct-page="calendar"], [data-ct-page="statistics"], [data-ct-page="lists"], [data-ct-page="list_detail"]),
+html.cinetrack main:has(.ct-settings),
+.ct-entrance {
+  --color-indigo-300: var(--color-link);
+  --color-indigo-400: var(--color-link);
+  --color-indigo-500: var(--color-accent);
+  --color-indigo-600: color-mix(in srgb, var(--color-accent) 62%, #0b1a22);
+  --color-indigo-700: color-mix(in srgb, var(--color-accent) 52%, #0b1a22);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}
+
+html.cinetrack main:is([data-ct-page="calendar"], [data-ct-page="lists"], [data-ct-page="list_detail"]) h1.text-3xl,
+.ct-settings h1.text-3xl {
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+
+/* Filter buttons float above the bottom nav on phones. */
+html.cinetrack .ct-fab {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  box-shadow: 0 10px 28px rgb(0 0 0 / 38%);
+}
+
+@media (min-width: 768px) {
+  html.cinetrack .ct-fab {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+/* History: day groups of plays, one row per play at its local time. */
+.ct-history-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.ct-history-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ct-history-day-head h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.ct-history-weekday {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.ct-history-date,
+.ct-history-day-meta {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-history-day-meta {
+  flex: none;
+  font-size: 12px;
+}
+
+.ct-history-list,
+.ct-agenda-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: var(--ct-radius-md);
+  list-style: none;
+}
+
+.ct-history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--ct-radius-sm);
+  transition: background-color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-history-row:hover,
+.ct-agenda-row:hover {
+  background-color: rgb(180 195 210 / 6%);
+}
+
+.ct-history-time {
+  flex: none;
+  width: 64px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ct-history-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+}
+
+.ct-history-poster,
+.ct-agenda-poster {
+  flex: none;
+  width: 48px;
+  height: 72px;
+  border-radius: var(--ct-radius-xs);
+  background-color: var(--color-surface);
+  object-fit: cover;
+}
+
+.ct-history-poster--square {
+  height: 48px;
+}
+
+.ct-history-text,
+.ct-agenda-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ct-history-title,
+.ct-agenda-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-history-sub,
+.ct-history-meta,
+.ct-agenda-sub {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ct-history-sub > span:last-child,
+.ct-agenda-sub > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-history-meta {
+  color: var(--color-text-muted);
+}
+
+.ct-history-code,
+.ct-agenda-code {
+  flex: none;
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+.ct-history-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ct-gold);
+}
+
+.ct-history-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.ct-history-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-short, 150ms) var(--motion-ease),
+    color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-history-action:hover {
+  background-color: rgb(180 195 210 / 15%);
+  color: var(--color-text);
+}
+
+.ct-history-more {
+  padding: 8px 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-history-more:hover {
+  color: var(--color-text);
+}
+
+:is(.ct-history-main, .ct-history-action, .ct-history-more, .ct-agenda-row):focus-visible,
+.ct-segment > label:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .ct-history-row {
+    gap: 10px;
+    padding: 8px 6px;
+  }
+
+  .ct-history-time {
+    width: 42px;
+    font-size: 12px;
+  }
+
+  .ct-history-main {
+    gap: 10px;
+  }
+
+  .ct-history-action {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ct-history-action--wide {
+    display: none;
+  }
+}
+

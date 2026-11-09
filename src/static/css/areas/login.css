@@ -1,0 +1,371 @@
+/* CineTrack sign-in: poster wall, feature panel, and sign-in, authorization and device pages. */
+/* A15 Login (every theme): a dimmed, tilted poster wall behind the form and a feature panel. */
+.ct-login {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background-color: #1c1b22;
+  color: var(--color-text);
+}
+
+.ct-login-wall {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ct-login-wall > div {
+  position: absolute;
+  top: -40%;
+  left: -20%;
+  display: grid;
+  grid-template-columns: repeat(12, 150px);
+  gap: 28px;
+  width: 140%;
+  transform: rotate(-12deg);
+}
+
+.ct-login-wall span {
+  height: 225px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #3a6ea5, #0e1b33);
+}
+
+.ct-login-wall span:nth-child(6n + 2) { background: linear-gradient(160deg, #8e3b46, #200a10); }
+.ct-login-wall span:nth-child(6n + 3) { background: linear-gradient(160deg, #506ac4, #0e1430); }
+.ct-login-wall span:nth-child(6n + 4) { background: linear-gradient(160deg, #4e6378, #11171e); }
+.ct-login-wall span:nth-child(6n + 5) { background: linear-gradient(160deg, #c7743a, #2b1408); }
+.ct-login-wall span:nth-child(6n + 6) { background: linear-gradient(160deg, #2e8c99, #071e24); }
+
+/* Trending posters (app.login_wall) replace the gradient tiles once cached. */
+.ct-login-wall span[style] {
+  background-color: #2a2932;
+  background-position: center;
+  background-size: cover;
+}
+
+.ct-login-wall::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(28 27 34 / 60%), rgb(28 27 34 / 0%) 30%, rgb(28 27 34 / 0%) 70%, rgb(28 27 34 / 70%)),
+    linear-gradient(90deg, rgb(28 27 34 / 95%), rgb(28 27 34 / 75%) 45%, rgb(28 27 34 / 40%)),
+    rgb(14 13 18 / 70%);
+  content: "";
+}
+
+.ct-login-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 64px;
+  max-width: 1160px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 48px 40px 72px;
+}
+
+.ct-login-form {
+  width: 100%;
+  max-width: 420px;
+}
+
+.ct-login-mark {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+}
+
+.ct-login-form h1 {
+  color: var(--color-text);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.2;
+}
+
+.ct-login-sub {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.ct-login-form form {
+  max-width: 320px;
+  margin-top: 40px;
+}
+
+.ct-login-form form.space-y-6 > :not(:last-child) {
+  margin-bottom: 20px;
+}
+
+.ct-login-creds {
+  overflow: hidden;
+  border-radius: 14px;
+  background-color: rgb(42 41 50 / 80%);
+}
+
+.ct-login-creds > div {
+  position: relative;
+  padding: 8px 16px 7px;
+}
+
+.ct-login-creds > div + div::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 16px;
+  height: 1px;
+  background-color: rgb(255 255 255 / 7%);
+  content: "";
+}
+
+.ct-login-creds label {
+  margin-bottom: 2px;
+  line-height: 15px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ct-login-creds input {
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  box-shadow: none;
+}
+
+.ct-login-creds input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.ct-login-creds:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.ct-login-creds .relative > button {
+  right: -6px;
+  padding: 0 4px;
+}
+
+.ct-login-form button[type="submit"] {
+  height: 48px;
+  padding: 0;
+  border-radius: 24px;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ct-login-form button[type="submit"]:hover {
+  background-color: var(--color-accent);
+  filter: brightness(1.08);
+}
+
+.ct-login-form .mb-4.p-3 {
+  max-width: 320px;
+  margin-top: 24px;
+  border-radius: 12px;
+}
+
+.ct-login-form .relative.flex.items-center.justify-center {
+  display: none;
+}
+
+.ct-login-form #providers {
+  max-width: 320px;
+  margin-top: 12px;
+}
+
+.ct-login-form #providers button[type="submit"] {
+  height: 44px;
+  border-radius: 22px;
+  background-color: rgb(255 255 255 / 16%);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.ct-login-links {
+  max-width: 320px;
+  margin-top: 28px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.ct-login-links a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.ct-login-links p {
+  margin-top: 12px;
+}
+
+.ct-login-panel {
+  flex: none;
+  width: 560px;
+  padding: 44px 40px 40px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 28px;
+  background-color: rgb(23 22 28 / 75%);
+  backdrop-filter: blur(20px);
+}
+
+.ct-login-panel h2 {
+  color: var(--color-text);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.2;
+}
+
+.ct-login-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 36px;
+}
+
+.ct-login-panel li {
+  display: flex;
+  gap: 16px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ct-login-panel strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ct-login-feature-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+}
+
+.ct-login-works {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 44px;
+  padding-top: 20px;
+  border-top: 1px solid rgb(255 255 255 / 7%);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-login-brands {
+  display: flex;
+  gap: 8px;
+}
+
+.ct-login-brands > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ct-login-foot {
+  position: absolute;
+  right: 0;
+  bottom: 36px;
+  left: 0;
+  color: rgb(162 174 184 / 70%);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  .ct-login-main {
+    justify-content: center;
+    padding: 48px 24px 88px;
+  }
+
+  .ct-login-panel {
+    display: none;
+  }
+
+  .ct-login-form {
+    max-width: 342px;
+  }
+}
+
+/* Sign-in, app authorization and device pages for a signed-in CineTrack user. */
+.ct-entrance .max-w-md > div:last-child {
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--ct-radius-lg);
+  background-color: rgb(180 195 210 / 7.5%);
+  background-image: linear-gradient(rgb(23 27 33 / 30%), rgb(23 27 33 / 30%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 7px 18px rgb(0 0 0 / 14%);
+}
+
+.ct-entrance .max-w-md > .text-center > p {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.ct-entrance button[type="submit"] {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.ct-entrance input:not([type="checkbox"], [type="radio"], [type="hidden"]) {
+  border-radius: var(--ct-radius-sm);
+}
+
+.ct-entrance ul.list-disc {
+  padding-left: 0;
+  list-style: none;
+}
+
+.ct-entrance ul.list-disc > li {
+  position: relative;
+  padding-left: 26px;
+}
+
+.ct-entrance ul.list-disc > li::before {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.6 5.9-4.2 4.6a.8.8 0 0 1-1.2 0L4.4 8.6a.8.8 0 1 1 1.2-1.1L6.8 8.8l3.6-4a.8.8 0 0 1 1.2 1.1Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.6 5.9-4.2 4.6a.8.8 0 0 1-1.2 0L4.4 8.6a.8.8 0 1 1 1.2-1.1L6.8 8.8l3.6-4a.8.8 0 0 1 1.2 1.1Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+

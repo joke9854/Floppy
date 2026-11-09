@@ -1,0 +1,1021 @@
+/* Media grids and cards: square grid, media details top section, hover and touch overlays, posters. */
+/* Square (1:1) media grid for music and podcasts */
+.media-grid-square {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 30rem) {
+  .media-grid-square {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+  }
+}
+
+.detail-media-grid {
+  display: grid;
+  gap: calc(var(--spacing) * 4);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* Media-details top section, carousel-supported types only (see
+   media_details.html). Mobile keeps today's original stacked order
+   (poster, title, chips, actions, synopsis) while the carousel is
+   temporarily disabled below md; md+ switches to the two-row layout with
+   the carousel next to the poster and actions beside the title. Grid
+   areas reposition one shared set of includes instead of rendering the
+   page twice, so ids and htmx/Alpine bindings stay unique. */
+.detail-carousel-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "poster" "header" "chips" "synopsis";
+}
+
+.detail-carousel-grid__poster {
+  grid-area: poster;
+}
+
+.detail-carousel-grid__carousel {
+  display: none;
+  grid-area: carousel;
+}
+
+/* title + actions share one grid area at every width (see media_details.html)
+   so the title keeps the same wide flex-1 row it always had, instead of
+   being boxed into the poster column's narrow track. */
+.detail-carousel-grid__header {
+  grid-area: header;
+  margin-top: 1rem;
+}
+
+/* detail_action_buttons.html's own wrapper still carries the mt-5/mb-6
+   classes it needs for the non-carousel branch's sm:contents mobile
+   reordering (see detail_score_and_actions.html); neutralize them here so
+   they don't inflate this header row's height. */
+.detail-carousel-grid__header .shrink-0 > div {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.detail-carousel-grid__chips {
+  grid-area: chips;
+  margin-top: 1rem;
+}
+
+/* detail_score_chips.html's own wrapper still carries the mt-0/sm:mt-4/mb-5
+   classes it needs for the non-carousel branch's sm:contents mobile
+   reordering (see detail_score_and_actions.html); neutralize them here so
+   they don't stack with this grid item's own margin-top. */
+.detail-carousel-grid__chips > div {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.detail-carousel-grid__synopsis {
+  grid-area: synopsis;
+  margin-top: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  /* Default to the pre-carousel arrangement -- poster beside the
+     title/chips/synopsis column, carousel pane hidden -- so a page whose
+     carousel hasn't resolved yet (or never will) never shows the carousel's
+     dead second column. Only once #detail-carousel-wrap is confirmed to
+     hold a trailer/photos does the :has() rule below expand into the
+     carousel's own two-row layout. */
+  .detail-carousel-grid {
+    column-gap: 2.5rem;
+    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-areas: "poster header" "poster chips" "poster synopsis";
+  }
+
+  .detail-carousel-grid__header {
+    margin-top: 0;
+  }
+
+  /* Carousel confirmed non-empty: expand to the carousel's own two-row
+     layout (title/actions spanning full width, carousel next to the
+     poster) instead of the pre-carousel column arrangement above. */
+  .detail-carousel-grid:has(#detail-carousel-wrap:not(:empty)) {
+    grid-template-areas:
+      "poster carousel"
+      "header header"
+      "chips chips"
+      "synopsis synopsis";
+  }
+
+  .detail-carousel-grid:has(#detail-carousel-wrap:not(:empty)) .detail-carousel-grid__carousel {
+    display: block;
+  }
+
+  .detail-carousel-grid:has(#detail-carousel-wrap:not(:empty)) .detail-carousel-grid__header {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Mobile default: active playback card spans all columns on very small screens */
+[data-active-playback-card] {
+  grid-column: span 3 !important;
+}
+
+/* Desktop: active playback card spans 2 columns by default */
+@media (min-width: 769px) {
+  [data-active-playback-card] {
+    grid-column: span 2 !important;
+  }
+}
+
+/* https://tailwindcss.com/docs/upgrade-guide#hover-styles-on-mobile */
+@custom-variant hover-tap (&:hover);
+@custom-variant parent-hover-tap (.hover-tap:hover &);
+
+.toast-error {
+  @apply bg-red-700/95 border-red-600 text-white;
+}
+
+.toast-warning {
+  @apply bg-amber-700/95 border-amber-600 text-white;
+}
+
+.toast-success {
+  @apply bg-emerald-700/95 border-emerald-600 text-white;
+}
+
+.toast-info {
+  @apply bg-indigo-700/95 border-indigo-600 text-white;
+}
+
+/*
+ * Card body gradient for text readability over poster images.
+ * Uses a ::before pseudo-element that extends above the content area
+ * to create a taller gradient that reaches higher into the card.
+ */
+.bg-card-body {
+  position: relative;
+}
+
+.bg-card-body::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* Extend gradient a fixed distance above the content so square (1:1)
+     and 2:3 cards darken the same amount; a percentage of body height
+     covered far more of the shorter square cards on hover. */
+  height: calc(100% + 3rem);
+  pointer-events: none;
+  z-index: -1;
+  background-image: linear-gradient(to bottom,
+      transparent 0%,
+      color-mix(in oklab, var(--color-gray-900) 50%, transparent) 40%,
+      color-mix(in oklab, var(--color-gray-900) 85%, transparent) 70%,
+      color-mix(in oklab, var(--color-gray-900) 98%, transparent) 100%);
+}
+
+.media-card-overlay {
+  z-index: 5;
+}
+
+/*
+ * Desktop reveal of the card's action overlay.
+ *
+ * This cannot hang off the overlay's own :hover. The overlay sits at
+ * pointer-events: none until Alpine's tap-reveal flips it, and an element with
+ * pointer-events: none is never a hit target, so :hover does not match it and
+ * any hover-tap:* utility on it can never fire - the track/lists/history
+ * buttons stayed unclickable. The card itself remains hittable, so drive it
+ * from there. Scoped to real hover devices so the coarse-pointer tap reveal,
+ * and the emulated-hover flash it avoids, are left alone.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .media-card:hover .media-card-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.media-card-body {
+  position: relative;
+  z-index: 10;
+}
+
+/* Keep compact touch overlays hidden until Alpine opens them on first tap. */
+@media (pointer: coarse) {
+  body[data-mobile-grid="compact"] .media-card-overlay {
+    display: none;
+  }
+}
+
+.media-card .media-status-chip,
+.media-card .media-score-chip,
+.media-card .media-progress-chip,
+.media-card .media-time-left-chip,
+.media-card .media-repeat-chip {
+  z-index: 6;
+}
+
+[data-quick-season-mobile="false"] .media-card-progress {
+  display: none !important;
+}
+
+.stat-scroll-safe {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/*
+ * Statistics top card scroll containers
+ * Used by: Most Played, Top Genres, Top Rated, Top Artists, Top Albums,
+ *          Top Tracks, Top Decades, Top Countries, Most Listened, etc.
+ *
+ * Two types of list items exist in these cards:
+ * 1. Clickable items (<a> tags): Have `p-1 -m-1` classes for hover effect padding.
+ *    These are visually 48px tall (40px icon + 8px padding).
+ * 2. Non-clickable items (<div> tags): Plain flex containers at 40px tall.
+ *    Examples: Top Decades, Top Countries in Music section.
+ *
+ * The max-height is tuned to show exactly 5 items before scrolling.
+ */
+.statistics-card-scroll {
+  max-height: 275px;
+}
+
+.statistics-card-scroll> :not([hidden])~ :not([hidden]) {
+  margin-top: 12px;
+  /* Gap between list items - replaces Tailwind space-y-3 */
+}
+
+/*
+ * Compact variant of .statistics-card-scroll for text-only rows with no
+ * thumbnail/icon (e.g. Taste Signals genre/decade rows). Those rows are
+ * ~20px tall (text-sm line height), so 275px would show far more than 5
+ * before scrolling — this is tuned for that row height instead: 5 * 20px
+ * + 4 * 12px gaps = 148px exactly, matching Studio Footprint's unscrolled
+ * 5-row height (space-y-3, no cap) so the two cards line up.
+ */
+.statistics-card-scroll-compact {
+  max-height: 148px;
+}
+
+.statistics-card-scroll-compact> :not([hidden])~ :not([hidden]) {
+  margin-top: 12px;
+}
+
+.search-result-card,
+.search-result-card-square {
+  transition-duration: 150ms;
+  /* One title line: text-sm (0.875rem) at Tailwind's 1.4286 ratio. The
+     mobile block overrides this to match its text-xs font override. */
+  --card-title-line: 1.25rem;
+}
+
+.search-result-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Fixed aspect ratio to prevent grid shift */
+  aspect-ratio: 2/3;
+  overflow: hidden;
+}
+
+/* Poster container - fixed size, doesn't change on hover */
+.search-result-card>div:first-child {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+/* Ensure the image link/wrapper fills the poster container */
+.search-result-card>div:first-child>a:first-child,
+.search-result-card>div:first-child>div.cursor-pointer {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.search-result-card .media-card-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover !important;
+  aspect-ratio: unset !important;
+}
+
+.search-result-card .media-card-title-row {
+  overflow: clip;
+  align-items: flex-start;
+  max-height: var(--card-title-line);
+  transition: max-height 0.2s ease;
+}
+
+.search-result-card:hover .media-card-title-row {
+  max-height: calc(3 * var(--card-title-line));
+}
+
+.search-result-card .media-card-title,
+.search-result-card .search-result-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  line-height: var(--card-title-line);
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.search-result-card .media-card-title[title] {
+  color: transparent;
+}
+
+.search-result-card .media-card-title[title]::before {
+  content: attr(title);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.search-result-card:hover .media-card-title[title] {
+  color: #fff;
+}
+
+.search-result-card:hover .media-card-title[title]:hover {
+  color: var(--color-indigo-400, #818cf8);
+}
+
+.search-result-card:hover .media-card-title[title]::before {
+  opacity: 0;
+}
+
+.search-result-card .media-card-body {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.search-result-card .media-card-year {
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.2s ease, margin-top 0.2s ease, opacity 0.2s ease;
+}
+
+.search-result-card:hover .media-card-year {
+  max-height: 2lh;
+  margin-top: 0.25rem;
+  opacity: 1;
+}
+
+.search-result-card.media-card-subtitle-always .media-card-year {
+  max-height: none;
+  margin-top: 0.25rem;
+  opacity: 1;
+}
+
+/*
+ * Square variant for podcasts and music (1:1 aspect ratio)
+ * Used when mixing media types in history grids - square cards go on their own row
+ * to maintain grid coherence while respecting native artwork aspect ratios.
+ */
+.search-result-card-square {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 1/1;
+  overflow: hidden;
+}
+
+.search-result-card-square>div:first-child {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.search-result-card-square>div:first-child>a:first-child,
+.search-result-card-square>div:first-child>div.cursor-pointer {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.search-result-card-square .media-card-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover !important;
+  aspect-ratio: unset !important;
+}
+
+.search-result-card-square .media-card-title-row {
+  overflow: clip;
+  align-items: flex-start;
+  max-height: var(--card-title-line);
+  transition: max-height 0.2s ease;
+}
+
+.search-result-card-square:hover .media-card-title-row {
+  max-height: calc(3 * var(--card-title-line));
+}
+
+.search-result-card-square .media-card-title,
+.search-result-card-square .search-result-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  line-height: var(--card-title-line);
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.search-result-card-square .media-card-title[title] {
+  color: transparent;
+}
+
+.search-result-card-square .media-card-title[title]::before {
+  content: attr(title);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.search-result-card-square:hover .media-card-title[title] {
+  color: #fff;
+}
+
+.search-result-card-square:hover .media-card-title[title]:hover {
+  color: var(--color-indigo-400, #818cf8);
+}
+
+.search-result-card-square:hover .media-card-title[title]::before {
+  opacity: 0;
+}
+
+.search-result-card-square .media-card-body {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.search-result-card-square .media-card-year {
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.2s ease, margin-top 0.2s ease, opacity 0.2s ease;
+}
+
+.search-result-card-square:hover .media-card-year {
+  max-height: 2lh;
+  margin-top: 0.25rem;
+  opacity: 1;
+}
+
+.search-result-card-square.media-card-subtitle-always .media-card-year {
+  max-height: none;
+  margin-top: 0.25rem;
+  opacity: 1;
+}
+
+@supports (interpolate-size: allow-keywords) {
+  .search-result-card .media-card-year,
+  .search-result-card-square .media-card-year {
+    interpolate-size: allow-keywords;
+  }
+
+  .search-result-card:hover .media-card-year,
+  .search-result-card-square:hover .media-card-year {
+    max-height: max-content;
+  }
+}
+
+/*
+ * First touch tap opens a card: match what :hover shows so the subtitle and the
+ * action buttons appear together rather than only the buttons. Kept inside the
+ * coarse-pointer block below so it beats the emulated-hover neutralisation.
+ */
+
+/* ...unless a first touch tap opened it, which is the one case the compact
+   grid does want the actions on screen. */
+@media (pointer: coarse) {
+  body[data-mobile-grid="compact"] .media-card:not(.media-card-hide-overlay) .media-card-overlay.media-card-overlay-revealed {
+    display: flex;
+  }
+}
+
+/* Keep revealed controls above the title gradient and poster badges. */
+.media-card.media-card-revealed .media-card-body,
+.media-card.media-card-revealed .media-status-chip,
+.media-card.media-card-revealed .media-score-chip,
+.media-card.media-card-revealed .media-progress-chip,
+.media-card.media-card-revealed .media-time-left-chip,
+.media-card.media-card-revealed .media-repeat-chip {
+  z-index: 4;
+}
+
+/*
+ * Touch has no hover, but browsers emulate it for a moment on tap. That fires
+ * the card's hover reveals and then reverts them, which reads as a flash - the
+ * title cross-fades between its one-line ::before and the three-line text. On
+ * coarse pointers those reveals are neutralised and driven by the tap state,
+ * so nothing moves until the card is actually opened.
+ */
+@media (pointer: coarse) {
+  .search-result-card:hover .media-card-title-row,
+  .search-result-card-square:hover .media-card-title-row {
+    max-height: var(--card-title-line);
+  }
+
+  .search-result-card:hover .media-card-title[title],
+  .search-result-card-square:hover .media-card-title[title] {
+    color: transparent;
+  }
+
+  .search-result-card:hover .media-card-title[title]::before,
+  .search-result-card-square:hover .media-card-title[title]::before {
+    opacity: 1;
+  }
+
+  .search-result-card:hover .media-card-title[title]:hover,
+  .search-result-card-square:hover .media-card-title[title]:hover {
+    color: transparent;
+  }
+
+  .search-result-card:hover:not(.media-card-subtitle-always) .media-card-year,
+  .search-result-card-square:hover:not(.media-card-subtitle-always) .media-card-year {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+  }
+
+  .search-result-card.media-card-revealed:not(.media-card-subtitle-always) .media-card-year,
+  .search-result-card-square.media-card-revealed:not(.media-card-subtitle-always) .media-card-year {
+    max-height: 2lh;
+    margin-top: 0.25rem;
+    opacity: 1;
+  }
+
+  @supports (interpolate-size: allow-keywords) {
+    .search-result-card.media-card-revealed:not(.media-card-subtitle-always) .media-card-year,
+    .search-result-card-square.media-card-revealed:not(.media-card-subtitle-always) .media-card-year {
+      max-height: max-content;
+    }
+  }
+
+  .search-result-card.media-card-revealed .media-card-title-row,
+  .search-result-card-square.media-card-revealed .media-card-title-row {
+    max-height: calc(3 * var(--card-title-line));
+  }
+
+  .search-result-card.media-card-revealed .media-card-title[title],
+  .search-result-card.media-card-revealed .media-card-title[title]:hover,
+  .search-result-card-square.media-card-revealed .media-card-title[title],
+  .search-result-card-square.media-card-revealed .media-card-title[title]:hover {
+    color: #fff;
+  }
+
+  .search-result-card.media-card-revealed .media-card-title[title]::before,
+  .search-result-card-square.media-card-revealed .media-card-title[title]::before {
+    opacity: 0;
+  }
+
+  /* The reveal cross-fades the ::before single-line over the three-line text,
+     which briefly dims the title on tap. Snap that colour/opacity swap but
+     keep the row's max-height transition, so the title still expands and
+     collapses smoothly like the hover reveal. */
+  .search-result-card.media-card-revealed .media-card-title,
+  .search-result-card-square.media-card-revealed .media-card-title,
+  .search-result-card.media-card-revealed .media-card-title[title]::before,
+  .search-result-card-square.media-card-revealed .media-card-title[title]::before {
+    transition: none;
+  }
+}
+
+.stat-scroll-safe.stat-tooltip-safe {
+  overflow: visible;
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+.home-row-scrollbar-hidden {
+  --home-row-hover-clearance: calc(max(0.25rem, var(--motion-distance)) + 0.25rem);
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  /* The scrollport must contain the vertical theme lift. */
+  margin-top: calc(var(--home-row-hover-clearance) * -1);
+  padding-top: var(--home-row-hover-clearance);
+}
+
+.home-row-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .media-card {
+    background-color: transparent !important;
+    box-shadow: none;
+  }
+
+  .media-card-body {
+    padding: calc(var(--spacing) * 2) calc(var(--spacing) * 2) calc(var(--spacing) * 1.5) !important;
+  }
+
+  .media-card-body>.flex {
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .media-card-body>.media-card-title-row {
+    align-items: flex-start;
+  }
+
+  .media-card-title {
+    padding-top: 0;
+    font-weight: 600;
+    font-size: var(--text-xs);
+    text-align: left !important;
+  }
+
+  .search-result-card,
+  .search-result-card-square {
+    --card-title-line: 1rem;
+  }
+
+  .media-card-body>*+* {
+    margin-top: calc(var(--spacing) * 0.25);
+  }
+
+  .media-card-body.space-y-3> :not([hidden])~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 0.25) !important;
+  }
+
+  .media-card[data-media-type="game"] .media-card-duration {
+    display: none;
+  }
+
+  /* Hide progress adjust buttons on mobile by default; always show in card context row. */
+  .progress-adjust-btn {
+    display: none !important;
+  }
+
+  [data-quick-season-mobile="true"] .progress-adjust-btn {
+    display: block !important;
+  }
+
+  [data-quick-season-mobile="true"] .media-card-progress .progress-adjust-btn {
+    display: inline-flex !important;
+  }
+
+  .media-card-poster {
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+  }
+
+  /* When quick season buttons are enabled, restore card styling */
+  [data-quick-season-mobile="true"] .media-card {
+    background-color: var(--color-surface) !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  [data-quick-season-mobile="true"] .media-card-body {
+    padding: calc(var(--spacing) * 3) !important;
+  }
+
+  [data-quick-season-mobile="true"] .media-card-poster {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
+  .media-grid {
+    gap: calc(var(--spacing) * 3);
+  }
+
+  .detail-media-grid {
+    gap: calc(var(--spacing) * 3);
+  }
+
+  /* Mobile grid layout preference */
+  [data-mobile-grid="comfortable"] .media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [data-mobile-grid="comfortable"] .detail-media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [data-mobile-grid="comfortable"] .home-row-card {
+    width: calc((100% - calc(var(--spacing) * 4)) / 2) !important;
+  }
+
+  [data-mobile-grid="compact"] .media-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  [data-mobile-grid="compact"] .detail-media-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  [data-mobile-grid="compact"] .home-row-card {
+    width: calc((100% - calc(var(--spacing) * 8)) / 3) !important;
+  }
+
+  /* Active playback card spanning */
+  [data-mobile-grid="comfortable"] [data-active-playback-card] {
+    grid-column: span 2 !important;
+  }
+
+  [data-mobile-grid="compact"] [data-active-playback-card] {
+    grid-column: span 3 !important;
+  }
+
+  [data-mobile-grid="compact"] .media-card-progress .progress-unit {
+    display: none !important;
+  }
+
+  .media-card-progress,
+  .media-card-progress .progress-changer,
+  .media-card-progress .progress-changer>div {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .progress-changer {
+    width: 100%;
+  }
+
+  .media-card-progress[data-progress-mode="conditional"] {
+    display: none !important;
+  }
+
+  .media-card-progress[data-progress-mode="conditional"][data-mobile-show="true"] {
+    display: block !important;
+  }
+
+  /* Show progress container when quick season buttons are enabled */
+  [data-quick-season-mobile="true"] .media-card-progress[data-progress-mode="conditional"] {
+    display: block !important;
+  }
+
+  /* Make the progress-changer container visible when quick season buttons are enabled */
+  [data-quick-season-mobile="true"] .media-card-progress[data-progress-mode="conditional"] .progress-changer {
+    background-color: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  /* Remove any background from the inner div containing episode count */
+  [data-quick-season-mobile="true"] .media-card-progress[data-progress-mode="conditional"] .progress-changer>div {
+    background-color: transparent !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .media-progress-chip[data-progress-chip-mode="conditional"] {
+    display: none !important;
+  }
+
+  .media-progress-chip[data-progress-chip-mode="conditional"][data-mobile-show="true"] {
+    display: flex !important;
+  }
+
+  .media-time-left-chip[data-time-left-mode="conditional"] {
+    display: none !important;
+  }
+
+  .media-time-left-chip[data-time-left-mode="conditional"][data-mobile-show="true"] {
+    display: flex !important;
+  }
+
+  .media-score-chip[data-score-chip-mode="conditional"] {
+    display: none !important;
+  }
+
+  .media-score-chip[data-score-chip-mode="conditional"][data-mobile-show="true"] {
+    display: flex !important;
+    top: calc(var(--spacing) * 2) !important;
+  }
+
+  .media-status-chip[data-mobile-hide-on-mobile="true"] {
+    display: none !important;
+  }
+
+  .media-grid .p-3 {
+    padding: calc(var(--spacing) * 2);
+  }
+
+  .detail-media-grid .p-3 {
+    padding: calc(var(--spacing) * 2);
+  }
+
+  .filter-toolbar {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    column-gap: calc(var(--spacing) * 2);
+    row-gap: calc(var(--spacing) * 2);
+    align-items: stretch;
+  }
+
+  .filter-toolbar .filter-control {
+    width: 100%;
+  }
+
+  .filter-toolbar .filter-control>button {
+    width: 100%;
+    padding-inline: calc(var(--spacing) * 3) !important;
+    padding-block: calc(var(--spacing) * 1.5) !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: calc(var(--spacing) * 0.25);
+  }
+
+  .filter-toolbar .filter-control>button span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+
+  .media-filter-toolbar {
+    display: grid !important;
+    grid-template-columns: repeat(3, fit-content(9rem)) auto;
+    column-gap: calc(var(--spacing) * 1);
+    row-gap: 0;
+    align-items: center;
+  }
+
+  .media-filter-toolbar .filter-control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .media-filter-toolbar .filter-control>button {
+    width: 100%;
+    padding-inline: calc(var(--spacing) * 2) !important;
+    padding-block: calc(var(--spacing) * 1.25) !important;
+    justify-content: flex-start;
+    text-align: left;
+    gap: calc(var(--spacing) * 1);
+  }
+
+  .media-filter-toolbar .filter-control:first-child>button {
+    padding-inline-start: 0 !important;
+  }
+
+  .media-filter-toolbar .filter-control>button span {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  .media-filter-toolbar .filter-control>button svg {
+    flex: 0 0 auto;
+  }
+
+  .result-count-badge {
+    padding-inline: calc(var(--spacing) * 2) !important;
+    font-size: var(--text-xs);
+  }
+
+  .result-count-mobile {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .result-count-desktop {
+    display: none;
+  }
+
+  .media-settings-menu-desktop {
+    display: none !important;
+  }
+
+  .lists-filter-toolbar {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: calc(var(--spacing) * 4);
+  }
+
+  .lists-filter-toolbar .filter-control>button {
+    box-sizing: border-box;
+  }
+
+  .lists-filter-toolbar .filter-control:last-child>button {
+    padding-right: 0 !important;
+  }
+
+  .list-detail-filter-toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    overflow-x: visible;
+    overflow-y: visible;
+    column-gap: calc(var(--spacing) * 1);
+    row-gap: calc(var(--spacing) * 2);
+    align-items: center;
+  }
+
+  .list-detail-filter-toolbar>* {
+    flex: 0 0 auto;
+  }
+
+  .list-detail-filter-toolbar .filter-control {
+    width: auto;
+    min-width: fit-content;
+    flex: 0 0 auto;
+  }
+
+  .list-detail-filter-toolbar .filter-control>button {
+    width: auto;
+    white-space: nowrap;
+    padding-inline: calc(var(--spacing) * 2) !important;
+  }
+
+  .list-detail-filter-toolbar .filter-control>button span {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+  }
+
+  .list-detail-filter-toolbar .ml-auto {
+    margin-left: auto !important;
+  }
+
+  .list-detail-filter-toolbar .layout-toggle {
+    margin-left: 0 !important;
+    justify-self: auto;
+    flex: 0 0 auto;
+  }
+
+  .mobile-tight-section {
+    padding: 0 !important;
+    padding-inline: calc(var(--spacing) * 2) !important;
+    background-color: transparent !important;
+    border-radius: 0;
+    overflow-x: hidden;
+  }
+
+  .stat-scroll-safe {
+    max-width: calc(100vw - 2rem);
+    margin-inline: auto;
+    width: 100%;
+    overflow-x: hidden;
+  }
+}
+
+@media (min-width: 769px) {
+  .stat-scroll-safe {
+    max-width: none;
+  }
+
+  .result-count-mobile {
+    display: none;
+  }
+
+  .result-count-desktop {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .media-settings-menu-mobile {
+    display: none !important;
+  }
+}
+
+.select2-container--tailwindcss-4 {
+  @apply min-w-full;
+}
+

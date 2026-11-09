@@ -1,0 +1,363 @@
+/* Forms and pickers: Preferences layout, modal height, date and time picker, select triggers. */
+/* Preferences page layout */
+.preferences-page {
+  min-width: 0;
+}
+
+.preferences-section-icon {
+  color: #818cf8;
+}
+
+.preferences-section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  scroll-margin-top: 1.5rem;
+  background: var(--color-surface);
+  border-radius: 0.5rem;
+}
+
+.preferences-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0.15rem 0 1rem;
+}
+
+.preferences-section-icon {
+  display: grid;
+  flex: 0 0 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.375rem;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.preferences-section-header h3 {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.preferences-section-header p {
+  margin-top: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.preferences-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.preferences-grid > div {
+  min-width: 0;
+  margin: 0;
+  padding: 0.8rem;
+  background: var(--color-surface-strong);
+  border-radius: 0.375rem;
+}
+
+.preferences-grid > div > div:first-child {
+  min-width: 0;
+}
+
+.preferences-grid > div label,
+.preferences-grid > div > div:first-child label {
+  line-height: 1.35;
+}
+
+.preferences-grid > div .relative > button,
+.preferences-section > .p-4 > button {
+  min-height: 2.25rem;
+}
+
+.preferences-display-grid > div:nth-child(1) { grid-area: theme; }
+.preferences-display-grid > div:nth-child(2) { grid-area: logo; }
+.preferences-display-grid > div:nth-child(3) { grid-area: date; }
+.preferences-display-grid > div:nth-child(4) { grid-area: time; }
+.preferences-display-grid > div:nth-child(5) { grid-area: mobile; }
+.preferences-display-grid > div:nth-child(6) { grid-area: subtitle; }
+.preferences-display-grid > div:nth-child(7) { grid-area: progress; }
+.preferences-display-grid > div:nth-child(8) { grid-area: title; }
+.preferences-display-grid > div:nth-child(9) { grid-area: talent; }
+
+.preferences-actions {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  margin-top: 1rem;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(0.75rem);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.preferences-actions.is-dirty {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-surface-border));
+}
+
+.preferences-actions-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.preferences-actions-status-dot.is-clean {
+  background-color: var(--color-status-clean, #10b981);
+}
+
+.preferences-actions-status-dot.is-dirty {
+  background-color: var(--color-status-dirty, #f59e0b);
+}
+
+.preferences-actions-title {
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.preferences-actions-copy {
+  margin-top: 0.15rem;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+@media (min-width: 48rem) {
+  .preferences-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preferences-display-grid {
+    grid-template-areas:
+      "theme logo"
+      "date time"
+      "title talent"
+      "subtitle mobile"
+      "progress progress";
+  }
+
+  .preferences-metadata-grid > div:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .preferences-metadata-grid > div:nth-child(3) > .grid {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .preferences-display-grid {
+    grid-template-areas: none;
+  }
+
+  .preferences-display-grid > div {
+    grid-area: auto !important;
+  }
+
+  .preferences-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preferences-actions > div:last-child,
+  .preferences-actions button {
+    width: 100%;
+  }
+
+  .preferences-actions > div:last-child {
+    justify-content: flex-end;
+  }
+}
+
+/* Modal max height with padding from viewport */
+.modal-max-height {
+  max-height: calc(100vh - 4rem);
+}
+
+/* Custom date/time picker: trigger + popover/sheet */
+.date-picker-closed-row {
+  display: block;
+  min-width: 0;
+}
+
+.date-picker-closed-field {
+  width: 100%;
+  overflow: hidden;
+}
+
+.date-picker-trigger {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
+.date-picker-picker-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.date-picker-quick-actions {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  gap: 0;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.date-picker-quick-action {
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  padding: 0.375rem;
+  border: 0;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.date-picker-quick-action:hover:not(:disabled) {
+  background-color: var(--color-surface-muted);
+  color: var(--color-link-hover);
+}
+
+.date-picker-quick-action:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #6366f1;
+}
+
+.date-picker-quick-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.date-picker-popover {
+  z-index: 60;
+}
+
+@media (max-width: 39.99rem) {
+  .date-picker-popover {
+    inset-inline: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom, 0px));
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scroll-padding-block: 1rem;
+  }
+}
+
+.date-picker-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.125rem;
+}
+
+.date-picker-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.125rem;
+}
+
+.date-picker-year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.125rem;
+}
+
+.date-picker-month-cell {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+
+
+.date-picker-day-cell {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+
+.date-picker-common-times-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.date-picker-common-time-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #4b5563;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+/* Matches the trigger style used for the Date/Time Format selects on the
+   Preferences page, so time inputs look consistent across the app. Native
+   <select> chrome (height, arrow) varies a lot between browsers (Safari in
+   particular), so appearance is fully reset and a custom arrow is drawn. */
+.date-picker-time-select {
+  flex: 1;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0 1.75rem 0 0.75rem;
+  background-color: var(--color-panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem 1rem;
+  border: 1px solid #4b5563;
+  border-radius: 0.375rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+  text-align-last: center;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.date-picker-time-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #6366f1;
+  border-color: transparent;
+}
+
+.date-picker-common-time-button:hover {
+  background-color: var(--color-surface-muted);
+}
+
+@media (min-width: 40rem) {
+  .date-picker-day-cell {
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+}
+
+.media-grid {
+  @apply grid gap-4;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 30rem) {
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+  }
+}
+

@@ -3,6 +3,8 @@ from pathlib import Path
 from django.conf import settings
 from django.test import SimpleTestCase
 
+from app.tests.test_theme_tokens import stylesheet_source
+
 
 class HorizontalScrollContractTests(SimpleTestCase):
     def setUp(self):
@@ -30,7 +32,7 @@ class HorizontalScrollContractTests(SimpleTestCase):
         self.assertEqual(base.count(script_tag), 1)
 
     def test_drag_styles_use_theme_tokens(self):
-        css = self.read("static/css/input.css")
+        css = stylesheet_source()
 
         self.assertIn('[data-horizontal-drag="true"]', css)
         self.assertIn("cursor: grab", css)

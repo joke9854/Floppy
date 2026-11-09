@@ -1,0 +1,357 @@
+/* CineTrack Library: header, filters, status pull-down, grid and progress. */
+/* v2 Library (A3/A16). The header reuses the Home page head; the status
+   segment and the toolbar share one row; the grid keeps the shared media
+   card (hover actions, bulk select) restyled as a crisp poster with the
+   title, a subtitle, a status badge and an inset progress line. */
+.ct-library-titlebar {
+  align-items: flex-end;
+  padding-top: 0;
+}
+
+.ct-library-title--wide {
+  display: none;
+}
+
+.ct-library-head .ct-type-switch {
+  align-self: flex-start;
+  max-width: 100%;
+  gap: 2px;
+  margin-inline: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-library-head .ct-type-pill {
+  height: 32px;
+  padding-inline: 14px;
+  border: 0;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.ct-library-head .ct-type-pill[aria-current="page"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-library-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ct-library-bar .ct-status-tabs {
+  display: none;
+  flex: 0 1 auto;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-library-bar .ct-status-tab {
+  height: 30px;
+  padding-inline: 16px;
+  border: 0;
+  font-weight: 700;
+}
+
+.ct-library-bar .ct-status-tab[aria-pressed="true"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-toolbar-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ct-toolbar {
+  gap: 10px;
+}
+
+.ct-toolbar > .filter-control > button,
+.ct-toolbar .ct-settings-menu > button {
+  height: 36px;
+  gap: 8px;
+  padding-inline: 14px;
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ct-toolbar .ct-settings-menu > button {
+  width: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ct-toolbar .ct-settings-menu > button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ct-toolbar > .filter-control > button:hover,
+.ct-toolbar .ct-settings-menu > button:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-toolbar-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.ct-toolbar > .filter-control:first-of-type > button > svg:last-child,
+.ct-toolbar #result-count {
+  display: none;
+}
+
+.ct-toolbar > .filter-control > button > svg.ml-2 {
+  margin-left: 0;
+}
+
+.ct-toolbar .ct-status-dot:not([data-status]),
+.ct-toolbar .ct-status-dot[data-status=""] {
+  display: none;
+}
+
+.ct-status-dot[data-status="completed"] { background-color: var(--ct-status-completed); }
+.ct-status-dot[data-status="in-progress"] { background-color: var(--ct-status-watching); }
+.ct-status-dot[data-status="planning"] { background-color: var(--ct-status-planned); }
+.ct-status-dot[data-status="paused"] { background-color: var(--ct-status-paused); }
+.ct-status-dot[data-status="dropped"] { background-color: var(--ct-status-dropped); }
+
+.ct-toolbar .ct-segment {
+  display: none;
+  align-self: center;
+}
+
+/* Phones (A16): the status pull-down leads, then the filter, sort and view
+   settings shrink to icons. */
+@media (max-width: 767.98px) {
+  .ct-toolbar.media-filter-toolbar {
+    display: flex !important;
+    flex-wrap: nowrap;
+  }
+
+  .ct-toolbar.media-filter-toolbar .filter-control {
+    width: auto;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control > button {
+    width: auto;
+    padding-block: 0 !important;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control > button span {
+    max-width: none;
+  }
+
+  .ct-toolbar > [data-ct-filter="status"] {
+    order: -1;
+    margin-right: auto;
+  }
+
+  .ct-toolbar.media-filter-toolbar > [data-ct-filter="status"] > button {
+    height: 40px;
+    padding-inline: 16px !important;
+    font-size: 15px;
+  }
+
+  .ct-toolbar.media-filter-toolbar > .filter-control:not([data-ct-filter="status"]) > button {
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    padding-inline: 0 !important;
+  }
+
+  .ct-toolbar > .filter-control:not([data-ct-filter="status"]) > button > :not(.ct-toolbar-icon) {
+    display: none;
+  }
+
+  .ct-toolbar > .ml-auto {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .ct-library-title--phone,
+  .ct-library-head .ct-type-switch {
+    display: none;
+  }
+
+  .ct-library-title--wide {
+    display: inline;
+  }
+
+  .ct-library-bar .ct-status-tabs {
+    display: flex;
+  }
+
+  .ct-toolbar {
+    justify-content: flex-end;
+  }
+
+  .ct-toolbar > [data-ct-filter="status"] {
+    display: none;
+  }
+
+  .ct-toolbar .ct-segment {
+    display: inline-flex;
+  }
+}
+
+.ct-library-grid.media-grid {
+  gap: 22px 20px;
+}
+
+@media (min-width: 30rem) {
+  .ct-library-grid.media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 29.99rem) {
+  .ct-library-grid.media-grid {
+    gap: 18px 13px;
+  }
+}
+
+.ct-library-grid .search-result-card {
+  aspect-ratio: auto;
+  overflow: visible;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.ct-library-grid .search-result-card::after {
+  display: none;
+}
+
+.ct-library-grid .search-result-card > .media-card-visual {
+  position: relative;
+  inset: auto;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--ct-radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 22%), 0 7px 18px rgb(0 0 0 / 14%);
+  transition: transform var(--motion-short) var(--ease-standard);
+}
+
+.ct-library-grid .search-result-card:hover > .media-card-visual {
+  transform: translateY(-3px);
+}
+
+.ct-library-grid .search-result-card .media-card-body {
+  position: static;
+  padding: 10px 0 0 !important;
+  background: none;
+}
+
+.ct-library-grid .media-card-body::before {
+  display: none;
+}
+
+.ct-library-grid .search-result-card .media-card-title-row {
+  max-height: none;
+}
+
+.ct-library-grid .search-result-card .media-card-title,
+.ct-library-grid .search-result-card .media-card-title[title] {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-library-grid .search-result-card .media-card-title[title]::before {
+  content: none;
+}
+
+.ct-library-grid .search-result-card:hover .media-card-title[title] {
+  color: var(--color-link);
+}
+
+.ct-library-grid .media-card-year {
+  display: none;
+}
+
+.ct-library-sub {
+  min-height: 1.3em;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status badge: a filled circle top-right with the state icon in white. */
+.ct-library-grid .media-status-chip {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  padding: 0;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+}
+
+.ct-library-grid .media-status-chip > [data-status] {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--color-surface-strong);
+  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 85%), 0 3px 8px rgb(0 0 0 / 35%);
+  color: #fff;
+}
+
+.ct-library-grid .media-status-chip > [data-status] > svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ct-library-grid .media-status-chip > [data-status="completed"] { background-color: var(--ct-status-completed); }
+.ct-library-grid .media-status-chip > [data-status="in-progress"] { background-color: var(--ct-status-watching); }
+.ct-library-grid .media-status-chip > [data-status="planning"] { background-color: var(--ct-status-planned); color: #1c1a17; }
+.ct-library-grid .media-status-chip > [data-status="paused"] { background-color: var(--ct-status-paused); }
+.ct-library-grid .media-status-chip > [data-status="dropped"] { background-color: var(--ct-status-dropped); }
+
+.ct-library-grid .media-next-ep-link {
+  right: auto;
+  left: 8px;
+}
+
+/* Progress: an inset rounded line inside the poster. */
+.ct-library-grid .media-card-progress-bar {
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 22%);
+}
+
+.ct-library-grid .media-card-progress-bar > div {
+  border-radius: inherit;
+  background-color: #fff;
+}
+

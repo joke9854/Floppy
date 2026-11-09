@@ -1,0 +1,119 @@
+/* Design tokens: :root defaults, the CineTrack palette, Manrope and the @theme scale. */
+
+@theme {
+  --breakpoint-xs: 30rem;
+  /* CineTrack Motion.kt easings: `ease-standard`, `ease-enter`, `ease-exit`. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+/* Manrope (SIL OFL 1.1, see static/fonts/manrope/OFL.txt): one variable
+   latin + latin-ext subset, used by the cinetrack theme only. */
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../fonts/manrope/manrope-variable-latin.woff2") format("woff2");
+  unicode-range: U+0000-024F, U+0259, U+1E00-1EFF, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212, U+2215;
+}
+
+:root {
+  /* CineTrack Motion.kt durations, for `duration-(--motion-short)` and friends. */
+  --motion-short: 150ms;
+  --motion-medium: 250ms;
+  --motion-long: 350ms;
+  --motion-progress: 420ms;
+  --color-surface: #2a2f35;
+  --color-surface-strong: #39404b;
+  --color-surface-hover: #454d5a;
+  --color-panel: #272c31;
+  --color-accent: #4a9eff;
+  --color-accent-contrast: #111827;
+  --color-surface-alt: #3e454d;
+  --color-surface-muted: #343a40;
+  --color-surface-dim: #262a2f;
+  --color-border: #2c3136;
+  --color-hover-dim: #23272b;
+  --color-page-bg: #212529;
+  --color-surface-border: #454d59;
+  --color-sidebar: #1a1d20;
+  --color-text: #f3f4f6;
+  --color-text-secondary: #d1d5db;
+  /* Lifted from #9ca3af: that value reached only 4.1:1 on --color-surface-strong,
+     the raised surface settings cards use, so muted copy missed WCAG AA there. */
+  --color-text-muted: #adb5bd;
+  --color-warning-text: #fde68a;
+  --color-info-text: #c7d2fe;
+  --color-error-text: #fca5a5;
+  --color-link: #a5b4fc;
+  --color-link-hover: #c7d2fe;
+  --color-status-clean: #10b981;
+  --color-status-dirty: #f59e0b;
+  --color-genre-badge-bg: rgba(139, 92, 246, 0.07);
+  --color-genre-badge-border: rgba(167, 139, 250, 0.18);
+  --color-genre-badge-text: #ede9fe;
+  --color-genre-badge-hover-bg: rgba(139, 92, 246, 0.15);
+  --theme-radius: 12px;
+  --theme-blur: 0px;
+  --theme-surface-opacity: 100%;
+  --motion-duration: 180ms;
+  --motion-distance: 2px;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: dark;
+}
+
+/* CineTrack: the Android app's ui/theme values (Background0/1, Text*, Accent,
+   Status*, Radius, Motion). Dark only; posters stay crisp and glass is kept
+   to controls (.ct-glass*, below). */
+html.cinetrack {
+  --theme-radius: 16px;
+  --motion-duration: 250ms;
+  --motion-distance: 3px;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --color-page-bg: #1c1b22;
+  --color-sidebar: #17161c;
+  --color-surface: #2a2932;
+  --color-surface-strong: #34333d;
+  --color-surface-hover: #3d3c47;
+  --color-panel: #232229;
+  --color-surface-alt: #302f39;
+  --color-surface-muted: #2f2e37;
+  --color-surface-dim: #18171d;
+  --color-surface-border: #45444f;
+  --color-border: #2e2d36;
+  --color-hover-dim: #25242c;
+  --color-text: #f8f9fb;
+  --color-text-secondary: #d7dee4;
+  --color-text-muted: #a2aeb8;
+  --color-accent: #6aa8ff;
+  --color-accent-contrast: #0b1a22;
+  --color-link: #a9cbff;
+  --color-link-hover: #d3e4ff;
+  --color-status-clean: #2bc37f;
+  --color-status-dirty: #ffc75d;
+  --color-genre-badge-bg: rgb(106 168 255 / 8%);
+  --color-genre-badge-border: rgb(106 168 255 / 22%);
+  --color-genre-badge-text: #d7e6ff;
+  --color-genre-badge-hover-bg: rgb(106 168 255 / 16%);
+  --ct-status-watching: #1572b1;
+  --ct-status-planned: #ffc75d;
+  --ct-status-paused: #d46f0f;
+  --ct-status-completed: #06804b;
+  --ct-status-dropped: #ba1600;
+  --ct-info: #4fc7e8;
+  --ct-violet: #9b7cf0;
+  --ct-gold: #f6b23e;
+  --ct-progress-track: #4a4e57;
+  --ct-radius-xs: 8px;
+  --ct-radius-sm: 12px;
+  --ct-radius-md: 16px;
+  --ct-radius-lg: 22px;
+  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-page-bg);
+  color-scheme: dark;
+}
+

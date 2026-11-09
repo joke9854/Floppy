@@ -1,0 +1,91 @@
+/* Late overrides: the reduced-motion block (keep last) and classic collection and history sections. */
+/* The one reduced-motion block. Last in the file so it wins over the
+   component rules above at equal specificity. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  :root {
+    --motion-short: 0ms;
+    --motion-medium: 0ms;
+    --motion-long: 0ms;
+    --motion-progress: 0ms;
+  }
+
+  /* The nav progress bar's movement is its signal: hold a steady bar. */
+  .nav-progress-bar,
+  .nav-progress.is-complete .nav-progress-bar {
+    transition: none;
+    transform: scaleX(1);
+  }
+
+  .preferences-actions,
+  .preferences-actions-status-dot {
+    transition: none !important;
+  }
+
+  /* M3/M4: HTMX transition:true still starts a view transition; skip its
+     animation (the `*` rule above does not reach these pseudo-elements). */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* v2 detail pages reuse the classic Collection and History sections; give them
+   the v2 section head, card and accent instead of the classic indigo. */
+.ct-detail-classic h2 {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.ct-detail-classic .bg-indigo-600 {
+  border-radius: 9999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+}
+
+.ct-detail-classic .bg-indigo-600:hover {
+  filter: brightness(1.1);
+}
+
+.ct-detail-classic > div > .bg-\[var\(--color-surface\)\] {
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: 16px;
+}
+
+.ct-detail-classic h3 {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* Nothing collected: hide the Collection section but keep its dialog, which
+   the hero's More > collection button opens. */
+.ct-detail-sections > .ct-detail-classic.is-empty {
+  margin: 0;
+  padding: 0;
+}
+
+.ct-detail-classic.is-empty h2,
+.ct-detail-classic.is-empty [data-ct-collection-add],
+.ct-detail-classic.is-empty > div > .bg-\[var\(--color-surface\)\] {
+  display: none;
+}
+
+.ct-detail-classic.is-empty > div > div:first-child {
+  margin: 0;
+}

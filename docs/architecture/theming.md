@@ -24,58 +24,41 @@ public detail links) keep their own sidebar-less layout under the same palette.
 
 ## Tokens
 
-`src/static/css/input.css` declares the base tokens in four blocks:
+The tokens live in `src/static/css/areas/tokens.css`, one of the per-area files
+imported by the entry `src/static/css/input.css`. They are declared in two
+places only:
 
-| Block | Applies to |
+| Selector | Holds |
 | --- | --- |
-| `:root` | the dark defaults |
-| `@media (prefers-color-scheme: light) { :root:not(.[every explicit theme]) }` | `system` on a light host |
-| `html.light` | an explicit light choice |
-| `html.dark` | an explicit dark choice |
+| `:root` | the dark defaults, the motion scale and the `@theme` values |
+| `html.cinetrack` | the CineTrack palette, radius and motion |
 
-The light media selector must exclude every explicit theme class. Otherwise a
-light operating system overrides equally specific preset tokens that appear
-earlier in the stylesheet. `test_system_light_tokens_exclude_every_explicit_theme`
-pins that contract to the preset registry.
-
-Preset classes override the tokens they intentionally change and inherit the
-remaining dark defaults. The classic palettes follow their official colour
-systems: [Catppuccin](https://python.catppuccin.com/docs/catppuccin/palette.html),
-[Dracula](https://github.com/dracula/dracula-theme),
-[Nord](https://www.nordtheme.com/) and
-[Gruvbox](https://github.com/morhetz/gruvbox). `html.glass` adds a fixed translucent cinema treatment.
-`html.custom` inherits the dark defaults; `base.html` adds the seven validated
-colours plus bounded radius, blur and surface-opacity values as inline variables.
-`users.appearance` is the allowlist and validation boundary for those values.
+There are no `html.light`, `html.dark`, preset or custom palette blocks, and no
+`prefers-color-scheme` override. `base.html` always stamps `cinetrack` on
+`<html>`, so a rule scoped to any other theme class can never match. Do not add
+one.
 
 `--color-accent-contrast` is the foreground for controls filled with
-`--color-accent`. Every preset defines the pair together because most preset
-accents are too bright for white text. The custom palette exposes both values so
-users can keep their own accent legible.
+`--color-accent`. Define the pair together in `html.cinetrack`, because the
+CineTrack accents are too bright for white text.
 
-Every explicit preset also owns its shape and motion through
-`--theme-radius`, `--motion-duration`, `--motion-distance`, and
-`--motion-ease`. Components consume those tokens rather than inventing local
-timings or radii, so changing a preset changes the whole interface coherently.
-Glass is deliberately soft and fluid, OLED is crisp, and the classic themes
-remain restrained.
+`html.cinetrack` owns `--theme-radius`, `--motion-duration`,
+`--motion-distance` and `--motion-ease`. Components consume those tokens rather
+than inventing local timings or radii.
+
+If you add a token, add it to `:root`, and to `html.cinetrack` if CineTrack
+needs a different value.
 
 The global `prefers-reduced-motion: reduce` block is a required safety net. It
-must keep navigation and controls usable while reducing animations and smooth
-scrolling to effectively instantaneous changes.
-
-`html.dark` repeats the `:root` values. That repetition is redundant, since
-`:root` already carries the dark values and the light media query is guarded by
-`:not(.dark)`. It is kept only so the four blocks read symmetrically. If you add
-a token, add it to `:root`, to the media query and to `html.light`; the
-`html.dark` copy is optional and must match `:root` if you write it.
+lives in `src/static/css/areas/overrides.css`. It must keep navigation and
+controls usable while reducing animations and smooth scrolling to effectively
+instantaneous changes.
 
 ## CineTrack
 
 `html.cinetrack` maps the Android app's `ui/theme` values onto the same tokens
 and sets Manrope, self-hosted under `static/fonts/manrope/` (SIL OFL) and
-preloaded only for this theme. It also defines `--ct-*` tokens (status colours,
-progress track, radii) for the redesigned components.
+preloaded only for this theme. It also defines `--ct-*` tokens (status colours, progress track, radii) for the redesigned components. The shell sets its own `--ct-shell-pad` in `src/static/css/areas/shell.css`.
 
 Glass follows the app's rule: `.ct-glass` (overlays such as nav and sheets) and
 `.ct-glass-control` (buttons, pills) blur what is behind them, so use them only
@@ -119,8 +102,13 @@ already.
 ## Rebuilding `main.css`
 
 ```bash
-npx @tailwindcss/cli -i ./src/static/css/input.css -o ./src/static/css/main.css
+npx --offline @tailwindcss/cli@4.1.11 -i ./src/static/css/input.css -o ./src/static/css/main.css
 ```
+
+`input.css` is an entry file: `@import "tailwindcss" source("../../");` first,
+then one `@import` per file in `src/static/css/areas/`, in cascade order. Edit
+the area file that owns a rule, not the entry. Keep the imports in their
+current order, since the file order is the cascade.
 
 The input uses `source("../../")`, so the build scans `src/`, which contains its
 own committed output. One pass is not a fixpoint: a class removed from a

@@ -1,0 +1,575 @@
+/* Shell chrome: view transitions, command palette, monthly recap, loading and navigation progress. */
+/* M3 / M4: view transitions in the CineTrack shell. Page loads and HTMX
+   swaps with transition:true cross-fade in 150 ms; the clicked poster
+   (named by ctShell.js) morphs into the movie/show/season detail poster.
+   base.html opts documents in; reduced motion turns it all off. */
+html.cinetrack::view-transition-old(root),
+html.cinetrack::view-transition-new(root) {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.cinetrack::view-transition-group(ct-poster) {
+  animation-duration: 350ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.cinetrack .ct-detail-hero:not(.ct-detail-hero--episode) .ct-detail-poster img {
+  view-transition-name: ct-poster;
+}
+
+/* A1: Ctrl/Cmd+K command palette (CineTrack shell). A fixed dialog with a
+   plain dimmed backdrop: no backdrop-filter, so nothing it contains or sits
+   above is trapped in a new containing block. */
+.ct-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(12vh, 24px) 16px 16px;
+}
+
+.ct-palette-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgb(0 0 0 / 55%);
+}
+
+.ct-palette-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: min(70vh, 560px);
+  overflow: hidden;
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(30 31 38 / 98%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 24px 60px rgb(0 0 0 / 50%);
+  animation: ct-palette-in 150ms cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+@keyframes ct-palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.ct-palette-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 0.9px solid rgb(255 255 255 / 8%);
+  color: var(--color-text-muted);
+}
+
+.ct-palette-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 16px;
+  outline: none;
+}
+
+.ct-palette-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.ct-palette-kbd {
+  padding: 2px 6px;
+  border: 0.9px solid rgb(255 255 255 / 14%);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.ct-palette-results {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.ct-palette-group {
+  padding: 10px 10px 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ct-palette-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.ct-palette-option[aria-selected="true"] {
+  background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.ct-palette-poster {
+  flex-shrink: 0;
+  width: 28px;
+  height: 42px;
+  border-radius: 4px;
+  background-color: rgb(255 255 255 / 6%);
+  object-fit: cover;
+}
+
+.ct-palette-meta {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-palette-online {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+}
+
+.ct-shortcuts-panel {
+  width: min(440px, 100%);
+}
+
+.ct-shortcuts-list {
+  display: grid;
+  gap: 2px;
+  padding: 8px 16px 16px;
+}
+
+.ct-shortcuts-list > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.ct-shortcuts-list dt {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  width: 76px;
+}
+
+.ct-palette-empty {
+  padding: 10px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* A7: monthly recap card. statisticsRecap.js draws the same content on a
+   canvas for "Save image". */
+.ct-recap-page {
+  display: grid;
+  gap: 16px;
+  width: min(480px, 100%);
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+.ct-recap-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-recap-heading {
+  flex: 1;
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ct-recap-step {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 24px;
+}
+
+a.ct-recap-step:hover {
+  background-color: var(--color-surface);
+}
+
+.ct-recap-card {
+  display: grid;
+  gap: 4px;
+  padding: 24px;
+  border: 0.9px solid var(--color-surface-border);
+  border-radius: var(--ct-radius-lg, 22px);
+  background-color: var(--color-surface);
+}
+
+.ct-recap-eyebrow {
+  color: var(--color-link);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ct-recap-total {
+  color: var(--color-text);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ct-recap-caption,
+.ct-recap-meta,
+.ct-recap-empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.ct-recap-plays {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.ct-recap-plays dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-recap-plays dd {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.ct-recap-top {
+  margin-top: 20px;
+}
+
+.ct-recap-top h2 {
+  margin-bottom: 6px;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ct-recap-top ol {
+  display: grid;
+  gap: 6px;
+  counter-reset: ct-recap;
+}
+
+.ct-recap-top li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  counter-increment: ct-recap;
+}
+
+.ct-recap-top li::before {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  content: counter(ct-recap);
+}
+
+.ct-recap-top li > .truncate {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-recap-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ct-recap-save {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ct-recap-back {
+  color: var(--color-link);
+  font-size: 14px;
+}
+
+/* M6: a spinner appears only after 400 ms of waiting, so quick requests
+   finish without a flash. The reveal restarts whenever the spinner is
+   shown again. */
+@keyframes floppy-spinner-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-spin {
+  animation:
+    spin 1s linear infinite,
+    floppy-spinner-reveal 0s linear 400ms both;
+}
+
+html :where(
+  .rounded,
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl
+) {
+  border-radius: var(--theme-radius);
+}
+
+@keyframes theme-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes theme-soft-pop {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance)) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+main > .container,
+.preferences-page {
+  /*
+   * `backwards`, not `both`: the `to` keyframe (opacity:1, transform:none)
+   * is identical to this element's resting state, so dropping the
+   * forwards-fill is visually a no-op. Keeping `both` matters because,
+   * with an active/filled transform animation, browsers report the
+   * computed `transform` as a resolved matrix rather than the literal
+   * `none` even once finished -- and any computed transform other than
+   * `none` makes the element a CSS containing block for its
+   * `position: fixed`/`absolute` descendants. That permanently broke
+   * nested modal overlays (see issue #1205): `backwards` still applies
+   * the `from` keyframe during `animation-delay`, but releases the hold
+   * once the animation ends.
+   */
+  animation: theme-reveal var(--motion-duration) var(--motion-ease) backwards;
+}
+
+:where(a, button, input, textarea, select, [role="button"]) {
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
+}
+
+:where(
+  .media-card,
+  .search-result-card,
+  .search-result-card-square,
+  .media-card-poster,
+  .preferences-section,
+  [class*="bg-[var(--color-surface)]"],
+  [class*="bg-[var(--color-panel)]"]
+) {
+  transition:
+    transform var(--motion-duration) var(--motion-ease),
+    box-shadow var(--motion-duration) var(--motion-ease),
+    border-color var(--motion-duration) var(--motion-ease),
+    background-color var(--motion-duration) var(--motion-ease);
+}
+
+.media-grid > *,
+.detail-media-grid > *,
+.home-row-scrollbar-hidden > * {
+  /* See the `theme-reveal` animation above for why this is `backwards`,
+     not `both`: it's the same containing-block hazard, and this is the
+     more impactful instance of it, since it pins every card's grid
+     wrapper (the direct ancestor of the card's own modal overlays)
+     permanently, independent of hover state or a page refresh. */
+  animation: theme-soft-pop var(--motion-duration) var(--motion-ease) backwards;
+}
+
+.media-grid > :nth-child(2n),
+.detail-media-grid > :nth-child(2n) { animation-delay: 35ms; }
+.media-grid > :nth-child(3n),
+.detail-media-grid > :nth-child(3n) { animation-delay: 70ms; }
+
+.media-card-hover-outline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 30;
+}
+
+@media (hover: hover) {
+  .media-card-hover-outline:hover::after {
+    border-color: rgb(99 102 241);
+  }
+
+  /*
+   * The lift/scale transform is applied to the poster image, not the card
+   * root: a `transform` on an element makes it the CSS containing block for
+   * any `position: fixed`/`absolute` descendants, and the card root nests
+   * the track/lists/collection modal overlays (`fixed inset-0 ...`). A
+   * transform on the hovered card would re-anchor an open modal to the
+   * card's box instead of the viewport whenever it opens while the card is
+   * still hovered (see issue #1205). The poster is a leaf node with no
+   * modal markup inside it, so it can't cause that.
+   */
+  :where(.media-card, .search-result-card, .search-result-card-square):hover .media-card-poster {
+    transform: translateY(calc(var(--motion-distance) * -1));
+  }
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+/* Navigation progress for boosted links.
+   The bar sits on the top edge of the viewport so it reads as one piece of
+   the page frame rather than as content. It is decorative: the matching
+   status paragraph is what assistive technology announces. */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.nav-progress.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.nav-progress-bar {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background-color: var(--color-accent);
+  /* Approach the end without reaching it. The bar must not promise a
+     completion time that the server has not given us. */
+  transition: transform 8s cubic-bezier(0.1, 0.85, 0.3, 1);
+}
+
+.nav-progress.is-active .nav-progress-bar {
+  transform: scaleX(0.9);
+}
+
+.nav-progress.is-complete .nav-progress-bar {
+  transform: scaleX(1);
+  transition: transform 120ms ease-out;
+}
+
+/* Announced, not shown. */
+.nav-progress-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: block;
+}
+
+.progress-adjust-btn.htmx-request .progress-btn-icon {
+  visibility: hidden;
+}
+
+.progress-adjust-btn.progress-btn-flash {
+  transition: none;
+  background-color: rgba(129, 140, 248, 0.55);
+}
+
+.lazyload,
+.lazyloading {
+  object-fit: none;
+}
+
+/* Cards are tapped twice (first reveals the actions, second opens details);
+   without this, a quick second tap can be swallowed as a double-tap zoom. */
+.media-card {
+  touch-action: manipulation;
+}
+
+.media-card-poster {
+  object-fit: cover;
+  transition: opacity 0.2s ease;
+}
+
+/* A grid poster stays blank (the card's surface) until lazysizes has loaded
+   it, instead of showing the placeholder glyph over a half-built card. */
+.media-card-poster.lazyload,
+.media-card-poster.lazyloading {
+  opacity: 0;
+}
+
+.series-graph-trigger:hover .series-graph-tooltip,
+.series-graph-trigger:focus-within .series-graph-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.series-graph-trigger:hover .series-graph-score-chip,
+.series-graph-trigger:focus-within .series-graph-score-chip {
+  filter: brightness(1.08);
+}
+
+.clip-half {
+  clip-path: inset(0 50% 0 0);
+}
+

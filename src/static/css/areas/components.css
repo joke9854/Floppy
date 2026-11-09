@@ -1,0 +1,144 @@
+/* Shared components: Recently Watched, poster fade-in, motion durations and toasts. */
+/* Recently Watched: a plain drag-scrolled row (no lazy loading). */
+.ct-recent-row {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+@media (max-width: 639.98px) {
+  .ct-recent-row {
+    gap: 12px;
+  }
+}
+
+/* Phones: the sort toggle keeps only its arrow (the aria-label names it). */
+@media (max-width: 639.98px) {
+  .ct-page-title {
+    font-size: 30px;
+  }
+
+  .ct-row-title {
+    font-size: 20px;
+  }
+
+  .ct-row-sort-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ct-home .home-row-card:not(.ct-progress-slot, .aspect-square) {
+    width: 136px;
+  }
+}
+
+/* M7: posters fade in once decoded (ctShell.js adds .is-loaded). Without
+   scripting they show at once. */
+@media (scripting: enabled) {
+  .ct-fade-img {
+    opacity: 0;
+    transition: opacity 200ms var(--ease-standard);
+  }
+
+  .ct-fade-img.is-loaded {
+    opacity: 1;
+  }
+}
+
+/* M1/M2: CineTrack runs the ad-hoc Tailwind durations on its motion scale.
+   Scoped to the theme so classic themes keep their timing; 500 and 1000
+   are deliberate long fades and stay. */
+html.cinetrack :is(.duration-75, .duration-100, .duration-150) {
+  --tw-duration: var(--motion-short);
+  transition-duration: var(--motion-short);
+}
+
+html.cinetrack .duration-200 {
+  --tw-duration: var(--motion-medium);
+  transition-duration: var(--motion-medium);
+}
+
+html.cinetrack .duration-300 {
+  --tw-duration: var(--motion-long);
+  transition-duration: var(--motion-long);
+}
+
+/* M5: toasts are glass pills that slide up above the bottom nav. */
+html.cinetrack #htmx-toast-outlet {
+  top: auto;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  html.cinetrack #htmx-toast-outlet {
+    bottom: 24px;
+  }
+}
+
+html.cinetrack #htmx-toast-outlet > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+html.cinetrack #htmx-toast-outlet [role] {
+  border: 0.9px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background-color: rgb(23 27 33 / 72%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%), 0 10px 30px rgb(0 0 0 / 32%);
+  color: var(--color-text);
+  opacity: 1;
+  transform: none;
+  animation: ct-toast-in var(--motion-medium) var(--ease-enter) both;
+}
+
+html.cinetrack #htmx-toast-outlet .toast-success::before,
+html.cinetrack #htmx-toast-outlet .toast-error::before {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  content: "";
+}
+
+html.cinetrack #htmx-toast-outlet .toast-success::before {
+  background-color: #2fbf71;
+}
+
+html.cinetrack #htmx-toast-outlet .ct-toast-undo {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--color-accent);
+  transition: background-color var(--motion-short) var(--ease-standard);
+}
+
+html.cinetrack #htmx-toast-outlet .ct-toast-undo:hover,
+html.cinetrack #htmx-toast-outlet .ct-toast-undo:focus-visible {
+  background-color: rgb(255 255 255 / 10%);
+}
+
+html.cinetrack #htmx-toast-outlet .toast-error::before {
+  background-color: #ff6b5b;
+}
+
+@keyframes ct-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+

@@ -5,11 +5,22 @@ from django.conf import settings
 from django.test import SimpleTestCase
 
 # Tailwind's stock `dark:` variant compiles to `@media (prefers-color-scheme:
-# dark)`. Floppy instead resolves the theme server-side and stamps `light` or
-# `dark` on <html> from user.theme, so the two disagree for anyone whose chosen
-# theme differs from their OS setting. Colours must come from the --color-*
-# tokens, which are defined for all four combinations in input.css.
+# dark)`, which follows the OS, not Floppy's server-side theme. Colours must
+# come from the --color-* tokens in static/css/areas/tokens.css.
 DARK_VARIANT = re.compile(r'(?:^|[\s"\'])dark:')
+
+
+def stylesheet_source():
+    """Return input.css with its local @imports inlined, in cascade order."""
+    css_dir = Path(settings.BASE_DIR, "static", "css")
+    entry = (css_dir / "input.css").read_text(encoding="utf-8")
+    return re.sub(
+        r'^@import "\./([^"]+)";',
+        lambda match: (css_dir / match.group(1)).read_text(encoding="utf-8"),
+        entry,
+        flags=re.MULTILINE,
+    )
+
 
 # Roles that used to be spelled as raw palette utilities. Each has a token that
 # resolves per theme, so a literal here renders the same colour on both canvases
@@ -65,9 +76,7 @@ class ThemeTokenContractTests(SimpleTestCase):
 
     def test_cinetrack_defines_shape_and_motion(self):
         """Radius and movement are part of the CineTrack theme's identity."""
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
 
         block = re.search(r"html\.cinetrack\s*\{(?P<body>.*?)\n\}", css, re.DOTALL)
         self.assertIsNotNone(block)
@@ -91,25 +100,19 @@ class ThemeTokenContractTests(SimpleTestCase):
 
         self.assertEqual(offenders, [])
 
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
         block = re.search(r"html\.cinetrack\s*\{(?P<body>.*?)\n\}", css, re.DOTALL)
         self.assertIsNotNone(block)
         self.assertIn("--color-accent-contrast", block.group("body"))
 
     def test_motion_has_an_accessibility_killswitch(self):
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
 
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn("animation-duration: 0.01ms", css)
 
     def test_home_rows_reserve_hover_lift_clearance(self):
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
         row_rule = re.search(
             r"\.home-row-scrollbar-hidden\s*\{(?P<body>.*?)\n\}",
             css,
@@ -126,9 +129,7 @@ class ThemeTokenContractTests(SimpleTestCase):
         self.assertNotIn("margin-left:", row_rule.group("body"))
 
     def test_media_card_hover_outline_stays_inside_above_progress(self):
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
         template = Path(
             settings.BASE_DIR, "templates", "app", "components", "media_card.html"
         ).read_text(encoding="utf-8")
@@ -145,9 +146,7 @@ class ThemeTokenContractTests(SimpleTestCase):
         self.assertIn("z-index: 30", outline_rule.group("body"))
 
     def test_completed_appearance_animations_release_fixed_modals(self):
-        css = Path(settings.BASE_DIR, "static", "css", "input.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_source()
 
         for animation in ("theme-reveal", "theme-soft-pop"):
             keyframes = re.search(

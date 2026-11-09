@@ -1,0 +1,665 @@
+/* CineTrack Library, Discover and shared search chrome: Discover hero, rows and header. */
+/* CineTrack Library, Discover and Search (W4). Switches and tabs are plain
+   pills (many of them, so no blur); rows stay crisp poster rails. The page's
+   indigo utilities take a deepened accent that keeps white text readable. */
+main:has(:is(.ct-library-head, .ct-discover-head, .ct-search-head, .ct-lists-head)) {
+  --color-indigo-400: var(--color-link);
+  --color-indigo-500: var(--color-accent);
+  --color-indigo-600: color-mix(in srgb, var(--color-accent) 62%, #0b1a22);
+  --color-indigo-700: color-mix(in srgb, var(--color-accent) 52%, #0b1a22);
+}
+
+.ct-library-head,
+.ct-discover-head,
+.ct-search-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.ct-library-title {
+  color: var(--color-text);
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+
+.ct-type-switch,
+.ct-status-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-block: 2px;
+  scrollbar-width: none;
+}
+
+.ct-type-switch::-webkit-scrollbar,
+.ct-status-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ct-type-pill,
+.ct-status-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-short, 150ms) var(--motion-ease),
+    border-color var(--motion-short, 150ms) var(--motion-ease),
+    color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-type-pill {
+  height: 36px;
+  padding-inline: 14px;
+  background-color: rgb(180 195 210 / 7.5%);
+}
+
+.ct-status-tab {
+  height: 32px;
+  padding-inline: 12px;
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.ct-type-pill:hover,
+.ct-status-tab:hover {
+  background-color: rgb(180 195 210 / 13%);
+  color: var(--color-text);
+}
+
+.ct-type-pill[aria-current="page"],
+.ct-type-pill[aria-pressed="true"] {
+  border-color: transparent;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.ct-type-pill svg {
+  color: inherit;
+}
+
+.ct-status-tab[aria-pressed="true"] {
+  border-color: rgb(255 255 255 / 18%);
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+}
+
+:is(.ct-type-pill, .ct-status-tab, .ct-segment > a):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ct-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--color-text-muted);
+}
+
+[data-status="completed"] > .ct-status-dot { background-color: var(--ct-status-completed); }
+[data-status="in-progress"] > .ct-status-dot { background-color: var(--ct-status-watching); }
+[data-status="planning"] > .ct-status-dot { background-color: var(--ct-status-planned); }
+[data-status="paused"] > .ct-status-dot { background-color: var(--ct-status-paused); }
+[data-status="dropped"] > .ct-status-dot { background-color: var(--ct-status-dropped); }
+
+.ct-count-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: rgb(180 195 210 / 7.5%);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ct-segment {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-segment > a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-segment--icons > a {
+  padding: 7px 10px;
+}
+
+.ct-segment > a:hover {
+  color: var(--color-text);
+}
+
+.ct-segment > a[aria-current="page"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ct-icon-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ct-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+
+/* Discover hero (v2 A8/A19): one slide per row pick, art behind a dark fade
+   tinted by the slide's poster accent, a large title, a meta line, Add to
+   Planned and Details, and dots at the bottom right. */
+.ct-discover-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background-color: var(--color-surface-dim);
+}
+
+.ct-discover-hero__track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.ct-discover-hero__track::-webkit-scrollbar {
+  display: none;
+}
+
+.ct-discover-hero__slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: 236px;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.ct-discover-hero__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+.ct-discover-hero__art.is-poster {
+  filter: blur(40px) saturate(1.3);
+  transform: scale(1.4);
+}
+
+.ct-discover-hero__fade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgb(20 16 14 / 92%) 0%, rgb(20 16 14 / 45%) 45%, transparent 75%),
+    linear-gradient(90deg, rgb(20 16 14 / 70%) 0%, rgb(20 16 14 / 25%) 50%, transparent 75%),
+    radial-gradient(90% 120% at 0% 100%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 30%, transparent), transparent 70%);
+}
+
+.ct-discover-hero__body {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.ct-discover-hero__title {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ct-discover-hero__title--logo img {
+  width: auto;
+  max-width: min(320px, 100%);
+  max-height: 96px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.ct-discover-hero__meta {
+  margin-top: 6px;
+  color: rgb(255 255 255 / 82%);
+  font-size: 13px;
+}
+
+.ct-discover-hero__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ct-discover-hero__primary,
+.ct-discover-hero__secondary {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  transition: background-color var(--motion-short, 150ms) var(--motion-ease);
+}
+
+.ct-discover-hero__primary {
+  min-width: 168px;
+  background-color: #fff;
+  color: #14100e;
+}
+
+.ct-discover-hero__primary:hover {
+  background-color: rgb(255 255 255 / 88%);
+}
+
+.ct-discover-hero__secondary {
+  display: none;
+  background-color: rgb(255 255 255 / 18%);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.ct-discover-hero__secondary:hover {
+  background-color: rgb(255 255 255 / 26%);
+}
+
+:is(.ct-discover-hero__title, .ct-discover-hero__primary, .ct-discover-hero__secondary):focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.ct-discover-hero__dots {
+  position: absolute;
+  right: 44px;
+  bottom: 14px;
+  display: none;
+  align-items: center;
+}
+
+.ct-discover-hero__dots > button {
+  display: inline-flex;
+  width: 16px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ct-discover-hero__dots > button::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 40%);
+  content: "";
+  transition:
+    width var(--motion-medium, 250ms) var(--motion-ease),
+    background-color var(--motion-medium, 250ms) var(--motion-ease);
+}
+
+.ct-discover-hero__dots > button[aria-current="true"]::before {
+  width: 22px;
+  background-color: #fff;
+}
+
+@media (min-width: 768px) {
+  .ct-discover-hero__slide {
+    height: 420px;
+  }
+
+  .ct-discover-hero__body {
+    padding: 0 48px 24px;
+  }
+
+  .ct-discover-hero__title {
+    font-size: 48px;
+    letter-spacing: -1.2px;
+  }
+
+  .ct-discover-hero__meta {
+    margin-top: 10px;
+    font-size: 15px;
+  }
+
+  .ct-discover-hero__actions {
+    margin-top: 22px;
+  }
+
+  .ct-discover-hero__primary,
+  .ct-discover-hero__secondary {
+    height: 44px;
+  }
+
+  .ct-discover-hero__primary {
+    min-width: 190px;
+  }
+
+  .ct-discover-hero__secondary {
+    display: inline-flex;
+    min-width: 110px;
+  }
+
+  .ct-discover-hero__dots {
+    display: flex;
+  }
+}
+
+/* Discover rows as poster rails (drag-scrollable via horizontal-scroll.js). */
+.ct-rail-row.media-grid {
+  display: flex !important;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.ct-rail-row.media-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.ct-rail-row.media-grid > * {
+  flex: 0 0 132px;
+  scroll-snap-align: start;
+}
+
+.ct-rail-row.ct-library-grid.media-grid {
+  gap: 12px;
+}
+
+.ct-rail-row.ct-library-grid.media-grid > * {
+  min-width: 0;
+  flex-basis: 112px;
+}
+
+/* The alternate-title info button is hidden on Discover (v2_mockup_gaps.md). */
+.ct-rail-row.ct-library-grid .media-card-title-row > span[x-data] {
+  display: none;
+}
+
+.ct-discover #discover-rows > .space-y-8 {
+  margin-top: 36px;
+}
+
+@media (min-width: 768px) {
+  .ct-rail-row.ct-library-grid.media-grid {
+    gap: 24px;
+  }
+
+  .ct-rail-row.ct-library-grid.media-grid > * {
+    flex-basis: 136px;
+  }
+
+  .ct-discover #discover-rows > .space-y-8 > * + * {
+    margin-top: 44px;
+  }
+}
+
+/* v2 Discover header (A8/A19): the title, a search button on phones (the top
+   bar is hidden on Discover and Search), and the type segment beside the
+   title from md. */
+.ct-discover-head {
+  gap: 16px;
+}
+
+.ct-discover-head .ct-page-head {
+  align-items: center;
+  padding-top: 0;
+}
+
+.ct-discover-search {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ct-discover-search:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.ct-shell-content:has(main:is([data-ct-page="discover"], [data-ct-page="search"])) > .ct-topbar {
+  display: none;
+}
+
+.ct-discover-head .ct-type-switch,
+.ct-search-head .ct-segment {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ct-discover-head .ct-type-switch {
+  align-self: flex-start;
+  flex-wrap: nowrap;
+  margin-inline: 0;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+}
+
+.ct-discover-head .ct-type-pill {
+  height: 32px;
+  padding-inline: 16px;
+  border: 0;
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.ct-discover-head .ct-type-pill[aria-pressed="true"] {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+@media (min-width: 768px) {
+  .ct-discover-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+  }
+
+  .ct-discover-head .ct-type-switch {
+    align-self: center;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ct-discover-search {
+    display: none;
+  }
+}
+
+/* P3: the type segment and the ⋮ button side by side; both pull-downs hang
+   from this wrapper, outside the scrolling segment, right-aligned. */
+.ct-discover-tools {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.ct-discover-tools .ct-type-switch {
+  min-width: 0;
+}
+
+.ct-discover-actions {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ct-discover-actions:hover,
+.ct-discover-actions[aria-expanded="true"] {
+  background-color: var(--color-surface-hover);
+}
+
+.ct-discover-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 260px;
+}
+
+.ct-discover-menu .ct-menu-link {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-discover-menu .ct-menu-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ct-discover-menu-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* P3b Hidden view: back link, title, and one grouped list of rows. */
+.ct-hidden-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+  margin-left: -6px;
+  color: var(--color-accent);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ct-hidden-list {
+  margin-top: 32px;
+  border-radius: var(--ct-radius-lg, 20px);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.ct-hidden-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+}
+
+.ct-hidden-row + .ct-hidden-row {
+  border-top: 1px solid rgb(255 255 255 / 6%);
+}
+
+.ct-hidden-poster {
+  width: 40px;
+  height: 60px;
+  flex: none;
+  border-radius: 6px;
+  background-color: var(--color-surface-hover);
+  object-fit: cover;
+}
+
+.ct-hidden-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-hidden-meta {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-hidden-unhide {
+  flex: none;
+  height: 32px;
+  padding-inline: 24px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ct-hidden-unhide:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.ct-hidden-unhide:disabled {
+  opacity: 0.5;
+}
+
+.ct-hidden-empty {
+  margin-top: 32px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 639px) {
+  .ct-hidden-row {
+    gap: 14px;
+    padding: 12px 14px;
+  }
+
+  .ct-hidden-unhide {
+    padding-inline: 16px;
+  }
+}
+

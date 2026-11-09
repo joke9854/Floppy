@@ -1,0 +1,118 @@
+/* Multi-select dropdown styling (Tom Select). */
+/* Dropdown */
+.select2-container--tailwindcss-4.select2-container--open .select2-dropdown {
+  @apply w-full mt-1 overflow-auto rounded-md text-base bg-[var(--color-surface-strong)] border-gray-600 border focus-within:border-indigo-500 focus-within:ring focus-within:ring-indigo-200/50;
+}
+
+.select2-container--tailwindcss-4 .select2-results__message {
+  @apply text-sm text-gray-400;
+}
+
+/* Hover state */
+.select2-container--tailwindcss-4 .select2-results__option--highlighted {
+  @apply text-white bg-[var(--color-surface-hover)];
+}
+
+/* Multiple selection */
+.select2-container--tailwindcss-4 .select2-selection--multiple {
+  @apply rounded-md text-base sm:text-sm/6 bg-[var(--color-surface-strong)] p-1.5 cursor-default text-white border border-white/10;
+}
+
+/* Multiple selection list */
+.select2-container--tailwindcss-4 .select2-selection--multiple .select2-selection__rendered {
+  @apply flex flex-row flex-wrap gap-1.5 m-0 p-0 list-none;
+}
+
+/* Multiple selection choices */
+.select2-container--tailwindcss-4 .select2-selection--multiple .select2-selection__choice {
+  @apply flex flex-row-reverse items-center gap-1 bg-[var(--color-surface-hover)] text-gray-200 pl-2 pr-1 py-1 rounded-md text-sm border border-indigo-500/20;
+}
+
+/* Remove button */
+.select2-container--tailwindcss-4 .select2-selection--multiple .select2-selection__choice__remove {
+  @apply mr-1 h-4 w-4 pb-[0.10rem] items-center flex justify-center rounded-full hover:bg-red-400/10 hover:text-red-400 cursor-pointer;
+}
+
+/* Search field in multiple selection */
+.select2-container--tailwindcss-4 .select2-selection--multiple .select2-search--inline {
+  @apply inline-flex items-center flex-none my-0.5;
+}
+
+.select2-container--tailwindcss-4 .select2-selection--multiple .select2-search--inline .select2-search__field {
+  @apply w-auto min-w-[6ch] h-[1.5rem] p-0 m-0 text-sm/6 bg-transparent border-0 focus:outline-hidden focus:ring-0 placeholder:text-[var(--color-text-muted)] placeholder:text-sm/6 placeholder:font-sans;
+}
+
+/* Focus styles for keyboard navigation */
+.select2-container--tailwindcss-4.select2-container--focus .select2-selection--multiple {
+  @apply outline-none ring-2 ring-[var(--color-accent)] appearance-none;
+}
+
+#chartjs-tooltip {
+  opacity: 0;
+  position: absolute;
+  background: var(--color-panel);
+  border: 1px solid var(--color-surface-border);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease;
+  min-width: 180px;
+}
+
+#chartjs-pie-tooltip {
+  opacity: 0;
+  position: absolute;
+  background: var(--color-panel);
+  border: 1px solid var(--color-surface-border);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease;
+  min-width: 140px;
+  text-align: center;
+}
+
+#chartjs-pie-tooltip .pie-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#chartjs-pie-tooltip .pie-value {
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+#chartjs-pie-tooltip .pie-percent {
+  font-weight: bold;
+  font-size: 15px;
+  margin-top: 3px;
+}
+
+@media (pointer: fine) {
+  [data-horizontal-drag="true"] {
+    cursor: grab;
+  }
+
+  [data-horizontal-drag="true"].is-horizontal-dragging,
+  [data-horizontal-drag="true"].is-horizontal-dragging * {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
+
+[data-horizontal-drag="true"]:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}
+

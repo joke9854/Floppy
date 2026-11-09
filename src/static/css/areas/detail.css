@@ -1,0 +1,2114 @@
+/* CineTrack detail pages: hero, action bar, status pull-down, episodes, people and the episode page. */
+/* CineTrack detail pages (W3): a blurred backdrop fading into the page, a
+   crisp poster, identity centred on phones and left-aligned from md, one
+   action bar, the series progress card and episode rows. The backdrop sits
+   behind the page content: content children are positioned (no z-index, so
+   no stacking context traps the fixed modals inside them). No ancestor of a
+   modal gets a filter or backdrop-filter, which would contain fixed children. */
+main:has(> .container > .ct-detail-backdrop) {
+  background-image: linear-gradient(
+    180deg,
+    var(--color-page-bg) 0,
+    /* Plain under the backdrop, whose fade ends in the page colour: a short
+       page (the sections still loading) would otherwise show a seam there. */
+    var(--color-page-bg) min(72vh, 640px),
+    color-mix(in srgb, var(--poster-accent, var(--color-accent)) 7%, var(--color-page-bg)) 100%
+  );
+}
+
+main:has(> .container > .ct-detail-backdrop) > .container > :not(.ct-detail-backdrop) {
+  position: relative;
+}
+
+.ct-detail-backdrop {
+  position: absolute;
+  inset: 0 0 auto;
+  height: min(72vh, 640px);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The landscape art stays sharp under a veil: darker on the text side
+   and fading into the page at the bottom. Without one, only the accent glow. */
+.ct-detail-backdrop::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(28 27 34 / 74%) 0%, rgb(28 27 34 / 50%) 55%, rgb(28 27 34 / 32%) 100%),
+    linear-gradient(180deg, rgb(28 27 34 / 18%) 0%, rgb(28 27 34 / 55%) 60%, var(--color-page-bg) 100%),
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--poster-accent, var(--color-accent)) 18%, transparent), transparent 72%);
+  content: "";
+}
+
+.ct-detail-backdrop__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+.ct-detail-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.ct-detail-poster {
+  flex: none;
+  width: 200px;
+  max-width: none;
+  margin-inline: auto;
+}
+
+.ct-detail-poster img {
+  width: 100%;
+  border-radius: var(--ct-radius-md);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 30%), 0 18px 40px rgb(0 0 0 / 45%);
+  object-fit: cover;
+}
+
+.ct-detail-hero:not(.ct-detail-hero--episode) .ct-detail-poster img {
+  aspect-ratio: 2 / 3;
+}
+
+.ct-detail-hero--episode .ct-detail-poster {
+  width: min(100%, 420px);
+}
+
+.ct-detail-hero--episode .ct-detail-poster img {
+  aspect-ratio: 16 / 9;
+}
+
+.ct-detail-identity {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.ct-detail-identity h1 {
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+
+.ct-detail-chips > div {
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .ct-detail-hero {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 40px;
+    padding-top: 72px;
+  }
+
+  .ct-detail-poster {
+    width: 250px;
+    margin-inline: 0;
+  }
+
+  .ct-detail-identity {
+    text-align: start;
+  }
+
+  .ct-detail-chips > div {
+    justify-content: flex-start;
+  }
+}
+
+/* One action bar: the classic rows inside lose their own margins and the
+   track button takes the poster accent. Modal contents are left alone. */
+.ct-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 22px;
+}
+
+.ct-action-bar > a {
+  margin: 0;
+}
+
+/* P1/P7: v2 keeps the status pull-down, "+" (Add to list) and ⋮ in the
+   hero; ⋮ opens the other actions and Fix match, as a dropdown from md and a
+   bottom sheet on phones. The classic theme lays the items out as before. */
+.ct-more-items {
+  display: contents;
+}
+
+.ct-more-toggle,
+.ct-more-backdrop,
+.ct-more-fix-match {
+  display: none;
+}
+
+html.cinetrack .ct-action-bar > .ct-fix-match {
+  display: none;
+}
+
+html.cinetrack .ct-more-row {
+  position: relative;
+  flex: none;
+  width: auto;
+  flex-wrap: nowrap;
+}
+
+html.cinetrack .ct-more-toggle,
+html.cinetrack .ct-more-add > button {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 0.9px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 10%);
+  box-shadow: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+html.cinetrack .ct-more-add {
+  flex: none;
+}
+
+html.cinetrack .ct-more-toggle:hover,
+html.cinetrack .ct-more-add > button:hover,
+html.cinetrack .ct-more-toggle[aria-expanded="true"] {
+  background-color: rgb(255 255 255 / 16%);
+}
+
+html.cinetrack .ct-more-backdrop {
+  position: fixed;
+  z-index: 65;
+  display: block;
+  inset: 0;
+}
+
+html.cinetrack .ct-more-items {
+  display: none;
+}
+
+/* No transform or filter here: the items' own modals are position: fixed. */
+html.cinetrack .ct-more-items.is-open {
+  z-index: 70;
+  display: grid;
+  gap: 2px;
+}
+
+html.cinetrack .ct-more-items.is-open > * {
+  width: 100%;
+  flex: none;
+}
+
+html.cinetrack .ct-more-items.is-open :is(a, button):is([title], [aria-label]):not(.fixed *, [role="menuitem"]) {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+html.cinetrack .ct-more-items.is-open :is(a, button):is([title], [aria-label]):not(.fixed *, [role="menuitem"]):hover {
+  background-color: rgb(255 255 255 / 7%);
+}
+
+html.cinetrack .ct-more-items.is-open > .ct-more-fix-match {
+  order: 1;
+  margin-top: 4px;
+  box-shadow: 0 -1px 0 rgb(255 255 255 / 8%);
+}
+
+html.cinetrack .ct-more-items.is-open :is(a, button)[title]:not(.fixed *)::after {
+  content: attr(title);
+}
+
+html.cinetrack .ct-more-items.is-open :is(a, button)[aria-label]:not([title], .fixed *)::after {
+  content: attr(aria-label);
+}
+
+@media (width >= 768px) {
+  html.cinetrack .ct-more-items.is-open {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    padding: 6px;
+    border: 0.9px solid rgb(255 255 255 / 10%);
+    border-radius: var(--ct-radius-md);
+    background-color: rgb(30 31 38 / 97%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 10px 30px rgb(0 0 0 / 40%);
+  }
+
+  html.cinetrack .ct-more-items.is-open :is(a, button):is([title], [aria-label]):not(.fixed *, [role="menuitem"]) {
+    height: 40px;
+    gap: 12px;
+    padding: 0 12px;
+    border-radius: var(--ct-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+}
+
+@media (width < 768px) {
+  html.cinetrack .ct-action-bar :has(> .ct-more-row) {
+    flex-wrap: nowrap;
+  }
+
+  html.cinetrack .ct-action-bar :has(> .ct-more-row) > :not(.ct-more-row) {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  html.cinetrack .ct-more-backdrop {
+    background-color: rgb(0 0 0 / 50%);
+  }
+
+  html.cinetrack .ct-more-items.is-open {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 12px 12px calc(16px + env(safe-area-inset-bottom));
+    border-top: 0.9px solid rgb(255 255 255 / 10%);
+    border-radius: var(--ct-radius-lg) var(--ct-radius-lg) 0 0;
+    background-color: rgb(23 27 33);
+    box-shadow: 0 -16px 40px rgb(0 0 0 / 45%);
+  }
+}
+
+/* Quick status pull-down (A2/A10) under the detail status button. */
+.ct-status-menu {
+  position: relative;
+}
+
+.ct-status-menu__panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: var(--ct-radius-lg);
+  background-color: rgb(23 27 33 / 92%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+  backdrop-filter: blur(18px);
+}
+
+.ct-status-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-status-menu__item:hover,
+.ct-status-menu__item:focus-visible {
+  background-color: rgb(255 255 255 / 8%);
+}
+
+.ct-status-menu__item[aria-checked="true"] {
+  color: var(--poster-accent, var(--color-accent));
+  font-weight: 600;
+}
+
+.ct-status-menu__divider {
+  height: 1px;
+  margin: 6px 4px;
+  background-color: rgb(255 255 255 / 10%);
+}
+
+.ct-action-bar.order-1,
+.ct-action-bar > .order-1 {
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  border-radius: var(--ct-radius-lg);
+  background-color: rgb(23 27 33 / 62%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%), 0 10px 30px rgb(0 0 0 / 28%);
+}
+
+.ct-action-bar.order-1 {
+  margin: 14px auto 22px;
+}
+
+.ct-action-bar :is(.mt-4, .mt-5, .mb-5, .mb-6):not(.fixed *) {
+  margin-block: 0;
+}
+
+.ct-action-bar .bg-indigo-600:not(.fixed *) {
+  border-color: rgb(0 0 0 / 18%);
+  background-color: var(--poster-accent, var(--color-accent));
+}
+
+.ct-action-bar .bg-gray-600:not(.fixed *) {
+  background-color: rgb(255 255 255 / 12%);
+}
+
+.ct-action-bar :is(.bg-indigo-600, .bg-gray-600):not(.fixed *):hover {
+  filter: brightness(1.08);
+}
+
+.ct-action-bar :is(button, a).bg-\[var\(--color-surface\)\]:not(.fixed *) {
+  border-color: rgb(255 255 255 / 10%);
+  background-color: rgb(255 255 255 / 8%);
+}
+
+@media (min-width: 768px) {
+  .ct-action-bar {
+    justify-content: flex-start;
+  }
+
+  .ct-action-bar.order-1 {
+    margin-inline: 0;
+  }
+}
+
+.ct-detail-media {
+  margin-bottom: 32px;
+}
+
+.ct-detail-media:has(#detail-carousel-wrap:empty) {
+  display: none;
+}
+
+.ct-detail-media__frame {
+  height: clamp(15rem, 42vw, 28rem);
+  max-width: 52rem;
+}
+
+/* Series progress card and season dashes. */
+.ct-series-progress {
+  margin-bottom: 32px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 7.5%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 7px 18px rgb(0 0 0 / 14%);
+}
+
+.ct-series-progress__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ct-series-progress__title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.ct-series-progress__percent {
+  color: var(--poster-accent-text, var(--color-accent));
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ct-series-progress__count {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-series-progress .ct-progress-line {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 12px;
+  border-radius: 999px;
+}
+
+.ct-series-progress .ct-progress-line > span {
+  width: var(--ct-progress);
+  border-radius: inherit;
+}
+
+.ct-season-dashes {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.ct-season-dash {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--ct-progress-track);
+}
+
+.ct-season-dash > span {
+  display: block;
+  height: 100%;
+  background-color: var(--poster-accent, var(--color-accent));
+  opacity: 0.7;
+}
+
+.ct-season-dash.is-done > span {
+  opacity: 1;
+}
+
+/* Episode rows: still, "S2 E5", title, air date or the exact watched time,
+   and the unchanged track button drawn as a check circle. */
+#episodes-batch:has(.ct-ep-row) {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#episodes-batch:has(.ct-ep-row) > * + * {
+  margin-top: 0;
+}
+
+.ct-ep-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 6%);
+}
+
+.ct-ep-still {
+  position: relative;
+  flex: none;
+  width: 128px;
+  overflow: hidden;
+  border-radius: var(--ct-radius-sm);
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-surface);
+}
+
+.ct-ep-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-ep-still img.is-blurred {
+  filter: blur(8px);
+}
+
+.ct-ep-reveal {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+.ct-ep-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-ep-code {
+  color: var(--poster-accent-text, var(--color-text-secondary));
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.ct-ep-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.ct-ep-title:hover {
+  text-decoration: underline;
+}
+
+.ct-ep-airdate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.ct-ep-collected {
+  color: var(--color-link);
+}
+
+.ct-ep-body [id^="episode-history-"] {
+  margin-top: 2px;
+  padding: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Once watched, the exact time on the history line replaces the air date. */
+.ct-ep-body:has([id^="episode-history-"]:not([style*="none"])) .ct-ep-airdate {
+  display: none;
+}
+
+.ct-ep-actions {
+  flex: none;
+  align-self: center;
+}
+
+.ct-ep-actions > div {
+  align-items: center;
+}
+
+/* The check circle: the classic track button, its eye icon swapped for a
+   check, filled with the accent once the episode has a completed watch. */
+.ct-ep-actions [id^="episode-track-button-"] > button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 1.5px solid rgb(255 255 255 / 28%);
+  background-color: transparent;
+  color: var(--color-text);
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button > svg {
+  display: none;
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button::before {
+  width: 20px;
+  height: 20px;
+  background-color: currentcolor;
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: 0.55;
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button:hover {
+  border-color: var(--poster-accent-text, var(--color-accent));
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button.bg-indigo-600 {
+  border-color: transparent;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: #fff;
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button.bg-amber-600 {
+  border-color: var(--ct-status-paused);
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button:is(.bg-indigo-600, .bg-amber-600)::before {
+  opacity: 1;
+}
+
+.ct-ep-actions [id^="episode-track-button-"] > button:active {
+  transform: scale(0.92);
+}
+
+/* Other row actions (lists, history, rating) recede to quiet circles. */
+.ct-ep-actions :is(.bg-emerald-600, .bg-amber-600:not([id^="episode-track-button-"] *)):not(.fixed *) {
+  background-color: rgb(255 255 255 / 8%);
+}
+
+/* Phones: the actions wrap to a second line, check circle last-in-reach. */
+@media (max-width: 639px) {
+  .ct-ep-row {
+    flex-wrap: wrap;
+  }
+
+  .ct-ep-body {
+    flex-basis: calc(100% - 142px);
+  }
+
+  .ct-ep-actions {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 768px) {
+  .ct-ep-still {
+    width: 176px;
+  }
+}
+
+/* CineTrack detail pages, Apple layout v2 (A2/A7/A10): a back control, the
+   poster beside a large title, one meta line, one filled action (the status
+   is a neutral pull-down beside it), the "Watch on" chips and the episode
+   progress. Below, one column of grouped sections. */
+.ct-detail-back {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  margin-top: 8px;
+  border-radius: 999px;
+  color: var(--color-text);
+}
+
+.ct-detail-hero--v2 {
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+
+.ct-detail-hero--v2 .ct-detail-poster {
+  width: 260px;
+}
+
+/* The hero's watch action wears the poster accent until it is watched. */
+.ct-detail-actions .ct-btn-primary.is-watched {
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+/* A fanart.tv title logo in place of the title text, which shows until the
+   logo has loaded. */
+.ct-detail-title--logo img:not(.is-loaded) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+}
+
+.ct-detail-title--logo:has(img.is-loaded) .ct-detail-title__text {
+  display: none;
+}
+
+.ct-detail-title--logo img {
+  width: auto;
+  max-width: min(420px, 100%);
+  max-height: 140px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.ct-detail-hero--v2 .ct-detail-identity {
+  text-align: start;
+}
+
+.ct-detail-title {
+  color: var(--color-text);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.05;
+}
+
+.ct-detail-title a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.ct-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
+
+.ct-detail-meta > span + span::before {
+  margin-inline: 7px;
+  color: var(--color-text-muted);
+  content: "·";
+}
+
+.ct-detail-hero--v2 .ct-detail-chips > div {
+  justify-content: flex-start;
+  margin: 8px 0 0;
+  gap: 4px 14px;
+}
+
+.ct-detail-hero--v2 .ct-detail-chips .rounded-full.border {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.ct-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.ct-detail-actions .ct-action-bar {
+  margin: 0;
+}
+
+.ct-detail-actions .ct-action-bar > a {
+  display: inline-flex;
+  flex: none;
+  height: 40px;
+  align-items: center;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.ct-detail-actions .ct-action-bar .order-1,
+.ct-detail-actions .ct-action-bar.order-1 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  gap: 10px;
+}
+
+.ct-btn-primary {
+  display: inline-flex;
+  height: 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 20px;
+  border-radius: 999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter var(--motion-duration) var(--motion-ease), transform 120ms ease;
+}
+
+.ct-btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.ct-btn-primary:active {
+  transform: scale(0.97);
+}
+
+.ct-btn-primary:disabled {
+  opacity: 0.6;
+}
+
+.ct-btn-kbd {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 6px;
+  background-color: rgb(0 0 0 / 14%);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* The status pull-down: the classic track button as a neutral pill with a
+   status dot and a chevron. Without a primary action (movies) it keeps the
+   fill, so a screen still has exactly one filled action. */
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *) {
+  height: 46px;
+  gap: 10px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *) > svg {
+  display: none;
+}
+
+.ct-detail-actions .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background-color: currentcolor;
+  content: "";
+  opacity: 0.85;
+}
+
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::after,
+.ct-detail-actions .ct-action-bar div:not(.overflow-hidden) > [data-ct-shortcut="track"]:not(.fixed *)::after {
+  width: 16px;
+  height: 16px;
+  background-color: currentcolor;
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *),
+.ct-detail-actions .ct-action-bar .bg-gray-600[data-ct-shortcut="track"]:not(.fixed *) {
+  border: 0.9px solid rgb(255 255 255 / 10%);
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+}
+
+.ct-detail-actions.has-primary .ct-action-bar [data-ct-shortcut="track"]:not(.fixed *)::before {
+  background-color: var(--ct-status-watching);
+  opacity: 1;
+}
+
+.ct-detail-actions:not(.has-primary) .ct-action-bar .bg-indigo-600:not(.fixed *) {
+  color: var(--color-accent-contrast);
+}
+
+.ct-detail-actions .ct-action-bar .overflow-hidden.rounded-xl:not(.fixed *) {
+  height: 46px;
+  border-radius: 999px;
+}
+
+.ct-detail-actions .ct-action-bar .overflow-hidden.rounded-xl:not(.fixed *) > button + button {
+  padding-right: 16px;
+}
+
+.ct-detail-actions .ct-action-bar :is(button, a).bg-\[var\(--color-surface\)\]:not(.fixed *, .ct-action-bar > a) {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+
+.ct-detail-hero--v2 .ct-detail-identity > :is(div, p):has(> p) {
+  max-width: 600px;
+}
+
+.ct-watch-on {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.ct-watch-on__label {
+  margin-right: 4px;
+  white-space: nowrap;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.ct-watch-chip {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 7px;
+  border: 0.9px solid rgb(255 255 255 / 9%);
+  border-radius: 10px;
+  background-color: rgb(255 255 255 / 5%);
+  white-space: nowrap;
+}
+
+.ct-watch-chip img {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+
+.ct-watch-chip__name {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.ct-watch-chip__offer {
+  color: var(--color-text-secondary);
+}
+
+.ct-watch-on__via {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.ct-watch-on__via:hover {
+  color: var(--color-text-secondary);
+}
+
+/* The progress line under the hero: the count, the share and the dashes,
+   with no card around them. */
+main:has(.ct-detail-hero--v2) .ct-series-progress {
+  max-width: 560px;
+  margin-bottom: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+main:has(.ct-detail-hero--v2) .ct-series-progress__head,
+main:has(.ct-detail-hero--v2) .ct-series-progress .ct-progress-line {
+  display: none;
+}
+
+main:has(.ct-detail-hero--v2) .ct-series-progress__count {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+main:has(.ct-detail-hero--v2) .ct-series-progress__count > span {
+  margin-left: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+main:has(.ct-detail-hero--v2) .ct-season-dashes {
+  margin-top: 10px;
+}
+
+/* The selected season's count, under the season pills. */
+main .ct-episode-list > .ct-series-progress {
+  max-width: none;
+  margin: 0;
+  padding: 14px 16px 12px;
+}
+
+main:has(.ct-detail-hero--v2) .ct-season-dash {
+  height: 4px;
+}
+
+/* Sections: one column, the Home row heading, generous spacing. */
+/* Block flow, not flex: the classic per-user section order arrives as inline
+   `order`, and v2 keeps the mockup's order. */
+.ct-detail-sections {
+  display: block;
+  padding-bottom: 48px;
+}
+
+.ct-detail-sections > * + * {
+  margin-top: 48px;
+}
+
+.ct-detail-sections.is-loading > * {
+  display: none;
+}
+
+.ct-style-toggle {
+  height: 28px;
+  padding: 0 12px;
+  border: 0.9px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ct-style-toggle:hover {
+  background-color: rgb(255 255 255 / 6%);
+}
+
+.ct-season-picker {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ct-season-cover {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-season-cover__art {
+  display: block;
+  width: 92px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  background-color: var(--color-surface);
+}
+
+.ct-season-cover__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-season-cover:hover .ct-season-cover__art {
+  border-color: rgb(255 255 255 / 25%);
+}
+
+.ct-season-cover.is-current {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.ct-season-cover.is-current .ct-season-cover__art {
+  border-color: var(--poster-accent-text, var(--color-accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--poster-accent, var(--color-accent)) 25%, transparent);
+}
+
+.ct-season-cover__short {
+  display: none;
+}
+
+.ct-season-picker.is-text {
+  gap: 8px;
+}
+
+.ct-season-picker.is-text .ct-season-cover {
+  height: 38px;
+  justify-content: center;
+  padding: 0 18px;
+  border: 0.9px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.ct-season-picker.is-text .ct-season-cover.is-current {
+  border-color: transparent;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+}
+
+.ct-season-picker.is-text :is(.ct-season-cover__art, .ct-season-cover__label) {
+  display: none;
+}
+
+.ct-season-picker.is-text .ct-season-cover__short {
+  display: inline;
+}
+
+/* Each season pill carries an info button: on the cover's corner, or after
+   the text pill. */
+.ct-season-item {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.ct-season-info-btn {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.ct-season-info-btn:hover {
+  color: var(--color-link);
+}
+
+.ct-season-picker:not(.is-text) .ct-season-info-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background-color: rgb(0 0 0 / 55%);
+  color: #fff;
+}
+
+.ct-season-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 55%);
+}
+
+.ct-season-info-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background-color: rgb(46 46 54);
+}
+
+.ct-season-info-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.ct-season-info-body:empty {
+  height: 240px;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(255 255 255 / 4%);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ct-season-info__head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding-right: 40px;
+}
+
+.ct-season-info__poster {
+  width: 92px;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+.ct-season-info__title {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.ct-season-info .ct-detail-meta {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.ct-season-info__score {
+  margin-top: 8px;
+  color: var(--ct-gold, var(--color-text));
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ct-season-info__source {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ct-season-info__synopsis {
+  margin: 16px 0 20px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .ct-season-info-modal {
+    align-items: center;
+  }
+
+  .ct-season-info-sheet {
+    max-width: 720px;
+    padding: 28px;
+    border-radius: 24px;
+  }
+}
+
+/* Templates that print the stored IMG_NONE placeholder straight into src
+   (lazyload stand-ins, classic cards) show Floppy's own artwork instead.
+   content on <img> works in Chromium and Safari; image_url already does this
+   server-side for the v2 templates. */
+img[src^="data:image/svg+xml;base64,PHN2ZyBpZD0iZ2x5cGhpY29ucy1iYXNpYyIg"] {
+  content: url("../img/ct-placeholder.svg");
+  object-fit: cover;
+}
+
+/* P9 person page: your numbers, the clamped biography, the watched badge on
+   credit posters and the filmography as one grouped list like the episodes. */
+.ct-person-stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: var(--color-link);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ct-person-stats > span + span::before {
+  margin-inline: 7px;
+  color: var(--color-text-muted);
+  content: "·";
+}
+
+.ct-person-bio {
+  max-width: 640px;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.ct-person-bio p.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.ct-person-bio .ct-row-link {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.ct-credit-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+.ct-filmography__sort {
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.ct-filmography__list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+
+.ct-filmography__list.is-oldest {
+  flex-direction: column-reverse;
+}
+
+/* The first 20 credits until "All N credits"; a type tab shows all of its own. */
+.ct-filmography__list:not(.is-all, .is-oldest)[data-type="all"] > .ct-credit:nth-child(n + 21),
+.ct-filmography__list.is-oldest:not(.is-all)[data-type="all"] > .ct-credit:nth-last-child(n + 21),
+.ct-filmography__list[data-type="movie"] > .ct-credit:not([data-type="movie"]),
+.ct-filmography__list[data-type="tv"] > .ct-credit:not([data-type="tv"]) {
+  display: none;
+}
+
+.ct-filmography__list:not([data-type="all"]) + .ct-filmography__more {
+  display: none;
+}
+
+.ct-credit + .ct-credit {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-credit__link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 16px;
+}
+
+.ct-credit__link:hover {
+  background-color: rgb(255 255 255 / 3%);
+}
+
+.ct-credit__thumb {
+  flex: none;
+  width: 40px;
+  height: 60px;
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  object-fit: cover;
+}
+
+.ct-credit__year {
+  flex: none;
+  width: 40px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-credit__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-credit__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-credit__role {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-credit__check {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1.5px solid rgb(255 255 255 / 28%);
+  border-radius: 999px;
+}
+
+.ct-credit__check.is-watched {
+  border-color: transparent;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+.ct-filmography__more {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+/* P8 Trailers row, its player and the hero's Trailer button. */
+.ct-trailers:empty {
+  display: none;
+}
+
+.ct-trailer-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 260px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-trailer-card__still {
+  position: relative;
+  display: grid;
+  margin-bottom: 8px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 12px;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-surface);
+}
+
+.ct-trailer-card__still img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-trailer-card__play {
+  position: relative;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 55%);
+  color: #fff;
+}
+
+.ct-trailer-card:hover .ct-trailer-card__play {
+  background-color: rgb(0 0 0 / 75%);
+}
+
+.ct-trailer-card__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-trailer-card__sub {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.ct-trailer-player {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  padding: 16px;
+  place-items: center;
+  background-color: rgb(0 0 0 / 80%);
+}
+
+.ct-trailer-player__frame {
+  position: relative;
+  width: min(100%, 1100px);
+  aspect-ratio: 16 / 9;
+}
+
+.ct-trailer-player__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+}
+
+.ct-trailer-player__close {
+  position: absolute;
+  top: -44px;
+  right: 0;
+}
+
+.ct-trailer-btn {
+  display: inline-flex;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 10%);
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ct-trailer-btn:hover {
+  background-color: rgb(255 255 255 / 16%);
+}
+
+/* The episode list: one grouped surface with hairlines between rows. */
+.ct-episode-list {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+
+.ct-episode-list #episodes-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ct-episode-list .ct-ep-row {
+  flex-wrap: wrap;
+  gap: 0 16px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.ct-episode-list .ct-ep-row + .ct-ep-row {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-episode-list .ct-ep-row.is-next {
+  background-color: rgb(255 255 255 / 4%);
+}
+
+.ct-ep-skeleton {
+  height: 88px;
+  background-color: rgb(255 255 255 / 3%);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ct-ep-skeleton + .ct-ep-skeleton {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-ep-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ct-ep-number {
+  flex: none;
+  min-width: 14px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-episode-list .ct-ep-body :is(.ct-ep-airdate, [id^="episode-history-"]) {
+  padding-left: 26px;
+}
+
+.ct-ep-next {
+  color: var(--color-link);
+}
+
+.ct-ep-row:not(.is-next) .ct-ep-next,
+.ct-ep-row.is-next .ct-ep-date {
+  display: none;
+}
+
+.ct-ep-info {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  align-self: center;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.ct-ep-info:hover,
+.ct-ep-info.is-open {
+  color: var(--color-link);
+}
+
+/* Its own line under the row. A max-width would clamp the flex basis and let
+   it sit beside the row on wide screens, so the measure comes from padding. */
+.ct-ep-overview {
+  flex: 0 0 100%;
+  padding: 12px max(0px, calc(100% - 914px)) 4px 154px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ct-episode-list .ct-ep-still {
+  width: 112px;
+  border-radius: 8px;
+}
+
+.ct-episode-list .ct-ep-reveal {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(255 255 255 / 85%);
+}
+
+/* v2 rows keep only the check: lists, history and the rating stay on the
+   episode page. */
+.ct-episode-list .ct-ep-actions > div > :not(:first-child) {
+  display: none;
+}
+
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button {
+  width: 44px;
+  height: 44px;
+  border-color: rgb(255 255 255 / 24%);
+}
+
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button::before {
+  opacity: 0;
+}
+
+.ct-episode-list .ct-ep-actions [id^="episode-track-button-"] > button.bg-indigo-600 {
+  background-color: var(--ct-status-completed);
+}
+
+.ct-episode-list .ct-ep-row.is-next [id^="episode-track-button-"] > button {
+  border-color: var(--poster-accent-text, var(--color-accent));
+  color: var(--poster-accent-text, var(--color-accent));
+}
+
+.ct-episode-list .ct-ep-row:is(.is-next, :hover) [id^="episode-track-button-"] > button::before,
+.ct-episode-list [id^="episode-track-button-"] > button.bg-indigo-600::before {
+  opacity: 1;
+}
+
+/* Rails: posters and people in one scrolling line. */
+.ct-detail-rail {
+  display: flex;
+  gap: 18px;
+  margin-inline: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.ct-detail-rail > * {
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.ct-detail-rail > .ct-poster-card {
+  width: 140px;
+}
+
+.ct-title-toggle {
+  gap: 24px;
+}
+
+.ct-title-toggle button.ct-row-title {
+  cursor: pointer;
+}
+
+.ct-title-toggle button.ct-row-title.is-off {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.ct-title-toggle button.ct-row-title.is-off:hover {
+  color: var(--color-text-secondary);
+}
+
+.ct-person-card {
+  width: 132px;
+}
+
+.ct-person-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.ct-person-frame {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 12px;
+  aspect-ratio: 2 / 3;
+  background:
+    radial-gradient(circle at 50% 34%, rgb(255 255 255 / 10%) 0 17%, transparent 18%),
+    radial-gradient(circle at 50% 86%, rgb(255 255 255 / 10%) 0 33%, transparent 34%),
+    var(--color-surface);
+}
+
+.ct-person-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+a.ct-person-link:hover .ct-person-primary {
+  text-decoration: underline;
+}
+
+.ct-person-primary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ct-person-secondary {
+  display: -webkit-box;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.ct-plays {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+  background-color: rgb(180 195 210 / 5%);
+}
+
+.ct-play {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.ct-play + .ct-play {
+  box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-play__icon {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-watching);
+  color: #fff;
+}
+
+.ct-play__icon.is-done {
+  background-color: var(--ct-status-completed);
+}
+
+.ct-play__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-play__title {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ct-play__sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px 32px;
+}
+
+.ct-info-grid dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-info-grid dd {
+  margin-top: 2px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .ct-detail-back {
+    margin-top: 24px;
+  }
+
+  .ct-detail-hero--v2 {
+    gap: 40px;
+    padding-top: 40px;
+  }
+
+  .ct-detail-title {
+    font-size: 60px;
+    letter-spacing: -1.6px;
+  }
+
+  .ct-detail-sections > * + * {
+    margin-top: 56px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ct-info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Phones (A7): the backdrop carries the top, the title sits low over it,
+   the primary action spans the width and the status shares a row with the
+   round buttons. */
+@media (max-width: 767px) {
+  .ct-detail-hero--v2 {
+    gap: 0;
+    padding-top: 200px;
+  }
+
+  .ct-detail-hero--v2 .ct-detail-poster {
+    display: none;
+  }
+
+  .ct-detail-hero--v2 .ct-detail-meta {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+
+  .ct-detail-actions {
+    margin: 16px 0;
+  }
+
+  .ct-detail-primary,
+  .ct-btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ct-btn-kbd {
+    display: none;
+  }
+
+  .ct-detail-actions .ct-action-bar {
+    width: 100%;
+  }
+
+  .ct-watch-on {
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ct-episode-list .ct-ep-row {
+    flex-wrap: wrap;
+    gap: 0 12px;
+    padding: 12px;
+  }
+
+  .ct-episode-list .ct-ep-still {
+    width: 80px;
+  }
+
+  .ct-episode-list .ct-ep-body {
+    flex: 1 1 0;
+  }
+
+  .ct-episode-list .ct-ep-actions {
+    display: block;
+    width: auto;
+  }
+
+  .ct-episode-list .ct-ep-body :is(.ct-ep-airdate, [id^="episode-history-"]) {
+    padding-left: 0;
+  }
+
+  .ct-ep-heading {
+    gap: 6px;
+  }
+
+  .ct-ep-overview {
+    padding-left: 0;
+  }
+
+  .ct-person-card {
+    width: 104px;
+  }
+
+  .ct-detail-rail > .ct-poster-card {
+    width: 112px;
+  }
+}
+
+/* Episode page (A11): breadcrumb, the 16:9 still beside the episode title,
+   the hero check as the one filled action, and the season strip. */
+.ct-detail-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.ct-detail-crumbs .ct-detail-back {
+  margin: 0 4px 0 0;
+}
+
+.ct-detail-crumbs a:not(.ct-detail-back):hover {
+  color: var(--color-text);
+}
+
+.ct-detail-hero--episode {
+  padding-top: 28px;
+}
+
+.ct-detail-hero--episode .ct-detail-poster {
+  position: relative;
+}
+
+.ct-detail-hero--episode .ct-detail-poster img.is-blurred {
+  filter: blur(22px) saturate(1.2);
+}
+
+.ct-detail-hero--episode .ct-detail-poster:has(img.is-blurred) {
+  overflow: hidden;
+  border-radius: var(--ct-radius-md);
+}
+
+.ct-spoiler {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ct-spoiler-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.ct-spoiler__reveal {
+  height: 36px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 16%);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ct-spoiler__reveal:hover {
+  background-color: rgb(255 255 255 / 24%);
+}
+
+.ct-detail-hero--episode .ct-detail-title {
+  font-size: 40px;
+  letter-spacing: -1px;
+}
+
+.ct-detail-hero--episode .ct-detail-meta {
+  margin-top: 8px;
+}
+
+.ct-detail-hero--episode .ct-action-bar.order-1 {
+  margin: 20px 0 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.ct-detail-hero--episode .ct-action-bar [id^="episode-track-button-"] > button:not(.fixed *) {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background-color: var(--poster-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+  font-weight: 700;
+}
+
+.ct-detail-hero--episode .ct-action-bar :is(button, a).bg-\[var\(--color-surface\)\]:not(.fixed *) {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+
+.ct-rail-arrows {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ct-rail-arrows > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ct-ep-card {
+  display: flex;
+  width: 204px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ct-ep-card__still {
+  position: relative;
+  display: block;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-surface);
+}
+
+.ct-ep-card__still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-ep-card__still img.is-blurred {
+  filter: blur(10px);
+  transform: scale(1.1);
+}
+
+.ct-ep-card.is-current .ct-ep-card__still {
+  border-color: var(--poster-accent-text, var(--color-accent));
+}
+
+.ct-ep-card__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background-color: var(--ct-status-completed);
+  color: #fff;
+}
+
+.ct-ep-card__hidden {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 85%);
+}
+
+.ct-ep-card__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-ep-card.is-current .ct-ep-card__title {
+  color: var(--color-link);
+}
+
+.ct-ep-card__sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ct-info-grid dd a:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  .ct-detail-hero--episode .ct-detail-poster {
+    width: min(48%, 600px);
+  }
+}
+
