@@ -92,7 +92,6 @@ from users.models import (
     GameLoggingStyleChoices,
     ImportFrequencyChoices,
     ImportModeChoices,
-    LogoStyleChoices,
     MediaCardSubtitleDisplayChoices,
     MobileGridLayoutChoices,
     PlannedHomeDisplayChoices,
@@ -1042,7 +1041,6 @@ def preferences(request):
         selected_media_types = request.POST.getlist("media_types_checkboxes")
         date_format = request.POST.get("date_format")
         ui_language = request.POST.get("ui_language")
-        logo_style = request.POST.get("logo_style")
         time_format = request.POST.get("time_format")
         activity_history_view = request.POST.get("activity_history_view")
         game_logging_style = request.POST.get("game_logging_style")
@@ -1103,14 +1101,6 @@ def preferences(request):
         ):
             request.user.date_format = date_format
             fields_to_update.append("date_format")
-
-        if (
-            logo_style
-            and logo_style in LogoStyleChoices.values
-            and request.user.logo_style != logo_style
-        ):
-            request.user.logo_style = logo_style
-            fields_to_update.append("logo_style")
 
         if (
             ui_language

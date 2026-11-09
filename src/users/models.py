@@ -216,16 +216,6 @@ class UiLanguageChoices(models.TextChoices):
     ES = "es", "Español"
 
 
-class LogoStyleChoices(models.TextChoices):
-    """Choices for the Floppy logo style preference."""
-
-    COLORFUL = "colorful", _("Original color")
-    MONOCHROME = "monochrome", _("Monochrome")
-    TEXT = "text", _("Text")
-    CUSTOM = "custom", _("Custom image")
-    HIDDEN = "hidden", _("Hidden")
-
-
 class LogoTextFontChoices(models.TextChoices):
     """Safe local font stacks available to text wordmarks."""
 
@@ -1130,13 +1120,6 @@ class User(AbstractUser):
         default=UiLanguageChoices.AUTO,
         choices=UiLanguageChoices.choices,
         help_text="Preferred UI display language",
-    )
-
-    logo_style = models.CharField(
-        max_length=12,
-        default=LogoStyleChoices.COLORFUL,
-        choices=LogoStyleChoices.choices,
-        help_text="Preferred Floppy logo style",
     )
 
     logo_text = models.CharField(

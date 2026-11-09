@@ -24,26 +24,6 @@ class PreferencesViewTests(TestCase):
         self.assertEqual(self.user.date_format, "m_d_yyyy")
         self.assertEqual(self.user.time_format, "hh_mm")
 
-    def test_preferences_post_persists_logo_style(self):
-        """POSTing a supported logo style should persist to the DB."""
-        response = self.client.post(
-            reverse("preferences"),
-            {"logo_style": "monochrome"},
-        )
-        self.assertRedirects(response, reverse("preferences"))
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.logo_style, "monochrome")
-
-    def test_preferences_post_rejects_invalid_logo_style(self):
-        """POSTing an invalid logo style should be ignored."""
-        response = self.client.post(
-            reverse("preferences"),
-            {"logo_style": "neon"},
-        )
-        self.assertRedirects(response, reverse("preferences"))
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.logo_style, "colorful")
-
     def test_preferences_post_ignores_theme(self):
         """Theme is no longer a preference: CineTrack is the only theme."""
         response = self.client.post(reverse("preferences"), {"theme": "light"})
@@ -55,8 +35,6 @@ class PreferencesViewTests(TestCase):
         """The display cards expose the simplified labels."""
         response = self.client.get(reverse("preferences"))
 
-        self.assertContains(response, 'name="logo_style"')
-        self.assertContains(response, "Colorful")
         self.assertContains(response, "System default — Aug 12, 2025 / 12 Aug 2025")
         self.assertContains(response, "System default — 6:45 PM / 18:45")
         self.assertNotContains(response, "System default (locale)")
