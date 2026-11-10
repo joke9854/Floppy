@@ -202,6 +202,106 @@ def _filter_queryset_by_item_json_array_ci(
     return queryset.filter(item_id__in=matching_item_ids)
 
 
+def released_episode_breakdowns(media_keys, current_datetime, tracked_seasons=None):
+    """Return {(media_id, source): {season_number: released episodes}} for shows.
+
+    The one local source of released TV episodes, shared by the progress
+    annotation and Home's In Progress row. A season counts up to its furthest
+    released episode, from episode Items with a release date (season > 0) and
+    from season Events with a content_number, in one batched pass for every
+    key. A season the user does not track counts from its first episode, so
+    absolute-numbered seasons (One Piece S11 is E382-E407) gain no phantom
+    episodes. ``tracked_seasons`` maps a key to the season numbers it tracks.
+    """
+    media_keys = set(media_keys)
+    if not media_keys:
+        return {}
+    tracked_seasons = tracked_seasons or {}
+    media_ids = {media_id for media_id, _ in media_keys}
+    media_sources = {source for _, source in media_keys}
+
+    released_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
+
+    episode_rows = (
+        Item.objects.filter(
+            media_type=MediaTypes.EPISODE.value,
+            media_id__in=media_ids,
+            source__in=media_sources,
+            release_datetime__isnull=False,
+            release_datetime__lte=current_datetime,
+            season_number__gt=0,
+        )
+        .values("media_id", "source", "season_number")
+        .annotate(max_episode=models.Max("episode_number"))
+    )
+
+    for row in episode_rows:
+        key = (row["media_id"], row["source"])
+        season_number = row["season_number"]
+        max_episode = row["max_episode"] or 0
+        released_by_show[key][season_number] = max(
+            released_by_show[key].get(season_number, 0),
+            max_episode,
+        )
+
+    released_events = (
+        events.models.Event.objects.filter(
+            item__media_id__in=media_ids,
+            item__source__in=media_sources,
+            item__media_type=MediaTypes.SEASON.value,
+            item__season_number__gt=0,
+            datetime__lte=current_datetime,
+            content_number__isnull=False,
+        )
+        .exclude(datetime__year__lt=1900)
+        .values(
+            "item__media_id",
+            "item__source",
+            "item__season_number",
+        )
+        .annotate(max_episode=models.Max("content_number"))
+    )
+
+    for row in released_events:
+        key = (row["item__media_id"], row["item__source"])
+        season_number = row["item__season_number"]
+        max_episode = row["max_episode"] or 0
+        released_by_show[key][season_number] = max(
+            released_by_show[key].get(season_number, 0),
+            max_episode,
+        )
+
+    first_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
+    first_events = (
+        events.models.Event.objects.filter(
+            item__media_id__in=media_ids,
+            item__source__in=media_sources,
+            item__media_type=MediaTypes.SEASON.value,
+            item__season_number__gt=0,
+            content_number__gt=0,
+        )
+        .values("item__media_id", "item__source", "item__season_number")
+        .annotate(first_episode=models.Min("content_number"))
+    )
+    for row in first_events:
+        key = (row["item__media_id"], row["item__source"])
+        first_by_show[key][row["item__season_number"]] = row["first_episode"]
+
+    breakdowns = {}
+    for key in media_keys:
+        firsts = first_by_show.get(key, {})
+        tracked = tracked_seasons.get(key, set())
+        breakdowns[key] = {
+            season_num: (
+                count
+                if season_num in tracked
+                else max(0, count - firsts.get(season_num, 1) + 1)
+            )
+            for season_num, count in released_by_show.get(key, {}).items()
+        }
+    return breakdowns
+
+
 class MediaManager(models.Manager):
     """Custom manager for media models."""
 
@@ -1727,98 +1827,22 @@ class MediaManager(models.Manager):
         if not tv_list:
             return
 
-        media_keys = {(tv.item.media_id, tv.item.source) for tv in tv_list}
-        media_ids = {media_id for media_id, _ in media_keys}
-        media_sources = {source for _, source in media_keys}
-
-        released_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
-
-        episode_rows = (
-            Item.objects.filter(
-                media_type=MediaTypes.EPISODE.value,
-                media_id__in=media_ids,
-                source__in=media_sources,
-                release_datetime__isnull=False,
-                release_datetime__lte=current_datetime,
-                season_number__gt=0,
-            )
-            .values("media_id", "source", "season_number")
-            .annotate(max_episode=models.Max("episode_number"))
-        )
-
-        for row in episode_rows:
-            key = (row["media_id"], row["source"])
-            season_number = row["season_number"]
-            max_episode = row["max_episode"] or 0
-            released_by_show[key][season_number] = max(
-                released_by_show[key].get(season_number, 0),
-                max_episode,
-            )
-
-        released_events = (
-            events.models.Event.objects.filter(
-                item__media_id__in=media_ids,
-                item__source__in=media_sources,
-                item__media_type=MediaTypes.SEASON.value,
-                item__season_number__gt=0,
-                datetime__lte=current_datetime,
-                content_number__isnull=False,
-            )
-            .exclude(datetime__year__lt=1900)
-            .values(
-                "item__media_id",
-                "item__source",
-                "item__season_number",
-            )
-            .annotate(max_episode=models.Max("content_number"))
-        )
-
-        for row in released_events:
-            key = (row["item__media_id"], row["item__source"])
-            season_number = row["item__season_number"]
-            max_episode = row["max_episode"] or 0
-            released_by_show[key][season_number] = max(
-                released_by_show[key].get(season_number, 0),
-                max_episode,
-            )
-
-        # Absolute-numbered seasons (One Piece S11 is E382-E407) start past 1. A
-        # tracked season's progress is its furthest episode number, so its own
-        # highest number stays comparable; a season with no row yet counts its
-        # episodes from its first one, or it adds hundreds of phantom episodes.
-        first_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
-        first_events = (
-            events.models.Event.objects.filter(
-                item__media_id__in=media_ids,
-                item__source__in=media_sources,
-                item__media_type=MediaTypes.SEASON.value,
-                item__season_number__gt=0,
-                content_number__gt=0,
-            )
-            .values("item__media_id", "item__source", "item__season_number")
-            .annotate(first_episode=models.Min("content_number"))
-        )
-        for row in first_events:
-            key = (row["item__media_id"], row["item__source"])
-            first_by_show[key][row["item__season_number"]] = row["first_episode"]
-
+        tracked_seasons = {}
         for tv in tv_list:
-            key = (tv.item.media_id, tv.item.source)
-            breakdown = released_by_show.get(key, {})
-            tracked_season_numbers = (
+            tracked_seasons[(tv.item.media_id, tv.item.source)] = (
                 {season.item.season_number for season in tv.seasons.all()}
                 if tv.pk is not None
                 else set()
             )
-            firsts = first_by_show.get(key, {})
-            breakdown = {
-                season_num: (
-                    count
-                    if season_num in tracked_season_numbers
-                    else max(0, count - firsts.get(season_num, 1) + 1)
-                )
-                for season_num, count in breakdown.items()
-            }
+        breakdowns = released_episode_breakdowns(
+            tracked_seasons.keys(),
+            current_datetime,
+            tracked_seasons,
+        )
+
+        for tv in tv_list:
+            key = (tv.item.media_id, tv.item.source)
+            breakdown = breakdowns.get(key, {})
             tv.released_episode_breakdown = breakdown
             if breakdown:
                 dropped_season_numbers = (

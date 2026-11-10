@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from django.apps import apps
 from django.core.cache import cache
-from django.db.models import Count
+from django.db.models import Count, Max
 from django.urls import reverse
 from django.utils import timezone
 
@@ -23,27 +23,35 @@ from app.cache_utils import (
     register_home_row_cache_key,
 )
 from app.models import (
+    TV,
+    Anime,
     BasicMedia,
     Episode,
     Item,
     MediaTypes,
     Movie,
+    PlaybackProgress,
     Season,
     Sources,
     Status,
 )
+from app.models.manager import released_episode_breakdowns
 from app.services.item_merge import dedupe_cross_provider_items
 from app.templatetags.app_tags import slug
 from events.models import Event
 from events.notifications import annotate_finale_events
-from lists import smart_rules
 
-IN_PROGRESS_MEDIA_TYPES = (
-    MediaTypes.TV.value,
-    MediaTypes.ANIME.value,
-    MediaTypes.MOVIE.value,
+IN_PROGRESS_SHOW_STATUSES = (
+    Status.IN_PROGRESS.value,
+    Status.PLANNING.value,
+    Status.COMPLETED.value,
 )
-IN_PROGRESS_LIMIT = 30
+IN_PROGRESS_MOVIE_STATUSES = (Status.IN_PROGRESS.value, Status.PLANNING.value)
+IN_PROGRESS_LIMIT = 20
+# A movie resumes after the first two minutes and before its last 5%: earlier is
+# a false start, later is as good as finished.
+MOVIE_RESUME_MIN_SECONDS = 120
+MOVIE_RESUME_MAX_FRACTION = 0.95
 AIRING_LIMIT = 6
 COMING_SOON_DAYS = 90
 COMING_SOON_LIMIT = 12
@@ -64,6 +72,8 @@ class HomeRowEntry:
     podcast_show: object | None = None
     show_progress_controls: bool = True
     subtitle_override: object | None = None
+    # Movies in In Progress: the resume position as a percentage of the runtime.
+    resume_percent: int | None = None
 
 
 @dataclass
@@ -167,53 +177,188 @@ def _coming_soon(user, today: date) -> list[AiringEntry]:
 
 
 def _in_progress(user) -> list[HomeRowEntry]:
-    """In-progress TV, anime and movies, latest activity first.
+    """Return the In Progress row: shows and movies with real progress, latest first.
 
-    Uses the status rule the In Progress library rows used. Narrowing this to
-    real progress is the next step of the Home redesign.
+    A show needs a watched episode and a released episode still unwatched, or
+    a part-watched episode. A Planning show qualifies only through a
+    part-watched episode; a Completed show only through a newer released
+    episode. A flat anime (tracked by count, no episodes) needs progress above
+    zero and below its released episodes; Planning never qualifies. A movie
+    needs a resume position between MOVIE_RESUME_MIN_SECONDS and
+    MOVIE_RESUME_MAX_FRACTION of its runtime. Paused and Dropped titles never
+    show. Reads local data only: no provider calls.
     """
-    rules = smart_rules.normalize_rule_payload(
-        {
-            "media_types": list(IN_PROGRESS_MEDIA_TYPES),
-            "status": [Status.IN_PROGRESS.value],
-        },
-        user,
+    now = timezone.now()
+    earliest = datetime.min.replace(tzinfo=UTC)
+
+    # Keys are (media_id, source), the order released_episode_breakdowns uses.
+    shows: dict[tuple[str, str], tuple[int, str]] = {}
+    for model in (TV, Anime):
+        for item_id, media_id, source, status in model.objects.filter(
+            user=user,
+            status__in=IN_PROGRESS_SHOW_STATUSES,
+            item__media_type=MediaTypes.TV.value,
+        ).values_list("item_id", "item__media_id", "item__source", "status"):
+            shows[(media_id, source)] = (item_id, status)
+    media_ids = {media_id for media_id, _source in shows}
+
+    watched: dict[tuple[str, str], dict[int, set[int]]] = defaultdict(
+        lambda: defaultdict(set)
     )
-    item_ids = smart_rules.collect_matching_item_ids(user, rules)
-    if not item_ids:
+    activity: dict[tuple[str, str], datetime] = {}
+    part_watched: dict[tuple[str, str], datetime] = {}
+    released: dict[tuple[str, str], dict[int, int]] = {}
+    if shows:
+        episode_rows = (
+            Episode.objects.filter(
+                related_season__user=user,
+                related_season__item__media_id__in=media_ids,
+                item__episode_number__isnull=False,
+            )
+            .exclude(related_season__item__season_number=0)
+            .order_by()
+            .values(
+                "related_season__item__media_id",
+                "related_season__item__source",
+                "related_season__item__season_number",
+                "item__episode_number",
+            )
+            .annotate(last_end=Max("end_date"))
+        )
+        for row in episode_rows:
+            key = (
+                row["related_season__item__media_id"],
+                row["related_season__item__source"],
+            )
+            watched[key][row["related_season__item__season_number"]].add(
+                row["item__episode_number"]
+            )
+            if row["last_end"] is not None:
+                activity[key] = max(activity.get(key, earliest), row["last_end"])
+
+        tracked: dict[tuple[str, str], set[int]] = defaultdict(set)
+        for media_id, source, season_number in (
+            Season.objects.filter(user=user, item__media_id__in=media_ids)
+            .order_by()
+            .values_list("item__media_id", "item__source", "item__season_number")
+        ):
+            tracked[(media_id, source)].add(season_number)
+        released = released_episode_breakdowns(shows, now, tracked)
+
+        part_rows = (
+            PlaybackProgress.objects.filter(
+                user=user,
+                completed=False,
+                position_seconds__gt=0,
+                item__media_type=MediaTypes.EPISODE.value,
+                item__media_id__in=media_ids,
+            )
+            .order_by()
+            .values_list("item__media_id", "item__source", "updated_at")
+        )
+        for media_id, source, updated_at in part_rows:
+            key = (media_id, source)
+            part_watched[key] = max(part_watched.get(key, updated_at), updated_at)
+
+    candidates: dict[int, datetime] = {}
+    for key, (item_id, status) in shows.items():
+        played = watched.get(key, {})
+        # Released episodes with no watch yet, season by season; episodes count from 1.
+        unwatched = sum(
+            count - sum(1 for number in played.get(season, ()) if number <= count)
+            for season, count in released.get(key, {}).items()
+        )
+        partial = key in part_watched
+        if status == Status.PLANNING.value:
+            qualifies = partial
+        elif status == Status.COMPLETED.value:
+            qualifies = unwatched > 0
+        else:
+            qualifies = partial or (bool(played) and unwatched > 0)
+        if qualifies:
+            candidates[item_id] = max(
+                (
+                    stamp
+                    for stamp in (activity.get(key), part_watched.get(key))
+                    if stamp
+                ),
+                default=earliest,
+            )
+
+    flat_anime = list(
+        Anime.objects.filter(
+            user=user,
+            status__in=(Status.IN_PROGRESS.value, Status.COMPLETED.value),
+            item__media_type=MediaTypes.ANIME.value,
+            progress__gt=0,
+        ).select_related("item")
+    )
+    if flat_anime:
+        # The events-derived released count; no provider call on Home.
+        BasicMedia.objects.annotate_max_progress(
+            flat_anime, MediaTypes.ANIME.value, cached_only=True
+        )
+        for record in flat_anime:
+            if record.max_progress and record.progress < record.max_progress:
+                candidates[record.item_id] = earliest
+
+    resume: dict[int, tuple[int, int | None]] = {}
+    resume_at: dict[int, datetime] = {}
+    for item_id, position, duration, updated_at in (
+        PlaybackProgress.objects.filter(
+            user=user,
+            completed=False,
+            position_seconds__gte=MOVIE_RESUME_MIN_SECONDS,
+            item__media_type=MediaTypes.MOVIE.value,
+        )
+        .order_by()
+        .values_list("item_id", "position_seconds", "duration_seconds", "updated_at")
+    ):
+        if duration and position > duration * MOVIE_RESUME_MAX_FRACTION:
+            continue
+        resume[item_id] = (position, duration)
+        resume_at[item_id] = updated_at
+    if resume:
+        movie_item_ids = set(
+            Movie.objects.filter(
+                user=user,
+                item_id__in=list(resume),
+                status__in=IN_PROGRESS_MOVIE_STATUSES,
+            ).values_list("item_id", flat=True)
+        )
+        resume = {
+            item_id: value
+            for item_id, value in resume.items()
+            if item_id in movie_item_ids
+        }
+        candidates.update({item_id: resume_at[item_id] for item_id in resume})
+
+    if not candidates:
         return []
     items = dedupe_cross_provider_items(
-        list(Item.objects.filter(id__in=item_ids)),
+        list(Item.objects.filter(id__in=candidates)),
         getattr(user, "tv_metadata_source_default", Sources.TMDB.value),
     )
-    media_lookup = _media_lookup_for_items(
-        user,
-        items,
-        status_filter=[Status.IN_PROGRESS.value],
-    )
-    entries = [
-        HomeRowEntry(item=item, media=media_lookup[item.id])
-        for item in items
-        if item.id in media_lookup
-    ]
-    entries.sort(key=_last_activity_timestamp, reverse=True)
-    return entries[:IN_PROGRESS_LIMIT]
-
-
-def _last_activity_timestamp(entry: HomeRowEntry) -> float:
-    """Latest play or progress time of an entry; 0 when it has none."""
-    media = entry.media
-    progress = getattr(media, "progress", 0) or 0
-    candidate = (
-        getattr(media, "last_played_at", None)
-        or getattr(media, "progressed_at", None)
-        or (getattr(media, "created_at", None) if progress > 0 else None)
-    )
-    if not isinstance(candidate, datetime):
-        return 0.0
-    if timezone.is_naive(candidate):
-        candidate = candidate.replace(tzinfo=UTC)
-    return candidate.timestamp()
+    media_lookup = _media_lookup_for_items(user, items)
+    ranked = []
+    for item in items:
+        media = media_lookup.get(item.id)
+        if media is None:
+            continue
+        resume_percent = None
+        if item.media_type == MediaTypes.MOVIE.value:
+            position, duration = resume[item.id]
+            resume_percent = min(100, round(100 * position / duration)) if duration else 0
+        stamps = (candidates[item.id], getattr(media, "progressed_at", None))
+        last_activity = max((stamp for stamp in stamps if stamp), default=earliest)
+        ranked.append(
+            (
+                last_activity,
+                HomeRowEntry(item=item, media=media, resume_percent=resume_percent),
+            )
+        )
+    ranked.sort(key=lambda pair: pair[0], reverse=True)
+    return [entry for _last_activity, entry in ranked[:IN_PROGRESS_LIMIT]]
 
 
 def _media_lookup_for_items(
@@ -353,7 +498,8 @@ def _catch_up(user, now: datetime) -> tuple[int, int]:
             user=user,
             status=Status.IN_PROGRESS.value,
         )
-        .exclude(related_tv__status=Status.DROPPED.value)
+        # Same exclusions as the In Progress row, so the header and the row agree.
+        .exclude(related_tv__status__in=(Status.DROPPED.value, Status.PAUSED.value))
         .values_list("id", "item_id", "related_tv_id")
     }
     if not seasons:
@@ -387,13 +533,21 @@ def _catch_up(user, now: datetime) -> tuple[int, int]:
 def build_home_sections(user) -> dict:
     """Return the v2 Home sections for a user, cached with the Home rows."""
     today = timezone.localdate()
-    cache_key = f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v3_sections_{today.isoformat()}"
+    cache_key = f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v4_sections_{today.isoformat()}"
     sections = cache.get(cache_key)
     if sections is None:
         airing, airing_count = _airing_this_week(user, today)
         catch_up, catch_up_shows = _catch_up(user, timezone.now())
+        in_progress = _in_progress(user)
         sections = {
-            "in_progress": _in_progress(user),
+            "in_progress": in_progress,
+            # The filter pills show only when both kinds are present.
+            "in_progress_kinds": sorted(
+                {
+                    "movie" if entry.item.media_type == MediaTypes.MOVIE.value else "show"
+                    for entry in in_progress
+                }
+            ),
             # Two columns of three on desktop (A1); phones show the first.
             "airing": [column for column in (airing[:3], airing[3:]) if column],
             "airing_count": airing_count,

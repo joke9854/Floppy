@@ -1181,14 +1181,16 @@ def episode_save(request):
                 "instanceId": episode.id,
                 "mediaType": MediaTypes.EPISODE.value,
             }
-        response["HX-Trigger"] = json.dumps(
-            {
-                "closeModal": {
-                    "watchOperationId": next_watch_operation_id,
-                },
-                "showToast": toast,
+        trigger = {
+            "closeModal": {
+                "watchOperationId": next_watch_operation_id,
             },
-        )
+            "showToast": toast,
+        }
+        # A watch from a Home card changes the In Progress row, which re-reads itself.
+        if urlparse(next_path).path == reverse("home"):
+            trigger["refreshHomeInProgress"] = True
+        response["HX-Trigger"] = json.dumps(trigger)
         response["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response["Pragma"] = "no-cache"
         response["Expires"] = "0"

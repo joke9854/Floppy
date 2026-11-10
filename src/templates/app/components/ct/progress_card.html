@@ -15,7 +15,8 @@
 
   Context: item, media, next_episode (from ct_next_episode, may be None), user,
   TRACK_TIME, IMG_NONE. With a next episode the card opens that episode,
-  otherwise the show.
+  otherwise the show. A movie passes resume_percent: its resume position as a
+  percentage of the runtime, which replaces the record's own progress.
 {% endcomment %}
 {% ct_card_backdrop item as backdrop %}
 {% if next_episode %}{% next_episode_url item media as card_url %}{% endif %}
@@ -24,7 +25,7 @@
     <article class="ct-progress-card"
              data-poster-accent-scope
              data-media-type="{{ item.media_type }}"
-             style="--ct-progress: {{ percent|default:0 }}%; --ct-progress-step: {% if media.max_progress %}{% widthratio 1 media.max_progress 100 %}{% else %}0{% endif %}%">
+             style="--ct-progress: {% if resume_percent is not None %}{{ resume_percent }}{% else %}{{ percent|default:0 }}{% endif %}%; --ct-progress-step: {% if media.max_progress %}{% widthratio 1 media.max_progress 100 %}{% else %}0{% endif %}%">
       <div class="ct-progress-frame">
         <a href="{% if card_url %}{{ card_url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-progress-media" tabindex="-1" aria-hidden="true">
           {% if backdrop %}

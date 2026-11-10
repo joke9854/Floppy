@@ -487,6 +487,20 @@ def active_playback_fragment(request):
     )
 
 
+def home_in_progress_fragment(request):
+    """HTMX fragment: the Home In Progress row, re-read after a change made on Home."""
+    cache_utils.clear_home_row_cache_for_user(request.user.id)
+    return render(
+        request,
+        "app/components/ct/home_in_progress.html",
+        {
+            "user": request.user,
+            "home_sections": _ct_home_sections(request.user),
+            "IMG_NONE": settings.IMG_NONE,
+        },
+    )
+
+
 @require_POST
 def progress_edit(request, media_type, instance_id):
     """Increase or decrease the progress of a media item from home page."""

@@ -200,7 +200,7 @@ class CineTrackHomeCardTests(TestCase):
         form = re.search(r'<form class="ct-check-form".*?</form>', html, re.DOTALL).group(0)
         return dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))
 
-    def _post_check(self, fields):
+    def _post_check(self, fields, next_path=None):
         with (
             patch("app.save_views.resolve_episode_coordinate"),
             patch(
@@ -219,12 +219,26 @@ class CineTrackHomeCardTests(TestCase):
             ),
         ):
             response = self.client.post(
-                f"{reverse('episode_save')}?next={reverse('home')}",
+                f"{reverse('episode_save')}?next={next_path or reverse('home')}",
                 fields,
                 HTTP_HX_REQUEST="true",
             )
         self.assertEqual(response.status_code, 200)
         return response
+
+    def test_check_from_home_asks_the_in_progress_row_to_refresh(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+
+        response = self._post_check(self._check_fields())
+
+        self.assertIs(json.loads(response["HX-Trigger"]).get("refreshHomeInProgress"), True)
+
+    def test_check_from_another_page_does_not_refresh_the_row(self):
+        self._use_theme(ThemeChoices.CINETRACK)
+
+        response = self._post_check(self._check_fields(), next_path=reverse("history"))
+
+        self.assertNotIn("refreshHomeInProgress", json.loads(response["HX-Trigger"]))
 
     def test_check_records_the_exact_click_time(self):
         """The check's fields, posted with the browser's local time, keep it to the second."""

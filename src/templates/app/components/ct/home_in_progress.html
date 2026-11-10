@@ -1,0 +1,50 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  v2 Home In Progress row (board A1). Every entry, show or movie, is one
+  landscape progress card (ct/progress_card.html). The pills filter the cards
+  in the browser (data-kind), so they need no request; they show only when
+  the row has both kinds.
+
+  Context: home_sections (in_progress, in_progress_kinds), user, TRACK_TIME,
+  IMG_NONE. Included by home_sections.html; the refresh fragment renders it alone.
+{% endcomment %}
+{% if home_sections.in_progress %}
+  <section class="ct-home-section" aria-labelledby="ct-progress-title" x-data="{ kind: 'all' }">
+    <div class="ct-row-head">
+      <h2 id="ct-progress-title" class="ct-row-title">{% translate "In Progress" %}</h2>
+    </div>
+    {% if home_sections.in_progress_kinds|length > 1 %}
+      <div class="ct-status-tabs mb-3" role="group" aria-label="{% translate "Filter In Progress by type" %}">
+        <button type="button"
+                class="ct-status-tab"
+                :aria-pressed="kind === 'all' ? 'true' : 'false'"
+                @click="kind = 'all'">{% translate "All" %}</button>
+        <button type="button"
+                class="ct-status-tab"
+                :aria-pressed="kind === 'movie' ? 'true' : 'false'"
+                @click="kind = 'movie'">{% translate "Movies" %}</button>
+        <button type="button"
+                class="ct-status-tab"
+                :aria-pressed="kind === 'show' ? 'true' : 'false'"
+                @click="kind = 'show'">{% translate "Shows" %}</button>
+      </div>
+    {% endif %}
+    <div class="ct-recent-row home-row-scrollbar-hidden"
+         data-horizontal-drag="true"
+         tabindex="0"
+         role="region"
+         aria-labelledby="ct-progress-title">
+      {% ct_prefetch_posters home_sections.in_progress "item" %}
+      {% for entry in home_sections.in_progress %}
+        {% ct_next_episode entry as next_episode %}
+        <div class="home-row-card ct-progress-slot shrink-0"
+             data-ct-card-key="{{ entry.item.id }}"
+             data-kind="{% if entry.item.media_type == 'movie' %}movie{% else %}show{% endif %}"
+             x-show="kind === 'all' || kind === $el.dataset.kind">
+          {% include "app/components/ct/progress_card.html" with item=entry.item media=entry.media next_episode=next_episode resume_percent=entry.resume_percent %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
