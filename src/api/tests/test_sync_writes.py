@@ -885,6 +885,78 @@ class SyncStatusTests(SyncWritesBase):
         self.assertEqual(self.outcomes(response), ["created"])
         lookup.assert_not_called()
 
+    def _status(self, kind, media_id, status):
+        return self.post(
+            "api_sync_status",
+            {kind: [{"source": "tmdb", "media_id": media_id, "status": status}]},
+        )
+
+    def test_none_removes_a_movie_without_history_and_retries_cleanly(self):
+        self._status("movies", "603", "planning")
+        response = self._status("movies", "603", "none")
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(self.outcomes(response), ["removed"])
+        self.assertEqual(response.json()["results"][0]["removed_count"], 1)
+        self.assertEqual(Movie.objects.count(), 0)
+        again = self._status("movies", "603", "none")
+        self.assertEqual(self.outcomes(again), ["already_satisfied"])
+
+    def test_none_keeps_a_movie_with_a_play(self):
+        self._status("movies", "603", "planning")
+        MoviePlay.objects.create(movie=Movie.objects.get(), end_date=timezone.now())
+        response = self._status("movies", "603", "none")
+        self.assertEqual(self.outcomes(response), ["conflict"])
+        self.assertEqual(response.json()["results"][0]["reason"], "has_history")
+        self.assertEqual(Movie.objects.count(), 1)
+        self.assertEqual(MoviePlay.objects.count(), 1)
+        self.assertEqual(Movie.objects.get().status, Status.PLANNING.value)
+
+    def test_none_keeps_a_movie_with_only_an_end_date(self):
+        self._status("movies", "603", "planning")
+        Movie.objects.update(end_date=timezone.now())
+        response = self._status("movies", "603", "none")
+        self.assertEqual(self.outcomes(response), ["conflict"])
+        self.assertEqual(Movie.objects.count(), 1)
+
+    def test_none_removes_an_empty_show_and_keeps_one_with_seasons(self):
+        self._status("shows", "1001", "planning")
+        removed = self._status("shows", "1001", "none")
+        self.assertEqual(self.outcomes(removed), ["removed"])
+        self.assertEqual(TV.objects.count(), 0)
+
+        self.history({"episodes": [episode_event(1, "2023-06-01T20:00:00Z", "e1")]})
+        self.assertEqual(Season.objects.count(), 1)
+        tv_count = TV.objects.count()
+        kept = self._status("shows", "1001", "none")
+        self.assertEqual(self.outcomes(kept), ["conflict"])
+        self.assertEqual(TV.objects.count(), tv_count)
+        self.assertEqual(Season.objects.count(), 1)
+        self.assertEqual(Episode.objects.count(), 1)
+
+    def test_none_on_unknown_item_creates_nothing_and_skips_provider(self):
+        self.metadata.reset_mock()
+        with patch(METADATA_TARGET, side_effect=RuntimeError("down")) as lookup:
+            response = self._status("movies", "999", "none")
+        self.assertEqual(self.outcomes(response), ["already_satisfied"])
+        self.assertEqual(Item.objects.count(), 0)
+        lookup.assert_not_called()
+        self.metadata.assert_not_called()
+
+    def test_mixed_batch_keeps_input_order(self):
+        self._status("movies", "700", "planning")
+        response = self.post(
+            "api_sync_status",
+            {
+                "movies": [
+                    {"source": "tmdb", "media_id": "603", "status": "planning"},
+                    {"source": "tmdb", "media_id": "700", "status": "none"},
+                ]
+            },
+        )
+        self.assertEqual(self.outcomes(response), ["created", "removed"])
+        results = response.json()["results"]
+        self.assertEqual([r["media_id"] for r in results], ["603", "700"])
+
     def test_malformed_requests_are_400(self):
         movie = {"source": "tmdb", "media_id": "603", "status": "planning"}
         self.assertEqual(self.post("api_sync_status", {}).status_code, HTTP.BAD_REQUEST)
@@ -1017,6 +1089,7 @@ class SyncWritesScopeAndInfoTests(SyncWritesBase):
             "sync_history_remove_v1",
             "sync_ratings_v1",
             "sync_status_v1",
+            "sync_status_remove_v1",
             "watched_state_exact_time_v1",
         ):
             self.assertIs(extensions[flag], True, flag)

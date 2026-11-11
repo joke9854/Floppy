@@ -813,6 +813,7 @@ API_EXTENSIONS = {
     "sync_history_remove_v1": True,
     "sync_ratings_v1": True,
     "sync_status_v1": True,
+    "sync_status_remove_v1": True,
     "watched_state_exact_time_v1": True,
     "oauth_v1": True,
     "scrobble_v2": True,

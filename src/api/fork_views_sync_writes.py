@@ -26,17 +26,19 @@ from rest_framework.response import Response
 
 from app import cache_utils
 from app.models import (
+    TV,
     BasicMedia,
     Episode,
     Item,
     MediaTypes,
     Movie,
     MoviePlay,
+    Season,
     Status,
 )
 from app.providers import credentials, services
 from app.services import metadata_resolution
-from app.services.sync_activity import batched_activity
+from app.services.sync_activity import batched_activity, touch_activity
 
 from .cinetrack_bootstrap_views import (
     DB_LOCK_BACKOFF_SECONDS,
@@ -68,6 +70,8 @@ _STATUS_BY_NAME = {
     "dropped": Status.DROPPED.value,
     "completed": Status.COMPLETED.value,
 }
+# "none" removes the item from the library; it is never a stored Status.
+_REMOVE = "none"
 _WRITTEN = {"created", "already_satisfied"}
 
 
@@ -245,7 +249,7 @@ class SyncStatusItemSerializer(serializers.Serializer):
         required=False, help_text="Required unless ids is given."
     )
     ids = ExternalIdsSerializer(required=False)
-    status = serializers.ChoiceField(choices=tuple(_STATUS_BY_NAME))
+    status = serializers.ChoiceField(choices=(*_STATUS_BY_NAME, _REMOVE))
     title = serializers.CharField(required=False, allow_blank=True)
 
 
@@ -958,7 +962,14 @@ class SyncRatingsView(drf_views.APIView):
 
 # /api/v1/sync/status/
 class SyncStatusView(drf_views.APIView):
-    """Set library status on movies and shows without creating episode history."""
+    """Set library status on movies and shows without creating episode history.
+
+    Status ``none`` removes the item from the library. It never deletes watch
+    history: an item with plays, an end date or any season is left untouched and
+    reported as ``conflict`` with reason ``has_history``. Items that are not in
+    the library answer ``already_satisfied``; a removal answers ``removed`` with
+    ``removed_count``. ``none`` never creates an Item or asks the provider.
+    """
 
     @extend_schema(
         request=SyncStatusRequestSerializer,
@@ -986,6 +997,9 @@ class SyncStatusView(drf_views.APIView):
             for item in items
         ]
         with credentials.current_user_scope(request.user):
+            for position, item in enumerate(items):
+                if item["status"] == _REMOVE:
+                    self._remove(request.user, position, item, results)
             for item_type, ensure in (
                 ("movie", self._ensure_movies),
                 ("show", self._ensure_shows),
@@ -993,7 +1007,7 @@ class SyncStatusView(drf_views.APIView):
                 subset = [
                     (i, item)
                     for i, item in enumerate(items)
-                    if item["type"] == item_type
+                    if item["type"] == item_type and item["status"] != _REMOVE
                 ]
                 if subset:
                     self._apply(request.user, subset, results, ensure)
@@ -1018,12 +1032,12 @@ class SyncStatusView(drf_views.APIView):
             for index, raw in enumerate(raw_items):
                 raw = _entry(raw, label, index)  # noqa: PLW2901
                 source, media_id = _media_ref(raw, label, index, media_type)
-                status = _STATUS_BY_NAME.get(
-                    str(raw.get("status") or "").strip().lower()
-                )
+                name = str(raw.get("status") or "").strip().lower()
+                status = _REMOVE if name == _REMOVE else _STATUS_BY_NAME.get(name)
                 if status is None:
                     _bad(
-                        f"{label}[{index}].status must be one of {', '.join(_STATUS_BY_NAME)}."
+                        f"{label}[{index}].status must be one of "
+                        f"{', '.join((*_STATUS_BY_NAME, _REMOVE))}."
                     )
                 if (item_type, source, media_id) in seen:
                     _bad(f"{label}[{index}] repeats an item already in this request.")
@@ -1052,6 +1066,60 @@ class SyncStatusView(drf_views.APIView):
     @staticmethod
     def _ensure_shows(user, entries):
         return ensure_show_entries(user, entries)
+
+    @staticmethod
+    @transaction.atomic
+    def _remove_library_rows(user, item):
+        """Delete the user's rows for an item unless they carry history."""
+        if item["type"] == "movie":
+            rows = list(
+                Movie.objects.filter(
+                    user=user,
+                    item__media_type=MediaTypes.MOVIE.value,
+                    item__source=item["source"],
+                    item__media_id=item["media_id"],
+                )
+            )
+            has_history = bool(rows) and (
+                MoviePlay.objects.filter(movie__in=rows).exists()
+                or any(row.end_date is not None for row in rows)
+            )
+        else:
+            rows = list(
+                TV.objects.filter(
+                    user=user,
+                    item__media_type=MediaTypes.TV.value,
+                    item__source=item["source"],
+                    item__media_id=item["media_id"],
+                    item__season_number__isnull=True,
+                )
+            )
+            has_history = (
+                bool(rows) and Season.objects.filter(related_tv__in=rows).exists()
+            )
+        if not rows:
+            return "already_satisfied", 0
+        if has_history:
+            return "conflict", 0
+        for row in rows:
+            row.delete()
+        touch_activity(user, "library")
+        return "removed", len(rows)
+
+    def _remove(self, user, position, item, results):
+        try:
+            outcome, removed = _with_db_backoff(
+                lambda: self._remove_library_rows(user, item)
+            )
+        except Exception as error:
+            logger.exception("Sync status removal failed")
+            results[position].update(outcome="failed", reason=_failure_reason(error))
+            return
+        results[position]["outcome"] = outcome
+        if outcome == "removed":
+            results[position]["removed_count"] = removed
+        elif outcome == "conflict":
+            results[position]["reason"] = "has_history"
 
     def _apply(self, user, subset, results, ensure):
         known = self._known_items(subset)

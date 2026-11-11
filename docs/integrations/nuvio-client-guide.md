@@ -71,6 +71,12 @@ Start from `cursor=0`, which is always valid. Read `oldest_sequence` and
 Progress does not create history. Completion applies to the identified movie or
 episode only, and a retry never becomes a rewatch.
 
+Library status is written with `POST /api/v1/sync/status/`. Status `none`
+(capability `sync_status_remove_v1`) removes a movie or show from the library
+without touching history: it answers `removed`, `already_satisfied` when the
+item is not in the library, or `conflict` with reason `has_history` when plays,
+an end date or seasons exist (nothing is deleted then).
+
 ### 3a. Continue watching
 
 `GET /api/v1/continue-watching/` (scope `progress:read`) returns the web Home
