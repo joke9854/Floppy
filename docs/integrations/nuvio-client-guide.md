@@ -71,6 +71,18 @@ Start from `cursor=0`, which is always valid. Read `oldest_sequence` and
 Progress does not create history. Completion applies to the identified movie or
 episode only, and a retry never becomes a rewatch.
 
+### 3a. Continue watching
+
+`GET /api/v1/continue-watching/` (scope `progress:read`) returns the web Home
+"In Progress" row: the same titles, in the same order, capped at 20. Each entry
+carries its `kind` (`movie` or `show`), the `target` episode for a show (season,
+episode, title when known, and item id), and the resume times:
+`position_seconds`, `duration_seconds`, `remaining_seconds` (null when the
+runtime is unknown) and `progress_percent`. `is_rewatch` marks a title being
+watched again. The response is computed on each call, so it reflects the last
+`PUT /api/v1/playback/progress/` without a cache wait. Use it to draw the list;
+use the progress endpoint to write positions.
+
 ## 4. Offline retries
 
 Send `client_event_id` (or the `Idempotency-Key` header) on every mutation.

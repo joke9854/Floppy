@@ -97,6 +97,7 @@ def get_fork_endpoint_cases() -> list[EndpointCase]:
             payload={"item_id": 1, "action": "hide"},
         ),
         EndpointCase("get", "api_home"),
+        EndpointCase("get", "api_continue_watching"),
         EndpointCase("get", "api_user_preferences"),
         EndpointCase("patch", "api_user_preferences", payload={}),
         EndpointCase("get", "api_user_sidebar"),

@@ -42,6 +42,7 @@ from app.models import (
     MetadataBackfillState,
     Movie,
     Music,
+    PlaybackProgress,
     Podcast,
     PodcastShowTracker,
     Season,
@@ -355,6 +356,27 @@ def clear_media_list_cache_on_collection_change(sender, instance, **kwargs):
 
     clear_media_list_cache_for_user(user_id)
     clear_home_row_cache_for_user(user_id)
+
+
+@receiver([post_save, post_delete], sender=PlaybackProgress)
+def clear_home_row_cache_on_playback_change(sender, instance, **kwargs):
+    """Invalidate Home rows when a resume position is written or cleared.
+
+    The In Progress row reads positions, so a live playback write must reach
+    the next Home render. The clear is one cache read and its deletes; no
+    query runs here.
+    """
+    if kwargs.get("raw"):
+        return
+    if (
+        media_cache_change_signals_suppressed()
+        or media_change_side_effects_suppressed()
+    ):
+        return
+
+    from app.cache_utils import clear_home_row_cache_for_user
+
+    clear_home_row_cache_for_user(instance.user_id)
 
 
 @receiver([post_save, post_delete], sender=ArtistTracker)

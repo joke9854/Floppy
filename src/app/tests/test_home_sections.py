@@ -340,6 +340,8 @@ class InProgressFixtures(TestCase):
         released=0,
         watched=(),
         part_watched=None,
+        part_position=600,
+        part_duration=None,
         model=TV,
         media_type=MediaTypes.TV.value,
     ):
@@ -381,7 +383,8 @@ class InProgressFixtures(TestCase):
             PlaybackProgress.objects.create(
                 user=self.user,
                 item=self._episode_item(media_id, part_watched),
-                position_seconds=600,
+                position_seconds=part_position,
+                duration_seconds=part_duration,
                 completed=False,
             )
         return show_item
@@ -582,11 +585,11 @@ class InProgressRulesTests(InProgressFixtures):
 
         self.assertEqual(self._in_progress_titles(), [])
 
-    def test_paused_completed_and_dropped_movies_are_out(self):
+    def test_paused_and_dropped_movies_are_out(self):
+        # A Completed movie with a resume position is a rewatch; see the builder tests.
         for media_id, status in (
             ("1", Status.PAUSED.value),
             ("2", Status.DROPPED.value),
-            ("3", Status.COMPLETED.value),
         ):
             self._movie(media_id, status, position=1800, duration=7200)
 
@@ -703,6 +706,35 @@ class InProgressCardTests(InProgressFixtures):
         self.assertNotIn('aria-label="Filter In Progress by type"', html)
 
 
+    def test_cards_show_time_left_and_the_rewatch_badge(self):
+        self._movie("620", Status.COMPLETED.value, position=1800, duration=7200)
+        self._show(
+            "7",
+            Status.IN_PROGRESS.value,
+            released=4,
+            watched=[1],
+            part_watched=2,
+            part_position=1200,
+            part_duration=2700,
+        )
+
+        html = self._home()
+
+        self.assertIn("1h 30m left", html)  # the rewatch movie: 5400 s
+        self.assertIn("25m left", html)  # the part-watched episode: 1500 s
+        self.assertEqual(html.count(">Rewatch</span>"), 1)
+        self.assertIn("S1 E2", html)
+
+    def test_cards_without_a_known_runtime_show_no_time_left(self):
+        self._movie("621", Status.IN_PROGRESS.value, position=1800)
+
+        html = self._home()
+
+        self.assertIn("Movie 621", html)
+        self.assertNotIn(" left</span>", html)
+        self.assertNotIn(">Rewatch</span>", html)
+
+
 class RecentlyWatchedRelativeDayTests(TestCase):
     """Board A1: Recently Watched says Today, Yesterday or 2 Nov."""
 
@@ -718,3 +750,186 @@ class RecentlyWatchedRelativeDayTests(TestCase):
         last_year = today.replace(year=today.year - 1, day=2)
         self.assertEqual(ct_relative_day(last_year), f"2 {last_year:%b} {last_year.year}")
         self.assertEqual(ct_relative_day("S1 E3"), "S1 E3")
+
+
+class ContinueWatchingBuilderTests(InProgressFixtures):
+    """The builder's targets, times and rewatch flags, on top of the row's rules."""
+
+    def _entry(self, title):
+        return next(
+            entry
+            for entry in home_sections.build_continue_watching(self.user)
+            if entry.item.title == title
+        )
+
+    def test_part_watched_episode_is_the_target_with_time_left(self):
+        self._show(
+            "1",
+            Status.IN_PROGRESS.value,
+            released=4,
+            watched=[1],
+            part_watched=2,
+            part_position=1200,
+            part_duration=2700,
+        )
+
+        entry = self._entry("Show 1")
+
+        self.assertEqual(entry.kind, "show")
+        self.assertEqual(entry.target_season_number, 1)
+        self.assertEqual(entry.target_episode_number, 2)
+        self.assertEqual(entry.remaining_seconds, 1500)
+        self.assertEqual(entry.resume_percent, 44)
+        self.assertEqual((entry.watched_count, entry.released_count), (1, 4))
+        self.assertFalse(entry.is_rewatch)
+
+    def test_most_recently_updated_part_watched_episode_wins(self):
+        self._show("1", Status.IN_PROGRESS.value, released=4, watched=[1], part_watched=2)
+        third = self._episode_item("1", 3)
+        PlaybackProgress.objects.create(
+            user=self.user, item=third, position_seconds=300, completed=False
+        )
+        PlaybackProgress.objects.filter(item=third).update(
+            updated_at=self.now + timedelta(hours=1)
+        )
+
+        self.assertEqual(self._entry("Show 1").target_episode_number, 3)
+
+    def test_next_episode_target_has_no_time_left(self):
+        self._show("2", Status.IN_PROGRESS.value, released=4, watched=[1])
+
+        entry = self._entry("Show 2")
+
+        self.assertEqual(entry.target_episode_number, 2)
+        self.assertIsNone(entry.remaining_seconds)
+        self.assertIsNone(entry.resume_percent)
+
+    def test_part_watched_episode_without_a_duration_has_no_time_left(self):
+        self._show("4", Status.IN_PROGRESS.value, released=4, watched=[1], part_watched=2)
+
+        entry = self._entry("Show 4")
+
+        self.assertEqual(entry.target_episode_number, 2)
+        self.assertIsNone(entry.remaining_seconds)
+
+    def test_target_title_comes_from_the_local_episode_item(self):
+        self._show("5", Status.IN_PROGRESS.value, released=4, watched=[1])
+        episode = self._episode_item("5", 2)
+        episode.title = "The Second One"
+        episode.save(update_fields=["title"])
+
+        entry = self._entry("Show 5")
+
+        self.assertEqual(entry.target_title, "The Second One")
+        self.assertEqual(entry.target_item_id, episode.id)
+
+    def test_open_rewatch_pass_is_a_rewatch_targeting_its_next_episode(self):
+        self._show("3", Status.COMPLETED.value, released=3, watched=[1, 2, 3])
+        season = Season.objects.get(user=self.user, item__media_id="3")
+        season.start_rewatch(started_at=self.now, max_progress=3)
+
+        entry = self._entry("Show 3")
+
+        self.assertTrue(entry.is_rewatch)
+        self.assertEqual(entry.target_episode_number, 1)
+
+    def test_completed_show_without_a_rewatch_stays_out(self):
+        self._show("6", Status.COMPLETED.value, released=3, watched=[1, 2, 3])
+
+        self.assertNotIn("Show 6", self._in_progress_titles())
+
+    def test_completed_movie_with_a_resume_position_is_a_rewatch(self):
+        self._movie("600", Status.COMPLETED.value, position=2000, duration=7200)
+
+        entry = self._entry("Movie 600")
+
+        self.assertTrue(entry.is_rewatch)
+        self.assertEqual(entry.remaining_seconds, 5200)
+        self.assertEqual(entry.resume_percent, 28)
+
+    def test_position_older_than_a_watch_of_that_episode_is_ignored(self):
+        self._show(
+            "7", Status.IN_PROGRESS.value, released=4, watched=[1, 2], part_watched=2
+        )
+        PlaybackProgress.objects.filter(item__media_id="7").update(
+            updated_at=self.now - timedelta(days=3)
+        )
+
+        entry = self._entry("Show 7")
+
+        self.assertEqual(entry.target_episode_number, 3)
+        self.assertIsNone(entry.remaining_seconds)
+
+    def test_position_older_than_the_last_finished_play_is_not_a_rewatch(self):
+        item = self._movie("601", Status.COMPLETED.value, position=2000, duration=7200)
+        Movie.objects.filter(item=item).update(end_date=self.now)
+        PlaybackProgress.objects.filter(item=item).update(
+            updated_at=self.now - timedelta(days=1)
+        )
+
+        self.assertNotIn("Movie 601", self._in_progress_titles())
+
+    def test_card_links_to_the_episode_it_resumes(self):
+        self._show(
+            "8", Status.PLANNING.value, released=4, part_watched=3, part_duration=2700
+        )
+
+        response = self.client.get(reverse("home"))
+
+        self.assertContains(
+            response,
+            reverse(
+                "episode_details",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "8",
+                    "title": "show-8",
+                    "season_number": 1,
+                    "episode_number": 3,
+                },
+            ),
+        )
+
+    def test_completed_movie_without_a_resume_position_stays_out(self):
+        self._movie("601", Status.COMPLETED.value)
+
+        self.assertNotIn("Movie 601", self._in_progress_titles())
+
+    def test_in_progress_movie_is_not_a_rewatch(self):
+        self._movie("602", Status.IN_PROGRESS.value, position=1800, duration=7200)
+
+        entry = self._entry("Movie 602")
+
+        self.assertFalse(entry.is_rewatch)
+        self.assertEqual(entry.remaining_seconds, 5400)
+
+    def test_movie_time_left_is_unknown_without_a_runtime(self):
+        self._movie("603", Status.IN_PROGRESS.value, position=1800)
+
+        self.assertIsNone(self._entry("Movie 603").remaining_seconds)
+
+    def test_check_target_names_the_episode_the_label_shows(self):
+        self._show("1", Status.IN_PROGRESS.value, released=4, watched=[1], part_watched=2)
+
+        check = self._entry("Show 1").check_target()
+
+        self.assertEqual(check["media_id"], "1")
+        self.assertEqual(check["season_number"], 1)
+        self.assertEqual(check["episode_number"], 2)
+        self.assertEqual(check["episode_title"], "Show 1")
+
+
+class ContinueWatchingCacheTests(InProgressFixtures):
+    """A resume write or delete clears the Home sections on the next render."""
+
+    def test_playback_writes_clear_the_cached_home_sections(self):
+        movie = self._movie("610", Status.IN_PROGRESS.value)
+        self.assertNotIn("Movie 610", self._in_progress_titles())
+
+        progress = PlaybackProgress.objects.create(
+            user=self.user, item=movie, position_seconds=1800, duration_seconds=7200
+        )
+        self.assertIn("Movie 610", self._in_progress_titles())
+
+        progress.delete()
+        self.assertNotIn("Movie 610", self._in_progress_titles())

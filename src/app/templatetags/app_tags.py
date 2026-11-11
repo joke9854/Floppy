@@ -203,6 +203,12 @@ def uses_ct_home_cards(request):
     return match is not None and match.url_name in CT_HOME_VIEWS
 
 
+@register.filter
+def duration_hm(total_seconds):
+    """Return a remaining duration as "1h 9m" or "46m" (helpers.seconds_to_hm)."""
+    return helpers.seconds_to_hm(total_seconds)
+
+
 @register.simple_tag
 def ct_next_episode(entry):
     """Return the episode a Home entry's progress card check marks watched.
@@ -214,6 +220,10 @@ def ct_next_episode(entry):
     item, media = entry.item, entry.media
     if media is None or not entry.show_progress_controls:
         return None
+    check_target = getattr(entry, "check_target", None)
+    if callable(check_target):
+        # In Progress cards check the episode their label names.
+        return check_target()
     if item.media_type == MediaTypes.SEASON.value:
         if not callable(getattr(media, "next_episode_number", None)):
             return None
@@ -1654,6 +1664,36 @@ def _next_episode_number_for_season_item(item, media):
     return tmdb.find_next_episode(
         getattr(media, "progress", 0) or 0,
         [{"episode_number": number} for number in episode_numbers],
+    )
+
+
+@register.simple_tag
+def ct_episode_url(item, season_number, episode_number):
+    """Return a show's episode page URL, or "" without a target (In Progress cards)."""
+    # Unset template variables arrive as "" rather than None.
+    if not item or season_number in (None, "") or episode_number in (None, ""):
+        return ""
+    is_dict = isinstance(item, dict)
+    media_id = item["media_id"] if is_dict else getattr(item, "media_id", None)
+    source = item["source"] if is_dict else getattr(item, "source", None)
+    if not media_id or not source:
+        return ""
+    title = item["title"] if is_dict else getattr(item, "title", "")
+    media_type = item["media_type"] if is_dict else getattr(item, "media_type", None)
+    url_name = (
+        "anime_episode_details"
+        if media_type == MediaTypes.ANIME.value
+        else "episode_details"
+    )
+    return reverse(
+        url_name,
+        kwargs={
+            "source": source,
+            "media_id": media_id,
+            "title": slug(title) or slug(str(media_id)) or "item",
+            "season_number": season_number,
+            "episode_number": episode_number,
+        },
     )
 
 

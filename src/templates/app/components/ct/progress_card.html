@@ -14,12 +14,15 @@
   check and shows the release year, as the poster card does.
 
   Context: item, media, next_episode (from ct_next_episode, may be None), user,
-  TRACK_TIME, IMG_NONE. With a next episode the card opens that episode,
+  TRACK_TIME, IMG_NONE. In Progress also passes remaining_seconds (time left,
+  shown when known) and is_rewatch (the Rewatch badge). With a next episode the card opens that episode,
   otherwise the show. A movie passes resume_percent: its resume position as a
   percentage of the runtime, which replaces the record's own progress.
 {% endcomment %}
 {% ct_card_backdrop item as backdrop %}
-{% if next_episode %}{% next_episode_url item media as card_url %}{% endif %}
+{# The card opens the episode its label names (the resume target), else the next one. #}
+{% ct_episode_url item target_season target_episode as card_url %}
+{% if not card_url and next_episode %}{% next_episode_url item media as card_url %}{% endif %}
 {% with image=media.card_image_override|default:item|ct_poster|default:IMG_NONE title=item|display_title:user %}
   {% with srcset=image|tmdb_srcset percent=media|safe_attr:"progress_percentage" %}
     <article class="ct-progress-card"
@@ -90,17 +93,24 @@
       </div>
       <a href="{% if card_url %}{{ card_url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-progress-title">{{ title }}</a>
       <span class="ct-progress-episode">
+        {% if is_rewatch %}<span class="ct-count-pill">{% translate "Rewatch" %}</span>{% endif %}
         {% if next_episode %}
           <span data-ct-episode-label>S{{ next_episode.season_number }} E{{ next_episode.episode_number }}</span>
-          {% if media.time_left_display %}
-            · {{ media.time_left_display }}
-          {% elif media.episodes_left %}
-            · {% blocktranslate trimmed count count=media.episodes_left %}{{ count }} left{% plural %}{{ count }} left{% endblocktranslate %}
+          {% if next_episode.episode_title %}· {{ next_episode.episode_title }}{% endif %}
+          {% if not remaining_seconds %}
+            {% if media.time_left_display %}
+              · {{ media.time_left_display }}
+            {% elif media.episodes_left %}
+              · {% blocktranslate trimmed count count=media.episodes_left %}{{ count }} left{% plural %}{{ count }} left{% endblocktranslate %}
+            {% endif %}
           {% endif %}
         {% elif item.release_datetime %}
           {{ item.release_datetime|date:"Y" }}
         {% endif %}
       </span>
+      {% if remaining_seconds %}
+        <span class="ct-progress-episode">{% blocktranslate trimmed with time=remaining_seconds|duration_hm %}{{ time }} left{% endblocktranslate %}</span>
+      {% endif %}
     </article>
   {% endwith %}
 {% endwith %}

@@ -27,7 +27,7 @@ from app.models import (
 )
 
 from .contract_serializers import DetailErrorSerializer
-from .serializers import serialize_data
+from .serializers import ContinueWatchingEntrySerializer, serialize_data
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +175,12 @@ class HomeSerializer(serializers.Serializer):
     """Home screen groups."""
 
     groups = HomeGroupSerializer(many=True)
+
+
+class ContinueWatchingSerializer(serializers.Serializer):
+    """The In Progress row as a list: the same entries and order as the Home row."""
+
+    results = ContinueWatchingEntrySerializer(many=True)
 
 
 # /api/v1/collection/status/[item_id]/
@@ -461,3 +467,17 @@ class HomeView(drf_views.APIView):
                 },
             )
         return Response({"groups": payload}, status=HTTP.OK)
+
+
+# /api/v1/continue-watching/
+class ContinueWatchingView(drf_views.APIView):
+    """The Home In Progress row as a list, with each entry's resume times."""
+
+    @extend_schema(responses={200: ContinueWatchingSerializer})
+    def get(self, request):
+        """Return the user's In Progress entries, latest activity first."""
+        entries = home_sections.build_continue_watching(request.user)
+        return Response(
+            {"results": ContinueWatchingEntrySerializer(entries, many=True).data},
+            status=HTTP.OK,
+        )

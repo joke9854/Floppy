@@ -71,7 +71,7 @@ Do not describe Floppy as fully scope-gated until those are addressed.
 | Scope | Grants |
 |---|---|
 | `scrobble:write` | Submit playback events |
-| `progress:read` | Read resume positions and now-playing |
+| `progress:read` | Read resume positions, now-playing and the In Progress list (`/api/v1/continue-watching/`) |
 | `progress:write` | Create, update, and clear resume positions |
 | `watchlist:read` | Read saved items, watched state, consumption history |
 | `watchlist:write` | Change saved items, watched state, tags, history |

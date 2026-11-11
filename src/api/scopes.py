@@ -22,7 +22,7 @@ NEVER = "*never*"
 
 SCOPE_DESCRIPTIONS = {
     "scrobble:write": "Submit playback events.",
-    "progress:read": "Read resume positions and the now-playing state.",
+    "progress:read": "Read resume positions, the now-playing state and the In Progress list.",
     "progress:write": "Create, update, and clear resume positions.",
     "watchlist:read": "Read saved items, watched state, and consumption history.",
     "watchlist:write": "Change saved items, watched state, tags, and history.",
@@ -172,6 +172,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
         "DELETE": "progress:write",
     },
     "api.fork_views_playback.NowPlayingView": {"GET": "progress:read"},
+    "api.fork_views_discover.ContinueWatchingView": {"GET": "progress:read"},
     "api.fork_views_podcast.PodcastShowsView": {
         "GET": "podcasts:read",
         "POST": "podcasts:write",

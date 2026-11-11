@@ -42,7 +42,7 @@
              data-ct-card-key="{{ entry.item.id }}"
              data-kind="{% if entry.item.media_type == 'movie' %}movie{% else %}show{% endif %}"
              x-show="kind === 'all' || kind === $el.dataset.kind">
-          {% include "app/components/ct/progress_card.html" with item=entry.item media=entry.media next_episode=next_episode resume_percent=entry.resume_percent %}
+          {% include "app/components/ct/progress_card.html" with item=entry.item media=entry.media next_episode=next_episode resume_percent=entry.resume_percent remaining_seconds=entry.remaining_seconds is_rewatch=entry.is_rewatch target_season=entry.target_season_number target_episode=entry.target_episode_number %}
         </div>
       {% endfor %}
     </div>

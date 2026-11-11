@@ -9,7 +9,7 @@ from app import helpers as app_helpers
 from app.backdrops import resolve_backdrop  # FORK: horizontal artwork
 from app.helpers import build_provider_ids
 from app.history_entry_builders import _serialize_show
-from app.home_sections import HomeRowEntry
+from app.home_sections import ContinueEntry, HomeRowEntry
 from app.models import (
     TV,
     Anime,
@@ -1080,6 +1080,62 @@ class HomeRowEntrySerializer(serializers.Serializer):
         return data
 
 
+class ContinueWatchingTargetSerializer(serializers.Serializer):
+    """The episode a continue-watching entry points at."""
+
+    item_id = serializers.IntegerField(allow_null=True)
+    season_number = serializers.IntegerField()
+    episode_number = serializers.IntegerField()
+    title = serializers.CharField(allow_null=True)
+
+
+class ContinueWatchingEntrySerializer(serializers.Serializer):
+    """An In Progress entry: the Home card's fields plus its target and times."""
+
+    kind = serializers.CharField(read_only=True)
+    target = ContinueWatchingTargetSerializer(read_only=True, allow_null=True)
+    position_seconds = serializers.IntegerField(read_only=True, allow_null=True)
+    duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
+    remaining_seconds = serializers.IntegerField(read_only=True, allow_null=True)
+    progress_percent = serializers.IntegerField(read_only=True, allow_null=True)
+    watched_count = serializers.IntegerField(read_only=True, allow_null=True)
+    released_count = serializers.IntegerField(read_only=True, allow_null=True)
+    is_rewatch = serializers.BooleanField(read_only=True)
+    last_activity = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    def to_representation(self, instance):
+        """Return the Home card's fields with the progress fields added."""
+        data = dict(HomeRowEntrySerializer(instance).data)
+        target = None
+        if instance.target_episode_number is not None:
+            target = {
+                "item_id": instance.target_item_id,
+                "season_number": instance.target_season_number,
+                "episode_number": instance.target_episode_number,
+                "title": instance.target_title,
+            }
+        last_activity = instance.last_activity
+        data.update(
+            {
+                "kind": instance.kind,
+                "target": target,
+                "position_seconds": instance.position_seconds,
+                "duration_seconds": instance.duration_seconds,
+                "remaining_seconds": instance.remaining_seconds,
+                "progress_percent": instance.resume_percent,
+                "watched_count": instance.watched_count,
+                "released_count": instance.released_count,
+                "is_rewatch": instance.is_rewatch,
+                "last_activity": (
+                    self.fields["last_activity"].to_representation(last_activity)
+                    if last_activity
+                    else None
+                ),
+            }
+        )
+        return data
+
+
 class TimelineItemSerializer(serializers.ModelSerializer):
     """Compact serializer used for timeline entries to reduce payload size."""
 
@@ -1117,6 +1173,7 @@ serializer_map = {
     Episode: EpisodeSerializer,
     Event: EventSerializer,
     Game: MediaSerializer,
+    ContinueEntry: HomeRowEntrySerializer,
     HomeRowEntry: HomeRowEntrySerializer,
     Item: ItemSerializer,
     Manga: MediaSerializer,

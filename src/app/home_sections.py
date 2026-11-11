@@ -9,10 +9,11 @@ user per day with the Home cache keys, and are cleared by the same writes
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import NamedTuple
 
 from django.apps import apps
 from django.core.cache import cache
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -74,6 +75,54 @@ class HomeRowEntry:
     subtitle_override: object | None = None
     # Movies in In Progress: the resume position as a percentage of the runtime.
     resume_percent: int | None = None
+
+
+class _PartWatched(NamedTuple):
+    """A show's latest part-watched episode, as the In Progress row reads it."""
+
+    updated_at: datetime
+    item_id: int
+    season_number: int | None
+    episode_number: int | None
+    position_seconds: int
+    duration_seconds: int | None
+
+
+@dataclass
+class ContinueEntry(HomeRowEntry):
+    """An In Progress card: the Home card plus the episode it points at and its progress."""
+
+    # Shows: the episode the card names (its part-watched episode, else the next one).
+    target_item_id: int | None = None
+    target_season_number: int | None = None
+    target_episode_number: int | None = None
+    target_title: str | None = None
+    position_seconds: int | None = None
+    duration_seconds: int | None = None
+    # Duration minus position, when the runtime is known.
+    remaining_seconds: int | None = None
+    watched_count: int | None = None
+    released_count: int | None = None
+    is_rewatch: bool = False
+    last_activity: datetime | None = None
+
+    @property
+    def kind(self) -> str:
+        """Return "movie" or "show", the row's type filter."""
+        return "movie" if self.item.media_type == MediaTypes.MOVIE.value else "show"
+
+    def check_target(self) -> dict | None:
+        """Return the episode the card's check marks watched, in episode_save's fields."""
+        if self.target_season_number is None or self.target_episode_number is None:
+            return None
+        return {
+            "media_id": self.item.media_id,
+            "source": self.item.source,
+            "season_number": self.target_season_number,
+            "episode_number": self.target_episode_number,
+            "library_media_type": self.item.library_media_type,
+            "episode_title": self.target_title,
+        }
 
 
 @dataclass
@@ -176,17 +225,19 @@ def _coming_soon(user, today: date) -> list[AiringEntry]:
     return _airing_entries(events, today)
 
 
-def _in_progress(user) -> list[HomeRowEntry]:
+def build_continue_watching(user) -> list[ContinueEntry]:
     """Return the In Progress row: shows and movies with real progress, latest first.
 
     A show needs a watched episode and a released episode still unwatched, or
     a part-watched episode. A Planning show qualifies only through a
     part-watched episode; a Completed show only through a newer released
-    episode. A flat anime (tracked by count, no episodes) needs progress above
-    zero and below its released episodes; Planning never qualifies. A movie
-    needs a resume position between MOVIE_RESUME_MIN_SECONDS and
-    MOVIE_RESUME_MAX_FRACTION of its runtime. Paused and Dropped titles never
-    show. Reads local data only: no provider calls.
+    episode. A show in an open rewatch pass qualifies while its rewatch still
+    has a next episode. A flat anime (tracked by count, no episodes) needs
+    progress above zero and below its released episodes; Planning never
+    qualifies. A movie needs a resume position between MOVIE_RESUME_MIN_SECONDS
+    and MOVIE_RESUME_MAX_FRACTION of its runtime; a Completed movie with one is a
+    rewatch. Paused and Dropped titles never show. Reads local data only: no
+    provider calls.
     """
     now = timezone.now()
     earliest = datetime.min.replace(tzinfo=UTC)
@@ -206,7 +257,8 @@ def _in_progress(user) -> list[HomeRowEntry]:
         lambda: defaultdict(set)
     )
     activity: dict[tuple[str, str], datetime] = {}
-    part_watched: dict[tuple[str, str], datetime] = {}
+    part_target: dict[tuple[str, str], _PartWatched] = {}
+    rewatching: set[tuple[str, str]] = set()
     released: dict[tuple[str, str], dict[int, int]] = {}
     if shows:
         episode_rows = (
@@ -237,12 +289,21 @@ def _in_progress(user) -> list[HomeRowEntry]:
                 activity[key] = max(activity.get(key, earliest), row["last_end"])
 
         tracked: dict[tuple[str, str], set[int]] = defaultdict(set)
-        for media_id, source, season_number in (
+        for media_id, source, season_number, rewatch_started_at, season_status in (
             Season.objects.filter(user=user, item__media_id__in=media_ids)
             .order_by()
-            .values_list("item__media_id", "item__source", "item__season_number")
+            .values_list(
+                "item__media_id",
+                "item__source",
+                "item__season_number",
+                "rewatch_started_at",
+                "status",
+            )
         ):
             tracked[(media_id, source)].add(season_number)
+            # TV.is_rewatching's rule: an open pass on a season that is not Dropped.
+            if rewatch_started_at is not None and season_status != Status.DROPPED.value:
+                rewatching.add((media_id, source))
         released = released_episode_breakdowns(shows, now, tracked)
 
         part_rows = (
@@ -254,36 +315,73 @@ def _in_progress(user) -> list[HomeRowEntry]:
                 item__media_id__in=media_ids,
             )
             .order_by()
-            .values_list("item__media_id", "item__source", "updated_at")
+            .values_list(
+                "item__media_id",
+                "item__source",
+                "updated_at",
+                "item_id",
+                "item__season_number",
+                "item__episode_number",
+                "position_seconds",
+                "duration_seconds",
+            )
         )
-        for media_id, source, updated_at in part_rows:
+        part_rows = list(part_rows)
+        # A position older than a recorded watch of that episode is stale: the
+        # player never sent completed=True, but the episode has been marked watched.
+        last_watched = dict(
+            Episode.objects.filter(
+                related_season__user=user,
+                item_id__in={row[3] for row in part_rows},
+                end_date__isnull=False,
+            )
+            .values("item_id")
+            .annotate(last=Max("end_date"))
+            .values_list("item_id", "last")
+        ) if part_rows else {}
+        for media_id, source, *fields in part_rows:
             key = (media_id, source)
-            part_watched[key] = max(part_watched.get(key, updated_at), updated_at)
+            part = _PartWatched(*fields)
+            watched_at = last_watched.get(part.item_id)
+            if watched_at is not None and watched_at >= part.updated_at:
+                continue
+            if key not in part_target or part.updated_at > part_target[key].updated_at:
+                part_target[key] = part
 
     candidates: dict[int, datetime] = {}
+    show_counts: dict[int, tuple[int, int]] = {}
+    rewatch_only: set[int] = set()
     for key, (item_id, status) in shows.items():
         played = watched.get(key, {})
+        released_total = sum(released.get(key, {}).values())
         # Released episodes with no watch yet, season by season; episodes count from 1.
         unwatched = sum(
             count - sum(1 for number in played.get(season, ()) if number <= count)
             for season, count in released.get(key, {}).items()
         )
-        partial = key in part_watched
+        partial = key in part_target
         if status == Status.PLANNING.value:
             qualifies = partial
         elif status == Status.COMPLETED.value:
             qualifies = unwatched > 0
         else:
             qualifies = partial or (bool(played) and unwatched > 0)
-        if qualifies:
+        # An open rewatch keeps its show in the row even when every released episode
+        # already has a play; the target check later drops it once the pass is done.
+        in_rewatch = key in rewatching and not qualifies
+        if qualifies or in_rewatch:
+            if in_rewatch:
+                rewatch_only.add(item_id)
+            part = part_target.get(key)
             candidates[item_id] = max(
                 (
                     stamp
-                    for stamp in (activity.get(key), part_watched.get(key))
+                    for stamp in (activity.get(key), part.updated_at if part else None)
                     if stamp
                 ),
                 default=earliest,
             )
+            show_counts[item_id] = (released_total - unwatched, released_total)
 
     flat_anime = list(
         Anime.objects.filter(
@@ -318,18 +416,33 @@ def _in_progress(user) -> list[HomeRowEntry]:
             continue
         resume[item_id] = (position, duration)
         resume_at[item_id] = updated_at
+    movie_status: dict[int, str] = {}
     if resume:
-        movie_item_ids = set(
+        # A Completed movie with a resume position is a rewatch; it is the only
+        # Completed movie that reaches the row.
+        movie_status = dict(
             Movie.objects.filter(
                 user=user,
                 item_id__in=list(resume),
-                status__in=IN_PROGRESS_MOVIE_STATUSES,
-            ).values_list("item_id", flat=True)
+                status__in=(*IN_PROGRESS_MOVIE_STATUSES, Status.COMPLETED.value),
+            ).values_list("item_id", "status")
+        )
+        # A position no newer than the movie's last finished play is stale (the
+        # player never sent completed=True), not a rewatch.
+        finished_at = dict(
+            Movie.objects.filter(user=user, item_id__in=list(resume), end_date__isnull=False)
+            .values("item_id")
+            .annotate(last=Max("end_date"))
+            .values_list("item_id", "last")
         )
         resume = {
             item_id: value
             for item_id, value in resume.items()
-            if item_id in movie_item_ids
+            if item_id in movie_status
+            and not (
+                finished_at.get(item_id) is not None
+                and finished_at[item_id] >= resume_at[item_id]
+            )
         }
         candidates.update({item_id: resume_at[item_id] for item_id in resume})
 
@@ -340,25 +453,105 @@ def _in_progress(user) -> list[HomeRowEntry]:
         getattr(user, "tv_metadata_source_default", Sources.TMDB.value),
     )
     media_lookup = _media_lookup_for_items(user, items)
-    ranked = []
+    entries = []
     for item in items:
         media = media_lookup.get(item.id)
         if media is None:
             continue
-        resume_percent = None
+        entry = ContinueEntry(item=item, media=media)
+        stamps = (candidates[item.id], getattr(media, "progressed_at", None))
+        entry.last_activity = max((stamp for stamp in stamps if stamp), default=earliest)
         if item.media_type == MediaTypes.MOVIE.value:
             position, duration = resume[item.id]
-            resume_percent = min(100, round(100 * position / duration)) if duration else 0
-        stamps = (candidates[item.id], getattr(media, "progressed_at", None))
-        last_activity = max((stamp for stamp in stamps if stamp), default=earliest)
-        ranked.append(
+            entry.position_seconds = position
+            entry.duration_seconds = duration
+            entry.remaining_seconds = duration - position if duration else None
+            entry.resume_percent = (
+                min(100, round(100 * position / duration)) if duration else 0
+            )
+            entry.is_rewatch = movie_status[item.id] == Status.COMPLETED.value
+        else:
+            _point_show_at_episode(
+                entry, media, part_target.get((item.media_id, item.source))
+            )
+            if item.id in rewatch_only and entry.target_episode_number is None:
+                continue
+            entry.is_rewatch = bool(getattr(media, "is_rewatching", False))
+            entry.watched_count, entry.released_count = show_counts.get(
+                item.id, (None, None)
+            )
+        entries.append(entry)
+    _attach_episode_items(entries)
+    entries.sort(key=lambda entry: entry.last_activity, reverse=True)
+    return entries[:IN_PROGRESS_LIMIT]
+
+
+def _point_show_at_episode(entry, media, part: _PartWatched | None) -> None:
+    """Aim a show's card at its part-watched episode, else at its next episode."""
+    if (
+        part is not None
+        and part.season_number is not None
+        and part.episode_number is not None
+    ):
+        entry.target_item_id = part.item_id
+        entry.target_season_number = part.season_number
+        entry.target_episode_number = part.episode_number
+        entry.position_seconds = part.position_seconds
+        entry.duration_seconds = part.duration_seconds
+        if part.duration_seconds:
+            entry.remaining_seconds = max(0, part.duration_seconds - part.position_seconds)
+            entry.resume_percent = min(
+                100, round(100 * part.position_seconds / part.duration_seconds)
+            )
+        return
+    # The rule ct_next_episode used before the card carried its own target.
+    if getattr(media, "seasons", None) is None or not callable(
+        getattr(media, "next_episode_target", None)
+    ):
+        return
+    target = media.next_episode_target()
+    if target is None:
+        return
+    season, episode_number = target
+    season_number = season.item.season_number
+    if season_number is None or episode_number is None:
+        return
+    entry.target_season_number = season_number
+    entry.target_episode_number = episode_number
+
+
+def _attach_episode_items(entries: list[ContinueEntry]) -> None:
+    """Fill each show target's episode Item id and title from the library, in one query."""
+    targets = [entry for entry in entries if entry.target_episode_number is not None]
+    if not targets:
+        return
+    query = Q()
+    for entry in targets:
+        query |= Q(
+            media_id=entry.item.media_id,
+            source=entry.item.source,
+            season_number=entry.target_season_number,
+            episode_number=entry.target_episode_number,
+        )
+    episodes = {
+        (episode.media_id, episode.source, episode.season_number, episode.episode_number): episode
+        for episode in Item.objects.filter(query, media_type=MediaTypes.EPISODE.value).only(
+            "id", "media_id", "source", "season_number", "episode_number", "title"
+        )
+    }
+    for entry in targets:
+        episode = episodes.get(
             (
-                last_activity,
-                HomeRowEntry(item=item, media=media, resume_percent=resume_percent),
+                entry.item.media_id,
+                entry.item.source,
+                entry.target_season_number,
+                entry.target_episode_number,
             )
         )
-    ranked.sort(key=lambda pair: pair[0], reverse=True)
-    return [entry for _last_activity, entry in ranked[:IN_PROGRESS_LIMIT]]
+        if episode is None:
+            continue
+        entry.target_item_id = entry.target_item_id or episode.id
+        entry.target_title = episode.title or None
 
 
 def _media_lookup_for_items(
@@ -533,12 +726,12 @@ def _catch_up(user, now: datetime) -> tuple[int, int]:
 def build_home_sections(user) -> dict:
     """Return the v2 Home sections for a user, cached with the Home rows."""
     today = timezone.localdate()
-    cache_key = f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v4_sections_{today.isoformat()}"
+    cache_key = f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v5_sections_{today.isoformat()}"
     sections = cache.get(cache_key)
     if sections is None:
         airing, airing_count = _airing_this_week(user, today)
         catch_up, catch_up_shows = _catch_up(user, timezone.now())
-        in_progress = _in_progress(user)
+        in_progress = build_continue_watching(user)
         sections = {
             "in_progress": in_progress,
             # The filter pills show only when both kinds are present.

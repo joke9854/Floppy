@@ -326,6 +326,11 @@ urlpatterns = [
         name="api_home",
     ),
     re_path(
+        r"^continue-watching/?$",
+        fork_views_discover.ContinueWatchingView.as_view(),
+        name="api_continue_watching",
+    ),
+    re_path(
         r"^user/preferences/?$",
         fork_views_users.UserPreferencesView.as_view(),
         name="api_user_preferences",
