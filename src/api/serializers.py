@@ -815,6 +815,7 @@ API_EXTENSIONS = {
     "sync_status_v1": True,
     "sync_status_remove_v1": True,
     "sync_items_image_v1": True,
+    "sync_items_added_at_v1": True,
     "watched_state_exact_time_v1": True,
     "oauth_v1": True,
     "scrobble_v2": True,

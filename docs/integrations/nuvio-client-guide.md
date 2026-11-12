@@ -76,6 +76,9 @@ Library status is written with `POST /api/v1/sync/status/`. Status `none`
 without touching history: it answers `removed`, `already_satisfied` when the
 item is not in the library, or `conflict` with reason `has_history` when plays,
 an end date or seasons exist (nothing is deleted then).
+Movies and shows in `GET /api/v1/sync/items/` carry `added_at` (capability `sync_items_added_at_v1`):
+when the title was first added to Floppy, for "date added" sorting; null for
+episodes.
 Library entries read from `GET /api/v1/sync/items/` carry `image` (capability
 `sync_items_image_v1`): the poster URL Floppy shows for a movie or show, null for
 episodes and when there is none, so the library can draw titles without a

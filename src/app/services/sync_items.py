@@ -107,7 +107,13 @@ def _sorted_plays(plays):
     return sorted(plays, key=lambda play: (play["watched_at"] or "", play["key"]))
 
 
-def _describe(item, *, plays, entry):
+def _added_at(rows):
+    """When the user first added the title: the oldest of its tracking rows."""
+    created = [row.created_at for row in rows if row.created_at]
+    return _iso(min(created)) if created else None
+
+
+def _describe(item, *, plays, entry, added_at=None):
     in_library = entry is not None or bool(plays)
     return {
         "type": _API_TYPES[item.media_type],
@@ -127,6 +133,9 @@ def _describe(item, *, plays, entry):
         if item.media_type != MediaTypes.EPISODE.value and has_real_image(item.image)
         else None,
         "in_library": in_library,
+        # Movies and shows: when the title was first added, for "date added"
+        # sorting. Null for episodes.
+        "added_at": added_at,
         "status": _STATUS_NAMES.get(entry.status) if entry is not None else None,
         "score": str(entry.score)
         if entry is not None and entry.score is not None
@@ -182,7 +191,12 @@ def describe_items(user, items):
                     )
                 elif row.end_date:
                     plays.append(_play(f"movie:{row.pk}", row.end_date))
-            states[item.pk] = _describe(item, plays=plays, entry=_preferred_entry(rows))
+            states[item.pk] = _describe(
+                item,
+                plays=plays,
+                entry=_preferred_entry(rows),
+                added_at=_added_at(rows),
+            )
         elif item.media_type == MediaTypes.EPISODE.value:
             plays = [
                 _play(
@@ -198,6 +212,7 @@ def describe_items(user, items):
                 item,
                 plays=[],
                 entry=_preferred_entry(show_rows[item.pk]),
+                added_at=_added_at(show_rows[item.pk]),
             )
     return states
 

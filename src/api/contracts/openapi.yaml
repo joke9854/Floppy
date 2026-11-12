@@ -6712,6 +6712,12 @@ components:
           type: boolean
           description: 'False once the item has no plays and no library entry left:
             the app should remove it.'
+        added_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Movies and shows: when the title was first added, for date-added
+            sorting; null for episodes. Capability sync_items_added_at_v1.'
         status:
           nullable: true
           description: |-
@@ -6734,6 +6740,7 @@ components:
             $ref: '#/components/schemas/SyncPlay'
           description: Every play, oldest first.
       required:
+      - added_at
       - episode_number
       - ids
       - image

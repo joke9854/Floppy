@@ -222,6 +222,29 @@ class SnapshotImageTests(SyncItemsBase):
         self.assertIsNone(self.find(items, "movie", "703")["image"])
         self.assertIsNone(self.find(items, "episode", "1001", 1, 1)["image"])
 
+    def test_added_at_is_when_the_title_was_first_added(self):
+        from django.utils.dateparse import parse_datetime
+
+        with patch(
+            "app.providers.services.get_media_metadata",
+            return_value={"max_progress": None},
+        ):
+            item = Item.objects.create(
+                media_id="711",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.MOVIE.value,
+                title="Movie 711",
+            )
+            first = Movie.objects.create(item=item, user=self.user1, status=Status.COMPLETED.value)
+            Movie.objects.create(item=item, user=self.user1, status=Status.PLANNING.value)
+        self.history({"episodes": [episode_event(1, "2024-01-03T21:13:00Z", "e-added")]})
+
+        items, _ = self.snapshot_all()
+
+        movie = self.find(items, "movie", "711")
+        self.assertEqual(parse_datetime(movie["added_at"]), first.created_at)
+        self.assertIsNone(self.find(items, "episode", "1001", 1, 1)["added_at"])
+
 
 class ChangesTests(SyncItemsBase):
     """The feed lists what changed after a cursor."""

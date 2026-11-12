@@ -61,6 +61,11 @@ class SyncItemSerializer(serializers.Serializer):
         help_text="False once the item has no plays and no library entry left: "
         "the app should remove it.",
     )
+    added_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text="Movies and shows: when the title was first added, for "
+        "date-added sorting; null for episodes. Capability sync_items_added_at_v1.",
+    )
     status = serializers.ChoiceField(
         choices=("planning", "in_progress", "paused", "dropped", "completed"),
         allow_null=True,
