@@ -361,6 +361,16 @@ SPECTACULAR_SETTINGS = {
         "MediaTypeEnum": "app.models.choices.MediaTypes",
         # The API's library status names (sync writes and sync items).
         "LibraryStatusEnum": ("planning", "in_progress", "paused", "dropped", "completed"),
+        # sync/status also accepts "none" (remove from the library); named here
+        # so the generated contract does not pick a name nondeterministically.
+        "LibraryStatusWriteEnum": (
+            "planning",
+            "in_progress",
+            "paused",
+            "dropped",
+            "completed",
+            "none",
+        ),
         # Sync item and search-by-ID result types; otherwise collides on "type".
         "SyncItemTypeEnum": ("movie", "show", "episode"),
         # CineTrack bootstrap job and crash report kinds; otherwise both collide

@@ -6002,6 +6002,22 @@ components:
         * `paused` - paused
         * `dropped` - dropped
         * `completed` - completed
+    LibraryStatusWriteEnum:
+      enum:
+      - planning
+      - in_progress
+      - paused
+      - dropped
+      - completed
+      - none
+      type: string
+      description: |-
+        * `planning` - planning
+        * `in_progress` - in_progress
+        * `paused` - paused
+        * `dropped` - dropped
+        * `completed` - completed
+        * `none` - none
     ListenBrainzError:
       type: object
       description: ListenBrainz-compatible error body.
@@ -6974,7 +6990,7 @@ components:
         ids:
           $ref: '#/components/schemas/ExternalIds'
         status:
-          $ref: '#/components/schemas/LibraryStatusEnum'
+          $ref: '#/components/schemas/LibraryStatusWriteEnum'
         title:
           type: string
       required:
