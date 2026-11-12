@@ -672,9 +672,6 @@
   .ml-3 {
     margin-left: calc(var(--spacing) * 3);
   }
-  .ml-3\.5 {
-    margin-left: calc(var(--spacing) * 3.5);
-  }
   .ml-4 {
     margin-left: calc(var(--spacing) * 4);
   }
@@ -1013,9 +1010,6 @@
   }
   .w-48 {
     width: calc(var(--spacing) * 48);
-  }
-  .w-52 {
-    width: calc(var(--spacing) * 52);
   }
   .w-56 {
     width: calc(var(--spacing) * 56);
@@ -1561,9 +1555,6 @@
   .rounded-2xl {
     border-radius: var(--radius-2xl);
   }
-  .rounded-\[inherit\] {
-    border-radius: inherit;
-  }
   .rounded-full {
     border-radius: calc(infinity * 1px);
   }
@@ -1672,9 +1663,6 @@
   }
   .border-\[var\(--color-link\)\] {
     border-color: var(--color-link);
-  }
-  .border-\[var\(--color-surface-alt\)\] {
-    border-color: var(--color-surface-alt);
   }
   .border-\[var\(--color-surface-border\)\] {
     border-color: var(--color-surface-border);
@@ -1786,9 +1774,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-gray-400) 28%, transparent);
     }
-  }
-  .border-gray-500 {
-    border-color: var(--color-gray-500);
   }
   .border-gray-600 {
     border-color: var(--color-gray-600);
@@ -3235,9 +3220,6 @@
   .text-slate-200 {
     color: var(--color-slate-200);
   }
-  .text-slate-300 {
-    color: var(--color-slate-300);
-  }
   .text-slate-400 {
     color: var(--color-slate-400);
   }
@@ -3597,11 +3579,6 @@
       color: var(--color-white);
     }
   }
-  .placeholder\:text-\[var\(--color-text\)\] {
-    &::placeholder {
-      color: var(--color-text);
-    }
-  }
   .placeholder\:text-\[var\(--color-text-muted\)\] {
     &::placeholder {
       color: var(--color-text-muted);
@@ -3694,22 +3671,10 @@
       }
     }
   }
-  .first\:rounded-t-md {
-    &:first-child {
-      border-top-left-radius: var(--radius-md);
-      border-top-right-radius: var(--radius-md);
-    }
-  }
   .first\:border-t-0 {
     &:first-child {
       border-top-style: var(--tw-border-style);
       border-top-width: 0px;
-    }
-  }
-  .last\:rounded-b-md {
-    &:last-child {
-      border-bottom-right-radius: var(--radius-md);
-      border-bottom-left-radius: var(--radius-md);
     }
   }
   .last\:border-0 {
@@ -4465,13 +4430,6 @@
   .focus\:ring-inset {
     &:focus {
       --tw-ring-inset: inset;
-    }
-  }
-  .focus\:placeholder\:text-\[var\(--color-text-muted\)\] {
-    &:focus {
-      &::placeholder {
-        color: var(--color-text-muted);
-      }
     }
   }
   .focus-visible\:opacity-100 {
@@ -10674,8 +10632,10 @@ html.cinetrack main[data-ct-page="calendar"] {
   font-weight: 600;
 }
 .ct-login-creds input {
-  height: 20px;
-  padding: 0;
+  width: calc(100% + 6px);
+  height: 22px;
+  margin: 0 -3px;
+  padding: 0 3px;
   border: 0;
   background: transparent;
   color: var(--color-text);
@@ -10694,6 +10654,9 @@ html.cinetrack main[data-ct-page="calendar"] {
   @supports (color: color-mix(in lab, red, red)) {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent);
   }
+}
+.ct-login-creds .relative > input {
+  padding-right: 36px;
 }
 .ct-login-creds .relative > button {
   right: -6px;
@@ -10815,9 +10778,14 @@ html.cinetrack main[data-ct-page="calendar"] {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
+  background-color: rgb(255 255 255 / 8%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 6%);
+}
+.ct-login-brands img {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 .ct-login-foot {
   position: absolute;
