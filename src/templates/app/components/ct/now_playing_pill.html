@@ -1,0 +1,43 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  Now Playing as a compact pill in the v2 Home header (Penpot P3a, chosen
+  2026-11-12): a 16:9 still, a live dot with the state, the title, the episode,
+  time left and position/runtime, and a progress line along the bottom edge.
+  It replaces the full-width Now Playing row. The data-playback-* attributes
+  are the ones the Home ticker (_scrollable_row_js.html) advances each second.
+  Context: active_playback_card (live_playback.build_home_playback_card), IMG_NONE.
+{% endcomment %}
+{% with card=active_playback_card %}
+  <a href="{{ card.details_url }}"
+     class="ct-now-playing{% if card.status != 'playing' %} is-paused{% endif %}"
+     data-active-playback-card
+     data-playback-status="{{ card.status }}"
+     data-playback-image-source="{{ card.image_source|default:'primary' }}"
+     data-playback-offset="{{ card.offset_seconds }}"
+     data-playback-duration="{{ card.duration_seconds }}"
+     data-playback-updated-at="{{ card.updated_at_ts }}"
+     data-playback-left-template="{% translate '%s left' %}"
+     aria-label="{% translate "Now Playing" %}: {{ card.title }}{% if card.episode_code %} {{ card.episode_code }}{% endif %}">
+    <span class="ct-now-playing__still">
+      {% if card.image and card.image != IMG_NONE %}
+        <img alt="" src="{{ card.image|image_url }}" width="100" height="56" decoding="async">
+      {% endif %}
+    </span>
+    <span class="ct-now-playing__text">
+      <span class="ct-now-playing__state">
+        <span class="ct-now-playing__dot" aria-hidden="true"></span>
+        {% if card.status == "playing" %}{% translate "Now Playing" %}{% else %}{% translate "Paused" %}{% endif %}
+      </span>
+      <span class="ct-now-playing__title">{{ card.title }}</span>
+      <span class="ct-now-playing__episode">
+        {% if card.episode_code %}{{ card.episode_code }}{% if card.episode_title %} · {{ card.episode_title }}{% endif %}{% else %}{{ card.subtitle|default:"" }}{% endif %}
+      </span>
+    </span>
+    <span class="ct-now-playing__time">
+      <span class="ct-now-playing__left" data-playback-left></span>
+      <span class="ct-now-playing__clock" data-playback-time>{{ card.progress_display }}</span>
+    </span>
+    <span class="ct-now-playing__line" aria-hidden="true"><span data-playback-bar style="width: {{ card.progress_percent }}%"></span></span>
+  </a>
+{% endwith %}

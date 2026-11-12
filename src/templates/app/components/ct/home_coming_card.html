@@ -1,0 +1,41 @@
+{% load i18n %}
+{% load app_tags %}
+{% comment %}
+  One Coming Soon release as a poster card, in the same row style as
+  Recently Watched: the poster stays crisp, with a glass date pill (and a
+  Premiere/Finale pill) as overlays, then the title and "S3 E1" or the media
+  type underneath. Opens the episode when the release is one, else the title.
+  Context: entry (app.home_sections.AiringEntry), user, IMG_NONE.
+{% endcomment %}
+{% with event=entry.event item=entry.event.item %}
+  {% with image=item|ct_poster|default:IMG_NONE %}
+    {% with srcset=image|tmdb_srcset %}
+      <article class="ct-poster-card ct-coming-card" data-media-type="{{ item.media_type }}">
+        <a href="{% if entry.url %}{{ entry.url }}{% else %}{{ item|media_url }}{% endif %}" class="ct-poster-link">
+          <span class="ct-poster-frame">
+            <img alt="{{ item.title }}"
+                 class="ct-poster-img ct-fade-img"
+                 src="{{ image|tmdb_size:'w342'|image_url }}"
+                 {% if srcset %}srcset="{{ srcset }}" sizes="176px"{% endif %}
+                 width="342"
+                 height="513"
+                 loading="lazy"
+                 decoding="async">
+            <span class="ct-coming-date{% if entry.is_today %} is-today{% endif %}">
+              {% if entry.is_today %}{% translate "Today" %}{% else %}{{ entry.day|date:"D j M" }}{% endif %}
+            </span>
+            {% if entry.tag == "finale" %}
+              <span class="ct-coming-tag">{% translate "Finale" %}</span>
+            {% elif entry.tag == "premiere" %}
+              <span class="ct-coming-tag is-premiere">{% translate "Premiere" %}</span>
+            {% endif %}
+          </span>
+          <span class="ct-poster-title">{{ item.title }}</span>
+          <span class="ct-poster-sub">
+            {% if item.season_number is not None and event.content_number %}S{{ item.season_number }} E{{ event.content_number }}{% elif event.readable_content_number %}{{ event.readable_content_number }}{% else %}{{ item.media_type|media_type_readable }}{% endif %}
+          </span>
+        </a>
+      </article>
+    {% endwith %}
+  {% endwith %}
+{% endwith %}

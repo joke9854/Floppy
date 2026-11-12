@@ -207,6 +207,20 @@
         : formatPlaybackClock(currentSeconds);
     }
 
+    // Header pill (P3a): "20 min left" / "1h 5m left", hidden without a runtime.
+    const leftNode = card.querySelector('[data-playback-left]');
+    if (leftNode) {
+      if (durationSeconds > 0) {
+        const minutes = Math.max(0, Math.ceil((durationSeconds - currentSeconds) / 60));
+        const hours = Math.floor(minutes / 60);
+        const remaining = hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes} min`;
+        leftNode.textContent = (card.dataset.playbackLeftTemplate || '%s left').replace('%s', remaining);
+        leftNode.hidden = false;
+      } else {
+        leftNode.hidden = true;
+      }
+    }
+
     const progressBar = card.querySelector('[data-playback-bar]');
     if (progressBar) {
       const width = durationSeconds > 0

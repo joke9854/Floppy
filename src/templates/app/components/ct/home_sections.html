@@ -3,7 +3,7 @@
 {% comment %}
   v2 Home fixed sections (boards A1/A6), in order: In Progress (a row of
   cards), Airing This Week (a two-column grouped list, one column on phones,
-  as A6), Recently Watched (a row of poster cards) and Coming Soon (a list).
+  as A6), Recently Watched and Coming Soon (rows of poster cards).
   Empty sections are not rendered. Data from app.home_sections.build_home_sections.
   Context: home_sections, user, IMG_NONE.
 {% endcomment %}
@@ -57,12 +57,16 @@
     <div class="ct-row-head">
       <h2 id="ct-coming-title" class="ct-row-title">{% translate "Coming Soon" %}</h2>
     </div>
-    <div class="ct-airing">
-      <ul class="ct-airing-list ct-card">
-        {% for entry in home_sections.coming_soon %}
-          {% include "app/components/ct/home_airing_item.html" with entry=entry %}
-        {% endfor %}
-      </ul>
+    <div class="ct-recent-row home-row-scrollbar-hidden"
+         data-horizontal-drag="true"
+         tabindex="0"
+         role="region"
+         aria-labelledby="ct-coming-title">
+      {% for entry in home_sections.coming_soon %}
+        <div class="home-row-card w-44 shrink-0">
+          {% include "app/components/ct/home_coming_card.html" with entry=entry %}
+        </div>
+      {% endfor %}
     </div>
   </section>
 {% endif %}

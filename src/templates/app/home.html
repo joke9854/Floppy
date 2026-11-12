@@ -31,6 +31,18 @@
             </p>
           {% endif %}
         </div>
+        {# P3a: Now Playing as a header pill (replaces the full-width row), polled like the old row. #}
+        <div id="ct-now-playing-slot"
+             class="ct-now-playing-slot"
+             {% if not active_playback_card %}hidden{% endif %}
+             hx-get="{% url 'active_playback_fragment' %}?variant=pill"
+             hx-trigger="every 10s [document.visibilityState=='visible'], visibilitychange[document.visibilityState=='visible'] from:document"
+             hx-swap="innerHTML"
+             hx-on::after-swap="this.hidden=!this.children.length">
+          {% if active_playback_card %}
+            {% include "app/components/ct/now_playing_pill.html" %}
+          {% endif %}
+        </div>
         <a href="{% url 'notifications' %}"
            class="ct-page-bell"
            aria-label="{% translate "Notifications" %}"
@@ -41,6 +53,7 @@
            aria-label="{% translate "Account settings" %}"><span class="ct-avatar ct-avatar-lg" aria-hidden="true">{{ user.username|slice:":2"|upper }}</span></a>
       </header>
     {% endif %}
+    {% if not request|uses_ct_home_cards %}
     <div id="active-playback-container"
          class="media-grid"
          {% if not active_playback_card %}style="display:none"{% endif %}
@@ -52,6 +65,7 @@
         {% include "app/components/active_playback_card.html" %}
       {% endif %}
     </div>
+    {% endif %}
     {% include "app/components/ct/home_sections.html" %}
     {% if not home_sections.in_progress and not home_sections.airing and not home_sections.recent and not home_sections.coming_soon %}
       <div class="flex flex-col items-center justify-center py-16 sm:py-32 px-3 sm:px-4 bg-[var(--color-surface)] rounded-lg">

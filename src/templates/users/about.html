@@ -75,6 +75,23 @@
             </a>
             {% translate "and has diverged substantially since. Yamtrack CSV exports import directly." %}
           </p>
+          <p class="text-[var(--color-text-muted)] text-sm leading-relaxed">
+            {% translate "This server runs the CineTrack edition of Floppy, maintained at" %}
+            <a href="https://github.com/joke9854/Floppy"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="text-[var(--color-link)] hover:text-[var(--color-link-hover)] underline">
+              joke9854/Floppy
+              <span class="sr-only">{% translate "(opens in a new tab)" %}</span>
+            </a>{% translate ". It adds the sync API used by CineTrack and Nuvio, built on Floppy by" %}
+            <a href="https://github.com/dannyvfilms/Floppy"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="text-[var(--color-link)] hover:text-[var(--color-link-hover)] underline">
+              dannyvfilms
+              <span class="sr-only">{% translate "(opens in a new tab)" %}</span>
+            </a>.
+          </p>
         </div>
       </section>
 
@@ -224,9 +241,9 @@
                 <tr class="hover:bg-[var(--color-surface-hover)] transition-colors">
                   <td class="px-4 py-3 font-medium text-[var(--color-text)] flex items-center gap-2">
                     {% include "app/icons/globe.svg" with classes="w-4 h-4 text-[var(--color-link)] shrink-0" %}
-                    <span>{% translate "Project Website" %}</span>
+                    <span>{% translate "Upstream Website" %}</span>
                   </td>
-                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Official documentation, guides, and live release announcements" %}</td>
+                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Floppy's official site: guides and release announcements for upstream Floppy" %}</td>
                   <td class="px-4 py-3 text-right">
                     <a href="https://dannyvfilms.github.io/floppy/"
                        target="_blank"
@@ -244,9 +261,9 @@
                     {% include "app/icons/github.svg" with classes="w-4 h-4 text-[var(--color-link)] shrink-0" %}
                     <span>{% translate "Source Code" %}</span>
                   </td>
-                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "GitHub repository, issue tracker, pull requests, and releases" %}</td>
+                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "This edition's GitHub repository: the CineTrack sync API, pull requests and history" %}</td>
                   <td class="px-4 py-3 text-right">
-                    <a href="https://github.com/dannyvfilms/Floppy"
+                    <a href="https://github.com/joke9854/Floppy"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="inline-flex items-center gap-1 text-[var(--color-link)] hover:text-[var(--color-link-hover)] font-medium text-xs">
@@ -260,9 +277,9 @@
                 <tr class="hover:bg-[var(--color-surface-hover)] transition-colors">
                   <td class="px-4 py-3 font-medium text-[var(--color-text)] flex items-center gap-2">
                     {% include "app/icons/book-open.svg" with classes="w-4 h-4 text-[var(--color-link)] shrink-0" %}
-                    <span>{% translate "Documentation" %}</span>
+                    <span>{% translate "Upstream Documentation" %}</span>
                   </td>
-                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Community wiki, container deployment, reverse proxy setup, and guides" %}</td>
+                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Floppy's wiki: container deployment, reverse proxy setup, and guides" %}</td>
                   <td class="px-4 py-3 text-right">
                     <a href="https://github.com/dannyvfilms/Floppy/wiki"
                        target="_blank"
@@ -280,9 +297,9 @@
                     {% include "app/icons/bug.svg" with classes="w-4 h-4 text-[var(--color-link)] shrink-0" %}
                     <span>{% translate "Bug Reports" %}</span>
                   </td>
-                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Report bugs, submit sanitized logs, and request new features" %}</td>
+                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Report bugs in this edition, submit sanitized logs, and request features" %}</td>
                   <td class="px-4 py-3 text-right">
-                    <a href="https://github.com/dannyvfilms/Floppy/issues"
+                    <a href="https://github.com/joke9854/Floppy/issues"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="inline-flex items-center gap-1 text-[var(--color-link)] hover:text-[var(--color-link-hover)] font-medium text-xs">
@@ -296,9 +313,9 @@
                 <tr class="hover:bg-[var(--color-surface-hover)] transition-colors">
                   <td class="px-4 py-3 font-medium text-[var(--color-text)] flex items-center gap-2">
                     {% include "app/icons/persons.svg" with classes="w-4 h-4 text-[var(--color-link)] shrink-0" %}
-                    <span>{% translate "Community Discord" %}</span>
+                    <span>{% translate "Upstream Discord" %}</span>
                   </td>
-                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Connect with homelab users, share setups, and get live help" %}</td>
+                  <td class="px-4 py-3 text-[var(--color-text-muted)] text-xs">{% translate "Floppy's community: homelab users, setups, and live help" %}</td>
                   <td class="px-4 py-3 text-right">
                     <a href="https://discord.gg/uFgha7Kb6n"
                        target="_blank"

@@ -478,11 +478,18 @@ def active_playback_fragment(request):
     card = live_playback.build_home_playback_card(request.user)
     if not card:
         return HttpResponse("")
+    # The v2 Home header shows a compact pill (P3a); the classic Home keeps the card.
+    template = (
+        "app/components/ct/now_playing_pill.html"
+        if request.GET.get("variant") == "pill"
+        else "app/components/active_playback_card.html"
+    )
     return render(
         request,
-        "app/components/active_playback_card.html",
+        template,
         {
             "active_playback_card": card,
+            "IMG_NONE": settings.IMG_NONE,
         },
     )
 
