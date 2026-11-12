@@ -22,7 +22,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from app.helpers import build_provider_ids
+from app.helpers import build_provider_ids, has_real_image
 from app.models.choices import MediaTypes, Status
 
 _STATUS_NAMES = {
@@ -121,6 +121,11 @@ def _describe(item, *, plays, entry):
         if item.media_type == MediaTypes.EPISODE.value
         else None,
         "ids": build_provider_ids(item),
+        # Movies and shows: the poster Floppy already shows, so an app's
+        # library can draw the title without its own metadata lookup.
+        "image": item.image
+        if item.media_type != MediaTypes.EPISODE.value and has_real_image(item.image)
+        else None,
         "in_library": in_library,
         "status": _STATUS_NAMES.get(entry.status) if entry is not None else None,
         "score": str(entry.score)

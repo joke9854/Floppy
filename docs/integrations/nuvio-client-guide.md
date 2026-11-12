@@ -76,6 +76,10 @@ Library status is written with `POST /api/v1/sync/status/`. Status `none`
 without touching history: it answers `removed`, `already_satisfied` when the
 item is not in the library, or `conflict` with reason `has_history` when plays,
 an end date or seasons exist (nothing is deleted then).
+Library entries read from `GET /api/v1/sync/items/` carry `image` (capability
+`sync_items_image_v1`): the poster URL Floppy shows for a movie or show, null for
+episodes and when there is none, so the library can draw titles without a
+metadata lookup.
 
 ### 3a. Continue watching
 

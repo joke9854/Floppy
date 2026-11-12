@@ -6703,6 +6703,11 @@ components:
           type: object
           additionalProperties:
             type: string
+        image:
+          type: string
+          nullable: true
+          description: 'Movies and shows: the poster URL Floppy shows; null for episodes
+            and when there is none. Capability sync_items_image_v1.'
         in_library:
           type: boolean
           description: 'False once the item has no plays and no library entry left:
@@ -6731,6 +6736,7 @@ components:
       required:
       - episode_number
       - ids
+      - image
       - in_library
       - media_id
       - plays

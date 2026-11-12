@@ -52,6 +52,11 @@ class SyncItemSerializer(serializers.Serializer):
     season_number = serializers.IntegerField(allow_null=True)
     episode_number = serializers.IntegerField(allow_null=True)
     ids = serializers.DictField(child=serializers.CharField())
+    image = serializers.CharField(
+        allow_null=True,
+        help_text="Movies and shows: the poster URL Floppy shows; null for "
+        "episodes and when there is none. Capability sync_items_image_v1.",
+    )
     in_library = serializers.BooleanField(
         help_text="False once the item has no plays and no library entry left: "
         "the app should remove it.",

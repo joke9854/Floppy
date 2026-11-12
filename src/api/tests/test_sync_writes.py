@@ -1090,6 +1090,7 @@ class SyncWritesScopeAndInfoTests(SyncWritesBase):
             "sync_ratings_v1",
             "sync_status_v1",
             "sync_status_remove_v1",
+            "sync_items_image_v1",
             "watched_state_exact_time_v1",
         ):
             self.assertIs(extensions[flag], True, flag)

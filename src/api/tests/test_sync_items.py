@@ -193,6 +193,36 @@ class SnapshotTests(SyncItemsBase):
         self.assertEqual(self.get(SNAPSHOT, after=-1).status_code, HTTP.BAD_REQUEST)
 
 
+class SnapshotImageTests(SyncItemsBase):
+    """Movies and shows carry the poster Floppy shows; episodes never do."""
+
+    def test_poster_is_sent_for_titles_only(self):
+        from django.conf import settings
+
+        poster = "https://image.tmdb.org/t/p/w500/poster.jpg"
+        with patch(
+            "app.providers.services.get_media_metadata",
+            return_value={"max_progress": None},
+        ):
+            for media_id, image in (("701", poster), ("702", settings.IMG_NONE), ("703", "")):
+                item = Item.objects.create(
+                    media_id=media_id,
+                    source=Sources.TMDB.value,
+                    media_type=MediaTypes.MOVIE.value,
+                    title=f"Movie {media_id}",
+                    image=image,
+                )
+                Movie.objects.create(item=item, user=self.user1, status=Status.PLANNING.value)
+        self.history({"episodes": [episode_event(1, "2024-01-03T21:13:00Z", "e-img")]})
+
+        items, _ = self.snapshot_all()
+
+        self.assertEqual(self.find(items, "movie", "701")["image"], poster)
+        self.assertIsNone(self.find(items, "movie", "702")["image"])
+        self.assertIsNone(self.find(items, "movie", "703")["image"])
+        self.assertIsNone(self.find(items, "episode", "1001", 1, 1)["image"])
+
+
 class ChangesTests(SyncItemsBase):
     """The feed lists what changed after a cursor."""
 
