@@ -103,6 +103,12 @@ def _scrobble_request_error(data):
     return None
 
 
+# A scrobble client says "stop" when its player closes, so the Now Playing card
+# waits only long enough to bridge an autoplay hand-off to the next episode,
+# not the minute webhook sources get.
+SCROBBLE_STOP_GRACE_SECONDS = 5
+
+
 def _progress_percent(data):
     """Return how far playback got, 0-100, or None when it cannot be told.
 
@@ -545,6 +551,7 @@ class ScrobbleView(drf_views.APIView):
                 view_offset_seconds=data.get("position_seconds"),
                 duration_seconds=data.get("duration_seconds"),
                 image=image,
+                stop_grace_seconds=SCROBBLE_STOP_GRACE_SECONDS,
             )
         except Exception:
             logger.warning("Scrobble live-playback update failed", exc_info=True)

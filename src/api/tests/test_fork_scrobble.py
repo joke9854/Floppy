@@ -105,6 +105,25 @@ class ScrobbleLivePlaybackTests(FloppyApiTestCase):
         )
 
     @patch("api.fork_views_scrobble.live_playback.apply_playback_event")
+    def test_scrobble_asks_for_a_short_stop_grace(self, mock_apply_event):
+        """The client stops explicitly, so the card need not wait out the webhook minute."""
+        self.call_api(
+            "post",
+            "api_scrobble",
+            payload={
+                "action": "start",
+                "media_type": "movie",
+                "ids": {"tmdb": "603"},
+                "position_seconds": 10,
+                "duration_seconds": 8160,
+            },
+            headers=self.auth_headers,
+        )
+
+        _, kwargs = mock_apply_event.call_args
+        self.assertEqual(kwargs["stop_grace_seconds"], 5)
+
+    @patch("api.fork_views_scrobble.live_playback.apply_playback_event")
     def test_pause_updates_live_playback_only(self, mock_apply_event):
         """A pause event maps to the media.pause event type."""
         response = self.call_api(

@@ -288,6 +288,7 @@ def apply_playback_event(
     store_progress: bool = False,
     provider_completed: bool | None = None,
     image: str | None = None,
+    stop_grace_seconds: int = PLAYBACK_STOP_GRACE_SECONDS,
 ) -> None:
     """Update live playback cache state from a webhook event.
 
@@ -298,6 +299,9 @@ def apply_playback_event(
     ``store_progress`` mirrors webhook positions into the durable store.
     ``provider_completed`` is an explicit completion value when the source
     provides one; ``None`` leaves completion inference source-agnostic.
+    ``stop_grace_seconds`` is how long a stopped card stays: webhook sources
+    keep the long default to bridge autoplay gaps, while a client that sends
+    an explicit stop (the scrobble API) can make it short.
     """
     if playback_media_type not in (
         MediaTypes.MOVIE.value,
@@ -339,7 +343,7 @@ def apply_playback_event(
             existing_state["pause_expires_at_ts"] = None
             existing_state["scrobble_expires_at_ts"] = None
             existing_state["status"] = PLAYBACK_STATUS_STOPPED
-            existing_state["stop_expires_at_ts"] = now_ts + PLAYBACK_STOP_GRACE_SECONDS
+            existing_state["stop_expires_at_ts"] = now_ts + max(0, stop_grace_seconds)
             set_user_playback_state(user_id, existing_state)
         if store_progress:
             stop_media_id, stop_season, stop_episode = _identifiers_from_state(

@@ -95,6 +95,45 @@ class ScrobbleProgressFloorTests(TestCase):
         self.assertEqual(state["view_offset_seconds"], 600)
 
 
+class StopGraceTests(TestCase):
+    """A stopped card stays for the caller's grace, the long default otherwise."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="stopgrace", password="pw")
+
+    def tearDown(self):
+        live_playback.clear_user_playback_state(self.user.id)
+        cache.clear()
+        super().tearDown()
+
+    @patch("app.live_playback._attach_resolved_image")
+    def _play_then_stop(self, _mock_image, **stop_kwargs):
+        common = {
+            "user_id": self.user.id,
+            "playback_media_type": MediaTypes.MOVIE.value,
+            "media_id": "701",
+            "source": Sources.TMDB.value,
+            "title": "A Movie",
+            "view_offset_seconds": 600,
+            "duration_seconds": 5340,
+        }
+        live_playback.apply_playback_event(event_type="media.play", **common)
+        live_playback.apply_playback_event(event_type="media.stop", **common, **stop_kwargs)
+        return live_playback.get_user_playback_state(self.user.id)
+
+    def test_webhook_stop_keeps_the_long_grace(self):
+        with patch("app.live_playback._now_ts", return_value=live_playback._now_ts()) as now:
+            state = self._play_then_stop()
+
+        self.assertEqual(state["stop_expires_at_ts"], now.return_value + live_playback.PLAYBACK_STOP_GRACE_SECONDS)
+
+    def test_explicit_short_grace_is_used(self):
+        with patch("app.live_playback._now_ts", return_value=live_playback._now_ts()) as now:
+            state = self._play_then_stop(stop_grace_seconds=5)
+
+        self.assertEqual(state["stop_expires_at_ts"], now.return_value + 5)
+
+
 class ApplyPlaybackEventImageTests(TestCase):
     """Image resolution happens when webhook events are applied."""
 
