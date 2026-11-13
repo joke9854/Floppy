@@ -6,9 +6,9 @@ import time
 from io import BytesIO
 from unittest.mock import Mock, patch
 
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.signals import request_started
-from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
