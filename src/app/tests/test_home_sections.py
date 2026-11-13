@@ -155,6 +155,21 @@ class HomeSectionsTests(TestCase):
         titles = [entry.item.title for entry in sections["recent"]]
         self.assertEqual(titles, ["Fight Club", "Friends"])
 
+    def test_recently_watched_show_carries_its_end_date(self):
+        """The card's status chip reads TV.end_date; it is filled, not queried."""
+        sections = home_sections.build_home_sections(self.user)
+        show = next(entry.media for entry in sections["recent"] if entry.item.title == "Friends")
+        latest = (
+            Episode.objects.filter(related_season__related_tv=show, end_date__isnull=False)
+            .order_by("-end_date")
+            .values_list("end_date", flat=True)
+            .first()
+        )
+
+        self.assertEqual(show.__dict__.get("end_date"), latest)
+        with self.assertNumQueries(0):
+            self.assertEqual(show.end_date, latest)
+
     def test_recently_watched_skips_a_planned_movie_with_a_date(self):
         movie_item = Item.objects.create(
             media_id="9999",
@@ -686,6 +701,21 @@ class InProgressCardTests(InProgressFixtures):
         self.assertEqual(response.status_code, 200)
         self.assertIn("ct-progress-title", response.content.decode())
         self.assertNotContains(response, "<html")
+
+    def test_fragment_rebuilds_only_in_progress_and_updates_the_cache(self):
+        home_sections.build_home_sections(self.user)
+        self._movie("551", Status.IN_PROGRESS.value, position=1800, duration=7200)
+
+        with patch.object(home_sections, "_airing_this_week") as airing, patch.object(
+            home_sections, "_coming_soon"
+        ) as coming:
+            response = self.client.get(reverse("home_in_progress_fragment"))
+
+        self.assertEqual(response.status_code, 200)
+        airing.assert_not_called()
+        coming.assert_not_called()
+        cached = home_sections.build_home_sections(self.user)
+        self.assertIn("Movie 551", [entry.item.title for entry in cached["in_progress"]])
 
     def test_fragment_is_empty_once_nothing_is_in_progress(self):
         response = self.client.get(reverse("home_in_progress_fragment"))

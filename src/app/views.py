@@ -495,14 +495,17 @@ def active_playback_fragment(request):
 
 
 def home_in_progress_fragment(request):
-    """HTMX fragment: the Home In Progress row, re-read after a change made on Home."""
-    cache_utils.clear_home_row_cache_for_user(request.user.id)
+    """HTMX fragment: the Home In Progress row, re-read after a change made on Home.
+
+    Only this row is rebuilt; the other Home rows stay cached (writes that
+    change them clear them through the media signals).
+    """
     return render(
         request,
         "app/components/ct/home_in_progress.html",
         {
             "user": request.user,
-            "home_sections": _ct_home_sections(request.user),
+            "home_sections": home_sections.refresh_in_progress_section(request.user),
             "IMG_NONE": settings.IMG_NONE,
         },
     )

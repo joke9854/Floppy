@@ -660,6 +660,12 @@ def _recently_watched(user) -> list[HomeRowEntry]:
     for episode in episodes:
         season = episode.related_season
         media = season.related_tv or season
+        if ("tv", media.item_id) not in watched and isinstance(media, TV):
+            # Episodes come newest first, so this is the show's latest watch:
+            # exactly TV.end_date. Filling the cached_property here keeps the
+            # card's status chip from querying every season on each render
+            # (the value is pickled with the cached sections).
+            media.__dict__["end_date"] = episode.end_date
         watched.setdefault(("tv", media.item_id), (episode.end_date, media))
         if len(watched) >= RECENT_LIMIT:
             break
@@ -723,24 +729,50 @@ def _catch_up(user, now: datetime) -> tuple[int, int]:
     return episodes, len(shows)
 
 
+def _sections_cache_key(user, today) -> str:
+    return f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v5_sections_{today.isoformat()}"
+
+
+def _in_progress_section(user) -> dict:
+    in_progress = build_continue_watching(user)
+    return {
+        "in_progress": in_progress,
+        # The filter pills show only when both kinds are present.
+        "in_progress_kinds": sorted(
+            {
+                "movie" if entry.item.media_type == MediaTypes.MOVIE.value else "show"
+                for entry in in_progress
+            }
+        ),
+    }
+
+
+def refresh_in_progress_section(user) -> dict:
+    """Rebuild only the In Progress row and update it in the cached sections.
+
+    The Home refresh after a change (a check on a card, Now Playing ending)
+    needs this one row. Rebuilding every section, Airing and Coming Soon
+    included, cost several heavy event queries for a row that did not change.
+    """
+    section = _in_progress_section(user)
+    cache_key = _sections_cache_key(user, timezone.localdate())
+    sections = cache.get(cache_key)
+    if sections is not None:
+        sections.update(section)
+        cache.set(cache_key, sections, HOME_ROW_CACHE_TTL)
+    return section
+
+
 def build_home_sections(user) -> dict:
     """Return the v2 Home sections for a user, cached with the Home rows."""
     today = timezone.localdate()
-    cache_key = f"{HOME_ROW_CACHE_PREFIX}_{user.id}_v5_sections_{today.isoformat()}"
+    cache_key = _sections_cache_key(user, today)
     sections = cache.get(cache_key)
     if sections is None:
         airing, airing_count = _airing_this_week(user, today)
         catch_up, catch_up_shows = _catch_up(user, timezone.now())
-        in_progress = build_continue_watching(user)
         sections = {
-            "in_progress": in_progress,
-            # The filter pills show only when both kinds are present.
-            "in_progress_kinds": sorted(
-                {
-                    "movie" if entry.item.media_type == MediaTypes.MOVIE.value else "show"
-                    for entry in in_progress
-                }
-            ),
+            **_in_progress_section(user),
             # Two columns of three on desktop (A1); phones show the first.
             "airing": [column for column in (airing[:3], airing[3:]) if column],
             "airing_count": airing_count,

@@ -583,11 +583,20 @@ else:
     )
     SQLITE_JOURNAL_MODE = config("SQLITE_JOURNAL_MODE", default="WAL")
     SQLITE_SYNCHRONOUS = config("SQLITE_SYNCHRONOUS", default="NORMAL")
+    # Per-connection page cache in KiB and memory-mapped I/O in bytes. Kept
+    # small: a few gunicorn threads and Celery children each hold a connection.
+    SQLITE_CACHE_KIB = config("SQLITE_CACHE_KIB", default=8192, cast=int)
+    SQLITE_MMAP_BYTES = config("SQLITE_MMAP_BYTES", default=128 * 1024 * 1024, cast=int)
 
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": FLOPPY_DB_PATH,
+            # Reuse a connection across requests: opening one costs a connect,
+            # four PRAGMAs and a cold page cache. gunicorn's pre_fork and
+            # Celery's Django fixup close connections before forking.
+            "CONN_MAX_AGE": config("SQLITE_CONN_MAX_AGE", default=600, cast=int),
+            "CONN_HEALTH_CHECKS": True,
             "OPTIONS": {
                 "timeout": SQLITE_BUSY_TIMEOUT_SECONDS,
             },
@@ -614,6 +623,9 @@ else:
             cursor.execute(
                 f"PRAGMA busy_timeout={int(SQLITE_BUSY_TIMEOUT_SECONDS * 1000)}",
             )
+            cursor.execute(f"PRAGMA cache_size={-abs(int(SQLITE_CACHE_KIB))}")
+            cursor.execute(f"PRAGMA mmap_size={max(0, int(SQLITE_MMAP_BYTES))}")
+            cursor.execute("PRAGMA temp_store=MEMORY")
             if actual_journal_mode.lower() != SQLITE_JOURNAL_MODE.lower():
                 # A connection stuck on a different journal mode than its
                 # siblings (e.g. WAL requested but filesystem doesn't support
@@ -1691,11 +1703,19 @@ STATISTICS_HISTORY_DEBOUNCE_SECONDS = config(
     cast=int,
 )
 
-CELERY_RESULT_EXTENDED = True
+# Nothing reads task results from Redis: the task list Floppy shows is the
+# TaskResult table, kept by the publish/success/failure signals in
+# app/signals.py. Storing every result (with its arguments) in Redis only
+# competed with the real cache for memory.
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_RESULT_EXTENDED = False
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default=None) or REDIS_URL
 CELERY_CACHE_BACKEND = "default"
 CELERY_RESULT_EXPIRES = 60 * 60 * 24 * 7  # 7 days
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+# The scheduler otherwise wakes and queries the database every 5 seconds. The
+# shortest schedule is 10 minutes, so checking once a minute loses nothing.
+CELERY_BEAT_MAX_LOOP_INTERVAL = config("CELERY_BEAT_MAX_LOOP_INTERVAL", default=60, cast=int)
 
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-serializer
 CELERY_TASK_SERIALIZER = "pickle"
