@@ -305,6 +305,31 @@ class ImageCacheServiceTests(TestCase):
         self.assertFalse(old_data.exists())
         self.assertTrue(image_cache._paths(urls[1])[0].exists())
 
+    def test_a_view_keeps_the_poster_file_time_and_counts_as_use(self):
+        url = "https://image.tmdb.org/t/p/w500/kept.jpg"
+        image_cache.set_enabled(True)
+        body = _png_bytes()
+        with patch(
+            "app.image_cache.requests.get",
+            return_value=_response(body, **{"Content-Length": str(len(body))}),
+        ):
+            self.client.get(
+                reverse("image_cache", kwargs={"token": image_cache._token_for_url(url)}),
+            ).close()
+        data_path, metadata_path = image_cache._paths(url)
+        old_time = time.time() - image_cache.DEFAULT_RETENTION_DAYS * image_cache.DAY_SECONDS - 1
+        os.utime(data_path, (old_time, old_time))
+        os.utime(metadata_path, (old_time, old_time))
+
+        self.client.get(
+            reverse("image_cache", kwargs={"token": image_cache._token_for_url(url)}),
+        ).close()
+
+        # nginx's ETag comes from this time, so it must not move on a view.
+        self.assertEqual(data_path.stat().st_mtime, old_time)
+        self.assertEqual(image_cache.cleanup_stale_images()["removed_count"], 0)
+        self.assertTrue(data_path.exists())
+
     def test_api_renderer_rewrites_image_fields_without_changing_shape(self):
         image_cache.set_enabled(True)
         request = Request(RequestFactory().get("/api/v1/info/"))

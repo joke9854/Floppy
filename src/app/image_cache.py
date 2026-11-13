@@ -406,12 +406,22 @@ def _metadata(data_path, metadata_path):
     return metadata
 
 
-def _touch(paths):
-    for path in paths:
+def _mark_used(metadata_path):
+    # Only the metadata file records use. nginx builds the poster's ETag and
+    # Last-Modified from the data file's mtime, so touching that file made
+    # every view a new version and revalidations never got a 304.
+    with suppress(OSError):
+        metadata_path.touch()
+
+
+def _last_used(data_path, metadata_path):
+    times = []
+    for path in (data_path, metadata_path):
         try:
-            path.touch()
+            times.append(path.stat().st_mtime)
         except OSError:
             continue
+    return max(times) if times else 0
 
 
 def serve_cached_image(token, request):
@@ -428,7 +438,7 @@ def serve_cached_image(token, request):
         if metadata is None:
             return HttpResponseNotFound()
 
-    _touch((data_path, metadata_path))
+    _mark_used(metadata_path)
     etag = metadata.get("etag")
     if etag and request.headers.get("If-None-Match") == etag:
         response = HttpResponse(status=304)
@@ -506,9 +516,9 @@ def cleanup_stale_images():
         return {"removed_count": 0, "removed_bytes": 0}
     for data_path in data_paths:
         try:
-            if data_path.stat().st_mtime > cutoff:
-                continue
             metadata_path = data_path.with_suffix(".json")
+            if _last_used(data_path, metadata_path) > cutoff:
+                continue
             paths = [data_path, metadata_path]
             entry_bytes = 0
             for path in paths:
