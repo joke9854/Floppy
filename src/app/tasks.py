@@ -893,13 +893,17 @@ def repair_history_day_cache_coverage_task(
 
 @shared_task(name="Backfill item metadata")
 def backfill_item_metadata_task(
-    batch_size: int = 10, game_length_batch_size: int | None = None
+    batch_size: int = 10,
+    game_length_batch_size: int | None = None,
+    report_remaining: bool = False,
 ):
     """Backfill metadata fields, missing release dates, and game-length metadata.
 
     Args:
         batch_size: Number of items to process in this batch (default: 10)
         game_length_batch_size: Max already-fetched IGDB games to enrich with game lengths.
+        report_remaining: Count and report the remaining items per backfill field.
+            The counts are whole-library queries, so only the nightly run asks.
 
     Returns:
         dict: Results including success_count, error_count, and message
@@ -916,11 +920,6 @@ def backfill_item_metadata_task(
             "reason": "interactive_request_active",
             "success_count": 0,
             "error_count": 0,
-            "remaining_metadata": _initial_metadata_items_queryset().count(),
-            "remaining_release": count_release_backfill_items(),
-            "remaining_discover_movie_metadata": count_discover_movie_metadata_backfill_items(),
-            "remaining_game_lengths": count_game_length_backfill_items(),
-            "remaining_status": count_status_backfill_items(),
             "message": "Skipped metadata backfill while an interactive request was active",
         }
 
@@ -1225,12 +1224,6 @@ def backfill_item_metadata_task(
                 exception_summary(e),  # noqa: TRY401  # exception_summary() is the project's sanitised rendering
             )
 
-    remaining_metadata = _initial_metadata_items_queryset().count()
-    remaining_release = count_release_backfill_items()
-    remaining_discover_movie_metadata = count_discover_movie_metadata_backfill_items()
-    remaining_game_lengths = count_game_length_backfill_items()
-    remaining_status = count_status_backfill_items()
-
     if processed_movie_discover_items:
         _schedule_discover_refresh_for_movie_items(processed_movie_discover_items)
 
@@ -1238,21 +1231,34 @@ def backfill_item_metadata_task(
         "success_count": success_count,
         "release_updated_count": release_updated_count,
         "error_count": error_count,
-        "remaining_metadata": remaining_metadata,
-        "remaining_release": remaining_release,
-        "remaining_discover_movie_metadata": remaining_discover_movie_metadata,
-        "remaining_game_lengths": remaining_game_lengths,
-        "remaining_status": remaining_status,
-        "remaining": remaining_metadata,
-        "message": (
-            f"Processed {success_count + error_count} items, "
-            f"{remaining_metadata} metadata items remaining, "
-            f"{remaining_release} release items remaining, "
-            f"{remaining_discover_movie_metadata} Discover movie items remaining, "
-            f"{remaining_game_lengths} game-length items remaining, "
-            f"{remaining_status} status items remaining"
-        ),
+        "message": f"Processed {success_count + error_count} items",
     }
+    if report_remaining:
+        remaining_metadata = _initial_metadata_items_queryset().count()
+        remaining_release = count_release_backfill_items()
+        remaining_discover_movie_metadata = (
+            count_discover_movie_metadata_backfill_items()
+        )
+        remaining_game_lengths = count_game_length_backfill_items()
+        remaining_status = count_status_backfill_items()
+        result.update(
+            {
+                "remaining_metadata": remaining_metadata,
+                "remaining_release": remaining_release,
+                "remaining_discover_movie_metadata": remaining_discover_movie_metadata,
+                "remaining_game_lengths": remaining_game_lengths,
+                "remaining_status": remaining_status,
+                "remaining": remaining_metadata,
+                "message": (
+                    f"Processed {success_count + error_count} items, "
+                    f"{remaining_metadata} metadata items remaining, "
+                    f"{remaining_release} release items remaining, "
+                    f"{remaining_discover_movie_metadata} Discover movie items remaining, "
+                    f"{remaining_game_lengths} game-length items remaining, "
+                    f"{remaining_status} status items remaining"
+                ),
+            },
+        )
     if deferred_for_interactive_request:
         result["deferred"] = True
         result["reason"] = "interactive_request_active"

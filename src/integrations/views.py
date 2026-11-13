@@ -1910,7 +1910,7 @@ def jellyfin_push_now(request):
         messages.error(request, "Connect Jellyfin before syncing.")
         return redirect("integrations")
 
-    tasks.push_jellyfin_watched.delay(user_id=request.user.id)
+    tasks.push_jellyfin_watched.delay(user_id=request.user.id, force=True)
     messages.info(request, "Jellyfin sync queued.")
     return redirect("integrations")
 

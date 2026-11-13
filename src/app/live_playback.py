@@ -289,6 +289,7 @@ def apply_playback_event(
     provider_completed: bool | None = None,
     image: str | None = None,
     stop_grace_seconds: int = PLAYBACK_STOP_GRACE_SECONDS,
+    resolve_image: bool = True,
 ) -> None:
     """Update live playback cache state from a webhook event.
 
@@ -302,6 +303,9 @@ def apply_playback_event(
     ``stop_grace_seconds`` is how long a stopped card stays: webhook sources
     keep the long default to bridge autoplay gaps, while a client that sends
     an explicit stop (the scrobble API) can make it short.
+    ``resolve_image=False`` (the scrobble API request path) skips provider
+    calls: the state is saved without artwork and a background task fills
+    it in.
     """
     if playback_media_type not in (
         MediaTypes.MOVIE.value,
@@ -453,6 +457,7 @@ def apply_playback_event(
                 now_ts + PLAYBACK_SCROBBLE_FALLBACK_SECONDS
             )
 
+    needs_image_task = False
     if _state_matches(
         existing_state,
         rating_key=rating_key,
@@ -470,12 +475,26 @@ def apply_playback_event(
         state["image"] = image
         state["image_source"] = "primary"
         state["image_resolved_at_ts"] = now_ts
-    else:
+    elif resolve_image:
         # Runs in the webhook Celery worker, so provider calls are
         # allowed here; the request path only ever reads the result.
         _attach_resolved_image(state)
+    else:
+        needs_image_task = True
 
     set_user_playback_state(user_id, state)
+
+    if needs_image_task:
+        # New title without artwork on the request path: resolve it in the
+        # background instead of calling providers while the client waits.
+        cache.set(
+            f"{IMAGE_RESOLVE_GUARD_PREFIX}:{user_id}",
+            True,
+            IMAGE_RESOLVE_GUARD_SECONDS,
+        )
+        from app.tasks_interactive import resolve_playback_image
+
+        resolve_playback_image.delay(user_id)
 
     if store_progress:
         store_media_id, store_season, store_episode = _identifiers_from_state(

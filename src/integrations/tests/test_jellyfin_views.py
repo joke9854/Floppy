@@ -349,7 +349,7 @@ class JellyfinViewTests(TestCase):
         response = self.client.post(reverse("jellyfin_push_now"))
 
         self.assertEqual(response.status_code, 302)
-        mock_delay.assert_called_once_with(user_id=self.user.id)
+        mock_delay.assert_called_once_with(user_id=self.user.id, force=True)
 
     @patch("integrations.views.tasks.import_jellyfin_playback_reporting.delay")
     def test_playback_reporting_upload_queues_history_import(self, mock_delay):

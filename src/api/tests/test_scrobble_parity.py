@@ -244,3 +244,22 @@ class ThresholdPreferenceTests(FloppyApiTestCase):
         self.assertEqual(response.status_code, HTTP.BAD_REQUEST)
         self.user1.refresh_from_db()
         self.assertEqual(self.user1.scrobble_watched_percent, 80)
+
+
+class LivePlaybackRequestPathTests(ScrobbleParityTestCase):
+    """The Now Playing image is resolved in the background, not in the request."""
+
+    @patch("app.tasks_interactive.resolve_playback_image.delay")
+    @patch("app.live_playback._attach_resolved_image")
+    def test_start_defers_the_image_to_a_background_task(self, mock_attach, mock_delay):
+        """A start for a new title never resolves artwork inline."""
+        response = self.scrobble(
+            "start",
+            title="Parity Movie",
+            position_seconds=0,
+            duration_seconds=6000,
+        )
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        mock_attach.assert_not_called()
+        mock_delay.assert_called_once_with(self.user1.id)

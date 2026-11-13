@@ -147,11 +147,7 @@ class SyncItemsSnapshotView(drf_views.APIView):
             return _bad("'after' must be a non-negative integer.")
 
         cursor = sync_items.head_sequence(request.user)
-        ids = sorted(
-            item_id
-            for item_id in sync_items.library_item_ids(request.user)
-            if item_id > after
-        )
+        ids = sync_items.library_item_ids_page(request.user, after, limit + 1)
         page_ids = ids[:limit]
         items = Item.objects.filter(pk__in=page_ids).order_by("pk")
         states = sync_items.describe_items(request.user, list(items))

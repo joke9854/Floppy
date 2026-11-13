@@ -437,6 +437,9 @@ def _ct_home_sections(user):
     return home_sections.build_home_sections(user)
 
 
+TRAKT_GRAPH_MAX_POLLS = 24
+
+
 def trakt_series_graph_fragment(request, source, media_id):
     """HTMX polling fragment for the Trakt episode ratings series graph.
 
@@ -453,12 +456,21 @@ def trakt_series_graph_fragment(request, source, media_id):
         include_unrated=True,
     )
 
-    poll_for_graph = Item.objects.filter(
+    try:
+        poll_count = max(int(request.GET.get("n", 0)), 0)
+    except (TypeError, ValueError):
+        poll_count = 0
+
+    # Unaired (or undated) episodes never get a rating, so they must not hold
+    # the poll open. The cap bounds polling to ~2 minutes per popover open.
+    poll_for_graph = poll_count < TRAKT_GRAPH_MAX_POLLS and Item.objects.filter(
         media_id=str(media_id),
         source=source,
         media_type=MediaTypes.EPISODE.value,
         season_number__gt=0,
         trakt_rating__isnull=True,
+        release_datetime__isnull=False,
+        release_datetime__lte=timezone.now(),
     ).exists()
 
     return render(
@@ -467,6 +479,7 @@ def trakt_series_graph_fragment(request, source, media_id):
         {
             "graph_data": graph_data,
             "poll_for_graph": poll_for_graph,
+            "next_poll_count": poll_count + 1,
             "source": source,
             "media_id": media_id,
         },

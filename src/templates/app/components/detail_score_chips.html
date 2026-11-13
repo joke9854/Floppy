@@ -9,7 +9,8 @@
   <div class="order-2 mt-0 mb-5 flex w-full items-center justify-start gap-2 sm:order-1 sm:mt-4 sm:flex-wrap">
     {% if media.score_count is not None %}
       <div class="relative"
-           x-data="{ graphOpen: false }"
+           x-data="{ graphOpen: false, graphLoaded: false }"
+           x-effect="if (graphOpen && !graphLoaded) { graphLoaded = true; $nextTick(() => htmx.trigger($refs.traktGraph, 'graph-open')) }"
            @mouseenter="graphOpen = true"
            @mouseleave="graphOpen = false"
            @click.outside="graphOpen = false">
@@ -91,9 +92,11 @@
                x-transition:leave-end="opacity-0 -translate-y-1"
                class="absolute left-0 top-full z-20 mt-2 rounded-2xl border border-[var(--color-surface-border)] bg-[var(--color-page-bg)]/95 p-3 shadow-2xl backdrop-blur-sm"
                style="min-width: max-content">
+            {# Loads on first popover open only; the fragment then polls while visible, capped server-side #}
             <div id="trakt-series-graph-{{ display_provider }}-{{ media.media_id }}"
+                 x-ref="traktGraph"
                  hx-get="{% url 'trakt_series_graph_fragment' source=display_provider media_id=media.media_id %}"
-                 hx-trigger="load delay:300ms, every 5s [document.visibilityState=='visible']"
+                 hx-trigger="graph-open delay:300ms"
                  hx-target="this"
                  hx-swap="outerHTML">
               <div class="mb-2 flex items-center justify-between gap-3">

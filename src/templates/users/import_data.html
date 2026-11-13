@@ -3221,7 +3221,7 @@
     <div id="import-activity-panel"
          class="space-y-6"
          hx-get="{% url 'import_data_activity' %}"
-         hx-trigger="load, every 5s"
+         hx-trigger="load, every 5s [document.visibilityState=='visible']"
          hx-sync="this:replace"
          hx-swap="innerHTML">
       <div class="bg-[var(--color-surface)] rounded-lg p-6">

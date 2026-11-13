@@ -1982,6 +1982,32 @@ class DetailScoreChipsTemplateTests(TestCase):
         html = self._render(42)
         self.assertIn("42", html)
 
+    def test_trakt_graph_loads_on_open_without_unconditional_poll(self):
+        html = render_to_string(
+            "app/components/detail_score_chips.html",
+            {
+                "media": {"media_id": "1", "source": "tmdb", "score_count": 1},
+                "display_provider": Sources.TMDB.value,
+                "Sources": Sources,
+                "MediaTypes": MediaTypes,
+                "trakt_score": {"rating": 8.0, "rating_count": 10},
+                "imdb_score": None,
+                "mal_score": None,
+                "user_medias": None,
+                "current_instance": None,
+                "public_view": False,
+                "media_type": MediaTypes.TV.value,
+                "provider_series_graph_data": None,
+                "trakt_series_graph_data": None,
+                "imdb_series_graph_data": None,
+                "csrf_token": "x",
+                "user": None,
+            },
+        )
+        self.assertIn("trakt-series-graph-tmdb-1", html)
+        self.assertNotIn("every 5s", html)
+        self.assertNotIn('hx-trigger="load', html)
+
 
 class CharacterImagesTests(TestCase):
     """v2 Characters tab: TVDB character pictures matched to the TMDB cast."""

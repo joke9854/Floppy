@@ -175,6 +175,46 @@ class SnapshotTests(SyncItemsBase):
             ["603", "604", "605"],
         )
 
+    def test_sql_paging_matches_library_item_ids(self):
+        """Walking the SQL pages gives exactly library_item_ids, in order."""
+        from app.services import sync_items
+
+        self.history(
+            {
+                "movies": [
+                    movie_event("603", "2024-03-01T21:00:00Z", "m-1"),
+                    movie_event("604", "2024-03-02T21:00:00Z", "m-2"),
+                ],
+                "episodes": [
+                    episode_event(1, "2024-01-03T21:13:00Z", "e-1"),
+                    episode_event(2, "2024-01-04T21:13:00Z", "e-2"),
+                    episode_event(3, "2024-01-05T21:13:00Z", "e-3"),
+                    episode_event(1, "2024-01-03T21:13:00Z", "e-4", media_id="1002"),
+                ],
+            },
+        )
+        dropped = Episode.objects.filter(item__episode_number=3).get()
+        dropped.dropped = True
+        dropped.save()
+        archived = Episode.objects.filter(item__media_id="1002").get()
+        archived.related_season.order_archived = True
+        archived.related_season.save()
+
+        expected = sorted(sync_items.library_item_ids(self.user1))
+        self.assertTrue(expected)
+        self.assertNotIn(dropped.item_id, expected)
+        self.assertNotIn(archived.item_id, expected)
+        for limit in (1, 2, 1000):
+            walked, after = [], 0
+            while True:
+                page = sync_items.library_item_ids_page(self.user1, after, limit + 1)
+                walked += page[:limit]
+                if len(page) <= limit:
+                    break
+                after = page[limit - 1]
+            self.assertEqual(walked, expected, limit)
+        self.assertEqual(sync_items.library_item_ids_page(self.user1, expected[-1], 5), [])
+
     def test_works_without_a_sync_connection(self):
         """The snapshot never depends on the changes index."""
         WatchStateSequence.objects.filter(user=self.user1).update(emit_changes=False)

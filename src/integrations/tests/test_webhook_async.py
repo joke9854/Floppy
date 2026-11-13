@@ -329,7 +329,7 @@ class ProcessWebhookTaskTests(TestCase):
 
         tasks.process_webhook("jellyfin", {"Event": "Stop"}, self.user.id)
 
-        mock_push_delay.assert_called_once_with(user_id=self.user.id)
+        mock_push_delay.assert_called_once_with(user_id=self.user.id, force=True)
 
     @patch("integrations.tasks.push_jellyfin_watched.delay")
     @patch("integrations.webhooks.jellyfin.JellyfinWebhookProcessor.process_payload")

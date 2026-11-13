@@ -520,3 +520,45 @@ class MediaStatusViewTests(TestCase):
         self.assertEqual(self._post(status="Dropped").status_code, 404)
         self.movie.refresh_from_db()
         self.assertEqual(self.movie.status, "Planning")
+
+
+class TmdbCreditsRefreshMarkerTests(TestCase):
+    """A show with no cast/crew refetches once per day, not on every view."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "marker", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.url = reverse(
+            "media_details",
+            kwargs={
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.TV.value,
+                "media_id": "1399",
+                "title": "test-show",
+            },
+        )
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_no_credits_refetch_runs_once_per_day(self, mock_get_metadata):
+        mock_get_metadata.return_value = {
+            "media_id": "1399",
+            "title": "Test Show",
+            "media_type": MediaTypes.TV.value,
+            "source": Sources.TMDB.value,
+            "image": "https://image.tmdb.org/t/p/w500/poster.jpg",
+            "cast": [],
+            "crew": [],
+        }
+        url = f"{self.url}?fragment=secondary"
+
+        self.client.get(url)
+        first_calls = mock_get_metadata.call_count
+        self.client.get(url)
+        second_calls = mock_get_metadata.call_count - first_calls
+
+        self.assertEqual(second_calls, first_calls - 1)
+        self.assertTrue(
+            cache.get("tmdb_detail_refresh:tv_credits:tmdb_tv_1399"),
+        )

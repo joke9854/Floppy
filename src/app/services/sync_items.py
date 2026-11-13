@@ -322,6 +322,34 @@ def _refresh_chunk(user, items):
             )
 
 
+def _library_id_querysets(user):
+    return [
+        _model("Movie").objects.filter(user=user).values_list("item_id", flat=True),
+        _model("TV").objects.filter(user=user).values_list("item_id", flat=True),
+        _model("Episode")
+        .objects.filter(
+            related_season__user=user,
+            related_season__order_archived=False,
+            dropped=False,
+            item__isnull=False,
+        )
+        .values_list("item_id", flat=True),
+    ]
+
+
+def library_item_ids_page(user, after, limit):
+    """Return up to ``limit`` library item ids greater than ``after``, ascending.
+
+    Same id set as library_item_ids, paged in SQL instead of in Python.
+    """
+    querysets = [
+        qs.filter(item_id__gt=after).order_by()
+        for qs in _library_id_querysets(user)
+    ]
+    union = querysets[0].union(*querysets[1:])
+    return list(union.order_by("item_id")[:limit])
+
+
 def library_item_ids(user):
     """Return the ids of every movie, episode and show the user tracks."""
     ids = set(

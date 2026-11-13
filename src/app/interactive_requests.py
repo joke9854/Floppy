@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from django.core.cache import cache
+from django.urls import Resolver404, resolve
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -29,6 +30,16 @@ _INTERACTIVE_REQUEST_EXCLUDED_PATHS = {
     "/ping/",
     "/serviceworker.js",
 }
+# Background polls (Home pill, episode history, Trakt graph) must not count as
+# user activity or a page left open would defer backfills forever. Matched by
+# URL name so ids in the path and prefix changes don't matter.
+_INTERACTIVE_REQUEST_EXCLUDED_URL_NAMES = frozenset(
+    {
+        "active_playback_fragment",
+        "episode_history_poll",
+        "trakt_series_graph_fragment",
+    },
+)
 
 
 def should_mark_interactive_request(request: HttpRequest) -> bool:
@@ -41,6 +52,12 @@ def should_mark_interactive_request(request: HttpRequest) -> bool:
         _INTERACTIVE_REQUEST_EXCLUDED_PREFIXES,
     ):
         return False
+
+    try:
+        if resolve(path).url_name in _INTERACTIVE_REQUEST_EXCLUDED_URL_NAMES:
+            return False
+    except Resolver404:
+        pass
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:

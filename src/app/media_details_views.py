@@ -84,6 +84,7 @@ from lists.views_helpers import get_public_list_for_item
 
 logger = logging.getLogger(__name__)
 
+TMDB_DETAIL_REFRESH_MARKER_SECONDS = 24 * 60 * 60
 RUNTIME_UNKNOWN_AIRED = 999998  # aired but runtime unknown
 
 
@@ -960,17 +961,26 @@ def media_details(
         and isinstance(media_metadata, dict)
         and not media_metadata.get("original_title")
     )
-    if render_secondary_only and should_refresh_tmdb_titles:
-        cache.delete(tmdb_detail_cache_key)
-        media_metadata = services.get_media_metadata(
-            media_type,
-            media_id,
-            source,
-            language=metadata_resolution.metadata_language_default(
-                request.user, detail_item
-            ),
-            user=request.user,
+    if (
+        render_secondary_only
+        and should_refresh_tmdb_titles
+        and cache.add(
+            f"tmdb_detail_refresh:titles:{tmdb_detail_cache_key}",
+            True,
+            TMDB_DETAIL_REFRESH_MARKER_SECONDS,
         )
+    ):
+        cache.delete(tmdb_detail_cache_key)
+        with services.interactive_request_scope():
+            media_metadata = services.get_media_metadata(
+                media_type,
+                media_id,
+                source,
+                language=metadata_resolution.metadata_language_default(
+                    request.user, detail_item
+                ),
+                user=request.user,
+            )
         if isinstance(media_metadata, dict):
             media_metadata.update(Item.title_fields_from_metadata(media_metadata))
 
@@ -982,17 +992,26 @@ def media_details(
         and not media_metadata.get("cast")
         and not media_metadata.get("crew")
     )
-    if render_secondary_only and should_refresh_tmdb_tv_credits:
-        cache.delete(tmdb_detail_cache_key)
-        media_metadata = services.get_media_metadata(
-            media_type,
-            media_id,
-            source,
-            language=metadata_resolution.metadata_language_default(
-                request.user, detail_item
-            ),
-            user=request.user,
+    if (
+        render_secondary_only
+        and should_refresh_tmdb_tv_credits
+        and cache.add(
+            f"tmdb_detail_refresh:tv_credits:{tmdb_detail_cache_key}",
+            True,
+            TMDB_DETAIL_REFRESH_MARKER_SECONDS,
         )
+    ):
+        cache.delete(tmdb_detail_cache_key)
+        with services.interactive_request_scope():
+            media_metadata = services.get_media_metadata(
+                media_type,
+                media_id,
+                source,
+                language=metadata_resolution.metadata_language_default(
+                    request.user, detail_item
+                ),
+                user=request.user,
+            )
         if isinstance(media_metadata, dict):
             media_metadata.update(Item.title_fields_from_metadata(media_metadata))
 

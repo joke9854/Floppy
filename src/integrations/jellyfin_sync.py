@@ -2,8 +2,14 @@
 
 import logging
 from collections import defaultdict
+from datetime import timedelta
+
+from django.core.cache import cache
+from django.db.models import Max
+from django.utils import timezone
 
 from app.models import Episode, Movie, Sources, Status
+from app.models.watch_state import SyncActivity
 from integrations.imports.helpers import MediaImportError, decrypt_or_raise
 from integrations.jellyfin_client import (
     JellyfinAuthError,
@@ -16,6 +22,13 @@ logger = logging.getLogger(__name__)
 JELLYFIN_PUSH_INTERVAL_MINUTES = 60
 JELLYFIN_PUSH_TASK_NAME = "Push Watched State to Jellyfin"
 MAX_UNMATCHED_TITLES_LOGGED = 20
+# A scheduled run with nothing changed on Floppy's side is skipped, but new
+# files can appear on the Jellyfin side without Floppy noticing, so a full run
+# happens at least this often.
+JELLYFIN_PUSH_FULL_RUN_MAX_AGE = timedelta(hours=24)
+JELLYFIN_PUSH_STATE_TIMEOUT_SECONDS = 48 * 60 * 60
+_PUSH_CHANGE_CATEGORIES = ("library", "watched", "removed")
+ROW_CHUNK_SIZE = 500
 
 _PROVIDER_FIELD_ORDER = ("Tmdb", "Imdb", "Tvdb")
 
@@ -78,12 +91,61 @@ class JellyfinPushSyncService:
         self.warnings: list[str] = []
         self.unmatched_titles: set[str] = set()
 
-    def sync(self) -> tuple[dict[str, int], str]:
-        """Push watched state and return counts plus a warning message."""
+    def _state_key(self) -> str:
+        return f"jellyfin_push_state:{self.user.pk}"
+
+    def _settings_signature(self) -> str:
+        account = self.account
+        return "|".join(
+            str(value)
+            for value in (
+                account.base_url,
+                account.jellyfin_user_id,
+                account.push_watched_enabled,
+                account.push_unwatched_enabled,
+            )
+        )
+
+    def _nothing_changed(self) -> bool:
+        """Return whether a full push would repeat the last successful one.
+
+        True only when the last full push is under 24 hours old, the account
+        settings are the same, and none of the Floppy-side change markers moved
+        since that push started.
+        """
+        state = cache.get(self._state_key())
+        if not state or state.get("signature") != self._settings_signature():
+            return False
+        full_at = state.get("full_at")
+        now = timezone.now()
+        if full_at is None or full_at > now or now - full_at >= (
+            JELLYFIN_PUSH_FULL_RUN_MAX_AGE
+        ):
+            return False
+        latest = SyncActivity.objects.filter(
+            user=self.user,
+            category__in=_PUSH_CHANGE_CATEGORIES,
+        ).aggregate(latest=Max("changed_at"))["latest"]
+        return latest is None or latest <= full_at
+
+    def sync(
+        self, *, skip_if_unchanged: bool = False
+    ) -> tuple[dict[str, int], str]:
+        """Push watched state and return counts plus a warning message.
+
+        With ``skip_if_unchanged`` (scheduled runs), nothing is read or pushed
+        when Floppy has not changed since the last full push less than 24 hours
+        ago.
+        """
         if not self.account or not self.account.is_connected:
             msg = "Jellyfin is not connected for this user."
             raise MediaImportError(msg)
 
+        if skip_if_unchanged and self._nothing_changed():
+            logger.info("jellyfin_push_skipped_unchanged user_id=%s", self.user.pk)
+            return {"skipped_unchanged": 1}, ""
+
+        started_at = timezone.now()
         self.counts = defaultdict(int)
         self.warnings = []
         self.unmatched_titles = set()
@@ -96,6 +158,11 @@ class JellyfinPushSyncService:
             self._push_episodes(client, episode_index)
 
         self._log_unmatched_titles()
+        cache.set(
+            self._state_key(),
+            {"full_at": started_at, "signature": self._settings_signature()},
+            JELLYFIN_PUSH_STATE_TIMEOUT_SECONDS,
+        )
         return dict(self.counts), "\n".join(dict.fromkeys(self.warnings))
 
     def _build_client(self) -> JellyfinClient:
@@ -218,7 +285,12 @@ class JellyfinPushSyncService:
         )
 
     def _push_movies(self, client: JellyfinClient, movie_index: dict) -> None:
-        movies = Movie.objects.filter(user=self.user).select_related("item")
+        movies = (
+            Movie.objects.filter(user=self.user)
+            .select_related("item")
+            .only("status", "item__source", "item__media_id", "item__title")
+            .iterator(chunk_size=ROW_CHUNK_SIZE)
+        )
         for movie in movies:
             item = movie.item
             provider = _SOURCE_TO_JELLYFIN_PROVIDER.get(item.source)
@@ -239,9 +311,21 @@ class JellyfinPushSyncService:
             )
 
     def _push_episodes(self, client: JellyfinClient, episode_index: dict) -> None:
-        episodes = Episode.objects.filter(
-            related_season__user=self.user,
-        ).select_related("item", "related_season__related_tv__item")
+        episodes = (
+            Episode.objects.filter(related_season__user=self.user)
+            .select_related("item", "related_season__related_tv__item")
+            .only(
+                "end_date",
+                "dropped",
+                "item__source",
+                "item__media_id",
+                "item__title",
+                "item__season_number",
+                "item__episode_number",
+                "related_season__related_tv__item__title",
+            )
+            .iterator(chunk_size=ROW_CHUNK_SIZE)
+        )
 
         for episode in episodes:
             item = episode.item

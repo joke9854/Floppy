@@ -1975,6 +1975,7 @@ CELERY_BEAT_SCHEDULE = {
         "kwargs": {
             "batch_size": _scaled(1000),
             "game_length_batch_size": _scaled(200),
+            "report_remaining": True,
         },  # A nightly bulk pass plus a bounded HLTB enrichment sweep.
     },
     "backfill_item_metadata_incremental": {

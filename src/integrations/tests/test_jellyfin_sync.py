@@ -1,10 +1,13 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
 from app.models import TV, Episode, Item, MediaTypes, Movie, Season, Sources, Status
+from app.services.sync_activity import touch_activity
 from integrations import tasks
 from integrations.imports.helpers import MediaImportError, encrypt
 from integrations.jellyfin_sync import (
@@ -359,6 +362,90 @@ class JellyfinPushSyncServiceTests(TestCase):
             JellyfinPushSyncService(self.user, self.account).sync()
 
 
+class JellyfinPushSkipTests(TestCase):
+    """Scheduled pushes are skipped while nothing changed on Floppy's side."""
+
+    def setUp(self):
+        """Create a connected account with one watched movie and clean state."""
+        cache.clear()
+        self.user = get_user_model().objects.create_user(username="jf-skip")
+        self.account = JellyfinAccount.objects.create(
+            user=self.user,
+            base_url="https://jellyfin.local:8096",
+            api_key=encrypt("api-key"),
+            jellyfin_user_id="jf-user-1",
+            push_watched_enabled=True,
+        )
+        item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+        )
+        Movie.objects.create(user=self.user, item=item, status=Status.COMPLETED.value)
+
+    def _scheduled(self, mock_items):
+        mock_items.side_effect = lambda: iter(
+            [_jellyfin_movie("jf-1", "603", played=True)]
+        )
+        return JellyfinPushSyncService(self.user, self.account).sync(
+            skip_if_unchanged=True,
+        )
+
+    @patch("integrations.jellyfin_sync.JellyfinClient.iter_library_items")
+    def test_skips_when_nothing_changed(self, mock_items):
+        """A second scheduled run does not enumerate Jellyfin again."""
+        self._scheduled(mock_items)
+        self.assertEqual(mock_items.call_count, 1)
+
+        counts, _ = self._scheduled(mock_items)
+
+        self.assertEqual(mock_items.call_count, 1)
+        self.assertEqual(counts, {"skipped_unchanged": 1})
+
+    @patch("integrations.jellyfin_sync.JellyfinClient.iter_library_items")
+    def test_runs_when_library_changed(self, mock_items):
+        """A Floppy-side change after the last push forces a run."""
+        self._scheduled(mock_items)
+        touch_activity(self.user, "watched")
+
+        self._scheduled(mock_items)
+
+        self.assertEqual(mock_items.call_count, 2)
+
+    @patch("integrations.jellyfin_sync.JellyfinClient.iter_library_items")
+    def test_runs_when_last_full_run_is_a_day_old(self, mock_items):
+        """New files can appear on the Jellyfin side, so a full run happens daily."""
+        self._scheduled(mock_items)
+        key = f"jellyfin_push_state:{self.user.pk}"
+        state = cache.get(key)
+        state["full_at"] = timezone.now() - timedelta(hours=24, minutes=1)
+        cache.set(key, state, 3600)
+
+        self._scheduled(mock_items)
+
+        self.assertEqual(mock_items.call_count, 2)
+
+    @patch("integrations.jellyfin_sync.JellyfinClient.iter_library_items")
+    def test_manual_sync_always_runs(self, mock_items):
+        """Without skip_if_unchanged the push is always a full run."""
+        self._scheduled(mock_items)
+
+        JellyfinPushSyncService(self.user, self.account).sync()
+
+        self.assertEqual(mock_items.call_count, 2)
+
+    @patch("integrations.jellyfin_sync.JellyfinClient.iter_library_items")
+    def test_runs_when_push_settings_changed(self, mock_items):
+        """Turning on pushing unwatched state invalidates the skip."""
+        self._scheduled(mock_items)
+        self.account.push_unwatched_enabled = True
+
+        self._scheduled(mock_items)
+
+        self.assertEqual(mock_items.call_count, 2)
+
+
 class FormatJellyfinPushMessageTests(TestCase):
     """Cover the push-sync result message formatter."""
 
@@ -432,3 +519,29 @@ class PushJellyfinWatchedTaskTests(TestCase):
         self.assertFalse(self.account.connection_broken)
         self.assertEqual(self.account.last_error_message, "")
         self.assertIsNotNone(self.account.last_sync_at)
+        mock_sync.assert_called_once_with(skip_if_unchanged=True)
+
+    @patch("integrations.tasks._media_imports.JellyfinPushSyncService.sync")
+    def test_forced_task_always_runs_the_push(self, mock_sync):
+        """The manual button and webhook push pass force=True."""
+        mock_sync.return_value = ({"marked_played": 1}, "")
+
+        tasks.push_jellyfin_watched(user_id=self.user.id, force=True)
+
+        mock_sync.assert_called_once_with(skip_if_unchanged=False)
+
+    @patch("integrations.tasks._media_imports.JellyfinPushSyncService.sync")
+    def test_skipped_push_leaves_the_connection_status_alone(self, mock_sync):
+        """A skipped run sent nothing, so it must not mark a broken link healthy."""
+        mock_sync.return_value = ({"skipped_unchanged": 1}, "")
+        JellyfinAccount.objects.filter(user=self.user).update(
+            connection_broken=True,
+            last_error_message="earlier failure",
+        )
+
+        tasks.push_jellyfin_watched(user_id=self.user.id)
+
+        self.account.refresh_from_db()
+        self.assertTrue(self.account.connection_broken)
+        self.assertEqual(self.account.last_error_message, "earlier failure")
+        self.assertIsNone(self.account.last_sync_at)

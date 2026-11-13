@@ -13,6 +13,7 @@ from rest_framework.response import Response
 import app.providers.tmdb
 from app import live_playback
 from app.models import MediaTypes, Sources
+from app.providers import services
 from integrations.delivery import get_or_record_receipt
 from integrations.models import IntegrationToken
 from integrations.webhooks.base import PLAY_DUPLICATE
@@ -182,7 +183,8 @@ def _resolve_live_playback_media_id(media_type, ids):
         return None
 
     try:
-        find_response = app.providers.tmdb.find(ext_id, ext_type)
+        with services.interactive_request_scope():
+            find_response = app.providers.tmdb.find(ext_id, ext_type)
     except Exception:
         logger.warning("Scrobble live-playback id resolution failed", exc_info=True)
         return None
@@ -516,17 +518,18 @@ class ScrobbleView(drf_views.APIView):
             image = None
 
             if media_type == MediaTypes.EPISODE.value and ids.get("anidb"):
-                identity = GenericScrobbleProcessor().resolve_anime_live_identity(
-                    user,
-                    {
-                        "tmdb_id": ids.get("tmdb"),
-                        "imdb_id": ids.get("imdb"),
-                        "tvdb_id": ids.get("tvdb"),
-                        "anidb_id": ids.get("anidb"),
-                    },
-                    season_number,
-                    episode_number,
-                )
+                with services.interactive_request_scope():
+                    identity = GenericScrobbleProcessor().resolve_anime_live_identity(
+                        user,
+                        {
+                            "tmdb_id": ids.get("tmdb"),
+                            "imdb_id": ids.get("imdb"),
+                            "tvdb_id": ids.get("tvdb"),
+                            "anidb_id": ids.get("anidb"),
+                        },
+                        season_number,
+                        episode_number,
+                    )
                 if identity:
                     source = identity["source"]
                     media_id = identity["media_id"]
@@ -552,6 +555,7 @@ class ScrobbleView(drf_views.APIView):
                 duration_seconds=data.get("duration_seconds"),
                 image=image,
                 stop_grace_seconds=SCROBBLE_STOP_GRACE_SECONDS,
+                resolve_image=False,
             )
         except Exception:
             logger.warning("Scrobble live-playback update failed", exc_info=True)

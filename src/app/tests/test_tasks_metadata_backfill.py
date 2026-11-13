@@ -74,6 +74,7 @@ class MetadataBackfillTaskTests(TestCase):
         )
         self.assertTrue(result["skipped"])
         self.assertEqual(result["success_count"], 0)
+        self.assertNotIn("remaining_metadata", result)
         mock_fetch_item_metadata.assert_not_called()
 
     @patch("app.tasks.metadata_utils.apply_item_metadata", return_value=[])
@@ -699,7 +700,7 @@ class MetadataBackfillTaskTests(TestCase):
         }
 
         result = tasks.backfill_item_metadata_task(
-            batch_size=1, game_length_batch_size=1
+            batch_size=1, game_length_batch_size=1, report_remaining=True
         )
 
         state = MetadataBackfillState.objects.get(
@@ -909,7 +910,7 @@ class MetadataBackfillTaskTests(TestCase):
             "details": {"country": "US"},
         }
 
-        result = tasks.backfill_item_metadata_task(batch_size=1)
+        result = tasks.backfill_item_metadata_task(batch_size=1, report_remaining=True)
 
         item.refresh_from_db()
         state = MetadataBackfillState.objects.get(
@@ -954,7 +955,7 @@ class MetadataBackfillTaskTests(TestCase):
             "details": {"status": "Ended"},
         }
 
-        result = tasks.backfill_item_metadata_task(batch_size=1)
+        result = tasks.backfill_item_metadata_task(batch_size=1, report_remaining=True)
 
         item.refresh_from_db()
         self.assertEqual(item.status, "Ended")
@@ -1042,7 +1043,7 @@ class MetadataBackfillTaskTests(TestCase):
             "details": {"publish_date": "2020-01-01"},
         }
 
-        result = tasks.backfill_item_metadata_task(batch_size=10)
+        result = tasks.backfill_item_metadata_task(batch_size=10, report_remaining=True)
 
         season_item.refresh_from_db()
         episode_item.refresh_from_db()

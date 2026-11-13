@@ -142,7 +142,7 @@ def _process_webhook(provider, payload, user_id, share_id=None):
         if account and account.is_connected and account.instant_push_enabled:
             from integrations.tasks._media_imports import push_jellyfin_watched
 
-            push_jellyfin_watched.delay(user_id=user.id)
+            push_jellyfin_watched.delay(user_id=user.id, force=True)
 
 
 @shared_task(

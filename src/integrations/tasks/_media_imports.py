@@ -475,8 +475,13 @@ def sync_plex_watchlist(user_id, mode="watchlist"):
 
 
 @shared_task(name=JELLYFIN_PUSH_TASK_NAME)
-def push_jellyfin_watched(user_id):
-    """Celery task for pushing Floppy watched state to Jellyfin."""
+def push_jellyfin_watched(user_id, force=False):
+    """Celery task for pushing Floppy watched state to Jellyfin.
+
+    The hourly schedule passes no ``force``: the push is skipped while nothing
+    changed on Floppy since the last full push (at most 24 h). The manual
+    button and the webhook push pass ``force=True``.
+    """
     from integrations.models import JellyfinAccount
 
     user = get_user_model().objects.get(id=user_id)
@@ -491,13 +496,19 @@ def push_jellyfin_watched(user_id):
         raise helpers.MediaImportError(msg)
 
     try:
-        push_counts, warnings = JellyfinPushSyncService(user, account).sync()
+        push_counts, warnings = JellyfinPushSyncService(user, account).sync(
+            skip_if_unchanged=not force,
+        )
     except helpers.MediaImportError as exc:
         JellyfinAccount.objects.filter(user=user).update(
             connection_broken=True,
             last_error_message=str(exc),
         )
         raise
+
+    if push_counts.get("skipped_unchanged"):
+        # Nothing was sent, so the connection status is left as it was.
+        return "Skipped: nothing changed since the last push."
 
     JellyfinAccount.objects.filter(user=user).update(
         last_sync_at=timezone.now(),
