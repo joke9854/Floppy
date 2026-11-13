@@ -674,6 +674,9 @@ class InProgressCardTests(InProgressFixtures):
             html,
         )
         self.assertIn('hx-trigger="refreshHomeInProgress from:body"', html)
+        # The Now Playing pill reloads the row once playback ends or changes title.
+        self.assertIn("htmx.trigger(document.body, 'refreshHomeInProgress')", html)
+        self.assertIn('data-now-playing=""', html)
 
     def test_fragment_renders_only_the_row(self):
         self._movie("550", Status.IN_PROGRESS.value, position=1800, duration=7200)

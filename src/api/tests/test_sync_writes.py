@@ -766,6 +766,38 @@ class SyncRatingsTests(SyncWritesBase):
 
 
 class SyncStatusTests(SyncWritesBase):
+    def _show_with_status(self, status):
+        self.post(
+            "api_sync_status",
+            {"shows": [{"source": "tmdb", "media_id": "1001", "status": status}]},
+        )
+        expected = {"planning": Status.PLANNING.value, "paused": Status.PAUSED.value}[status]
+        self.assertEqual(TV.objects.get().status, expected)
+
+    def test_plays_move_a_planning_show_to_in_progress(self):
+        from api import cinetrack_bootstrap_views
+
+        self._show_with_status("planning")
+        show_item = TV.objects.get().item
+
+        with patch.object(
+            cinetrack_bootstrap_views,
+            "refresh_sync_items",
+            wraps=cinetrack_bootstrap_views.refresh_sync_items,
+        ) as refresh:
+            self.history({"episodes": [episode_event(1, "2024-01-03T21:13:00Z", "e-plan")]})
+
+        self.assertEqual(TV.objects.get().status, Status.IN_PROGRESS.value)
+        # The sync feed re-indexes the show so apps see the new status.
+        self.assertIn(show_item, [item for call in refresh.call_args_list for item in call.args[1]])
+
+    def test_plays_leave_a_paused_show_paused(self):
+        self._show_with_status("paused")
+
+        self.history({"episodes": [episode_event(1, "2024-01-03T21:13:00Z", "e-paused")]})
+
+        self.assertEqual(TV.objects.get().status, Status.PAUSED.value)
+
     def test_create_update_and_already_satisfied(self):
         payload = {
             "movies": [

@@ -35,10 +35,12 @@
         <div id="ct-now-playing-slot"
              class="ct-now-playing-slot"
              {% if not active_playback_card %}hidden{% endif %}
+             data-now-playing="{{ active_playback_card.details_url|default:'' }}"
              hx-get="{% url 'active_playback_fragment' %}?variant=pill"
              hx-trigger="every 10s [document.visibilityState=='visible'], visibilitychange[document.visibilityState=='visible'] from:document"
              hx-swap="innerHTML"
-             hx-on::after-swap="this.hidden=!this.children.length">
+             {# When playback ends or moves to another title, the stopped title's progress is saved: reload In Progress. #}
+             hx-on::after-swap="const was = this.dataset.nowPlaying || ''; const card = this.querySelector('[data-active-playback-card]'); const now = card ? card.getAttribute('href') || '' : ''; this.dataset.nowPlaying = now; this.hidden = !this.children.length; if (was && was !== now) htmx.trigger(document.body, 'refreshHomeInProgress')">
           {% if active_playback_card %}
             {% include "app/components/ct/now_playing_pill.html" %}
           {% endif %}

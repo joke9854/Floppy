@@ -924,6 +924,32 @@ def resolve_episode_coordinates(user, source, media_id, events, *, timings=None)
     return CoordinateResolution(resolvable, stored, outcomes, reasons, titles, metadata_by_season, combined_metadata)
 
 
+def _promote_planning_shows(user, seasons):
+    """Move a show or season still in Planning on once it has plays.
+
+    Plays are saved raw, which skips the status recalculation Floppy runs when
+    episodes are logged on the web, so a Planning show kept its status. Only
+    Planning is re-evaluated: In Progress, Paused, Dropped and Completed set by
+    the user or the app stay as they are. The recalculation is local (no
+    provider calls) and moves the show to In Progress, or Completed when every
+    season is complete.
+    """
+    changed = []
+    for season in seasons:
+        tv = season.related_tv
+        if Status.PLANNING.value not in {season.status, tv.status if tv else None}:
+            continue
+        if hasattr(season, "_episode_stats_cache"):
+            delattr(season, "_episode_stats_cache")
+        season._sync_status_after_episode_change()
+        if tv is not None:
+            changed.append(tv.item)
+    if changed:
+        # Status writes go through bulk_update, which skips the TV save signal
+        # that re-indexes a show for the sync feed.
+        refresh_sync_items(user, changed)
+
+
 def ensure_episode_events(
     user,
     source,
@@ -1216,6 +1242,7 @@ def ensure_episode_events(
             from app.signals import invalidate_episode_history_for_user
 
             invalidate_episode_history_for_user(user.id, created_days)
+            _promote_planning_shows(user, seasons.values())
 
     if relocated:
         logger.info("CineTrack repair moved %d episode play(s) media_id=%s", relocated, media_id)
