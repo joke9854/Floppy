@@ -305,6 +305,18 @@ for dir in /floppy/staticfiles /var/log/nginx /var/lib/nginx; do
         echo "[entrypoint] WARNING: chown of ${dir} failed or timed out (stalled mount?); continuing" >&2
 done
 
+# nginx sends the cached posters itself (nginx.conf /_floppy-image-cache/),
+# from a fixed path linked here to this boot's data dir. Only when the link
+# works is Django told to hand files over; otherwise it keeps sending them.
+# An explicit FLOPPY_IMAGE_CACHE_ACCEL_REDIRECT (even empty) wins.
+if [ -z "${FLOPPY_IMAGE_CACHE_ACCEL_REDIRECT+set}" ] && [ -d /var/lib/nginx ]; then
+    if ln -sfn -- "$DATA_DIR" /var/lib/nginx/floppy-data; then
+        export FLOPPY_IMAGE_CACHE_ACCEL_REDIRECT=/_floppy-image-cache/
+    else
+        echo "[entrypoint] WARNING: cannot link the data dir for nginx; posters stay on gunicorn" >&2
+    fi
+fi
+
 # Probe the host once, here, and export the sizing decision for supervisord to
 # expand into each program's command line. Doing it per-process would let the
 # six supervised processes disagree about the tier if the host's free memory

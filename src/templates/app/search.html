@@ -59,9 +59,8 @@
                     <a href="{{ tracker.album|music_album_url }}">
                       {% if tracker.album.image and tracker.album.image != IMG_NONE %}
                         <img alt="{{ tracker.album.title }}"
-                             class="media-card-poster lazyload w-full aspect-[1/1] object-cover bg-[var(--color-surface-alt)]"
-                             data-src="{{ tracker.album.image|image_url }}"
-                             src="{{ IMG_NONE }}">
+                             class="media-card-poster w-full aspect-[1/1] object-cover bg-[var(--color-surface-alt)]"
+                             src="{{ tracker.album.image|image_url }}" loading="lazy" decoding="async">
                       {% else %}
                         <div class="w-full aspect-[1/1] bg-[var(--color-surface-alt)] flex items-center justify-center">
                           {% include "app/icons/speaker.svg" with classes="w-12 h-12 text-gray-600" %}
@@ -171,10 +170,9 @@
                     <div class="relative">
                       {% if artist.image and artist.image != IMG_NONE %}
                         <img alt="{{ artist.name }}"
-                             class="media-card-poster lazyload w-full aspect-[2/3] object-cover bg-[var(--color-surface-alt)]"
-                             data-src="{{ artist.image|image_url }}"
-                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';"
-                             src="{{ IMG_NONE }}">
+                             class="media-card-poster w-full aspect-[2/3] object-cover bg-[var(--color-surface-alt)]"
+                             src="{{ artist.image|image_url }}"
+                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';" loading="lazy" decoding="async">
                       {% else %}
                         <div class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] flex items-center justify-center">
                           {% include "app/icons/person.svg" with classes="w-16 h-16 text-gray-600" %}
@@ -204,10 +202,9 @@
                     <div class="relative">
                       {% if artist.image and artist.image != IMG_NONE %}
                         <img alt="{{ artist.name }}"
-                             class="media-card-poster lazyload w-full aspect-[2/3] object-cover bg-[var(--color-surface-alt)]"
-                             data-src="{{ artist.image|image_url }}"
-                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';"
-                             src="{{ IMG_NONE }}">
+                             class="media-card-poster w-full aspect-[2/3] object-cover bg-[var(--color-surface-alt)]"
+                             src="{{ artist.image|image_url }}"
+                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';" loading="lazy" decoding="async">
                       {% else %}
                         <div class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] flex items-center justify-center">
                           {% include "app/icons/person.svg" with classes="w-16 h-16 text-gray-600" %}
@@ -235,10 +232,9 @@
                     <div class="relative">
                       {% if release.image and release.image != IMG_NONE %}
                         <img alt="{{ release.title }}"
-                             class="media-card-poster lazyload w-full aspect-[1/1] object-cover bg-[var(--color-surface-alt)]"
-                             data-src="{{ release.image|image_url }}"
-                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';"
-                             src="{{ IMG_NONE }}">
+                             class="media-card-poster w-full aspect-[1/1] object-cover bg-[var(--color-surface-alt)]"
+                             src="{{ release.image|image_url }}"
+                             onerror="this.onerror=null;this.src='{{ IMG_NONE }}';" loading="lazy" decoding="async">
                       {% else %}
                         <div class="w-full aspect-[1/1] bg-[var(--color-surface-alt)] flex items-center justify-center">
                           {% include "app/icons/speaker.svg" with classes="w-12 h-12 text-gray-600" %}

@@ -432,6 +432,14 @@ def serve_cached_image(token, request):
     etag = metadata.get("etag")
     if etag and request.headers.get("If-None-Match") == etag:
         response = HttpResponse(status=304)
+    elif settings.IMAGE_CACHE_ACCEL_REDIRECT:
+        # Behind the container's nginx: it sends the file, so a page of posters
+        # no longer queues behind the few gunicorn threads. nginx keeps this
+        # Content-Type and Cache-Control and answers If-None-Match itself.
+        response = HttpResponse(
+            content_type=metadata.get("content_type", "application/octet-stream"),
+        )
+        response["X-Accel-Redirect"] = f"{settings.IMAGE_CACHE_ACCEL_REDIRECT}{data_path.name}"
     else:
         response = FileResponse(
             data_path.open("rb"),

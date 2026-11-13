@@ -61,6 +61,10 @@ FLOPPY_DB_PATH = (
     if _database_path_override
     else FLOPPY_DATA_DIR / "db.sqlite3"
 )
+# Internal nginx location the image cache hands files to (X-Accel-Redirect).
+# entrypoint.sh sets it in the container once nginx can reach the data dir;
+# empty (source installs, runserver, tests) means Django sends the file.
+IMAGE_CACHE_ACCEL_REDIRECT = config("FLOPPY_IMAGE_CACHE_ACCEL_REDIRECT", default="")
 DOCKER_SECRETS_DIR = Path("/run/secrets")
 
 
@@ -454,6 +458,8 @@ MIDDLEWARE = [
     # allocations, not just the view's.
     "app.memory_envelope.MemoryHighWaterMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Posters skip the session, user and language work below (no login needed).
+    "app.middleware.ImageCacheMiddleware",
     # Keep rendered HTML out of the browser's heuristic cache so template fixes
     # actually reach iOS Safari and the installed PWA (#442)
     "app.middleware.NoStoreHtmlMiddleware",

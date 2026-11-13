@@ -2287,30 +2287,14 @@ class StatisticsViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         response_body = response.content.decode()
-        self.assertRegex(
-            response_body, r'<img[^>]+data-src="http://example\.com/lazy-movie\.jpg"'
-        )
-        self.assertRegex(
-            response_body, r'<img[^>]+data-src="http://example\.com/lazy-game\.jpg"'
-        )
-        self.assertRegex(
-            response_body, r'<img[^>]+data-src="http://example\.com/lazy-artist\.jpg"'
-        )
-        self.assertRegex(
-            response_body, r'<img[^>]+data-src="http://example\.com/lazy-album\.jpg"'
-        )
-        self.assertNotRegex(
-            response_body, r'<img[^>]+\ssrc="http://example\.com/lazy-movie\.jpg"'
-        )
-        self.assertNotRegex(
-            response_body, r'<img[^>]+\ssrc="http://example\.com/lazy-game\.jpg"'
-        )
-        self.assertNotRegex(
-            response_body, r'<img[^>]+\ssrc="http://example\.com/lazy-artist\.jpg"'
-        )
-        self.assertNotRegex(
-            response_body, r'<img[^>]+\ssrc="http://example\.com/lazy-album\.jpg"'
-        )
+        for name in ("movie", "game", "artist", "album"):
+            with self.subTest(name=name):
+                tag = re.search(
+                    rf'<img[^>]*\ssrc="http://example\.com/lazy-{name}\.jpg"[^>]*>',
+                    response_body,
+                )
+                self.assertIsNotNone(tag)
+                self.assertIn('loading="lazy"', tag.group(0))
 
     @patch("app.tasks.enqueue_credits_backfill_items")
     def test_statistics_top_talent_uses_episode_credits_with_show_fallback(

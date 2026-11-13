@@ -15,9 +15,8 @@
         {# Show image #}
         {% if tracker.show.image and tracker.show.image != IMG_NONE %}
           <img alt="{{ tracker.show.title }}"
-               class="media-card-poster lazyload w-full aspect-[2/3] bg-[var(--color-surface-alt)] object-cover"
-               data-src="{{ tracker.show.image|image_url }}"
-               src="{{ IMG_NONE }}">
+               class="media-card-poster w-full aspect-[2/3] bg-[var(--color-surface-alt)] object-cover"
+               src="{{ tracker.show.image|image_url }}" loading="lazy" decoding="async">
         {% else %}
           <div class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] flex items-center justify-center">
             {% include "app/icons/microphone.svg" with classes="w-16 h-16 text-gray-600" %}

@@ -24,7 +24,7 @@
 {% ct_episode_url item target_season target_episode as card_url %}
 {% if not card_url and next_episode %}{% next_episode_url item media as card_url %}{% endif %}
 {% with image=media.card_image_override|default:item|ct_poster|default:IMG_NONE title=item|display_title:user %}
-  {% with srcset=image|tmdb_srcset percent=media|safe_attr:"progress_percentage" %}
+  {% with srcset=image|tmdb_srcset:'w185,w342,w500' percent=media|safe_attr:"progress_percentage" %}
     <article class="ct-progress-card"
              data-poster-accent-scope
              data-media-type="{{ item.media_type }}"

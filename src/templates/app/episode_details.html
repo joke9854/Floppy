@@ -432,9 +432,8 @@
                 <a href="{% url 'person_detail' source=source person_id=person.person_id name=person.name|slug %}">
               {% endif %}
               <img alt="{{ person.name|default:'Unknown Person' }}"
-                   class="media-card-poster lazyload w-full aspect-[2/3] aspect-2/3 bg-[var(--color-surface-alt)] {% if person.image and person.image != IMG_NONE %}object-cover{% endif %}"
-                   data-src="{{ person.image|default:IMG_NONE|image_url }}"
-                   src="{{ IMG_NONE }}">
+                   class="media-card-poster w-full aspect-[2/3] aspect-2/3 bg-[var(--color-surface-alt)] {% if person.image and person.image != IMG_NONE %}object-cover{% endif %}"
+                   src="{{ person.image|default:IMG_NONE|image_url }}" loading="lazy" decoding="async">
               {% if person.person_id and person.name %}
                 </a>
               {% endif %}
@@ -501,9 +500,8 @@
                 <a href="{% url 'person_detail' source=source person_id=person.person_id name=person.name|slug %}">
               {% endif %}
               <img alt="{{ person.name|default:'Unknown Person' }}"
-                   class="media-card-poster lazyload w-full aspect-[2/3] aspect-2/3 bg-[var(--color-surface-alt)] {% if person.image and person.image != IMG_NONE %}object-cover{% endif %}"
-                   data-src="{{ person.image|default:IMG_NONE|image_url }}"
-                   src="{{ IMG_NONE }}">
+                   class="media-card-poster w-full aspect-[2/3] aspect-2/3 bg-[var(--color-surface-alt)] {% if person.image and person.image != IMG_NONE %}object-cover{% endif %}"
+                   src="{{ person.image|default:IMG_NONE|image_url }}" loading="lazy" decoding="async">
               {% if person.person_id and person.name %}
                 </a>
               {% endif %}

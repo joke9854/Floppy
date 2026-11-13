@@ -1,4 +1,6 @@
-const CACHE_NAME = "floppy-v2";
+// v3 drops v2, which held the unused roboto-flex font and every past
+// version of each static file.
+const CACHE_NAME = "floppy-v3";
 // A6: the last Home a signed-in user loaded, shown when a navigation fails
 // offline. Any /accounts/ page (sign-in, sign-out) deletes it, so the private
 // copy does not outlive the session on a shared device.
@@ -6,11 +8,11 @@ const PAGES_CACHE = "floppy-pages-v1";
 const HOME_PATH = "/";
 // App routes the offline shell leaves alone (API, OAuth, admin, static).
 const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/"];
+// Pages load main.css with a ?<mtime> version, cached on first use, so an
+// unversioned copy here would only be a second 300 KB download.
 const urlsToCache = [
-  "/static/css/main.css",
   "/static/favicon/android-chrome-192x192.png",
   "/static/favicon/android-chrome-512x512.png",
-  "/static/fonts/roboto-flex.woff2",
 ];
 
 // Install event
@@ -68,6 +70,22 @@ async function handleNavigation(event, url) {
   } catch (error) {
     return offlinePage();
   }
+}
+
+// Keep one copy per static file: store the new version, then drop the older
+// ones (main.css?<old mtime>), which no page asks for again.
+async function storeLatestVersion(request, url, response) {
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response);
+  const keys = await cache.keys();
+  await Promise.all(
+    keys
+      .filter((key) => {
+        const keyUrl = new URL(key.url);
+        return keyUrl.pathname === url.pathname && keyUrl.search !== url.search;
+      })
+      .map((key) => cache.delete(key)),
+  );
 }
 
 // Fetch event
@@ -136,7 +154,7 @@ self.addEventListener("fetch", (event) => {
         .then((networkResponse) => {
           if (networkResponse.ok) {
             const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+            event.waitUntil(storeLatestVersion(request, url, responseClone));
           }
           return networkResponse;
         })

@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -207,6 +208,16 @@ class CineTrackMediaListTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, "media-grid ct-library-grid")
         self.assertContains(response, 'data-status="completed"', count=2)
         self.assertContains(response, '<p class="ct-library-sub">Completed</p>', html=True)
+        # Posters: w342 with a w185 step, native lazy loading, no lazysizes.
+        poster = re.search(r'<img[^>]+class="media-card-poster[^>]*>', response.content.decode())
+        self.assertIsNotNone(poster)
+        tag = poster.group(0)
+        self.assertIn('src="https://image.tmdb.org/t/p/w342/p.jpg"', tag)
+        self.assertIn("https://image.tmdb.org/t/p/w185/p.jpg 185w", tag)
+        self.assertNotIn("w500", tag)
+        self.assertIn('loading="lazy"', tag)
+        self.assertNotIn("data-src", tag)
+        self.assertNotContains(response, "lazysizes")
 
     def test_cinetrack_status_tabs_request_their_own_status(self):
         """Each tab sends its status in hx-vals, not the form's stale one.
@@ -251,6 +262,12 @@ class CineTrackDiscoverTests(_CineTrackUserMixin, TestCase):
         self.assertContains(response, 'id="discover-rows"', count=1)
         self.assertContains(response, 'id="discover-row-trending_right_now"', count=1)
         self.assertNotContains(response, "UNDER CONSTRUCTION")
+        # Rail posters load lazily at w342 (they used to load eagerly at w500).
+        rail_posters = re.findall(r'<img[^>]+class="media-card-poster[^>]*>', response.content.decode())
+        self.assertTrue(rail_posters)
+        for tag in rail_posters:
+            self.assertIn('loading="lazy"', tag)
+            self.assertIn("/t/p/w342/p.jpg", tag)
         self.assertNotContains(response, "Show More Rows")
 
     def test_cinetrack_v2_follows_the_mockup(self, get_tab_rows, *_):

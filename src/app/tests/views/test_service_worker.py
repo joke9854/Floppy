@@ -43,7 +43,7 @@ class ServiceWorkerViewTests(TestCase):
         self.assertEqual(response["Expires"], "0")
 
         body = response.content.decode()
-        self.assertIn('const CACHE_NAME = "floppy-v2";', body)
+        self.assertIn('const CACHE_NAME = "floppy-v3";', body)
         self.assertIn("const isSameOrigin = url.origin === self.location.origin;", body)
         self.assertIn(
             'const isHtmxRequest = request.headers.get("HX-Request") === "true";', body
@@ -51,6 +51,14 @@ class ServiceWorkerViewTests(TestCase):
         self.assertIn('!url.pathname.startsWith("/static/")', body)
         self.assertIn("if (networkResponse.ok) {", body)
         self.assertIn("caches.match(request)", body)
+
+    def test_service_worker_precaches_only_small_assets_and_keeps_one_version(self):
+        body = self.client.get(reverse("service_worker")).content.decode()
+
+        self.assertNotIn("/static/fonts/roboto-flex.woff2", body)
+        self.assertNotIn('"/static/css/main.css"', body)
+        self.assertIn("event.waitUntil(storeLatestVersion(request, url, responseClone));", body)
+        self.assertIn("keyUrl.pathname === url.pathname && keyUrl.search !== url.search", body)
 
     def test_service_worker_leaves_app_routes_to_the_browser(self):
         """App routes must fall through, not be repeated by the worker.

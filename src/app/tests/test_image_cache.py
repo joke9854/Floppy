@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from django.core.cache import cache
 from django.core.signals import request_started
+from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
@@ -129,6 +130,52 @@ class ImageCacheServiceTests(TestCase):
             served.close()
             with Image.open(BytesIO(body)) as image:
                 self.assertEqual((image.size, image.format), (expected, image_format), url)
+
+    def _cached_token(self):
+        source_url = "https://image.tmdb.org/t/p/w342/poster.png"
+        body = _png_bytes()
+        image_cache.set_enabled(True)
+        with patch(
+            "app.image_cache.requests.get",
+            return_value=_response(body, **{"Content-Length": str(len(body))}),
+        ):
+            self.assertTrue(image_cache._fetch_to_disk(source_url))
+        return image_cache._token_for_url(source_url), image_cache._paths(source_url)[0]
+
+    def test_behind_nginx_the_file_is_handed_over_with_its_type(self):
+        token, data_path = self._cached_token()
+
+        with override_settings(IMAGE_CACHE_ACCEL_REDIRECT="/_floppy-image-cache/"):
+            response = self.client.get(reverse("image_cache", kwargs={"token": token}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["X-Accel-Redirect"], f"/_floppy-image-cache/{data_path.name}")
+        self.assertEqual(response["Content-Type"], "image/png")
+        self.assertIn("max-age=", response["Cache-Control"])
+        self.assertEqual(response.content, b"")
+
+    def test_without_nginx_django_sends_the_file(self):
+        token, data_path = self._cached_token()
+
+        response = self.client.get(reverse("image_cache", kwargs={"token": token}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("X-Accel-Redirect", response)
+        self.assertEqual(b"".join(response.streaming_content), data_path.read_bytes())
+
+    def test_poster_requests_skip_the_session_and_user_lookups(self):
+        token, _data_path = self._cached_token()
+        user = get_user_model().objects.create_user(username="poster-viewer", password="x" * 12)
+        self.client.force_login(user)
+        url = reverse("image_cache", kwargs={"token": token})
+
+        with self.assertNumQueries(0), patch(
+            "app.middleware.mark_interactive_request",
+        ) as mark_active:
+            response = self.client.get(url, HTTP_ACCEPT="image/avif,image/webp,*/*")
+
+        self.assertEqual(response.status_code, 200)
+        mark_active.assert_not_called()
 
     def test_disabled_cache_serves_existing_files_but_does_not_download(self):
         source_url = "https://image.tmdb.org/t/p/original/poster.jpg"

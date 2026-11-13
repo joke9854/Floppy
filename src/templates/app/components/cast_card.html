@@ -7,9 +7,8 @@
      target="_blank"
      class="relative w-full flex-1">
     <img alt="{{ cast.name }}"
-         class="lazyload absolute inset-0 w-full h-full bg-[var(--color-surface-alt)] transition-opacity duration-300 {% if cast.image != IMG_NONE %}object-cover{% endif %}"
-         src="{{ IMG_NONE }}"
-         data-src="{{ cast.image|image_url }}">
+         class="absolute inset-0 w-full h-full bg-[var(--color-surface-alt)] transition-opacity duration-300 {% if cast.image != IMG_NONE %}object-cover{% endif %}"
+         src="{{ cast.image|image_url }}" loading="lazy" decoding="async">
     <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
       <div class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 transition duration-200"
            title="{% blocktranslate trimmed with value_1=cast.name %}Open TMDB page for {{ value_1 }}{% endblocktranslate %}">

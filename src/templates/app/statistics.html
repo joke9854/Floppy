@@ -1502,9 +1502,8 @@
               <div class="{% if secondary_color %}bg-[var(--color-surface-strong)]{% else %}bg-[var(--color-surface)]{% endif %} rounded-lg overflow-hidden shadow-lg relative">
                 <div class="relative">
                   <img alt="{{ item.media.item }}"
-                       class="lazyload w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
-                       data-src="{{ item.media.item.image|image_url }}"
-                       src="{{ IMG_NONE }}">
+                       class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
+                       src="{{ item.media.item.image|image_url }}" loading="lazy" decoding="async">
                   
                   {% if item.media.status %}
                     <div class="media-status-chip absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md"
@@ -1592,9 +1591,8 @@
               <div class="{% if secondary_color %}bg-[var(--color-surface-strong)]{% else %}bg-[var(--color-surface)]{% endif %} rounded-lg overflow-hidden shadow-lg relative">
                 <div class="relative">
                   <img alt="{{ item.media.item }}"
-                       class="lazyload w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
-                       data-src="{{ item.media.item.image|image_url }}"
-                       src="{{ IMG_NONE }}">
+                       class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
+                       src="{{ item.media.item.image|image_url }}" loading="lazy" decoding="async">
                   
                   {% if item.media.status %}
                     <div class="media-status-chip absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md"
@@ -1675,9 +1673,8 @@
               <div class="{% if secondary_color %}bg-[var(--color-surface-strong)]{% else %}bg-[var(--color-surface)]{% endif %} rounded-lg overflow-hidden shadow-lg relative">
                 <div class="relative">
                   <img alt="{{ item.media.item }}"
-                       class="lazyload w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
-                       data-src="{{ item.media.item.image|image_url }}"
-                       src="{{ IMG_NONE }}">
+                       class="w-full aspect-[2/3] bg-[var(--color-surface-alt)] {% if item.media.item.image != IMG_NONE %}object-cover{% endif %}"
+                       src="{{ item.media.item.image|image_url }}" loading="lazy" decoding="async">
                   
                   {% if item.media.status %}
                     <div class="media-status-chip absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md"

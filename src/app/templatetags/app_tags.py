@@ -178,8 +178,12 @@ def tmdb_size(value, size):
 
 
 @register.filter
-def tmdb_srcset(value, sizes="w185,w342,w500"):
-    """Return a srcset of proxied TMDB sizes, or "" for non-TMDB images."""
+def tmdb_srcset(value, sizes="w185,w342"):
+    """Return a srcset of proxied TMDB sizes, or "" for non-TMDB images.
+
+    Cards stop at w342: a ~136-200px poster tile is still over 2x sharp on a
+    3x phone, and w500 would weigh about twice as much per poster.
+    """
     if not isinstance(value, str) or not TMDB_IMAGE_SIZE_RE.match(value):
         return ""
     return ", ".join(

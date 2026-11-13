@@ -76,6 +76,33 @@ class UserLanguageMiddleware:
         return response
 
 
+class ImageCacheMiddleware:
+    """Answer cached-image requests ahead of the session and user middleware.
+
+    A Library page asks for dozens of posters at once. The image view is public
+    and needs no session, user, language or activity marker, yet each request
+    loaded all of them before reaching it. Placed right after SecurityMiddleware.
+    """
+
+    def __init__(self, get_response):
+        """Store the next middleware in the chain."""
+        self.get_response = get_response
+        self.prefix = None
+
+    def __call__(self, request):
+        """Serve /image-cache/<token> directly; pass everything else on."""
+        if request.method == "GET":
+            if self.prefix is None:
+                self.prefix = reverse("image_cache", kwargs={"token": "-"})[:-1]
+            path = request.path
+            token = path[len(self.prefix) :] if path.startswith(self.prefix) else ""
+            if token and "/" not in token:
+                from app import image_cache
+
+                return image_cache.serve_cached_image(token, request)
+        return self.get_response(request)
+
+
 class NoStoreHtmlMiddleware:
     """Stop browsers heuristically caching rendered HTML.
 

@@ -10,9 +10,8 @@
     <div class="shrink-0 relative">
       <a href="{{ item|media_url }}" hx-boost="true">
         <img alt="{{ resolved_item_title|default:title }}"
-             class="lazyload w-16 h-24 object-cover rounded shadow-md bg-[var(--color-surface-alt)]"
-             data-src="{{ item.image|image_url }}"
-             src="{{ IMG_NONE }}">
+             class="w-16 h-24 object-cover rounded shadow-md bg-[var(--color-surface-alt)]"
+             src="{{ item.image|image_url }}" loading="lazy" decoding="async">
       </a>
     </div>
 

@@ -6,11 +6,11 @@
     <div class="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-3 lg:items-center">
       <div class="flex justify-center lg:justify-start lg:items-center">
         {% if featured_person.image and featured_person.image != IMG_NONE %}
-          <img src="{{ IMG_NONE }}"
-               data-src="{{ featured_person.image|image_url }}"
+          <img
+               src="{{ featured_person.image|image_url }}"
                alt="{{ featured_person.name }}"
-               class="lazyload rounded-full object-cover bg-[var(--color-surface-strong)] shrink-0"
-               style="width: 8rem; height: 8rem;">
+               class="rounded-full object-cover bg-[var(--color-surface-strong)] shrink-0"
+               style="width: 8rem; height: 8rem;" loading="lazy" decoding="async">
         {% else %}
           <div class="rounded-full bg-[var(--color-surface-strong)] flex items-center justify-center shrink-0"
                style="width: 8rem; height: 8rem;">

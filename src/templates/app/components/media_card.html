@@ -27,10 +27,11 @@
           {% if recommend_mode %}
             <div class="cursor-pointer">
               <img alt="{% if resolved_media_type == MediaTypes.SEASON.value %}{{ season_card_title_override|default:resolved_season_card_title }}{% else %}{{ resolved_item_title|default:title }}{% endif %}"
-                   class="media-card-poster lazyload w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
-                   src="{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}"
+                   class="media-card-poster w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
+                   src="{{ image_override|default:item|ct_poster|default:IMG_NONE|tmdb_size:'w342'|image_url }}"
                    data-image-source="{{ image_source|default:'primary' }}"
-                   loading="lazy">
+                   loading="lazy"
+                   decoding="async">
             </div>
           {% else %}
             <a href="{% if media.album %}{{ media.album|music_album_url }}{% elif media.artist %}{{ media.artist|music_artist_url }}{% elif use_podcast_show|default:False and podcast_show %}{% url 'media_details' source='pocketcasts' media_type='podcast' media_id=podcast_show.podcast_uuid title=podcast_show.slug|default:podcast_show.title|default:podcast_show.podcast_uuid|slug %}{% elif public_list_reference %}{{ item|media_url }}?public_view=1&amp;public_list={{ public_list_reference|urlencode }}{% elif public_view|default:False %}{{ item|media_url }}?public_view=1{% else %}{{ item|media_url }}{% endif %}"
@@ -44,14 +45,19 @@
                 </div>
               {% endif %}
               <img alt="{% if use_podcast_show|default:False and podcast_show %}{{ podcast_show.title }}{% elif resolved_media_type == MediaTypes.SEASON.value %}{{ season_card_title_override|default:resolved_season_card_title }}{% else %}{{ resolved_item_title|default:title }}{% endif %}"
-                   class="media-card-poster {% if hover_action_mode != 'discover' %}lazyload{% endif %} w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
+                   class="media-card-poster w-full {% if from_grid %}{% if resolved_media_type == 'podcast' or resolved_media_type == 'music' %}aspect-[1/1]{% else %}aspect-[2/3] aspect-2/3{% endif %}{% else %}h-48{% endif %} bg-[var(--color-surface-alt)] {% if image_override|default:item.image|default:IMG_NONE != IMG_NONE %}object-cover{% endif %}"
                    data-image-source="{{ image_source|default:'primary' }}"
-                   {% if hover_action_mode == 'discover' %}
-                   src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}{% endif %}"
+                   {% if use_podcast_show|default:False and podcast_show and podcast_show.image %}
+                   src="{{ podcast_show.image|image_url }}"
                    {% else %}
-                   data-src="{% if use_podcast_show|default:False and podcast_show and podcast_show.image %}{{ podcast_show.image|image_url }}{% else %}{{ image_override|default:item|ct_poster|default:IMG_NONE|image_url }}{% endif %}"
-                   src="{{ IMG_NONE }}"
-                   {% endif %}>
+                   {% with poster=image_override|default:item|ct_poster|default:IMG_NONE %}
+                   {% comment %}w342 with a w185 step: a phone column (~34vw) or a desktop tile (<=200px) stays crisp without w500's weight.{% endcomment %}
+                   src="{{ poster|tmdb_size:'w342'|image_url }}"
+                   {% with srcset=poster|tmdb_srcset:'w185,w342' %}{% if srcset %}srcset="{{ srcset }}" sizes="(max-width: 29.99rem) 34vw, 200px"{% endif %}{% endwith %}
+                   {% endwith %}
+                   {% endif %}
+                   loading="lazy"
+                   decoding="async">
             </a>
           {% endif %}
 
