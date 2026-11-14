@@ -13,6 +13,12 @@ SCHEMA_REGENERATION_COMMAND = (
     "--custom-settings api.schema_contract.STATIC_SPECTACULAR_SETTINGS "
     "--fail-on-warn --validate --file src/api/contracts/openapi.yaml"
 )
+# Every API operation, for generated clients (the SvelteKit app's typed client).
+# The verified subset above stays the promise to MCP and outside integrations.
+FULL_SCHEMA_REGENERATION_COMMAND = (
+    "SECRET=test-only uv run --no-sync python src/manage.py spectacular "
+    "--fail-on-warn --validate --file src/api/contracts/openapi-full.yaml"
+)
 
 _MEDIA = "/api/v1/media/{media_type}/{source}/{media_id}"
 

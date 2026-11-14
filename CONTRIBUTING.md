@@ -92,6 +92,10 @@ Floppy maintains an OpenAPI schema contract verified by automated test suites.
   ```bash
   SECRET=test-only uv run --no-sync python src/manage.py spectacular --custom-settings api.schema_contract.STATIC_SPECTACULAR_SETTINGS --fail-on-warn --validate --file src/api/contracts/openapi.yaml
   ```
+- Regenerate the full contract too (every API operation, used to generate typed clients):
+  ```bash
+  SECRET=test-only uv run --no-sync python src/manage.py spectacular --fail-on-warn --validate --file src/api/contracts/openapi-full.yaml
+  ```
 - Run the contract tests:
   ```bash
   SECRET=test-only scripts/test.sh users.tests.views.test_about app.tests.test_api_contracts app.tests.test_domain_vocabulary

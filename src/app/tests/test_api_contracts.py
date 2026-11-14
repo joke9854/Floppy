@@ -30,6 +30,7 @@ from api.helpers import MEDIA_TYPE_VALID_LIST
 from api.schema_contract import (
     EXPECTED_SCHEMA_ERRORS,
     EXPECTED_SCHEMA_WARNINGS,
+    FULL_SCHEMA_REGENERATION_COMMAND,
     SCHEMA_REGENERATION_COMMAND,
     VERIFIED_OPERATIONS,
     assert_schema_findings,
@@ -49,6 +50,7 @@ from app.domain_vocabulary import (
 from integrations.tasks._webhook import WEBHOOK_PROCESSORS
 
 OPENAPI_CONTRACT_PATH = settings.BASE_DIR / "api" / "contracts" / "openapi.yaml"
+OPENAPI_FULL_CONTRACT_PATH = settings.BASE_DIR / "api" / "contracts" / "openapi-full.yaml"
 JSONLD_CONTEXT_PATH = settings.BASE_DIR / "api" / "contracts" / "context.jsonld"
 ASYNCAPI_CONTRACT_PATH = settings.BASE_DIR / "api" / "contracts" / "asyncapi.json"
 
@@ -338,6 +340,40 @@ class OpenAPIArtifactTests(SimpleTestCase):
         self.assertEqual(generated.warnings, frozenset())
         self.assertEqual(self._operations(parsed), VERIFIED_OPERATIONS)
         self.assertEqual(committed, OpenApiYamlRenderer().render(generated.schema))
+
+    @override_settings(VERSION="application-version-must-not-leak")
+    def test_committed_full_contract_is_exact_generation(self):
+        """The full contract for generated clients matches the code."""
+        committed = OPENAPI_FULL_CONTRACT_PATH.read_bytes()
+        generated = generate_schema_contract()
+
+        self.assertEqual(generated.errors, frozenset())
+        self.assertEqual(generated.warnings, frozenset())
+        rendered = OpenApiYamlRenderer().render(generated.schema)
+        self.assertTrue(
+            committed == rendered,
+            f"openapi-full.yaml is out of date. Regenerate with: {FULL_SCHEMA_REGENERATION_COMMAND}",
+        )
+        full = yaml.safe_load(committed)
+        self.assertEqual(full["info"]["version"], "1.0.0")
+        self.assertLessEqual(
+            self._operations(yaml.safe_load(OPENAPI_CONTRACT_PATH.read_bytes())),
+            self._operations(full),
+        )
+
+    def test_every_committed_operation_declares_its_scope(self):
+        """Clients read the scope a token needs from x-required-scope."""
+        for path in (OPENAPI_CONTRACT_PATH, OPENAPI_FULL_CONTRACT_PATH):
+            schema = yaml.safe_load(path.read_bytes())
+            missing = sorted(
+                (route, method)
+                for route, path_item in schema["paths"].items()
+                for method, operation in path_item.items()
+                if method in {"get", "post", "put", "patch", "delete"}
+                and "x-required-scope" not in operation
+            )
+            with self.subTest(contract=path.name):
+                self.assertEqual(missing, [])
 
     @override_settings(VERSION="application-version-must-not-leak")
     def test_contract_is_deterministic_and_independent_of_application_version(self):

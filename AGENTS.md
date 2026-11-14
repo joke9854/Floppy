@@ -323,6 +323,7 @@ Models/migrations and divergent UI normally require manual adaptation. Provider 
 - Generate the domain guide: `PYTHONPATH=src uv run --no-sync python -m app.domain_vocabulary`
 - Check the domain guide: `PYTHONPATH=src uv run --no-sync python -m app.domain_vocabulary --check`
 - Regenerate the verified OpenAPI artifact: `SECRET=test-only uv run --no-sync python src/manage.py spectacular --custom-settings api.schema_contract.STATIC_SPECTACULAR_SETTINGS --fail-on-warn --validate --file src/api/contracts/openapi.yaml`
+- Regenerate the full OpenAPI contract (every operation, for generated clients) whenever any API view or serializer changes: `SECRET=test-only uv run --no-sync python src/manage.py spectacular --fail-on-warn --validate --file src/api/contracts/openapi-full.yaml`
 - Run Celery (two workers in one command, mirrors production):
   ```bash
   PYTHONPATH=src uv run --no-sync celery -A config worker --queues interactive --hostname celery-interactive@%h --loglevel DEBUG &
