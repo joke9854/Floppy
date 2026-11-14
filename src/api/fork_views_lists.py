@@ -22,6 +22,7 @@ from lists.views_add_reorder import apply_full_order, apply_reorder_action
 from lists.views_recommendations import get_or_create_recommendation_item
 
 from .contract_serializers import DetailErrorSerializer
+from .provider_errors import resolution_failure_response
 
 logger = logging.getLogger(__name__)
 
@@ -460,6 +461,7 @@ class ListRecommendationsView(drf_views.APIView):
             404: DetailErrorSerializer,
             409: DetailErrorSerializer,
             502: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def post(self, request, list_id):
@@ -502,11 +504,9 @@ class ListRecommendationsView(drf_views.APIView):
                 season_number,
                 episode_number,
             )
-        except Exception as e:
-            return Response(
-                {"detail": "Could not resolve item.", "errors": str(e)},
-                status=HTTP.BAD_GATEWAY,
-            )
+        except Exception as error:
+            logger.exception("Could not resolve recommended item media_id=%s", media_id)
+            return resolution_failure_response(error, "Could not resolve item.")
 
         if custom_list.items.filter(id=item.id).exists():
             return Response(

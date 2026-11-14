@@ -110,6 +110,7 @@ from .helpers import (
     try_parse_date,
     validate_body,
 )
+from .provider_errors import provider_unavailable_response
 from .schema import (
     MEDIA_LIST_FILTER_PARAMS,
     MEDIA_LIST_ROOT_PARAMS,
@@ -1440,6 +1441,7 @@ class MediaDetailView(drf_views.APIView):
             403: DetailErrorSerializer,
             404: DetailErrorSerializer,
             500: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def get(self, request, media_type, source, media_id):
@@ -1474,13 +1476,7 @@ class MediaDetailView(drf_views.APIView):
                     {"detail": "Media not found."},
                     status=HTTP.NOT_FOUND,
                 )
-            return Response(
-                {
-                    "detail": HTTP.INTERNAL_SERVER_ERROR.phrase,
-                    "errors": str(error),
-                },
-                status=HTTP.INTERNAL_SERVER_ERROR,
-            )
+            return provider_unavailable_response()
         except Exception:
             logger.exception(HTTP.INTERNAL_SERVER_ERROR.phrase)
             return Response(
@@ -5202,6 +5198,7 @@ class SearchProviderView(drf_views.APIView):
             400: DetailErrorSerializer,
             403: DetailErrorSerializer,
             500: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
         examples=[
             OpenApiExample(
@@ -5295,17 +5292,14 @@ class SearchProviderView(drf_views.APIView):
 
                 page += 1
 
-        except services.ProviderAPIError as e:
+        except services.ProviderAPIError:
             logger.exception(
                 "Provider search failed for media_type=%s source=%s search=%r",
                 media_type,
                 source,
                 search,
             )
-            return Response(
-                {"detail": f"{e.provider_label} lookup failed."},
-                status=HTTP.INTERNAL_SERVER_ERROR,
-            )
+            return provider_unavailable_response()
         except Exception:
             logger.exception(
                 "Unexpected error during search for media_type=%s source=%s search=%r",

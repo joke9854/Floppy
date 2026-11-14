@@ -133,11 +133,19 @@ class SearchIdTests(SyncWritesBase):
             HTTP.BAD_REQUEST,
         )
 
-    def test_provider_failure_is_a_502(self):
-        """A TMDB outage is reported, not answered with an empty list."""
+    def test_provider_failure_is_a_503(self):
+        """A TMDB outage is a retryable 503, not an empty list."""
+        outage = ProviderAPIError("tmdb", SimpleNamespace(response=SimpleNamespace(status_code=500)))
+        with patch(FIND, side_effect=outage):
+            response = self.search(imdb="tt0133093")
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response.json()["code"], "provider_unavailable")
+
+    def test_unexpected_failure_is_a_500_without_text(self):
         with patch(FIND, side_effect=RuntimeError("tmdb down")):
             response = self.search(imdb="tt0133093")
-        self.assertEqual(response.status_code, HTTP.BAD_GATEWAY)
+        self.assertEqual(response.status_code, HTTP.INTERNAL_SERVER_ERROR)
+        self.assertNotIn("tmdb down", response.content.decode())
 
     def test_needs_catalog_read(self):
         """The route is in the scope map like every API view."""

@@ -28,6 +28,7 @@ from .helpers import (
     resolve_episode_coordinate_for_request,
     validate_episode_score,
 )
+from .provider_errors import resolution_failure_response
 from .schema import MEDIA_TYPE_PARAM, MEDIA_TYPE_TV_ONLY_PARAM
 
 logger = logging.getLogger(__name__)
@@ -398,6 +399,7 @@ class MediaEpisodeScoreView(drf_views.APIView):
             200: EpisodeScoreSerializer,
             400: DetailErrorSerializer,
             404: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def patch(
@@ -430,10 +432,8 @@ class MediaEpisodeScoreView(drf_views.APIView):
                 language=metadata_resolution.metadata_language_default(request.user),
             )
         except Exception as error:
-            return Response(
-                {"detail": "Could not resolve episode.", "errors": str(error)},
-                status=HTTP.NOT_FOUND,
-            )
+            logger.exception("Could not resolve episode for score media_id=%s", media_id)
+            return resolution_failure_response(error, "Could not resolve episode.")
         if coordinate_error:
             return coordinate_error
 

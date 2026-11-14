@@ -33,5 +33,5 @@ class MediaDuplicateConflictTests(FloppyApiTestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(
             response.json(),
-            {"detail": "Conflict. Media is already tracked."},
+            {"detail": "Conflict. Media is already tracked.", "code": "conflict"},
         )

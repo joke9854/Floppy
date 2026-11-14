@@ -346,6 +346,8 @@ REST_FRAMEWORK = {
     # ``format`` is a media-list filter, not a renderer override.
     "URL_FORMAT_OVERRIDE": None,
     "DEFAULT_SCHEMA_CLASS": "api.scope_schema.ScopedAutoSchema",
+    # JSON for every error, including provider outages and unexpected ones.
+    "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {

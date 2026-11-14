@@ -38,6 +38,7 @@ from .contract_serializers import (
     TrackedMediaResponseSerializer,
 )
 from .helpers import paginate_data, parse_limit_offset, try_parse_datetime_input
+from .provider_errors import resolution_failure_response
 from .serializers import serialize_data
 
 logger = logging.getLogger(__name__)
@@ -313,6 +314,7 @@ class MusicArtistsView(drf_views.APIView):
             400: DetailErrorSerializer,
             404: DetailErrorSerializer,
             502: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def post(self, request):
@@ -327,11 +329,9 @@ class MusicArtistsView(drf_views.APIView):
                 artist = fork_services_music.get_or_create_artist_from_musicbrainz(
                     musicbrainz_id,
                 )
-            except Exception as e:
-                return Response(
-                    {"detail": "Could not fetch artist.", "errors": str(e)},
-                    status=HTTP.BAD_GATEWAY,
-                )
+            except Exception as error:
+                logger.exception("Could not fetch MusicBrainz artist %s", musicbrainz_id)
+                return resolution_failure_response(error, "Artist not found on MusicBrainz.")
         else:
             return Response(
                 {"detail": "'artist_id' or 'musicbrainz_id' is required."},
@@ -467,6 +467,7 @@ class MusicArtistSyncView(drf_views.APIView):
             200: MusicArtistSyncResponseSerializer,
             404: DetailErrorSerializer,
             502: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def post(self, _request, artist_id):
@@ -476,11 +477,9 @@ class MusicArtistSyncView(drf_views.APIView):
             return Response({"detail": "Artist not found."}, status=HTTP.NOT_FOUND)
         try:
             count = sync_artist_discography(artist, force=True)
-        except Exception as e:
-            return Response(
-                {"detail": "Discography sync failed.", "errors": str(e)},
-                status=HTTP.BAD_GATEWAY,
-            )
+        except Exception as error:
+            logger.exception("Discography sync failed artist_id=%s", artist_id)
+            return resolution_failure_response(error, "Artist not found on MusicBrainz.")
         if count:
             dedupe_artist_albums(artist)
         return Response({"synced_albums": count or 0}, status=HTTP.OK)

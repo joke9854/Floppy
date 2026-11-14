@@ -13,6 +13,7 @@ from app.models import Item, MediaTypes, Sources
 from app.providers.services import ProviderAPIError
 
 from .contract_serializers import DetailErrorSerializer
+from .provider_errors import resolution_failure_response
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,7 @@ class SearchIdView(drf_views.APIView):
             200: SearchIdResponseSerializer,
             400: DetailErrorSerializer,
             502: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def get(self, request):
@@ -201,22 +203,16 @@ class SearchIdView(drf_views.APIView):
             if not results:
                 try:
                     results = _tmdb_item(value, wanted)
-                except Exception:
+                except Exception as error:
                     logger.warning("Search by tmdb id failed", exc_info=True)
-                    return Response(
-                        {"detail": "The metadata provider could not be reached."},
-                        status=HTTP.BAD_GATEWAY,
-                    )
+                    return resolution_failure_response(error, "Not found at the metadata provider.")
             return Response({"results": results}, status=HTTP.OK)
 
         results = [] if wanted == "episode" else _known_items(key, value, wanted)
         if not results:
             try:
                 results = _found_items(key, value, wanted)
-            except Exception:
+            except Exception as error:
                 logger.warning("Search by %s id failed", key, exc_info=True)
-                return Response(
-                    {"detail": "The metadata provider could not be reached."},
-                    status=HTTP.BAD_GATEWAY,
-                )
+                return resolution_failure_response(error, "Not found at the metadata provider.")
         return Response({"results": results}, status=HTTP.OK)

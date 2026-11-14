@@ -31,6 +31,7 @@ from .helpers import (
     parse_limit_offset,
     try_parse_datetime_input,
 )
+from .provider_errors import provider_unavailable_response
 from .serializers import serialize_data
 
 logger = logging.getLogger(__name__)
@@ -380,6 +381,7 @@ class PodcastLookupView(drf_views.APIView):
             400: DetailErrorSerializer,
             404: DetailErrorSerializer,
             500: DetailErrorSerializer,
+            503: DetailErrorSerializer,
         },
     )
     def get(self, request, itunes_id):
@@ -402,10 +404,7 @@ class PodcastLookupView(drf_views.APIView):
             # nothing here a caller can act on beyond the status code, so this
             # follows the provider-search handler in views.py and reports the
             # label alone.
-            return Response(
-                {"detail": f"{error.provider_label} lookup failed."},
-                status=HTTP.INTERNAL_SERVER_ERROR,
-            )
+            return provider_unavailable_response()
 
         rss_feed_url = itunes_data.get("feed_url", "")
         metadata, episodes = itunes_data, []

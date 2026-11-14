@@ -352,25 +352,29 @@ class PodcastLookupTests(PodcastApiTestCase):
         self.assertEqual(response.status_code, HTTP.NOT_FOUND)
 
     @patch("app.providers.pocketcasts.lookup_by_itunes_id")
-    def test_lookup_reports_a_provider_outage_as_a_server_error(self, mock_lookup):
-        """A failing provider is the server's problem, not a missing podcast."""
+    def test_lookup_reports_a_provider_outage_as_unavailable(self, mock_lookup):
+        """A failing provider is a retryable outage, not a missing podcast."""
         mock_lookup.side_effect = self._provider_error(HTTP.BAD_GATEWAY)
 
         response = self._lookup()
 
-        self.assertEqual(response.status_code, HTTP.INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response["Retry-After"], "30")
 
     @patch("app.providers.pocketcasts.lookup_by_itunes_id")
-    def test_lookup_outage_names_the_provider_and_nothing_else(self, mock_lookup):
+    def test_lookup_outage_body_has_no_exception_text(self, mock_lookup):
         """The failure body carries no exception-derived text."""
         mock_lookup.side_effect = self._provider_error(HTTP.BAD_GATEWAY)
 
         payload = self._lookup().json()
 
-        # Only fixed strings: the detail and the code its status maps to.
+        # Only fixed strings: the detail and the code.
         self.assertEqual(
             payload,
-            {"detail": "Pocket Casts lookup failed.", "code": "server_error"},
+            {
+                "detail": "Metadata provider unavailable. Try again later.",
+                "code": "provider_unavailable",
+            },
         )
 
     @staticmethod

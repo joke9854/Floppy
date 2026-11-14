@@ -1807,6 +1807,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
         '401':
           content:
             application/json:
@@ -3481,6 +3487,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
         '401':
           content:
             application/json:
@@ -3539,6 +3551,12 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: ''
         '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
           content:
             application/json:
               schema:

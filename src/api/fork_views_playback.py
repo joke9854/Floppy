@@ -36,6 +36,7 @@ from integrations.delivery import get_or_record_receipt
 from integrations.models import IntegrationToken
 
 from .helpers import paginate_data, parse_limit_offset, try_parse_datetime_input
+from .provider_errors import resolution_failure_response
 
 logger = logging.getLogger(__name__)
 
@@ -602,7 +603,7 @@ class PlaybackProgressView(drf_views.APIView):
             "podcasts require an already-tracked episode."
         ),
         request={"application/json": _WRITE_SCHEMA},
-        responses={200: _ENTRY_SCHEMA, 400: _DETAIL_SCHEMA, 404: _DETAIL_SCHEMA},
+        responses={200: _ENTRY_SCHEMA, 400: _DETAIL_SCHEMA, 404: _DETAIL_SCHEMA, 503: _DETAIL_SCHEMA},
     )
     def put(self, request):
         """Set or clear a resume position."""
@@ -649,11 +650,9 @@ class PlaybackProgressView(drf_views.APIView):
                 data.get("episode_number"),
                 create=True,
             )
-        except Exception as e:
-            return Response(
-                {"detail": "Could not resolve media.", "errors": str(e)},
-                status=HTTP.NOT_FOUND,
-            )
+        except Exception as error:
+            logger.exception("Could not resolve media for playback progress")
+            return resolution_failure_response(error, "Could not resolve media.")
         if item is None:
             return Response(
                 {"detail": "Could not resolve media."},
@@ -697,7 +696,7 @@ class PlaybackProgressView(drf_views.APIView):
     @extend_schema(
         description="Clear a saved resume position.",
         request={"application/json": _WRITE_SCHEMA},
-        responses={204: None, 400: _DETAIL_SCHEMA, 404: _DETAIL_SCHEMA},
+        responses={204: None, 400: _DETAIL_SCHEMA, 404: _DETAIL_SCHEMA, 503: _DETAIL_SCHEMA},
     )
     def delete(self, request):
         """Clear a saved resume position."""
@@ -754,11 +753,9 @@ class PlaybackProgressView(drf_views.APIView):
                 data.get("episode_number"),
                 create=False,
             )
-        except Exception as e:
-            return Response(
-                {"detail": "Could not resolve media.", "errors": str(e)},
-                status=HTTP.NOT_FOUND,
-            )
+        except Exception as error:
+            logger.exception("Could not resolve media for playback progress")
+            return resolution_failure_response(error, "Could not resolve media.")
         if item is None:
             return Response(
                 {"detail": "Could not resolve media."},
