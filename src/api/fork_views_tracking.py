@@ -3,10 +3,8 @@
 # lives in fork_urls.py.
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
-from uuid import UUID
 
 from django.conf import settings
-from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -22,19 +20,13 @@ from app.fork_services_episode import (
 from app.fork_services_movie import resolve_or_create_movie
 from app.history_cache_utils import normalize_history_media_type_tokens
 from app.models import (
-    TV,
     Episode,
-    Item,
     ItemTag,
     MediaTypes,
     Movie,
-    MoviePlay,
-    Status,
     Tag,
 )
 from app.services import metadata_resolution
-from app.services.sync_activity import touch_activity
-from app.services.sync_items import refresh_sync_items
 from app.tasks_bulk_plays import bulk_episode_plays_task
 from app.templatetags.app_tags import media_url
 
@@ -398,151 +390,6 @@ class MediaMovieWatchView(drf_views.APIView):
             )
 
         return Response(status=HTTP.NO_CONTENT)
-
-
-# /api/v1/cinetrack/bootstrap/movies/ensure/
-class CineTrackBootstrapMoviesEnsureView(drf_views.APIView):
-    """Fast, idempotent tracker import for CineTrack's initial bootstrap.
-
-    This deliberately creates a minimal Item instead of resolving provider
-    metadata on the request path.  Metadata enrichment is independent from a
-    durable tracking fact and can happen later without holding the bootstrap
-    hostage to a third-party provider.
-    """
-
-    max_items = 50
-
-    def post(self, request):
-        """Ensure a batch of movies exists for the user."""
-        entries = request.data.get("movies")
-        if not isinstance(entries, list) or not entries:
-            return Response({"detail": "movies must be a non-empty list."}, status=HTTP.BAD_REQUEST)
-        if len(entries) > self.max_items:
-            return Response({"detail": f"movies must contain at most {self.max_items} entries."}, status=HTTP.BAD_REQUEST)
-        parsed, external_ids = [], set()
-        for index, entry in enumerate(entries):
-            if not isinstance(entry, dict):
-                return Response({"detail": f"movies[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
-            source, media_id = str(entry.get("source") or "").strip(), str(entry.get("media_id") or "").strip()
-            title = str(entry.get("title") or f"CineTrack movie {media_id}").strip()
-            try:
-                status = int(entry.get("status", Status.IN_PROGRESS.value))
-            except (TypeError, ValueError):
-                return Response({"detail": f"movies[{index}].status is invalid."}, status=HTTP.BAD_REQUEST)
-            watch = entry.get("watch")
-            watched_at = external_id = None
-            if watch is not None:
-                if not isinstance(watch, dict):
-                    return Response({"detail": f"movies[{index}].watch is invalid."}, status=HTTP.BAD_REQUEST)
-                try:
-                    watched_at = try_parse_datetime_input(watch["watched_at"])
-                except (KeyError, TypeError, ValueError):
-                    return Response({"detail": f"movies[{index}].watch.watched_at is invalid."}, status=HTTP.BAD_REQUEST)
-                external_id = str(watch.get("client_event_id") or "").strip()
-                if not external_id or watched_at is None:
-                    return Response({"detail": f"movies[{index}].watch requires watched_at and client_event_id."}, status=HTTP.BAD_REQUEST)
-                if external_id in external_ids:
-                    return Response({"detail": "movie client_event_id values must be unique per request."}, status=HTTP.BAD_REQUEST)
-                external_ids.add(external_id)
-            if not source or not media_id or not check_source_type(MediaTypes.MOVIE.value, source):
-                return Response({"detail": f"movies[{index}] has invalid source or media_id."}, status=HTTP.BAD_REQUEST)
-            parsed.append((source, media_id, title, entry.get("image") or "", status, watched_at, external_id))
-
-        results = []
-        touched_items = []
-        with transaction.atomic():
-            # Fetch existing identities together; newly-created rows are
-            # minimal, deliberately avoiding services.get_media_metadata().
-            identities = {(source, media_id) for source, media_id, *_ in parsed}
-            existing_items = {
-                (item.source, item.media_id): item
-                for item in Item.objects.filter(
-                    media_type=MediaTypes.MOVIE.value,
-                    source__in={source for source, _ in identities},
-                    media_id__in={media_id for _, media_id in identities},
-                )
-            }
-            for source, media_id, title, image, desired_status, watched_at, external_id in parsed:
-                item = existing_items.get((source, media_id))
-                if item is None:
-                    item = Item.objects.create(
-                        source=source, media_id=media_id, media_type=MediaTypes.MOVIE.value,
-                        title=title or f"CineTrack movie {media_id}", original_title=title or None, image=image,
-                    )
-                    existing_items[(source, media_id)] = item
-                movie = Movie.objects.filter(user=request.user, item=item).first()
-                if movie is None:
-                    # Media.save() may hydrate provider metadata.  Raw base
-                    # persistence is intentional here: bootstrap tracking is
-                    # durable first; enrichment is an independent concern.
-                    movie = Movie(
-                        user=request.user, item=item, status=Status.IN_PROGRESS.value,
-                        score=None, notes="", created_at=timezone.now(),
-                    )
-                    movie.save_base(raw=True, force_insert=True)
-                # QuerySet.update avoids Media.process_status() provider work.
-                Movie.objects.filter(pk=movie.pk).exclude(status=desired_status).update(status=desired_status)
-                outcome = "already_satisfied"
-                if watched_at is not None:
-                    _, created = MoviePlay.objects.get_or_create(
-                        movie=movie, external_id=external_id,
-                        defaults={"end_date": watched_at},
-                    )
-                    if created:
-                        Movie.objects.filter(pk=movie.pk).update(end_date=watched_at, status=Status.COMPLETED.value)
-                    outcome = "created" if created else "already_satisfied"
-                results.append({"source": source, "media_id": media_id, "status": outcome})
-                touched_items.append(item)
-        # Queryset updates above fire no signals.
-        touch_activity(request.user, "library")
-        refresh_sync_items(request.user, touched_items)
-        return Response({"results": results}, status=HTTP.OK)
-
-
-# /api/v1/cinetrack/bootstrap/shows/ensure/
-class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
-    """Import show library state without manufacturing episode history."""
-
-    max_items = 50
-
-    def post(self, request):
-        """Ensure a batch of shows exists for the user."""
-        entries = request.data.get("shows")
-        if not isinstance(entries, list) or not entries:
-            return Response({"detail": "shows must be a non-empty list."}, status=HTTP.BAD_REQUEST)
-        if len(entries) > self.max_items:
-            return Response({"detail": f"shows must contain at most {self.max_items} entries."}, status=HTTP.BAD_REQUEST)
-        results = []
-        touched_items = []
-        with transaction.atomic():
-            for index, entry in enumerate(entries):
-                if not isinstance(entry, dict):
-                    return Response({"detail": f"shows[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
-                source, media_id = str(entry.get("source") or "").strip(), str(entry.get("media_id") or "").strip()
-                title = str(entry.get("title") or f"CineTrack show {media_id}").strip()
-                try:
-                    desired_status = int(entry.get("status", Status.IN_PROGRESS.value))
-                except (TypeError, ValueError):
-                    return Response({"detail": f"shows[{index}].status is invalid."}, status=HTTP.BAD_REQUEST)
-                if not source or not media_id or not check_source_type(MediaTypes.TV.value, source):
-                    return Response({"detail": f"shows[{index}] has invalid source or media_id."}, status=HTTP.BAD_REQUEST)
-                item, _ = Item.objects.get_or_create(
-                    source=source, media_id=media_id, media_type=MediaTypes.TV.value,
-                    defaults={"title": title or f"CineTrack show {media_id}", "original_title": title or None, "image": entry.get("image") or ""},
-                )
-                tv, _ = TV.objects.get_or_create(
-                    user=request.user, item=item,
-                    defaults={"status": Status.IN_PROGRESS.value, "score": None, "notes": ""},
-                )
-                # Avoid TV.save() completion fan-out: episode history is always
-                # imported explicitly by CineTrack's event endpoint.
-                TV.objects.filter(pk=tv.pk).exclude(status=desired_status).update(status=desired_status)
-                results.append({"source": source, "media_id": media_id, "status": "already_satisfied"})
-                touched_items.append(item)
-        # Queryset updates above fire no signals.
-        touch_activity(request.user, "library")
-        refresh_sync_items(request.user, touched_items)
-        return Response({"results": results}, status=HTTP.OK)
 
 
 # /api/v1/media/tv/[source]/[media_id]/[season_number]/episodes/[episode_number]/drop/
@@ -1149,145 +996,3 @@ class MediaEpisodeBulkView(drf_views.APIView):
             media_id,
         )
         return Response({"task_id": task.id}, status=HTTP.ACCEPTED)
-
-
-# /api/v1/media/tv/[source]/[media_id]/episodes/ensure/
-class MediaEpisodeEnsureView(drf_views.APIView):
-    """Idempotently ensure exact external episode-watch events exist.
-
-    This fork-only endpoint is intentionally separate from the historical
-    ``episodes/bulk`` add/replace API.  Each UUID is a durable client event
-    identity: a retry reuses it, while a distinct timestamp for the same
-    episode remains a legitimate rewatch.
-    """
-
-    max_events = 50
-
-    @extend_schema(parameters=[MEDIA_TYPE_TV_ONLY_PARAM])
-    def post(self, request, media_type, source, media_id):
-        """Ensure a batch of episode watch events exists for the user."""
-        error = _tv_route_error(media_type, source)
-        if error:
-            return error
-
-        events = request.data.get("events")
-        if not isinstance(events, list) or not events:
-            return Response({"detail": "events must be a non-empty list."}, status=HTTP.BAD_REQUEST)
-        if len(events) > self.max_events:
-            return Response(
-                {"detail": f"events must contain at most {self.max_events} entries."},
-                status=HTTP.BAD_REQUEST,
-            )
-
-        parsed = []
-        for index, event in enumerate(events):
-            if not isinstance(event, dict):
-                return Response({"detail": f"events[{index}] must be an object."}, status=HTTP.BAD_REQUEST)
-            try:
-                season_number = int(event["season_number"])
-                episode_number = int(event["episode_number"])
-                client_event_id = UUID(str(event["client_event_id"]))
-                watched_at = try_parse_datetime_input(event["watched_at"])
-            except (KeyError, TypeError, ValueError):
-                return Response(
-                    {"detail": f"events[{index}] has invalid season_number, episode_number, watched_at, or client_event_id."},
-                    status=HTTP.BAD_REQUEST,
-                )
-            if season_number < 1 or episode_number < 1 or watched_at is None:
-                return Response({"detail": f"events[{index}] has invalid coordinates or watched_at."}, status=HTTP.BAD_REQUEST)
-            parsed.append((season_number, episode_number, watched_at, client_event_id))
-
-        # A repeated UUID inside one request is ambiguous even before touching
-        # storage; reject it rather than silently merging two event payloads.
-        if len({event[3] for event in parsed}) != len(parsed):
-            return Response({"detail": "client_event_id values must be unique per request."}, status=HTTP.BAD_REQUEST)
-
-        library_media_type = (request.data.get("library_media_type") or "").strip()
-        language = metadata_resolution.metadata_language_default(request.user)
-        # Validate every requested coordinate before creating a tracked season
-        # or a history row. A malformed later child must not leave earlier
-        # children committed from what the client sees as one request.
-        try:
-            for season_number, episode_number, _, _ in parsed:
-                _, coordinate_error = resolve_episode_coordinate_for_request(
-                    request.user,
-                    media_id,
-                    source,
-                    season_number,
-                    episode_number,
-                    library_media_type=library_media_type,
-                    language=language,
-                )
-                if coordinate_error:
-                    return coordinate_error
-        except Exception:
-            logger.exception("Failed to validate CineTrack episode ensure media_id=%s", media_id)
-            return Response({"detail": "Could not resolve episode events."}, status=HTTP.NOT_FOUND)
-
-        seasons = {}
-        try:
-            with transaction.atomic():
-                results = []
-                for season_number, episode_number, watched_at, client_event_id in parsed:
-                    related_season = seasons.get(season_number)
-                    if related_season is None:
-                        related_season = resolve_or_create_season(
-                            request.user,
-                            media_id,
-                            source,
-                            season_number,
-                            library_media_type=library_media_type,
-                        )
-                        seasons[season_number] = related_season
-
-                    claimed = Episode.objects.filter(
-                        watch_operation_id=client_event_id,
-                    ).select_related("related_season", "item").first()
-                    if claimed is not None:
-                        if (
-                            claimed.related_season_id != related_season.id
-                            or claimed.item.episode_number != episode_number
-                        ):
-                            return Response({"detail": "client_event_id belongs to another episode."}, status=HTTP.CONFLICT)
-                        results.append(_episode_ensure_result(client_event_id, season_number, episode_number, "already_satisfied"))
-                        continue
-
-                    # Adopt an exact legacy event when safe. Exact datetime
-                    # matching deliberately preserves a later rewatch of the
-                    # same coordinate as a separate history record.
-                    legacy = Episode.objects.filter(
-                        related_season=related_season,
-                        item__episode_number=episode_number,
-                        end_date=watched_at,
-                    ).order_by("id").first()
-                    if legacy is not None:
-                        if legacy.watch_operation_id is None:
-                            legacy.watch_operation_id = client_event_id
-                            legacy.save(update_fields=["watch_operation_id"])
-                        results.append(_episode_ensure_result(client_event_id, season_number, episode_number, "already_satisfied"))
-                        continue
-
-                    result = related_season.watch(
-                        episode_number,
-                        watched_at,
-                        watch_operation_id=client_event_id,
-                    )
-                    results.append(_episode_ensure_result(
-                        client_event_id,
-                        season_number,
-                        episode_number,
-                        "created" if result.created else "already_satisfied",
-                    ))
-        except Exception:
-            logger.exception("CineTrack episode ensure failed media_id=%s", media_id)
-            return Response({"detail": "Could not ensure episode events."}, status=HTTP.INTERNAL_SERVER_ERROR)
-        return Response({"results": results}, status=HTTP.OK)
-
-
-def _episode_ensure_result(client_event_id, season_number, episode_number, status):
-    return {
-        "client_event_id": str(client_event_id),
-        "season_number": season_number,
-        "episode_number": episode_number,
-        "status": status,
-    }

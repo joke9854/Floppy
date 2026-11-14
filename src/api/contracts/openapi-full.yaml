@@ -4349,7 +4349,7 @@ paths:
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/lists/:
     get:
       operationId: listMediaEpisodeLists
-      description: Retrieve the lists that a specific season is in.
+      description: Retrieve the lists that a specific episode is in.
       parameters:
       - in: path
         name: episode_number
@@ -7280,7 +7280,7 @@ paths:
   /api/v1/media/{media_type}/{source}/{media_id}/seasons/:
     get:
       operationId: api_v1_media_seasons_retrieve
-      description: Retrieve the history timeline for a specific media.
+      description: List the seasons of a tracked show.
       parameters:
       - in: path
         name: media_id

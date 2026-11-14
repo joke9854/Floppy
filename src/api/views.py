@@ -2403,7 +2403,7 @@ class MediaSeasonsView(drf_views.APIView):
         },
     )
     def get(self, request, media_type, source, media_id):
-        """Retrieve the history timeline for a specific media."""
+        """List the seasons of a tracked show."""
         user = request.user
         limit, offset, err = parse_limit_offset(request)
         if err:
@@ -4880,7 +4880,7 @@ class MediaEpisodeListsView(drf_views.APIView):
         },
     )
     def get(self, request, media_type, source, media_id, season_number, episode_number):
-        """Retrieve the lists that a specific season is in."""
+        """Retrieve the lists that a specific episode is in."""
         user = request.user
 
         limit, offset, err = parse_limit_offset(request)
