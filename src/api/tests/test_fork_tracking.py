@@ -3,8 +3,10 @@
 import datetime
 from decimal import Decimal
 from http import HTTPStatus as HTTP  # noqa: N814
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import requests
 from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -20,6 +22,7 @@ from app.models import (
     Sources,
     Tag,
 )
+from app.providers import services
 
 from .base import FloppyApiTestCase
 
@@ -254,10 +257,11 @@ class EpisodeWatchTests(FloppyApiTestCase):
             headers=self.auth_headers,
         )
 
-        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        # A bug, not a missing title: 500 with no exception text.
+        self.assertEqual(response.status_code, HTTP.INTERNAL_SERVER_ERROR)
         self.assertEqual(
             response.json(),
-            {"detail": "Could not resolve season.", "code": "not_found"},
+            {"detail": "Internal error while resolving the title.", "code": "server_error"},
         )
         self.assertFalse(Episode.objects.filter(item__media_id="999999").exists())
 
@@ -285,7 +289,11 @@ class EpisodeWatchTests(FloppyApiTestCase):
         self.assertEqual(remaining.count(), 1)
         self.assertEqual(str(remaining.first().end_date.date()), "2024-01-01")
 
-    def test_unwatch_untracked_season_not_found(self):
+    @patch(
+        "app.models.providers.services.get_media_metadata",
+        side_effect=_season_metadata_side_effect,
+    )
+    def test_unwatch_untracked_season_not_found(self, _mock):
         """DELETE watch on an untracked season returns 404."""
         response = self.call_api(
             "delete",
@@ -332,12 +340,108 @@ class EpisodeWatchTests(FloppyApiTestCase):
             headers=self.auth_headers,
         )
 
-        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        # A bug, not a missing title: 500 with no exception text.
+        self.assertEqual(response.status_code, HTTP.INTERNAL_SERVER_ERROR)
         self.assertEqual(
             response.json(),
-            {"detail": "Could not resolve season.", "code": "not_found"},
+            {"detail": "Internal error while resolving the title.", "code": "server_error"},
         )
         self.assertFalse(Episode.objects.filter(item__media_id="999999").exists())
+
+
+def _provider_error(status_code=None):
+    """A provider failure: a timeout when status_code is None, else an HTTP error."""
+    if status_code is None:
+        return services.ProviderAPIError("tmdb", requests.exceptions.ReadTimeout())
+    return services.ProviderAPIError("tmdb", SimpleNamespace(response=SimpleNamespace(status_code=status_code)))
+
+
+class ProviderFailureTests(FloppyApiTestCase):
+    """A slow or failing provider is a retryable 503, never a final 404."""
+
+    EPISODE_ROUTES = (
+        ("post", "api_media_episode_watch"),
+        ("delete", "api_media_episode_watch"),
+        ("post", "api_media_episode_drop"),
+    )
+
+    def _episode_call(self, method, route):
+        return self.call_api(
+            method,
+            route,
+            args=("tv", "tmdb", "1001", 1, 1),
+            payload={} if method == "post" else None,
+            headers=self.auth_headers,
+        )
+
+    def assert_provider_unavailable(self, response):
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response.json()["code"], "provider_unavailable")
+        self.assertEqual(response["Retry-After"], "30")
+
+    def test_episode_routes_answer_503_on_provider_outage(self):
+        for status_code in (None, 429, 500):
+            for method, route in self.EPISODE_ROUTES:
+                with self.subTest(status=status_code, method=method, route=route):
+                    before = Episode.objects.count()
+                    with patch(
+                        "app.models.providers.services.get_media_metadata",
+                        side_effect=_provider_error(status_code),
+                    ):
+                        response = self._episode_call(method, route)
+                    self.assert_provider_unavailable(response)
+                    self.assertEqual(Episode.objects.count(), before)
+
+    def test_episode_routes_keep_404_when_provider_says_not_found(self):
+        for method, route in self.EPISODE_ROUTES:
+            with self.subTest(method=method, route=route):
+                with patch(
+                    "app.models.providers.services.get_media_metadata",
+                    side_effect=_provider_error(404),
+                ):
+                    response = self._episode_call(method, route)
+                self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+                self.assertEqual(response.json()["code"], "not_found")
+
+    def test_unwatch_keeps_history_on_provider_outage(self):
+        """A failed coordinate check must never reach the detached-history cleanup."""
+        with patch(
+            "app.models.providers.services.get_media_metadata",
+            side_effect=_season_metadata_side_effect,
+        ):
+            self._episode_call("post", "api_media_episode_watch")
+        plays = Episode.objects.filter(related_season=self.season_medias[0], item__episode_number=1).count()
+
+        with patch(
+            "app.models.providers.services.get_media_metadata",
+            side_effect=_provider_error(),
+        ):
+            response = self._episode_call("delete", "api_media_episode_watch")
+
+        self.assert_provider_unavailable(response)
+        self.assertEqual(
+            Episode.objects.filter(related_season=self.season_medias[0], item__episode_number=1).count(),
+            plays,
+        )
+
+    def test_movie_watch_answers_503_on_provider_outage(self):
+        before = MoviePlay.objects.count()
+        with patch("api.fork_views_tracking.resolve_or_create_movie", side_effect=_provider_error()):
+            response = self.call_api(
+                "post", "api_media_movie_watch", args=("movie", "tmdb", "424242"),
+                payload={}, headers=self.auth_headers,
+            )
+        self.assert_provider_unavailable(response)
+        self.assertEqual(MoviePlay.objects.count(), before)
+
+    def test_movie_watch_keeps_404_without_exception_text(self):
+        with patch("api.fork_views_tracking.resolve_or_create_movie", side_effect=_provider_error(404)):
+            response = self.call_api(
+                "post", "api_media_movie_watch", args=("movie", "tmdb", "424242"),
+                payload={}, headers=self.auth_headers,
+            )
+        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        self.assertEqual(response.json(), {"detail": "Could not resolve movie.", "code": "not_found"})
 
 
 class MovieWatchTests(FloppyApiTestCase):

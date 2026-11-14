@@ -445,7 +445,10 @@ class CineTrackExistingDataTests(FloppyApiTestCase):
             self._episode_payload(datetime(2024, 10, 10, 20, 0, tzinfo=UTC), self.EPISODE_EVENT, episode_number=2),
         )
 
-        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        # Retryable, never a "not found" a client could treat as final.
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response.json()["code"], "provider_unavailable")
+        self.assertEqual(response["Retry-After"], "30")
         self.assertEqual(Episode.objects.count(), before)
 
     @patch("api.cinetrack_bootstrap_views.time.sleep")

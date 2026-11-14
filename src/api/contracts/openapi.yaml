@@ -139,12 +139,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed or oversized batch; nothing was written.
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DetailError'
-          description: Episode metadata could not be fetched; nothing was written.
         '409':
           content:
             application/json:
@@ -162,8 +156,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailError'
-          description: Database busy; nothing was written. Retry after Retry-After
-            seconds.
+          description: Database busy, or the metadata provider is unavailable (code
+            provider_unavailable); nothing was written. Retry after Retry-After seconds.
         '401':
           content:
             application/json:
@@ -211,12 +205,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed or oversized batch; nothing was written.
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DetailError'
-          description: Episode metadata could not be fetched; nothing was written.
         '409':
           content:
             application/json:
@@ -234,8 +222,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailError'
-          description: Database busy; nothing was written. Retry after Retry-After
-            seconds.
+          description: Database busy, or the metadata provider is unavailable (code
+            provider_unavailable); nothing was written. Retry after Retry-After seconds.
         '401':
           content:
             application/json:
@@ -2584,12 +2572,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed or oversized batch; nothing was written.
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DetailError'
-          description: Episode metadata could not be fetched; nothing was written.
         '409':
           content:
             application/json:
@@ -2607,8 +2589,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailError'
-          description: Database busy; nothing was written. Retry after Retry-After
-            seconds.
+          description: Database busy, or the metadata provider is unavailable (code
+            provider_unavailable); nothing was written. Retry after Retry-After seconds.
         '401':
           content:
             application/json:
@@ -2677,12 +2659,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Malformed request.
-        '404':
+        '503':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailError'
-          description: Episode metadata could not be fetched.
+          description: Metadata provider unavailable (code provider_unavailable).
+            Retry after Retry-After seconds.
         '401':
           content:
             application/json:

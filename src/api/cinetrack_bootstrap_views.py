@@ -39,6 +39,11 @@ from app.tasks_metadata_cache import queue_cinetrack_bootstrap_hydration
 
 from .contract_serializers import DetailErrorSerializer
 from .helpers import check_source_type, try_parse_datetime_input
+from .provider_errors import (
+    PROVIDER_RETRY_AFTER_SECONDS,
+    PROVIDER_UNAVAILABLE_CODE,
+    PROVIDER_UNAVAILABLE_DETAIL,
+)
 from .schema import MEDIA_TYPE_TV_ONLY_PARAM
 
 logger = logging.getLogger(__name__)
@@ -202,10 +207,9 @@ class CineTrackBootstrapResponseSerializer(serializers.Serializer):
 BOOTSTRAP_RESPONSES = {
     200: CineTrackBootstrapResponseSerializer,
     400: OpenApiResponse(DetailErrorSerializer, description="Malformed or oversized batch; nothing was written."),
-    404: OpenApiResponse(DetailErrorSerializer, description="Episode metadata could not be fetched; nothing was written."),
     409: OpenApiResponse(DetailErrorSerializer, description="client_event_id already belongs to another event."),
     500: OpenApiResponse(DetailErrorSerializer, description="The batch could not be written; retry is safe."),
-    503: OpenApiResponse(DetailErrorSerializer, description="Database busy; nothing was written. Retry after Retry-After seconds."),
+    503: OpenApiResponse(DetailErrorSerializer, description="Database busy, or the metadata provider is unavailable (code provider_unavailable); nothing was written. Retry after Retry-After seconds."),
 }
 
 
@@ -679,16 +683,29 @@ class EpisodeEnsureError(Exception):
     database stayed locked) or error (any other write failure).
     """
 
-    def __init__(self, detail, status, *, headers=None, kind="error", partial=None):
+    def __init__(self, detail, status, *, headers=None, kind="error", partial=None, code=None):
         """Carry the response detail, HTTP status, headers, kind and partial outcomes."""
         super().__init__(detail)
         self.detail = detail
         self.status = status
         self.headers = headers
         self.kind = kind
+        self.code = code
         # Outcomes settled before the failure (claimed or already-stored
         # events); the events still missing from it were not written.
         self.partial = partial
+
+
+def _metadata_unavailable_error(partial=None):
+    """Build the error for a provider outage: retryable, never a final answer."""
+    return EpisodeEnsureError(
+        PROVIDER_UNAVAILABLE_DETAIL,
+        HTTP.SERVICE_UNAVAILABLE,
+        headers={"Retry-After": str(PROVIDER_RETRY_AFTER_SECONDS)},
+        kind="metadata",
+        partial=partial,
+        code=PROVIDER_UNAVAILABLE_CODE,
+    )
 
 
 class EpisodeEnsureResult(NamedTuple):
@@ -1079,10 +1096,7 @@ def ensure_episode_events(
         try:
             resolution = resolve_episode_coordinates(user, source, media_id, unresolved, timings=timings)
         except _CoordinateMetadataError:
-            raise EpisodeEnsureError(
-                MSG_RESOLVE_FAILED,
-                HTTP.NOT_FOUND,
-                kind="metadata",
+            raise _metadata_unavailable_error(
                 partial=EpisodeEnsureResult(dict(outcomes), dict(stored), dict(reasons), dict(titles)),
             ) from None
         outcomes.update(resolution.outcomes)
@@ -1397,6 +1411,14 @@ class CineTrackBootstrapShowsEnsureView(drf_views.APIView):
         return Response({"results": show_results(request.user, parsed)}, status=HTTP.OK)
 
 
+def _ensure_error_response(error):
+    """Response for a request-level EpisodeEnsureError, with its code when set."""
+    body = {"detail": error.detail}
+    if error.code:
+        body["code"] = error.code
+    return Response(body, status=error.status, headers=error.headers)
+
+
 class MediaEpisodeEnsureView(drf_views.APIView):
     """Ensure exact episode-watch events with one metadata fetch per batch."""
 
@@ -1454,7 +1476,7 @@ class MediaEpisodeEnsureView(drf_views.APIView):
                 library_media_type=str(request.data.get("library_media_type") or "").strip(),
             )
         except EpisodeEnsureError as error:
-            return Response({"detail": error.detail}, status=error.status, headers=error.headers)
+            return _ensure_error_response(error)
         outcomes, stored, reasons, titles = ensured
 
         results = []
@@ -1488,7 +1510,7 @@ class MediaEpisodeTranslateView(drf_views.APIView):
         responses={
             200: CineTrackEpisodeTranslateResponseSerializer,
             400: OpenApiResponse(DetailErrorSerializer, description="Malformed request."),
-            404: OpenApiResponse(DetailErrorSerializer, description="Episode metadata could not be fetched."),
+            503: OpenApiResponse(DetailErrorSerializer, description="Metadata provider unavailable (code provider_unavailable). Retry after Retry-After seconds."),
         },
     )
     def post(self, request, media_type, source, media_id):
@@ -1533,7 +1555,7 @@ class MediaEpisodeTranslateView(drf_views.APIView):
         try:
             results = _translate_coordinates(request.user, source, media_id, events, from_tracker=origin == "tracker")
         except EpisodeEnsureError as error:
-            return Response({"detail": error.detail}, status=error.status, headers=error.headers)
+            return _ensure_error_response(error)
         return Response({"results": results}, status=HTTP.OK)
 
 
@@ -1643,10 +1665,11 @@ def _translate_coordinates(user, source, media_id, events, *, from_tracker):
         else:
             resolution = _resolve_tmdb_coordinates(media_id, source, events)
     except (_CoordinateMetadataError, services.ProviderAPIError):
-        raise EpisodeEnsureError(MSG_RESOLVE_FAILED, HTTP.NOT_FOUND, kind="metadata") from None
+        # A provider 404 already became show_unknown; anything else is an outage.
+        raise _metadata_unavailable_error() from None
     except Exception:
         logger.exception("CineTrack episode translate failed media_id=%s", media_id)
-        raise EpisodeEnsureError(MSG_RESOLVE_FAILED, HTTP.NOT_FOUND, kind="metadata") from None
+        raise EpisodeEnsureError(MSG_RESOLVE_FAILED, HTTP.INTERNAL_SERVER_ERROR, kind="error") from None
 
     if resolution.show_unknown:
         return [

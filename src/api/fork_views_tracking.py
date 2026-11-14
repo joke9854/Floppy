@@ -59,6 +59,7 @@ from .helpers import (
     try_parse_datetime_input,
     validate_episode_score,
 )
+from .provider_errors import resolution_failure_response
 from .schema import HISTORY_LIST_PARAMS, MEDIA_TYPE_PARAM, MEDIA_TYPE_TV_ONLY_PARAM
 from .serializers import HistorySerializer, serialize_data
 
@@ -125,6 +126,8 @@ class MediaEpisodeWatchView(drf_views.APIView):
             201: TrackedMediaResponseSerializer,
             400: DetailErrorSerializer,
             404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+            503: OpenApiResponse(DetailErrorSerializer, description="Metadata provider unavailable (code provider_unavailable); nothing was written. Retry after Retry-After seconds."),
         },
     )
     def post(
@@ -183,7 +186,7 @@ class MediaEpisodeWatchView(drf_views.APIView):
                 int(season_number),
                 library_media_type=library_media_type,
             )
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Failed to resolve season for episode watch media_id=%s "
                 "source=%s season_number=%s",
@@ -191,10 +194,7 @@ class MediaEpisodeWatchView(drf_views.APIView):
                 source,
                 season_number,
             )
-            return Response(
-                {"detail": "Could not resolve season."},
-                status=HTTP.NOT_FOUND,
-            )
+            return resolution_failure_response(error, "Could not resolve season.")
 
         related_season.watch(int(episode_number), end_date)
         if score_provided:
@@ -215,6 +215,8 @@ class MediaEpisodeWatchView(drf_views.APIView):
         responses={
             204: None,
             404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+            503: OpenApiResponse(DetailErrorSerializer, description="Metadata provider unavailable (code provider_unavailable); nothing was written. Retry after Retry-After seconds."),
         },
     )
     def delete(
@@ -240,7 +242,7 @@ class MediaEpisodeWatchView(drf_views.APIView):
                 episode_number,
                 language=metadata_resolution.metadata_language_default(request.user),
             )
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Failed to validate episode watch media_id=%s source=%s "
                 "season_number=%s episode_number=%s",
@@ -249,10 +251,7 @@ class MediaEpisodeWatchView(drf_views.APIView):
                 season_number,
                 episode_number,
             )
-            return Response(
-                {"detail": "Could not resolve episode."},
-                status=HTTP.NOT_FOUND,
-            )
+            return resolution_failure_response(error, "Could not resolve episode.")
         if coordinate_error:
             return coordinate_error
 
@@ -301,6 +300,8 @@ class MediaMovieWatchView(drf_views.APIView):
             201: ConsumptionResponseSerializer,
             400: DetailErrorSerializer,
             404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+            503: OpenApiResponse(DetailErrorSerializer, description="Metadata provider unavailable (code provider_unavailable); nothing was written. Retry after Retry-After seconds."),
         },
     )
     def post(self, request, media_type, source, media_id):
@@ -332,11 +333,13 @@ class MediaMovieWatchView(drf_views.APIView):
 
         try:
             movie = resolve_or_create_movie(request.user, media_id, source)
-        except Exception as e:
-            return Response(
-                {"detail": "Could not resolve movie.", "errors": str(e)},
-                status=HTTP.NOT_FOUND,
+        except Exception as error:
+            logger.exception(
+                "Failed to resolve movie for watch media_id=%s source=%s",
+                media_id,
+                source,
             )
+            return resolution_failure_response(error, "Could not resolve movie.")
 
         play, created = movie.watch(end_date, external_id=external_id)
         status_code = HTTP.CREATED if created else HTTP.OK
@@ -552,6 +555,8 @@ class MediaEpisodeDropView(drf_views.APIView):
         responses={
             201: TrackedMediaResponseSerializer,
             404: DetailErrorSerializer,
+            500: DetailErrorSerializer,
+            503: OpenApiResponse(DetailErrorSerializer, description="Metadata provider unavailable (code provider_unavailable); nothing was written. Retry after Retry-After seconds."),
         },
     )
     def post(
@@ -588,7 +593,7 @@ class MediaEpisodeDropView(drf_views.APIView):
                 int(season_number),
                 library_media_type=library_media_type,
             )
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Failed to resolve season for episode drop media_id=%s "
                 "source=%s season_number=%s",
@@ -596,10 +601,7 @@ class MediaEpisodeDropView(drf_views.APIView):
                 source,
                 season_number,
             )
-            return Response(
-                {"detail": "Could not resolve season."},
-                status=HTTP.NOT_FOUND,
-            )
+            return resolution_failure_response(error, "Could not resolve season.")
 
         episode = drop_episode(related_season, int(episode_number))
         return Response(serialize_data(episode), status=HTTP.CREATED)

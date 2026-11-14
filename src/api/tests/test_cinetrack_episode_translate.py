@@ -178,8 +178,9 @@ class EpisodeTranslateTests(FloppyApiTestCase):
         with patch(METADATA_PATH, side_effect=error):
             response = self.translate({"from": "tracker", "episodes": [{"season": 1, "episode": 1}]})
 
-        self.assertEqual(response.status_code, 404)
-        self.assertIn("detail", response.json())
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "provider_unavailable")
+        self.assertEqual(response["Retry-After"], "30")
 
     def test_validation_errors(self):
         episode = {"season": 1, "episode": 1}

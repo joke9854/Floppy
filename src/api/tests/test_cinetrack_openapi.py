@@ -58,7 +58,9 @@ class CineTrackOpenApiTests(FloppyApiTestCase):
                 operation = self._schema()["paths"][path]["post"]
                 self.assertIn("requestBody", operation)
                 self.assertEqual(
-                    {"200", "400", "401", "403", "404", "409", "500", "503"},
+                    # No 404: a provider outage is a retryable 503, and a title
+                    # the provider does not know is a per-entry not_found.
+                    {"200", "400", "401", "403", "409", "500", "503"},
                     set(operation["responses"]),
                 )
                 error = operation["responses"]["400"]["content"]["application/json"][
