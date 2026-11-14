@@ -2007,6 +2007,9 @@ class DetailScoreChipsTemplateTests(TestCase):
         self.assertIn("trakt-series-graph-tmdb-1", html)
         self.assertNotIn("every 5s", html)
         self.assertNotIn('hx-trigger="load', html)
+        # Chips without a Trakt graph share this x-data: hovering them must not
+        # call htmx.trigger on a missing element.
+        self.assertIn("$refs.traktGraph) {", html)
 
 
 class CharacterImagesTests(TestCase):

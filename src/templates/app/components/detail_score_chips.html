@@ -10,7 +10,7 @@
     {% if media.score_count is not None %}
       <div class="relative"
            x-data="{ graphOpen: false, graphLoaded: false }"
-           x-effect="if (graphOpen && !graphLoaded) { graphLoaded = true; $nextTick(() => htmx.trigger($refs.traktGraph, 'graph-open')) }"
+           x-effect="if (graphOpen && !graphLoaded && $refs.traktGraph) { graphLoaded = true; $nextTick(() => htmx.trigger($refs.traktGraph, 'graph-open')) }"
            @mouseenter="graphOpen = true"
            @mouseleave="graphOpen = false"
            @click.outside="graphOpen = false">
