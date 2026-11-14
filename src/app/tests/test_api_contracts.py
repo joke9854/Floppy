@@ -595,7 +595,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/search/{media_type}/", "get"): (
                 "searchMedia",
                 "SearchEnvelope",
-                {"200", "400", "401", "403", "500"},
+                {"200", "400", "401", "403", "500", "503"},
                 None,
             ),
             ("/api/v1/media/{media_type}/", "post"): (
@@ -607,7 +607,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "get"): (
                 "retrieveMediaItem",
                 "CompleteMediaItemResponse",
-                {"200", "400", "401", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500", "503"},
                 None,
             ),
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "patch"): (
