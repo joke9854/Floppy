@@ -364,8 +364,10 @@ def _annotate_static_callback(endpoint):
     if hasattr(annotated, "kwargs"):
         annotated.kwargs = dict(annotated.kwargs)
     scoped_method = extend_schema(**overrides)(annotated)
+    # Same module and class name as the real view: api.scopes.view_key builds
+    # the VIEW_SCOPES key from them, and a renamed clone lost x-required-scope.
     scoped_class = type(
-        f"Static{callback.cls.__name__}",
+        callback.cls.__name__,
         (callback.cls,),
         {"__module__": callback.cls.__module__, method.lower(): scoped_method},
     )

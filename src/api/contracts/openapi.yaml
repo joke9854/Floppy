@@ -407,6 +407,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: catalog:read
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -609,6 +610,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
   /api/v1/home/:
     get:
       operationId: api_v1_home_retrieve
@@ -645,6 +647,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: catalog:read
   /api/v1/imports/{service}/:
     post:
       operationId: api_v1_imports_create
@@ -691,6 +694,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
   /api/v1/info/:
     get:
       operationId: getPublicInfo
@@ -704,6 +708,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/InfoResponse'
           description: ''
+      x-required-scope: any
   /api/v1/lists/:
     get:
       operationId: api_v1_lists_retrieve
@@ -841,6 +846,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:read
     post:
       operationId: api_v1_lists_create
       description: Create a new custom list for the authenticated user.
@@ -954,6 +960,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
   /api/v1/lists/{list_id}/:
     patch:
       operationId: api_v1_lists_partial_update
@@ -1075,6 +1082,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
     delete:
       operationId: api_v1_lists_destroy
       description: Delete a specific custom list.
@@ -1105,6 +1113,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
   /api/v1/lists/{list_id}/items/:
     get:
       operationId: api_v1_lists_items_retrieve
@@ -1140,6 +1149,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:read
   /api/v1/media/:
     get:
       operationId: listTrackedMedia
@@ -1986,6 +1996,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/:
     get:
       operationId: retrieveMediaSeason
@@ -2150,6 +2161,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/:
     get:
       operationId: retrieveMediaEpisode
@@ -2326,6 +2338,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/episodes/{episode_number}/watch/:
     post:
       operationId: api_v1_media_episodes_watch_create
@@ -2404,6 +2417,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/progress/:
     post:
       operationId: updateMediaSeasonProgress
@@ -2463,6 +2477,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: progress:write
   /api/v1/media/{media_type}/{source}/{media_id}/characters/:
     get:
       operationId: api_v1_media_characters_retrieve
@@ -2864,6 +2879,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
     delete:
       operationId: api_v1_media_lists_destroy
       description: Remove a specific media from a specific list.
@@ -2925,6 +2941,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
   /api/v1/media/{media_type}/{source}/{media_id}/progress/:
     post:
       operationId: updateMediaProgress
@@ -2978,6 +2995,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: progress:write
   /api/v1/media/{media_type}/{source}/{media_id}/tags/:
     get:
       operationId: api_v1_media_tags_retrieve
@@ -3059,6 +3077,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
     put:
       operationId: api_v1_media_tags_update
       description: Replace the user's tags on this item with the given tag ids.
@@ -3145,6 +3164,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/music/songs/plays/:
     post:
       operationId: api_v1_music_songs_plays_create
@@ -3179,6 +3199,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: music:write
   /api/v1/podcasts/episodes/plays/:
     post:
       operationId: api_v1_podcasts_episodes_plays_create
@@ -3223,6 +3244,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: podcasts:write
   /api/v1/scrobble/:
     post:
       operationId: api_v1_scrobble_create
@@ -3613,6 +3635,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: statistics:read
   /api/v1/sync/activities/:
     get:
       operationId: api_v1_sync_activities_retrieve
@@ -4314,6 +4337,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
     post:
       operationId: api_v1_tags_create
       description: Create a tag (names are unique per user, case-insensitive).
@@ -4361,6 +4385,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/tags/{tag_id}/:
     patch:
       operationId: api_v1_tags_partial_update
@@ -4416,6 +4441,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
     delete:
       operationId: api_v1_tags_destroy
       description: Delete the tag and its item associations.
@@ -4446,6 +4472,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/tasks/{task_id}/:
     get:
       operationId: api_v1_tasks_retrieve
@@ -4503,6 +4530,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: any
   /api/v1/user/preferences/:
     get:
       operationId: api_v1_user_preferences_retrieve
@@ -4541,6 +4569,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: user:read
     patch:
       operationId: api_v1_user_preferences_partial_update
       description: |-
@@ -4590,6 +4619,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: user:write
   /apis/listenbrainz/1/submit-listens/:
     post:
       operationId: submitListenBrainzListens
