@@ -7,7 +7,10 @@ from celery.signals import worker_process_init, worker_ready
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-app = Celery("floppy")
+# Every task, including @shared_task ones, derives from the beta guard, which
+# skips tasks that contact connected services when FLOPPY_BETA_MODE is on and
+# otherwise delegates unchanged.
+app = Celery("floppy", task_cls="app.beta_mode:BetaGuardTask")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 

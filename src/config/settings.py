@@ -470,6 +470,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "app.middleware.BetaModeMiddleware",
     "app.middleware.ProviderCredentialUserMiddleware",
     "app.middleware.UserLanguageMiddleware",
     "app.middleware.DiscoverWarmupMiddleware",
@@ -515,6 +516,7 @@ TEMPLATES = [
                 "django.template.context_processors.media",
                 "django.template.context_processors.i18n",
                 "app.context_processors.export_vars",
+                "app.context_processors.beta_mode",
                 "app.context_processors.media_enums",
                 "django.template.context_processors.request",
             ],
@@ -2195,6 +2197,10 @@ REDIRECT_LOGIN_TO_SSO = config("REDIRECT_LOGIN_TO_SSO", default=False, cast=bool
 # this setting gates provisioning, not the account itself (see
 # floppy_preflight's demo check for how to notice and retire it).
 DEMO_ACCOUNT_ENABLED = config("DEMO_ACCOUNT_ENABLED", default=False, cast=bool)
+
+# Beta instance running on a copy of real data: never contact the user's
+# connected services (see app/beta_mode.py).
+FLOPPY_BETA_MODE = config("FLOPPY_BETA_MODE", default=False, cast=bool)
 
 # Error reporting to a Sentry-compatible server (GlitchTip). Off unless a DSN
 # is set; config.error_reporting strips credentials from every event.

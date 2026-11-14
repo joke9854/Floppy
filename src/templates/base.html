@@ -232,6 +232,13 @@
        role="status"
        aria-live="polite"
        hx-preserve="true"></p>
+    {% if FLOPPY_BETA_MODE %}
+      <div role="status"
+           class="text-center text-xs py-1 px-4 bg-[var(--color-sidebar)] text-[var(--color-text)] border-b border-[var(--color-border)]"
+           style="background:var(--color-sidebar);color:var(--color-text);border-bottom:1px solid var(--color-border);text-align:center;font-size:0.75rem;padding:0.25rem 1rem;">
+        Beta server &middot; a copy of your data &middot; connected services are paused
+      </div>
+    {% endif %}
     {% block body %}
       {# Main container for the layout #}
       <div class="flex min-h-screen bg-[var(--color-page-bg)] text-[var(--color-text)]">

@@ -496,3 +496,48 @@ class ProviderCredentialUserMiddleware:
 
         with credentials.current_user_scope(getattr(request, "user", None)):
             return self.get_response(request)
+
+
+class BetaModeMiddleware:
+    """Refuse views that contact connected services on a beta instance.
+
+    A beta instance runs on a copy of real data. Connecting an account, running
+    an OAuth hand-off or pushing and pulling states would use the real
+    credentials in that copy, so those views answer 403. With the flag off the
+    only cost is one settings check per request.
+    """
+
+    def __init__(self, get_response):
+        """Initialize the middleware."""
+        self.get_response = get_response
+
+    def __call__(self, request):
+        """Block the request when it targets a service-contacting view."""
+        if settings.FLOPPY_BETA_MODE:
+            from django.http import JsonResponse
+            from django.urls import Resolver404, resolve
+
+            from app.beta_mode import (
+                BETA_BLOCKED_DETAIL,
+                is_blocked_url_name,
+            )
+
+            try:
+                url_name = resolve(request.path_info).url_name
+            except Resolver404:
+                url_name = None
+
+            if is_blocked_url_name(url_name):
+                if request.path_info.startswith("/api/"):
+                    return JsonResponse(
+                        {"detail": BETA_BLOCKED_DETAIL, "code": "beta_server"},
+                        status=HTTPStatus.FORBIDDEN,
+                    )
+                return HttpResponse(
+                    "<!DOCTYPE html><html><head><title>Beta server</title></head>"
+                    f"<body><h1>Beta server</h1><p>{BETA_BLOCKED_DETAIL}</p>"
+                    "</body></html>",
+                    status=HTTPStatus.FORBIDDEN,
+                )
+
+        return self.get_response(request)

@@ -227,6 +227,20 @@ until echo "[entrypoint] Applying database migrations (attempt $((migrate_attemp
     sleep 15
 done
 
+# Beta server (a copy of the real data): pause every per-user integration
+# schedule before beat or a worker can start, so the copy never pushes to,
+# notifies through or rotates the tokens of the user's real services. Fail
+# closed: no beta start if this cannot run.
+case "${FLOPPY_BETA_MODE:-false}" in
+    1|[Tt]rue|[Yy]es|[Oo]n)
+        echo "[entrypoint] Beta server: pausing connected-service schedules" >&2
+        if ! python manage.py prepare_beta_copy; then
+            echo "[entrypoint] Could not pause connected-service schedules; not starting the beta server" >&2
+            exit 1
+        fi
+        ;;
+esac
+
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 

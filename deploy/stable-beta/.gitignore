@@ -1,0 +1,4 @@
+# Local server files: secrets and the beta data copy never go in git.
+beta.env
+beta/
+*.log

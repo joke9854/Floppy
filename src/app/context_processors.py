@@ -25,6 +25,11 @@ def export_vars(request):
     }
 
 
+def beta_mode(request):
+    """Expose the beta flag so the base templates can show a banner."""
+    return {"FLOPPY_BETA_MODE": settings.FLOPPY_BETA_MODE}
+
+
 def media_enums(request):
     """Export media enums to templates."""
     return {

@@ -4,6 +4,7 @@ from datetime import UTC
 from html import escape
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Max, Q
 from django.utils import timezone
@@ -726,6 +727,11 @@ def send_user_notification(
         body: Notification body
         body_format: Apprise body format. Defaults to plain text.
     """
+    if settings.FLOPPY_BETA_MODE:
+        # A beta copy holds the real notification URLs and must not use them.
+        logger.info("Beta server: notification not sent")
+        return
+
     # Imported here, not at module scope: apprise loads its whole notification
     # plugin registry on import, and that cost lands in every long-lived
     # process that merely imports this module.

@@ -1,0 +1,56 @@
+# Floppy beta: a second Floppy that runs on a COPY of the stable data.
+#
+# It has its own data folder, its own Redis and its own port, and
+# FLOPPY_BETA_MODE=true pauses everything that would contact your connected
+# services (pushes, tracker imports, notifications, token refreshes).
+# See docs/stable-beta.md.
+#
+# Start:   docker compose -f docker-compose.beta.yml --env-file beta.env up -d
+# Logs:    docker compose -f docker-compose.beta.yml --env-file beta.env logs -f floppy-beta
+name: floppy-beta
+
+services:
+  floppy-beta:
+    container_name: floppy-beta
+    # beta-update.sh pins FLOPPY_BETA_TAG to the newest CineTrack-API build
+    # whose CI is green (sha-<short>); :beta is simply the newest push.
+    image: ghcr.io/joke9854/floppy:${FLOPPY_BETA_TAG:-beta}
+    restart: unless-stopped
+    depends_on:
+      - floppy-beta-redis
+    environment:
+      - FLOPPY_BETA_MODE=true
+      # Same SECRET as stable: the copied database stores encrypted values
+      # that only that key can read.
+      - SECRET=${SECRET:?Set SECRET in beta.env to the same value stable uses}
+      - URLS=${BETA_URL:?Set BETA_URL in beta.env, for example https://beta.example.com}
+      - TZ=${TZ:-Europe/Rome}
+      - REDIS_URL=redis://floppy-beta-redis:6379
+      - ADMIN_ENABLED=False
+      - DEMO_ACCOUNT_ENABLED=False
+      - DEBUG=False
+    volumes:
+      - ${BETA_DATA_DIR:-./beta}/db:/floppy/db
+      - ${BETA_DATA_DIR:-./beta}/backups:/floppy/backups
+    ports:
+      - "${BETA_PORT:-8001}:8000"
+    networks:
+      - floppy-beta-net
+
+  # Never share stable's Redis: the Celery queues and caches would mix.
+  floppy-beta-redis:
+    container_name: floppy-beta-redis
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --save "" --maxmemory 128mb --maxmemory-policy volatile-lru
+    volumes:
+      - floppy_beta_redis:/data
+    networks:
+      - floppy-beta-net
+
+volumes:
+  floppy_beta_redis:
+
+networks:
+  floppy-beta-net:
+    driver: bridge

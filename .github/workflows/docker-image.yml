@@ -13,6 +13,8 @@ on:
       - "release"
       - "latest"
       - "CineTrack-API"
+      # Promoted, tested commits only: `git push origin <sha>:stable`.
+      - "stable"
     tags:
       - "v*"
   pull_request:
@@ -218,6 +220,12 @@ jobs:
         id: get-version
         run: |
           VERSION=$(git describe --tags 2>/dev/null || echo "dev")
+          # The fork has no release tags: name builds after their channel so
+          # /api/v1/info shows exactly which commit a server runs.
+          case "${GITHUB_REF}" in
+            refs/heads/CineTrack-API) VERSION="beta-${GITHUB_SHA::9}" ;;
+            refs/heads/stable) VERSION="stable-${GITHUB_SHA::9}" ;;
+          esac
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
 
@@ -237,12 +245,15 @@ jobs:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
             name=${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }},enable=${{ github.repository_owner == 'dannyvfilms' }}
-          # CineTrack-API pushes get an immutable sha-<short> tag and a moving
-          # cinetrack-api tag that the compose files deploy.
+          # CineTrack-API pushes get an immutable sha-<short> tag plus the moving
+          # beta tag (cinetrack-api kept for older compose files). Promoted
+          # commits on stable get the moving stable tag.
           tags: |
             type=ref,event=pr
-            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/CineTrack-API' }}
+            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/CineTrack-API' || github.ref == 'refs/heads/stable' }}
             type=raw,value=cinetrack-api,enable=${{ github.ref == 'refs/heads/CineTrack-API' }}
+            type=raw,value=beta,enable=${{ github.ref == 'refs/heads/CineTrack-API' }}
+            type=raw,value=stable,enable=${{ github.ref == 'refs/heads/stable' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
