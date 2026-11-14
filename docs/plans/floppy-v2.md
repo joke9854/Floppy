@@ -133,7 +133,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 
 | Phase | Content | Status |
 |---|---|---|
-| P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta's Cloudflare hostname pending |
+| P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta at https://floppybeta.bingehub.stream |
 | P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Not started |
 | P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
