@@ -32,6 +32,7 @@ complete**. Every step is judged against those four words:
 | 2026-11-14 | New screens are built next to the Django pages and switched over one at a time. |
 | 2026-11-14 | **Social and federation come last**, only when everything else works. |
 | 2026-11-14 | Testing happens on a **beta server** with a copy of the real data and connected services paused (`FLOPPY_BETA_MODE`, `docs/stable-beta.md`). Stable only gets promoted, tested commits. |
+| 2026-11-14 | Versions are plain **X.Y.Z**. A release is a `vX.Y.Z` tag on a commit that went through beta (`promote-stable.sh`); beta builds read `X.Y.(Z+1)-beta.N`. First stable release: 1.0.0. The SvelteKit cutover can be 2.0.0. Upstream's date tags (`v26.11.12`) are never pushed to the fork and are ignored by the scripts. |
 | 2026-11-14 | A separate repository (detaching the fork) only when Floppy becomes its own product open to other people. License stays AGPL-3.0. |
 
 ## Why a SvelteKit server
@@ -132,7 +133,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 
 | Phase | Content | Status |
 |---|---|---|
-| P0 | Stable and beta servers, beta mode, image channels, scripts | Built (`c7ce2e09a`); server setup by the user pending |
+| P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Built (`c7ce2e09a`, versions and server layout on top); first release 1.0.0 and server setup pending |
 | P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Not started |
 | P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
@@ -164,3 +165,6 @@ outcomes, classify HTTP failures, never delete user data to debug.
 
 - 2026-11-14: Plan created. SvelteKit with its own Node server chosen; P0
   built.
+- 2026-11-14: X.Y.Z versions; stable follows releases (`stable-update.sh`),
+  beta follows green CI (`beta-update.sh`); the old `update-floppy.sh` (which
+  deployed every green commit to the real server) is retired.

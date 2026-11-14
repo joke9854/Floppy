@@ -4,14 +4,15 @@ Two Floppy servers side by side:
 
 | | Stable | Beta |
 |---|---|---|
-| Code | the `stable` branch: only commits promoted after testing | `CineTrack-API`: everything new |
-| Image | `ghcr.io/joke9854/floppy:stable` | `ghcr.io/joke9854/floppy:sha-<commit>` (newest green build) |
+| Version | a release, e.g. `1.2.0` | the next patch's beta, e.g. `1.2.1-beta.3` |
+| Code | a `vX.Y.Z` tag on a commit that went through beta | `CineTrack-API`: everything new |
+| Image | `ghcr.io/joke9854/floppy:1.2.0` | `ghcr.io/joke9854/floppy:sha-<commit>` |
 | Data | your real data | its own folder, filled with a **copy** of stable's data |
-| Updates | when you promote a commit | automatically, after CI passes |
+| Updates | when you release a version | automatically, after CI passes |
 | Connected services | normal | paused (see below) |
 
-`/api/v1/info/` reports `stable-<commit>` or `beta-<commit>` as the version,
-so you can always see what a server runs.
+`/api/v1/info/` reports the version, so you can always see what a server runs.
+`1.2.1-beta.3` means "the third commit after 1.2.0, heading for 1.2.1".
 
 ## What beta pauses
 
@@ -29,60 +30,49 @@ server out of them. So beta:
   away (connect, push now, sign in to Trakt and similar);
 - shows a thin "Beta server" banner on every page.
 
-Metadata (TMDB, TVDB, posters and similar) keeps working normally.
+Metadata (TMDB, TVDB, posters and similar) keeps working normally. Webhooks
+from Plex, Jellyfin or Stremio keep going to stable only: don't point them at
+beta.
 
-Webhooks from Plex, Jellyfin or Stremio keep going to stable only: don't point
-them at beta.
+## Layout on the server
 
-## One-time setup on the server
+```
+~/floppy/                 stable (unchanged layout)
+  docker-compose.yml        image: ghcr.io/joke9854/floppy:${FLOPPY_VERSION:-stable}
+  .env                      FLOPPY_VERSION=1.2.0 (written by stable-update.sh)
+  floppy.env                Floppy settings
+  db/  backups/  db-backup-*/
+~/floppy/beta/            beta (created by beta-setup.sh)
+  docker-compose.yml        from deploy/stable-beta/docker-compose.beta.yml
+  .env                      FLOPPY_BETA_TAG (written by beta-update.sh), BETA_PORT
+  floppy.env                stable's settings with the beta address
+  data/db  data/backups  data/redis
+~/floppy/fork/            this repository; the scripts run from
+                          ~/floppy/fork/deploy/stable-beta/
+```
 
-1. Put the stable server on the `stable` image. In your existing compose file,
-   set `image: ghcr.io/joke9854/floppy:stable` for the Floppy service and remove
-   any `build:` section. The first `:stable` image exists after the first
-   promotion (see "Day to day").
-2. Copy the `deploy/stable-beta/` folder to the server, for example
-   `~/floppy/beta/`.
-3. In that folder, create `beta.env` from `beta.env.example`: the same `SECRET`
-   as stable, the beta address, the name of the stable container
-   (`docker ps`). Then `chmod 600 beta.env`.
-4. Add a public hostname for beta to the Cloudflare tunnel, pointing at
-   `http://localhost:8001` (or the `BETA_PORT` you chose).
-5. If the ghcr.io package is private, log Docker in once:
-   `docker login ghcr.io` with a token that has `read:packages`.
-6. Give beta its first copy of your data and start it:
-   `./beta-refresh-data.sh`
-7. Let beta follow CI: `crontab -e` and add
-   `*/15 * * * * /home/<you>/floppy/beta/beta-update.sh >> /home/<you>/floppy/beta/beta-update.log 2>&1`
-   (needs `jq`).
+## Scripts
 
-## Day to day
+| Script | Where | What |
+|---|---|---|
+| `promote-stable.sh <commit> [patch\|minor\|major\|X.Y.Z]` | your PC | Releases a commit that is on `CineTrack-API` with green CI: tags `vX.Y.Z`, CI builds `:X.Y.Z` and `:stable`. Default is the next patch. |
+| `stable-update.sh [X.Y.Z]` | server | Puts stable on the newest release (or the version given): backup while stopped, then start. Nothing happens if it already runs it. Going back = run it with the older version. |
+| `beta-setup.sh <beta address>` | server, once | Creates `~/floppy/beta`. |
+| `beta-refresh-data.sh` | server | Copies stable's data into beta (stable keeps running) and restarts beta. |
+| `beta-update.sh` | server, cron | Moves beta to the newest `CineTrack-API` build with green CI. |
 
-1. Work lands on `CineTrack-API` as usual. Within about 15 minutes of CI
-   passing, beta runs it.
-2. Try it on beta. Your data there is a copy: nothing you do reaches stable.
-3. When it is good, promote that commit from your PC:
-   `deploy/stable-beta/promote-stable.sh <commit>`
-   It refuses commits that are not on `CineTrack-API` or whose CI is not green.
-4. When the `:stable` image build is green, update stable on the server:
-   `docker compose pull floppy && docker compose up -d floppy`
-
-Fresh data on beta at any time: `./beta-refresh-data.sh`. Beta's previous
-database is kept as `beta/db/db.sqlite3.previous`.
-
-Going back: promote an older commit with
-`ROLLBACK=1 deploy/stable-beta/promote-stable.sh <commit>`, then update stable.
-Database migrations only move forward, so roll back only to a commit with the
-same migrations, or restore stable's nightly snapshot from its `backups/`
-folder.
+Database migrations only move forward: going back to an older version works
+when it has the same migrations; otherwise restore a `db-backup-*` folder made
+before the update.
 
 ## CineTrack
 
-Beta has a different address, so CineTrack treats it as a separate Floppy
-account: it never mixes the two. Keep your everyday phone on stable and point a
-test install at beta.
+Beta has a different address, so CineTrack treats it as a separate Floppy and
+never mixes the two. Keep your everyday phone on stable and point a test
+install at beta.
 
 ## Postgres
 
 `beta-refresh-data.sh` copies SQLite databases. On Postgres, copy with
-`pg_dump` from stable into beta's own database instead, then start beta: the
-beta start step pauses the schedules the same way.
+`pg_dump` from stable into beta's own database instead, then start beta: its
+start step pauses the schedules the same way.

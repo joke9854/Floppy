@@ -1,41 +1,42 @@
 # Floppy beta: a second Floppy that runs on a COPY of the stable data.
 #
-# It has its own data folder, its own Redis and its own port, and
-# FLOPPY_BETA_MODE=true pauses everything that would contact your connected
-# services (pushes, tracker imports, notifications, token refreshes).
-# See docs/stable-beta.md.
+# beta-setup.sh copies this file to ~/floppy/beta/docker-compose.yml, next to
+# a .env (image tag, port) and a floppy.env (Floppy's own settings, copied
+# from stable with the beta address). Day to day, from ~/floppy/beta:
+#   docker compose ps
+#   docker compose logs -f floppy-beta
 #
-# Start:   docker compose -f docker-compose.beta.yml --env-file beta.env up -d
-# Logs:    docker compose -f docker-compose.beta.yml --env-file beta.env logs -f floppy-beta
+# It has its own data folder and its own Redis, and FLOPPY_BETA_MODE=true
+# pauses everything that would contact your connected services (pushes,
+# tracker imports, notifications, token refreshes). See docs/stable-beta.md.
 name: floppy-beta
 
 services:
   floppy-beta:
     container_name: floppy-beta
     # beta-update.sh pins FLOPPY_BETA_TAG to the newest CineTrack-API build
-    # whose CI is green (sha-<short>); :beta is simply the newest push.
+    # whose CI is green (sha-<short>).
     image: ghcr.io/joke9854/floppy:${FLOPPY_BETA_TAG:-beta}
     restart: unless-stopped
     depends_on:
       - floppy-beta-redis
+    env_file:
+      - floppy.env
+    # These always win over floppy.env.
     environment:
       - FLOPPY_BETA_MODE=true
-      # Same SECRET as stable: the copied database stores encrypted values
-      # that only that key can read.
-      - SECRET=${SECRET:?Set SECRET in beta.env to the same value stable uses}
-      - URLS=${BETA_URL:?Set BETA_URL in beta.env, for example https://beta.example.com}
-      - TZ=${TZ:-Europe/Rome}
       - REDIS_URL=redis://floppy-beta-redis:6379
-      - ADMIN_ENABLED=False
-      - DEMO_ACCOUNT_ENABLED=False
-      - DEBUG=False
+      - SENTRY_ENVIRONMENT=beta
     volumes:
-      - ${BETA_DATA_DIR:-./beta}/db:/floppy/db
-      - ${BETA_DATA_DIR:-./beta}/backups:/floppy/backups
+      - ./data/db:/floppy/db
+      - ./data/backups:/floppy/backups
     ports:
-      - "${BETA_PORT:-8001}:8000"
+      - "0.0.0.0:${BETA_PORT:-8001}:8000"
     networks:
-      - floppy-beta-net
+      - beta-net
+      # Stable's network, so the Cloudflare tunnel (which lives there) can
+      # reach beta as http://floppy-beta:8000.
+      - tunnel-net
 
   # Never share stable's Redis: the Celery queues and caches would mix.
   floppy-beta-redis:
@@ -44,13 +45,13 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes --save "" --maxmemory 128mb --maxmemory-policy volatile-lru
     volumes:
-      - floppy_beta_redis:/data
+      - ./data/redis:/data
     networks:
-      - floppy-beta-net
-
-volumes:
-  floppy_beta_redis:
+      - beta-net
 
 networks:
-  floppy-beta-net:
+  beta-net:
     driver: bridge
+  tunnel-net:
+    external: true
+    name: ${TUNNEL_NETWORK:-floppy-floppy_floppy-net}

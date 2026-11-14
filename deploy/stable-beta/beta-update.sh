@@ -3,18 +3,20 @@
 #
 # Does nothing while CI is still running, and leaves beta where it is when a
 # check failed. Safe to run from cron, for example every 15 minutes:
-#   */15 * * * * /path/to/deploy/stable-beta/beta-update.sh >> /path/to/beta-update.log 2>&1
+#   */15 * * * * $HOME/floppy/fork/deploy/stable-beta/beta-update.sh >> $HOME/floppy/beta/update.log 2>&1
 #
 # Needs curl and jq. Set GITHUB_TOKEN (read-only) to lift GitHub's anonymous
 # rate limit of 60 requests an hour; this script makes 2 per run.
 set -euo pipefail
-cd "$(dirname "$0")"
 
-ENV_FILE=${ENV_FILE:-beta.env}
+BETA_DIR=${FLOPPY_BETA_DIR:-$HOME/floppy/beta}
 REPO=${FLOPPY_REPO:-joke9854/Floppy}
 BRANCH=${FLOPPY_BETA_BRANCH:-CineTrack-API}
-command -v jq >/dev/null || { echo "jq is required (apt install jq)." >&2; exit 1; }
-[ -f "$ENV_FILE" ] || { echo "Missing $ENV_FILE." >&2; exit 1; }
+command -v jq >/dev/null || { echo "jq is required (sudo apt install jq)." >&2; exit 1; }
+[ -f "$BETA_DIR/.env" ] || { echo "Run beta-setup.sh first." >&2; exit 1; }
+
+exec 9>/tmp/floppy-beta-update.lock
+flock -n 9 || exit 0
 
 api() {
     curl -fsSL -H "Accept: application/vnd.github+json" \
@@ -27,30 +29,29 @@ runs=$(api "actions/runs?head_sha=$sha&per_page=50")
 count() { jq "[.workflow_runs[] | select($1)] | length" <<<"$runs"; }
 
 if [ "$(count '.status != "completed"')" -gt 0 ]; then
-    echo "CI still running for ${sha:0:9}; beta unchanged."
     exit 0
 fi
 if [ "$(count '.conclusion != "success" and .conclusion != "skipped"')" -gt 0 ]; then
-    echo "CI failed for ${sha:0:9}; beta unchanged."
+    echo "$(date -Is) CI failed for ${sha:0:9}; beta unchanged."
     exit 0
 fi
 if [ "$(count '.name == "Docker Image" and .conclusion == "success"')" -eq 0 ] ||
    [ "$(count '.name == "CineTrack API Targeted Tests" and .conclusion == "success"')" -eq 0 ]; then
-    echo "No green image and test run for ${sha:0:9} yet; beta unchanged."
     exit 0
 fi
 
 tag="sha-${sha:0:7}"
-current=$(sed -n 's/^FLOPPY_BETA_TAG=//p' "$ENV_FILE")
-if [ "$current" = "$tag" ]; then
-    exit 0
-fi
+current=$(sed -n 's/^FLOPPY_BETA_TAG=//p' "$BETA_DIR/.env")
+[ "$current" = "$tag" ] && exit 0
 
-if grep -q '^FLOPPY_BETA_TAG=' "$ENV_FILE"; then
-    sed -i "s/^FLOPPY_BETA_TAG=.*/FLOPPY_BETA_TAG=$tag/" "$ENV_FILE"
+if grep -q '^FLOPPY_BETA_TAG=' "$BETA_DIR/.env"; then
+    sed -i "s/^FLOPPY_BETA_TAG=.*/FLOPPY_BETA_TAG=$tag/" "$BETA_DIR/.env"
 else
-    echo "FLOPPY_BETA_TAG=$tag" >>"$ENV_FILE"
+    echo "FLOPPY_BETA_TAG=$tag" >>"$BETA_DIR/.env"
 fi
-docker compose -f docker-compose.beta.yml --env-file "$ENV_FILE" pull floppy-beta
-docker compose -f docker-compose.beta.yml --env-file "$ENV_FILE" up -d floppy-beta
-echo "$(date '+%Y-%m-%d %H:%M') beta moved from ${current:-none} to $tag."
+cd "$BETA_DIR"
+docker compose pull --quiet floppy-beta
+docker compose up -d floppy-beta
+version=$(docker image inspect "ghcr.io/joke9854/floppy:$tag" \
+    --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^VERSION=//p')
+echo "$(date -Is) beta now runs ${version:-$tag} (${sha:0:9})."
