@@ -32,7 +32,7 @@ if [ -z "$states" ] || echo "$states" | awk -F'\t' '$2 != "completed" || ($3 != 
 fi
 
 # Our releases only: vX.Y.Z tags (upstream's date tags are never pushed here).
-last=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vE '^v2[0-9]\.' | sed 's/^v//' | sort -V | tail -n 1)
+last=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vE '^v2[0-9]\.' | sed 's/^v//' | sort -V | tail -n 1 || true)
 last=${last:-0.0.0}
 IFS=. read -r major minor patch <<<"$last"
 case "$bump" in

@@ -24,7 +24,7 @@ if [ -z "$want" ]; then
     want=$(curl -fsSL -H "Accept: application/vnd.github+json" \
         ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
         "https://api.github.com/repos/$REPO/tags?per_page=100" |
-        jq -r '.[].name' | grep -vE '^v2[0-9]\.' | sed -n 's/^v\([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' | sort -V | tail -n 1)
+        jq -r '.[].name' | grep -vE '^v2[0-9]\.' | sed -n 's/^v\([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' | sort -V | tail -n 1 || true)
     [ -n "$want" ] || { echo "No released version yet." >&2; exit 1; }
 fi
 want=${want#v}
