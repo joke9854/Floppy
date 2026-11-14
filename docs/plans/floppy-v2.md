@@ -134,7 +134,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 | Phase | Content | Status |
 |---|---|---|
 | P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta at https://floppybeta.bingehub.stream |
-| P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Not started |
+| P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Started: provider failures on the tracking and ensure routes answer 503 `provider_unavailable` (`a40ab14a4`). Next: the inventory of web-only actions |
 | P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
 | P4 | Screens, one at a time, each with a parity checklist, measured and tried on beta before it switches: Home, Library, detail pages, Track dialog, History, Calendar, Discover, Statistics, Lists, Settings and integrations, Imports | Not started |
@@ -172,3 +172,7 @@ outcomes, classify HTTP failures, never delete user data to debug.
   `ghcr.io/joke9854/floppy:1.0.0` (FLOPPY_VERSION in ~/floppy/.env), beta
   runs in ~/floppy/beta on a copy of the data, cron runs beta-update.sh every
   15 minutes and stable-update.sh at 04:30.
+- 2026-11-14: P1 started with typed provider errors: TMDB timeouts, 429s and
+  5xx answer 503 `provider_unavailable` with Retry-After instead of 404 on the
+  tracking write and episode ensure/translate routes (`a40ab14a4`); CineTrack
+  no longer acknowledges an unwatch on the old 404 (`52cce24`).
