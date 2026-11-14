@@ -133,7 +133,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 
 | Phase | Content | Status |
 |---|---|---|
-| P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Built (`c7ce2e09a`, versions and server layout on top); first release 1.0.0 and server setup pending |
+| P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta's Cloudflare hostname pending |
 | P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Not started |
 | P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
@@ -168,3 +168,7 @@ outcomes, classify HTTP failures, never delete user data to debug.
 - 2026-11-14: X.Y.Z versions; stable follows releases (`stable-update.sh`),
   beta follows green CI (`beta-update.sh`); the old `update-floppy.sh` (which
   deployed every green commit to the real server) is retired.
+- 2026-11-14: Released 1.0.0 (`f47238c07`). Server switched: stable runs
+  `ghcr.io/joke9854/floppy:1.0.0` (FLOPPY_VERSION in ~/floppy/.env), beta
+  runs in ~/floppy/beta on a copy of the data, cron runs beta-update.sh every
+  15 minutes and stable-update.sh at 04:30.
