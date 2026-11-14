@@ -34,18 +34,17 @@ Provider metadata for any title, tracked or not, is `GET media/{type}/{source}/{
 
 ## Slices, in the order the SvelteKit screens need them
 
-### A. Error codes everywhere (started)
+### A. Error codes everywhere (done)
 
-Done: tracking write routes and episode ensure/translate (`a40ab14a4`).
-
-Left:
-- 11 responses still echo exception text as `"errors": str(e)` (views.py 4,
-  fork_views_music 2, fork_views_playback 2, fork_views_lists,
-  fork_views_metadata, fork_views_users), e.g. `GET media/{type}/{source}/{id}/`
-  answers 500 with the provider error text when TMDB is down.
-- 9 `except ProviderAPIError` handlers in `api/` map outages to 500 or 404.
-- Apply `resolution_failure_response` / `provider_unavailable_response` to all
-  of them; add a test per view family.
+- Tracking write routes and episode ensure/translate (`a40ab14a4`).
+- `04a0145f3`: DRF exception handler `api/exceptions.py` for whatever a view
+  does not handle (provider 404/503, tracked-media 409, typed 500); media
+  detail, provider search, podcast lookup, search by id, list
+  recommendations, episode score, MusicBrainz artist, discography sync and
+  playback progress answer 503 on provider outages and no longer echo
+  exception text. `ApiJsonErrorMiddleware` stays as the fallback outside DRF.
+- Kept: consumption PATCH routes return `validate_body`'s field message under
+  `errors` (validation text, not an exception).
 
 ### B. One contract, generated from code
 
