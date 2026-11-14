@@ -46,21 +46,21 @@ Provider metadata for any title, tracked or not, is `GET media/{type}/{source}/{
 - Kept: consumption PATCH routes return `validate_body`'s field message under
   `errors` (validation text, not an exception).
 
-### B. One contract, generated from code
+### B. One contract, generated from code (done)
 
-- The verified contract covers 68 of 189 operations. Goal: every operation the
-  web or a client uses is in it, generated in CI, with a check that fails when
-  code and contract differ.
-- Bug: 30 of the 68 contract operations have no `x-required-scope`.
-  `schema_contract._annotate_static_callback` wraps views as `Static<Name>`, so
-  `scopes.view_key` misses them in `VIEW_SCOPES`. Runtime enforcement is fine.
-- Clean-up: the unrouted `CineTrackBootstrapMoviesEnsureView`,
-  `CineTrackBootstrapShowsEnsureView` and `MediaEpisodeEnsureView` in
-  `fork_views_tracking.py` (the routed ones are in `cinetrack_bootstrap_views.py`,
-  which rewrites `__module__` to keep the scope keys); URL names
-  `api_list_add_item` (GET only) and `api_list_remove_item` (also GET);
-  docstrings of `MediaSeasonsView` and `MediaEpisodeListsView`.
-- Typed clients (openapi-typescript) are generated from this contract in P3.
+- `0fb7f764e`: the 30 verified-contract operations without `x-required-scope`
+  have it now (the `Static<Name>` clone kept its real class name).
+- `2d8cc2b9b`: `src/api/contracts/openapi-full.yaml` holds every API operation
+  (184). A test fails when it drifts from the code and names the regeneration
+  command; another requires `x-required-scope` on every operation of both
+  contracts. `openapi.yaml` stays the verified subset promised to MCP and
+  outside integrations. Regenerate with the commands in AGENTS.md.
+- Clean-up: the unrouted ensure views in `fork_views_tracking.py` are gone and
+  two copy-paste docstrings are fixed.
+- Not done, on purpose: renaming the URL names `api_list_add_item` (GET only)
+  and `api_list_remove_item` (also GET). No client sees URL names, the paths
+  stay the same, and the rename would only churn `reverse()` calls in tests.
+- Typed clients (openapi-typescript) are generated from `openapi-full.yaml` in P3.
 
 ### C. Title pages (Home, Library, detail screens)
 
