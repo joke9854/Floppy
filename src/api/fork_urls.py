@@ -7,6 +7,7 @@ from . import (
     cinetrack_bootstrap_views,
     cinetrack_character_views,
     fork_views,
+    fork_views_account,
     fork_views_discover,
     fork_views_integrations,
     fork_views_library,
@@ -16,6 +17,7 @@ from . import (
     fork_views_metadata,
     fork_views_moves,
     fork_views_music,
+    fork_views_onboarding,
     fork_views_pages,
     fork_views_playback,
     fork_views_podcast,
@@ -506,6 +508,56 @@ urlpatterns = [
         r"^user/token/regenerate/?$",
         fork_views_users.UserTokenRegenerateView.as_view(),
         name="api_user_token_regenerate",
+    ),
+    re_path(
+        r"^user/onboarding/?$",
+        fork_views_onboarding.OnboardingView.as_view(),
+        name="api_user_onboarding",
+    ),
+    re_path(
+        r"^user/account/?$",
+        fork_views_account.AccountView.as_view(),
+        name="api_user_account",
+    ),
+    re_path(
+        r"^user/password/?$",
+        fork_views_account.PasswordChangeView.as_view(),
+        name="api_user_password",
+    ),
+    re_path(
+        r"^user/tokens/?$",
+        fork_views_account.IntegrationTokensView.as_view(),
+        name="api_user_tokens",
+    ),
+    re_path(
+        r"^user/tokens/(?P<token_id>\d+)/?$",
+        fork_views_account.IntegrationTokenDetailView.as_view(),
+        name="api_user_token_detail",
+    ),
+    re_path(
+        r"^user/catalog-grants/?$",
+        fork_views_account.CatalogGrantsView.as_view(),
+        name="api_user_catalog_grants",
+    ),
+    re_path(
+        r"^user/catalog-grants/(?P<grant_id>\d+)/?$",
+        fork_views_account.CatalogGrantDetailView.as_view(),
+        name="api_user_catalog_grant_detail",
+    ),
+    re_path(
+        r"^user/connected-apps/?$",
+        fork_views_account.ConnectedAppsView.as_view(),
+        name="api_user_connected_apps",
+    ),
+    re_path(
+        r"^user/connected-apps/(?P<client_id>[^/]+)/?$",
+        fork_views_account.ConnectedAppDetailView.as_view(),
+        name="api_user_connected_app_detail",
+    ),
+    re_path(
+        r"^user/app-sessions/(?P<session_id>[ra]\d+)/?$",
+        fork_views_account.AppSessionDetailView.as_view(),
+        name="api_user_app_session_detail",
     ),
     re_path(
         r"^imports/activity/?$",

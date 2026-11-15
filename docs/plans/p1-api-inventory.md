@@ -129,16 +129,25 @@ Share view and bulk add live in `lists/list_actions.py`; the web views call it.
 
 The column sort rule moved to `app.columns.media_column_sort`, shared with the web view.
 
-### G. Account and security (web session only)
+### G. Account and security (done, except login)
 
-| Web | Missing in the API |
+Every credential endpoint below is scoped `NEVER`: no token of any kind
+(named token, OAuth app, legacy key) may reach it, so a credential can never
+mint, widen or revoke credentials. Only a signed-in browser session may. The
+API accepts browser sessions only once P3's session bridge adds session auth
+with CSRF (decided 2026-11-15), so until then these endpoints are reachable
+by no client; tests call them as a session.
+
+| Web | API |
 |---|---|
-| allauth login, logout, signup, password recovery, 2FA, social logins | Use allauth's headless API rather than writing our own |
-| `account` | Username and password change |
-| `revoke_app_session`, `revoke_connected_app`, `connected_apps` page | App sessions and OAuth app access |
-| `create_integration_token`, `revoke_integration_token` | Scoped API tokens |
-| `create_catalog_grant`, `revoke_catalog_grant` | Add-on install credentials |
-| Onboarding wizard (`setup/*`) | Wizard state and choices |
+| `account` (username, password) | `GET/PATCH user/account/`, `POST user/password/`, with the web forms' checks |
+| `create_integration_token`, `revoke_integration_token` | `GET/POST user/tokens/` (the secret is in the create response only, `Cache-Control: no-store`; unknown scopes are 400), `DELETE user/tokens/{id}/` |
+| `create_catalog_grant`, `revoke_catalog_grant` | `GET/POST user/catalog-grants/` (the install URL is in the create response only), `DELETE user/catalog-grants/{id}/` |
+| `connected_apps`, `revoke_connected_app`, `revoke_app_session` | `GET user/connected-apps/` (apps and installs), `DELETE user/connected-apps/{client_id}/`, `DELETE user/app-sessions/{id}/` |
+| Onboarding wizard (`setup/*`) | `GET/PATCH user/onboarding/` (state, remaining sources and integrations, the sources on offer); scoped `user:read`/`user:write`. Media types go through `PUT user/sidebar/` |
+| allauth login, logout, signup, password recovery | **Not in P1.** Moved to P3 with the session bridge: allauth headless, browser client only, plus an endpoint for recovery-code password reset. The authenticator code is used only for password recovery, not at login, so headless login skips no second factor |
+
+The credential changes live in `users/credentials.py`; the web views call it.
 
 ### H. Integrations management
 

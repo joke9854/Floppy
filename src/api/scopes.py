@@ -282,7 +282,19 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     },
     "api.fork_views_users.UserNotificationTestView": {"POST": "user:write"},
     # Rotating the account token would let a scoped token mint an unscoped one.
+    "api.fork_views_onboarding.OnboardingView": {"GET": "user:read", "PATCH": "user:write"},
     "api.fork_views_users.UserTokenRegenerateView": {"POST": NEVER},
+    # Account and credential management (P1-G): session logins only, so no
+    # credential can mint, widen or revoke credentials or change the password.
+    "api.fork_views_account.AccountView": {"GET": NEVER, "PATCH": NEVER},
+    "api.fork_views_account.PasswordChangeView": {"POST": NEVER},
+    "api.fork_views_account.IntegrationTokensView": {"GET": NEVER, "POST": NEVER},
+    "api.fork_views_account.IntegrationTokenDetailView": {"DELETE": NEVER},
+    "api.fork_views_account.CatalogGrantsView": {"GET": NEVER, "POST": NEVER},
+    "api.fork_views_account.CatalogGrantDetailView": {"DELETE": NEVER},
+    "api.fork_views_account.ConnectedAppsView": {"GET": NEVER},
+    "api.fork_views_account.ConnectedAppDetailView": {"DELETE": NEVER},
+    "api.fork_views_account.AppSessionDetailView": {"DELETE": NEVER},
     "api.listenbrainz_views.SubmitListensView": {"POST": "scrobble:write"},
     # A client must be able to check its own credential before it knows its grants.
     "api.listenbrainz_views.ValidateTokenView": {"GET": ANY_SCOPE},

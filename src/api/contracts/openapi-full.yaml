@@ -13062,6 +13062,80 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/user/account/:
+    get:
+      operationId: getAccount
+      description: Return the username and recovery setup.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    patch:
+      operationId: updateAccount
+      description: Change the username, with the web form's checks.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAccountUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAccountUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAccountUpdate'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/user/anime-library/convert/:
     post:
       operationId: convertAnimeLibrary
@@ -13091,6 +13165,225 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
       x-required-scope: watchlist:write
+  /api/v1/user/app-sessions/{session_id}/:
+    delete:
+      operationId: signOutAppSession
+      description: Sign the install out; other installs and apps keep working.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          pattern: ^[ra]\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/user/catalog-grants/:
+    get:
+      operationId: listCatalogGrants
+      description: Return the live installs, newest first, without their URLs.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogGrantList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    post:
+      operationId: createCatalogGrant
+      description: Mint the install and return its URL once.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogGrantCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CatalogGrantCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CatalogGrantCreate'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogGrantCreated'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Demo accounts are view-only.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/user/catalog-grants/{grant_id}/:
+    delete:
+      operationId: revokeCatalogGrant
+      description: Revoke the install; its URL stops working at once.
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/user/connected-apps/:
+    get:
+      operationId: listConnectedApps
+      description: Return apps and installs, newest first.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectedApps'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/user/connected-apps/{client_id}/:
+    delete:
+      operationId: disconnectApp
+      description: Delete every token and grant issued to the app; every install signs
+        out.
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/user/notifications/:
     get:
       operationId: api_v1_user_notifications_retrieve
@@ -13315,6 +13608,123 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: user:write
+  /api/v1/user/onboarding/:
+    get:
+      operationId: getOnboarding
+      description: Return the wizard state and the sources it can offer.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingState'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: user:read
+    patch:
+      operationId: updateOnboarding
+      description: Save the fields sent, after checking each against the known values.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingUpdate'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingState'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Guided setup is not available for demo accounts.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: user:write
+  /api/v1/user/password/:
+    post:
+      operationId: changePassword
+      description: Check the current password and the new one, then save it.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/user/preferences/:
     get:
       operationId: api_v1_user_preferences_retrieve
@@ -13603,6 +14013,119 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/user/tokens/:
+    get:
+      operationId: listIntegrationTokens
+      description: Return the live tokens, newest first, without secrets.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationTokenList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    post:
+      operationId: createIntegrationToken
+      description: Mint the token and return its secret once.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationTokenCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IntegrationTokenCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IntegrationTokenCreate'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationTokenCreated'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Demo accounts are view-only.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/user/tokens/{token_id}/:
+    delete:
+      operationId: revokeIntegrationToken
+      description: Revoke the token; apps using it stop working at once.
+      parameters:
+      - in: path
+        name: token_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /apis/listenbrainz/1/submit-listens/:
     post:
       operationId: submitListenBrainzListens
@@ -13691,6 +14214,18 @@ paths:
       x-required-scope: any
 components:
   schemas:
+    Account:
+      type: object
+      description: Account identity.
+      properties:
+        username:
+          type: string
+        authenticator_enabled:
+          type: boolean
+          description: Whether recovery by authenticator code is set up.
+      required:
+      - authenticator_enabled
+      - username
     ActionEnum:
       enum:
       - add
@@ -13840,6 +14375,27 @@ components:
       required:
       - client
       - instance_key
+    AppSession:
+      type: object
+      description: One signed-in install of an app.
+      properties:
+        id:
+          type: string
+          description: Pass to DELETE user/app-sessions/{id}/.
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        last_active:
+          type: string
+          format: date-time
+      required:
+      - id
+      - last_active
+      - name
+      - scopes
     BlankEnum:
       enum:
       - ''
@@ -13863,6 +14419,77 @@ components:
             $ref: '#/components/schemas/Event'
       required:
       - pagination
+      - results
+    CatalogGrant:
+      type: object
+      description: An add-on install, without its install URL.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        allow_playback_start:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - allow_playback_start
+      - created_at
+      - id
+      - last_used_at
+      - name
+    CatalogGrantCreate:
+      type: object
+      description: A new add-on install.
+      properties:
+        name:
+          type: string
+        allow_playback_start:
+          type: boolean
+          description: Let the add-on mark an item in progress. Defaults to true.
+      required:
+      - name
+    CatalogGrantCreated:
+      type: object
+      description: The new install and its URL, shown this once.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        allow_playback_start:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        manifest_url:
+          type: string
+          description: Add-on install URL; it is the credential. Shown once.
+      required:
+      - allow_playback_start
+      - created_at
+      - id
+      - last_used_at
+      - manifest_url
+      - name
+    CatalogGrantList:
+      type: object
+      description: The user's live add-on installs.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogGrant'
+      required:
       - results
     ChangeFeedResponse:
       type: object
@@ -15431,6 +16058,41 @@ components:
       - title
       - total_episodes_left
       - tracked
+    ConnectedApp:
+      type: object
+      description: An OAuth app the user signed in to.
+      properties:
+        client_id:
+          type: string
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        connected_at:
+          type: string
+          format: date-time
+      required:
+      - client_id
+      - connected_at
+      - name
+      - scopes
+    ConnectedApps:
+      type: object
+      description: Connected OAuth apps and their signed-in installs.
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectedApp'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppSession'
+      required:
+      - apps
+      - sessions
     ConsumptionEnvelope:
       type: object
       description: Paginated consumption history.
@@ -16187,6 +16849,21 @@ components:
           type: string
         tvdb:
           type: string
+    FormError:
+      type: object
+      description: Validation errors per field; `__all__` for the form as a whole.
+      properties:
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - detail
+      - errors
     FromEnum:
       enum:
       - tracker
@@ -16624,6 +17301,110 @@ components:
       - timezone
       - track_time
       - version
+    IntegrationToken:
+      type: object
+      description: A named API token, without its secret.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+          description: First characters of the secret.
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - expires_at
+      - id
+      - last_used_at
+      - name
+      - prefix
+      - scopes
+    IntegrationTokenCreate:
+      type: object
+      description: A new token.
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_in_days:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - name
+      - scopes
+    IntegrationTokenCreated:
+      type: object
+      description: The new token and its secret, shown this once.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+          description: First characters of the secret.
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        secret:
+          type: string
+          description: Shown once; store it now.
+      required:
+      - created_at
+      - expires_at
+      - id
+      - last_used_at
+      - name
+      - prefix
+      - scopes
+      - secret
+    IntegrationTokenList:
+      type: object
+      description: The user's live tokens and the permissions a new one can hold.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationToken'
+        scope_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeChoice'
+      required:
+      - results
+      - scope_choices
     Item:
       type: object
       description: Serializer used for item details.
@@ -18255,6 +19036,88 @@ components:
     NullEnum:
       enum:
       - null
+    OnboardingSource:
+      type: object
+      description: An import source the wizard can offer.
+      properties:
+        slug:
+          type: string
+        media_types:
+          type: array
+          items:
+            type: string
+        setup_kind:
+          type: string
+          description: '`oauth`, `api_key`, `host_url`, `credentials` or `upload`.'
+        connected:
+          type: boolean
+        has_integration:
+          type: boolean
+          description: Has a realtime integration (such as a webhook) to set up too.
+        integration_configured:
+          type: boolean
+      required:
+      - connected
+      - has_integration
+      - integration_configured
+      - media_types
+      - setup_kind
+      - slug
+    OnboardingState:
+      type: object
+      description: Where the user is in the setup wizard.
+      properties:
+        status:
+          type: string
+        step:
+          type: string
+        selected_sources:
+          type: array
+          items:
+            type: string
+        skipped_sources:
+          type: array
+          items:
+            type: string
+        connected_sources:
+          type: array
+          items:
+            type: string
+        skipped_integrations:
+          type: array
+          items:
+            type: string
+        remaining_sources:
+          type: array
+          items:
+            type: string
+          description: Selected sources still to connect, in order.
+        remaining_integrations:
+          type: array
+          items:
+            type: string
+          description: Connected sources whose realtime integration is not set up.
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingSource'
+        choices:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - choices
+      - connected_sources
+      - remaining_integrations
+      - remaining_sources
+      - selected_sources
+      - skipped_integrations
+      - skipped_sources
+      - sources
+      - status
+      - step
     OutcomeEnum:
       enum:
       - created
@@ -18295,6 +19158,26 @@ components:
       - offset
       - previous
       - total
+    PasswordChangeRequest:
+      type: object
+      description: Current password and the new one twice.
+      properties:
+        old_password:
+          type: string
+        new_password1:
+          type: string
+        new_password2:
+          type: string
+      required:
+      - new_password1
+      - new_password2
+      - old_password
+    PatchedAccountUpdate:
+      type: object
+      description: New username.
+      properties:
+        username:
+          type: string
     PatchedCollectionEntryUpdateRequest:
       type: object
       description: Editable collection entry fields; all optional.
@@ -18412,6 +19295,26 @@ components:
           nullable: true
         notes:
           type: string
+    PatchedOnboardingUpdate:
+      type: object
+      description: Fields to change; omitted fields keep their value.
+      properties:
+        status:
+          type: string
+        step:
+          type: string
+        selected_sources:
+          type: array
+          items:
+            type: string
+        skipped_sources:
+          type: array
+          items:
+            type: string
+        skipped_integrations:
+          type: array
+          items:
+            type: string
     PatchedPodcastTrackerRequest:
       type: object
       description: Tracker fields to set; omitted fields keep their value.
@@ -19492,6 +20395,21 @@ components:
       - rewatching
       - seasons
       - started_at
+    ScopeChoice:
+      type: object
+      description: A permission a token can hold.
+      properties:
+        scope:
+          type: string
+        description:
+          type: string
+        default:
+          type: boolean
+          description: Part of the tracking preset.
+      required:
+      - default
+      - description
+      - scope
     ScoreDataset:
       type: object
       description: Score counts for one media type.

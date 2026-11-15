@@ -3,7 +3,6 @@ import json
 import logging
 import re
 import uuid
-from datetime import timedelta
 from io import BytesIO
 from itertools import batched
 from pathlib import Path
@@ -17,7 +16,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -64,6 +63,7 @@ from integrations.models import (
 from integrations.plex_watchlist import WATCHLIST_TASK_NAME
 from users import appearance as appearance_config
 from users import cache_management
+from users import credentials as user_credentials
 from users.forms import (
     AuthenticatorSetupForm,
     NotificationSettingsForm,
@@ -101,7 +101,6 @@ logger = logging.getLogger(__name__)
 # does sit in the cache and session table for that one request cycle; it is
 # popped on the next render and the database only ever holds the digest.
 NEW_TOKEN_SESSION_KEY = "new_integration_token"  # noqa: S105 - session key, not a secret
-MAX_TOKEN_NAME_LENGTH = 255
 
 
 class CustomSignupView(SignupView):
@@ -2484,17 +2483,15 @@ def integration_token_context(user):
 @require_POST
 def create_catalog_grant(request):
     """Mint a revocable add-on install credential."""
-    name = (request.POST.get("name") or "").strip()[:MAX_TOKEN_NAME_LENGTH]
-    if not name:
-        messages.error(request, "Give the install a name so you can recognise it.")
+    try:
+        grant, _token = user_credentials.create_catalog_grant(
+            request.user,
+            request.POST.get("name"),
+            allow_playback_start=request.POST.get("allow_playback_start") == "on",
+        )
+    except user_credentials.CredentialError as error:
+        messages.error(request, str(error))
         return redirect("integrations")
-
-    allow_playback_start = request.POST.get("allow_playback_start") == "on"
-    grant, _token = CatalogGrant.generate(
-        user=request.user,
-        name=name,
-        allow_playback_start=allow_playback_start,
-    )
     messages.success(request, f"Created add-on install '{grant.name}'.")
     return redirect("integrations")
 
@@ -2502,14 +2499,9 @@ def create_catalog_grant(request):
 @require_POST
 def revoke_catalog_grant(request, grant_id):
     """Revoke one add-on install credential."""
-    grant = get_object_or_404(
-        CatalogGrant,
-        pk=grant_id,
-        user=request.user,
-        revoked_at__isnull=True,
-    )
-    grant.revoked_at = timezone.now()
-    grant.save(update_fields=["revoked_at"])
+    grant = user_credentials.revoke_catalog_grant(request.user, grant_id)
+    if grant is None:
+        raise Http404
     messages.success(request, f"Revoked add-on install '{grant.name}'.")
     return redirect("integrations")
 
@@ -2517,36 +2509,23 @@ def revoke_catalog_grant(request, grant_id):
 @require_POST
 def create_integration_token(request):
     """Mint a named, scoped API token and show its secret once."""
-    name = (request.POST.get("name") or "").strip()[:MAX_TOKEN_NAME_LENGTH]
-    if not name:
-        messages.error(request, "Give the token a name so you can recognise it later.")
-        return redirect("integrations")
-
-    requested = request.POST.getlist("scopes")
-    scopes = [scope for scope in requested if scope in api_scopes.ALL_SCOPES]
-    if not scopes:
-        messages.error(request, "Select at least one permission for the token.")
-        return redirect("integrations")
-
-    expires_at = None
+    # The form offers only known scopes; anything else is dropped, as before.
+    scopes = [
+        scope
+        for scope in request.POST.getlist("scopes")
+        if scope in api_scopes.ALL_SCOPES
+    ]
     raw_expiry = (request.POST.get("expires_in_days") or "").strip()
-    if raw_expiry:
-        try:
-            days = int(raw_expiry)
-        except ValueError:
-            messages.error(request, "Expiry must be a number of days.")
-            return redirect("integrations")
-        if days < 1:
-            messages.error(request, "Expiry must be at least one day.")
-            return redirect("integrations")
-        expires_at = timezone.now() + timedelta(days=days)
-
-    token, raw_token = IntegrationToken.generate(
-        user=request.user,
-        name=name,
-        scopes=scopes,
-        expires_at=expires_at,
-    )
+    try:
+        token, raw_token = user_credentials.create_integration_token(
+            request.user,
+            request.POST.get("name"),
+            scopes,
+            expires_in_days=raw_expiry or None,
+        )
+    except user_credentials.CredentialError as error:
+        messages.error(request, str(error))
+        return redirect("integrations")
     # Never logged and never stored: the session is the one delivery channel.
     request.session[NEW_TOKEN_SESSION_KEY] = {
         "name": token.name,
@@ -2559,14 +2538,9 @@ def create_integration_token(request):
 @require_POST
 def revoke_integration_token(request, token_id):
     """Revoke one of the user's named tokens."""
-    token = get_object_or_404(
-        IntegrationToken,
-        pk=token_id,
-        user=request.user,
-        revoked_at__isnull=True,
-    )
-    token.revoked_at = timezone.now()
-    token.save(update_fields=["revoked_at"])
+    token = user_credentials.revoke_integration_token(request.user, token_id)
+    if token is None:
+        raise Http404
     messages.success(request, f"Revoked token '{token.name}'.")
     return redirect("integrations")
 
@@ -2574,31 +2548,9 @@ def revoke_integration_token(request, token_id):
 @require_POST
 def revoke_connected_app(request, client_id):
     """Revoke every OAuth token and grant the user has issued to one app."""
-    from oauth2_provider.models import (
-        AccessToken,
-        DeviceGrant,
-        Grant,
-        IDToken,
-        RefreshToken,
-    )
-
-    app = next(
-        (
-            app
-            for app in connected_apps_for(request.user)
-            if app["client_id"] == client_id
-        ),
-        None,
-    )
+    app = user_credentials.revoke_connected_app(request.user, client_id)
     if app is None:
         raise Http404
-    mine = {"user": request.user, "application__client_id": client_id}
-    with transaction.atomic():
-        RefreshToken.objects.filter(**mine).delete()
-        AccessToken.objects.filter(**mine).delete()
-        IDToken.objects.filter(**mine).delete()
-        Grant.objects.filter(**mine).delete()
-        DeviceGrant.objects.filter(user=request.user, client_id=client_id).delete()
     messages.success(request, f"Disconnected '{app['name']}'.")
     return redirect("integrations")
 
@@ -2696,28 +2648,10 @@ def export_crash_reports(request):
 @require_POST
 def revoke_app_session(request, session_id):
     """Sign one install out; the user's other installs and apps keep working."""
-    from oauth2_provider.models import AccessToken, RefreshToken
-
-    kind, pk = session_id[:1], session_id[1:]
-    if not pk.isdigit() or kind not in {"r", "a"}:
+    token = user_credentials.revoke_app_session(request.user, session_id)
+    if token is None:
         raise Http404
-    if kind == "r":
-        token = get_object_or_404(
-            RefreshToken.objects.select_related("application"),
-            pk=pk,
-            user=request.user,
-            revoked__isnull=True,
-        )
-    else:
-        token = get_object_or_404(
-            AccessToken.objects.select_related("application"),
-            pk=pk,
-            user=request.user,
-        )
     name = token.application.name if token.application else gettext("App")
-    # RefreshToken.revoke() also ends its access token; the session's
-    # history and data are untouched.
-    token.revoke()
     messages.success(request, gettext("Signed out one %(app)s install.") % {"app": name})
     return redirect("connected_apps")
 
