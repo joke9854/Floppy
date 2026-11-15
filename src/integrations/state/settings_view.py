@@ -165,3 +165,38 @@ def open_conflicts(user):
         .select_related("item", "binding")
         .order_by("-updated_at"),
     )
+
+
+class DirectionNotSupportedError(ValueError):
+    """The connection's adapter can do nothing in the chosen direction."""
+
+
+def set_binding_direction(binding, direction):
+    """Apply a direction choice to one connection; return True if partly granted.
+
+    `off` disables the binding and keeps its approvals. Any other choice is
+    intersected with what the adapter supports; nothing supported raises
+    DirectionNotSupportedError, and a partial grant returns True so the caller
+    can say the rest is unavailable.
+    """
+    from integrations.state import identity
+    from integrations.state.outbound import get_adapter
+
+    if direction not in DIRECTION_LABELS:
+        msg = "Unknown synchronization direction."
+        raise ValueError(msg)
+    if direction == DIRECTION_OFF:
+        identity.deactivate_binding(binding)
+        return False
+    adapter = get_adapter(binding)
+    supported = set(adapter.CAPABILITIES) if adapter is not None else set()
+    capabilities = capabilities_for_direction(direction, supported)
+    if not capabilities:
+        raise DirectionNotSupportedError(direction)
+    identity.activate_binding(
+        binding,
+        capabilities=capabilities,
+        directions=directions_for_choice(direction, capabilities),
+    )
+    requested = capabilities_for_direction(direction, set(CAPABILITY_LABELS))
+    return len(capabilities) < len(requested)

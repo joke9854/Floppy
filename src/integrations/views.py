@@ -7,20 +7,18 @@ import json
 import logging
 import re
 import secrets
-import zoneinfo
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from urllib.parse import unquote
 
-import croniter
 import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import (
+    Http404,
     HttpResponse,
     HttpResponseNotFound,
     JsonResponse,
@@ -37,7 +35,6 @@ from django.views.decorators.http import require_GET, require_POST
 import users
 from app import helpers as app_helpers
 from app import image_cache
-from app.db_retry import run_retryable_db_operation
 from app.log_safety import exception_summary
 from app.models import TV, Item, MediaTypes, Movie, Sources
 from app.providers import credentials, services
@@ -45,49 +42,23 @@ from integrations import (
     audiobookshelf_cover as abs_cover_proxy,
 )
 from integrations import (
+    connections,
     exports,
-    gpodder_api,
-    koito_api,
-    lastfm_api,
-    pocketcasts_api,
-    psn_api,
     stremio_catalog,
     stremio_queue,
     tasks,
-    xbox_api,
 )
 from integrations import plex as plex_api
 from integrations import plex_cover as plex_cover_proxy
-from integrations.gpodder_api import GPodderAuthError, GPodderClientError
-from integrations.imports import anilist, helpers, mdblist, simkl, stremio, trakt
-from integrations.imports.audiobookshelf import (
-    AudiobookshelfAuthError,
-    AudiobookshelfClient,
+from integrations.connections import (
+    _ensure_plex_watchlist_schedule,
+    _ensure_storyteller_schedule,
+    _run_with_lock_retry,
 )
-from integrations.imports.koreader import (
-    KoreaderAuthError,
-    KoreaderClient,
-    KoreaderClientError,
-)
-from integrations.imports.radarr import RadarrClient
-from integrations.imports.sonarr import SonarrClient
+from integrations.imports import anilist, helpers, mdblist, simkl, trakt
 from integrations.imports.storyteller import (
     StorytellerClient,
     StorytellerClientError,
-)
-from integrations.jellyfin_client import (
-    JellyfinAuthError,
-    JellyfinClient,
-    JellyfinClientError,
-)
-from integrations.jellyfin_sync import (
-    JELLYFIN_PUSH_INTERVAL_MINUTES,
-    JELLYFIN_PUSH_TASK_NAME,
-)
-from integrations.lastfm_api import (
-    LastFMAPIError,
-    LastFMClientError,
-    LastFMRateLimitError,
 )
 from integrations.match_corrections import (
     InvalidMatchCorrectionError,
@@ -98,36 +69,19 @@ from integrations.match_corrections import (
 )
 from integrations.models import (
     AudiobookshelfAccount,
-    CollectionSourceState,
     ExternalReference,
     ExternalReferenceReviewStatus,
-    GPodderAccount,
-    JellyfinAccount,
-    KoitoAccount,
-    KoreaderAccount,
-    KoreaderDocumentLink,
-    LastFMAccount,
     MDBListAccount,
     PlexAccount,
     PlexWebhookShare,
-    PocketCastsAccount,
-    PSNAccount,
-    RadarrInstance,
-    SonarrInstance,
     StateConflict,
     StateConflictStatus,
     StorytellerAccount,
-    StremioAccount,
     SyncBinding,
-    XboxAccount,
 )
 from integrations.plex_watchlist import (
     WATCHLIST_SYNC_INTERVAL_MINUTES,
-    WATCHLIST_TASK_NAME,
 )
-from integrations.pocketcasts_api import PocketCastsAuthError
-from integrations.state import outbound
-from integrations.task_filters import user_kwargs_regex
 from integrations.upload_staging import (
     build_staged_zip,
     discard_staged_upload,
@@ -138,12 +92,25 @@ from integrations.upload_staging import (
 from integrations.webhooks.plex import extract_plex_webhook_usernames
 
 logger = logging.getLogger(__name__)
-ARR_SYNC_INTERVAL_HOURS = 2
-RADARR_RECURRING_TASK_NAME = "Import from Radarr (Recurring)"
 JELLYFIN_PLAYBACK_REPORTING_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-SONARR_RECURRING_TASK_NAME = "Import from Sonarr (Recurring)"
-GPODDER_RECURRING_TASK_NAME = "Import from GPodder (Recurring)"
 TRAKT_DEVICE_SESSION_KEY = "trakt_device_auth"
+
+# Names that moved to (or are used through) integrations.connections. Tests and
+# older callers patch/import them through integrations.views, so keep them here.
+_ensure_jellyfin_pull_schedule = connections._ensure_jellyfin_pull_schedule
+_ensure_jellyfin_push_schedule = connections._ensure_jellyfin_push_schedule
+AudiobookshelfClient = connections.AudiobookshelfClient
+JellyfinClient = connections.JellyfinClient
+KoitoAccount = connections.KoitoAccount
+KoreaderClient = connections.KoreaderClient
+RadarrClient = connections.RadarrClient
+SonarrClient = connections.SonarrClient
+gpodder_api = connections.gpodder_api
+koito_api = connections.koito_api
+lastfm_api = connections.lastfm_api
+psn_api = connections.psn_api
+stremio = connections.stremio
+xbox_api = connections.xbox_api
 
 
 def _stage_upload_or_message(request, upload, label="upload"):
@@ -263,425 +230,6 @@ def _save_plex_usernames(user, raw_usernames):
     if cleaned_usernames != user.plex_usernames:
         user.plex_usernames = cleaned_usernames
         user.save(update_fields=["plex_usernames"])
-
-
-def _plex_watchlist_task_filter(user_id):
-    """Match a user's watchlist task regardless of JSON spacing/quotes."""
-    return (
-        Q(kwargs__contains=f"'user_id': {user_id},")
-        | Q(
-            kwargs__contains=f"'user_id': {user_id}" + "}",
-        )
-        | Q(
-            kwargs__contains=f'"user_id": {user_id},',
-        )
-        | Q(
-            kwargs__contains=f'"user_id": {user_id}' + "}",
-        )
-    )
-
-
-def _periodic_task_filter_for_user(user_id):
-    """Match a user's periodic task regardless of JSON spacing/quotes."""
-    return _plex_watchlist_task_filter(user_id)
-
-
-def _periodic_task_filter_for_instance(instance_id):
-    """Match a Radarr/Sonarr instance's periodic task regardless of JSON spacing/quotes."""
-    return (
-        Q(kwargs__contains=f"'instance_id': {instance_id},")
-        | Q(kwargs__contains=f"'instance_id': {instance_id}" + "}")
-        | Q(kwargs__contains=f'"instance_id": {instance_id},')
-        | Q(kwargs__contains=f'"instance_id": {instance_id}' + "}")
-    )
-
-
-def _run_with_lock_retry(operation_name, fn):
-    """Run an integration connect/disconnect DB write with retry on SQLite locks.
-
-    Connect/disconnect views create or delete `django_celery_beat`
-    `PeriodicTask` rows, which fire a signal that writes to a shared
-    singleton row (`PeriodicTasks.changed()`) — a serialization hotspot on
-    SQLite. Wrapping the write in a retried transaction turns a transient
-    lock into a short delay instead of a 503 (see issue #1112).
-
-    `max_retries=1` (2 attempts total) rather than the helper's default of
-    5: each attempt can block for up to `SQLITE_BUSY_TIMEOUT_SECONDS`
-    (30s by default) before raising, and nginx.conf sets no explicit
-    `proxy_read_timeout` (nginx's own default is 60s) — more attempts would
-    risk the proxy returning a gateway timeout to the user while this view
-    keeps retrying underneath it, so the write could still commit after the
-    client has already seen a failure.
-    """
-
-    def _atomic_fn():
-        with transaction.atomic():
-            return fn()
-
-    return run_retryable_db_operation(
-        _atomic_fn, operation_name=operation_name, max_retries=1
-    ).value
-
-
-def _next_arr_sync_start(now=None):
-    """Return the next future ARR sync boundary."""
-    current = (now or timezone.now()).astimezone(timezone.get_default_timezone())
-    boundary = current.replace(minute=0, second=0, microsecond=0)
-    hours_until_next = ARR_SYNC_INTERVAL_HOURS - (
-        boundary.hour % ARR_SYNC_INTERVAL_HOURS
-    )
-    return boundary + timedelta(hours=hours_until_next)
-
-
-def _ensure_plex_watchlist_schedule(user, plex_account):
-    """Create or enable the per-user Plex watchlist interval schedule."""
-    from django_celery_beat.models import IntervalSchedule, PeriodicTask
-
-    next_interval_start = timezone.now() + timedelta(
-        minutes=WATCHLIST_SYNC_INTERVAL_MINUTES
-    )
-    interval, _ = IntervalSchedule.objects.get_or_create(
-        every=WATCHLIST_SYNC_INTERVAL_MINUTES,
-        period=IntervalSchedule.MINUTES,
-    )
-    task_filter = PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=WATCHLIST_TASK_NAME,
-    )
-    existing_task = task_filter.first()
-    if existing_task:
-        was_enabled = existing_task.enabled
-        updated_fields = []
-        desired_name = (
-            f"{WATCHLIST_TASK_NAME} for "
-            f"{plex_account.plex_username or user.username} "
-            f"(every {WATCHLIST_SYNC_INTERVAL_MINUTES} minutes)"
-        )
-        desired_kwargs = json.dumps({"user_id": user.id, "mode": "watchlist"})
-        if existing_task.name != desired_name:
-            existing_task.name = desired_name
-            updated_fields.append("name")
-        if existing_task.interval_id != interval.id:
-            existing_task.interval = interval
-            updated_fields.append("interval")
-        if existing_task.crontab_id is not None:
-            existing_task.crontab = None
-            updated_fields.append("crontab")
-        if existing_task.clocked_id is not None:
-            existing_task.clocked = None
-            updated_fields.append("clocked")
-        if existing_task.solar_id is not None:
-            existing_task.solar = None
-            updated_fields.append("solar")
-        if existing_task.one_off:
-            existing_task.one_off = False
-            updated_fields.append("one_off")
-        if existing_task.kwargs != desired_kwargs:
-            existing_task.kwargs = desired_kwargs
-            updated_fields.append("kwargs")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if existing_task.start_time is None or not was_enabled:
-            existing_task.start_time = next_interval_start
-            updated_fields.append("start_time")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task
-
-    return PeriodicTask.objects.create(
-        name=(
-            f"{WATCHLIST_TASK_NAME} for "
-            f"{plex_account.plex_username or user.username} "
-            f"(every {WATCHLIST_SYNC_INTERVAL_MINUTES} minutes)"
-        ),
-        task=WATCHLIST_TASK_NAME,
-        interval=interval,
-        kwargs=json.dumps({"user_id": user.id, "mode": "watchlist"}),
-        start_time=next_interval_start,
-        enabled=True,
-    )
-
-
-def _disable_plex_watchlist_schedule(user):
-    """Delete any per-user Plex watchlist periodic tasks."""
-    from django_celery_beat.models import PeriodicTask
-
-    return PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=WATCHLIST_TASK_NAME,
-    ).delete()
-
-
-def _ensure_jellyfin_push_schedule(user, jellyfin_account):
-    """Create or enable the per-user Jellyfin watched-state push schedule."""
-    from django_celery_beat.models import IntervalSchedule, PeriodicTask
-
-    next_interval_start = timezone.now() + timedelta(
-        minutes=JELLYFIN_PUSH_INTERVAL_MINUTES
-    )
-    interval, _ = IntervalSchedule.objects.get_or_create(
-        every=JELLYFIN_PUSH_INTERVAL_MINUTES,
-        period=IntervalSchedule.MINUTES,
-    )
-    task_filter = PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=JELLYFIN_PUSH_TASK_NAME,
-    )
-    existing_task = task_filter.first()
-    if existing_task:
-        was_enabled = existing_task.enabled
-        updated_fields = []
-        desired_name = (
-            f"{JELLYFIN_PUSH_TASK_NAME} for "
-            f"{jellyfin_account.jellyfin_username or user.username} "
-            f"(every {JELLYFIN_PUSH_INTERVAL_MINUTES} minutes)"
-        )
-        desired_kwargs = json.dumps({"user_id": user.id})
-        if existing_task.name != desired_name:
-            existing_task.name = desired_name
-            updated_fields.append("name")
-        if existing_task.interval_id != interval.id:
-            existing_task.interval = interval
-            updated_fields.append("interval")
-        if existing_task.crontab_id is not None:
-            existing_task.crontab = None
-            updated_fields.append("crontab")
-        if existing_task.kwargs != desired_kwargs:
-            existing_task.kwargs = desired_kwargs
-            updated_fields.append("kwargs")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if existing_task.start_time is None or not was_enabled:
-            existing_task.start_time = next_interval_start
-            updated_fields.append("start_time")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task
-
-    return PeriodicTask.objects.create(
-        name=(
-            f"{JELLYFIN_PUSH_TASK_NAME} for "
-            f"{jellyfin_account.jellyfin_username or user.username} "
-            f"(every {JELLYFIN_PUSH_INTERVAL_MINUTES} minutes)"
-        ),
-        task=JELLYFIN_PUSH_TASK_NAME,
-        interval=interval,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=next_interval_start,
-        enabled=True,
-    )
-
-
-def _disable_jellyfin_push_schedule(user):
-    """Delete any per-user Jellyfin push periodic tasks."""
-    from django_celery_beat.models import PeriodicTask
-
-    return PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=JELLYFIN_PUSH_TASK_NAME,
-    ).delete()
-
-
-def _ensure_jellyfin_pull_schedule(user, jellyfin_account):
-    """Create or enable the per-user Jellyfin history pull schedule."""
-    from django_celery_beat.models import IntervalSchedule, PeriodicTask
-
-    pull_task_name = tasks.JELLYFIN_PULL_TASK_NAME
-    pull_interval_minutes = tasks.JELLYFIN_PULL_INTERVAL_MINUTES
-
-    next_interval_start = timezone.now() + timedelta(minutes=pull_interval_minutes)
-    interval, _ = IntervalSchedule.objects.get_or_create(
-        every=pull_interval_minutes,
-        period=IntervalSchedule.MINUTES,
-    )
-    task_filter = PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=pull_task_name,
-    )
-    existing_task = task_filter.first()
-    if existing_task:
-        was_enabled = existing_task.enabled
-        updated_fields = []
-        desired_name = (
-            f"{pull_task_name} for "
-            f"{jellyfin_account.jellyfin_username or user.username} "
-            f"(every {pull_interval_minutes} minutes)"
-        )
-        desired_kwargs = json.dumps({"user_id": user.id})
-        if existing_task.name != desired_name:
-            existing_task.name = desired_name
-            updated_fields.append("name")
-        if existing_task.interval_id != interval.id:
-            existing_task.interval = interval
-            updated_fields.append("interval")
-        if existing_task.crontab_id is not None:
-            existing_task.crontab = None
-            updated_fields.append("crontab")
-        if existing_task.kwargs != desired_kwargs:
-            existing_task.kwargs = desired_kwargs
-            updated_fields.append("kwargs")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if existing_task.start_time is None or not was_enabled:
-            existing_task.start_time = next_interval_start
-            updated_fields.append("start_time")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task
-
-    return PeriodicTask.objects.create(
-        name=(
-            f"{pull_task_name} for "
-            f"{jellyfin_account.jellyfin_username or user.username} "
-            f"(every {pull_interval_minutes} minutes)"
-        ),
-        task=pull_task_name,
-        interval=interval,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=next_interval_start,
-        enabled=True,
-    )
-
-
-def _disable_jellyfin_pull_schedule(user):
-    """Delete any per-user Jellyfin pull periodic tasks."""
-    from django_celery_beat.models import PeriodicTask
-
-    return PeriodicTask.objects.filter(
-        _plex_watchlist_task_filter(user.id),
-        task=tasks.JELLYFIN_PULL_TASK_NAME,
-    ).delete()
-
-
-def _ensure_arr_schedule(instance, task_name, source_label):
-    """Create or enable the per-instance Radarr/Sonarr recurring schedule."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    user = instance.user
-    next_sync_start = _next_arr_sync_start()
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=0,
-        hour=f"*/{ARR_SYNC_INTERVAL_HOURS}",
-        day_of_week="*",
-        day_of_month="*",
-        month_of_year="*",
-        timezone=timezone.get_default_timezone(),
-    )
-    task_filter = PeriodicTask.objects.filter(
-        _periodic_task_filter_for_instance(instance.id),
-        task=task_name,
-    )
-    existing_task = task_filter.first()
-    if existing_task:
-        was_enabled = existing_task.enabled
-        updated_fields = []
-        desired_name = (
-            f"Import from {source_label} ({instance.display_name} #{instance.id}) for "
-            f"{user.username} (every {ARR_SYNC_INTERVAL_HOURS} hours)"
-        )
-        desired_kwargs = json.dumps({"instance_id": instance.id})
-        if existing_task.name != desired_name:
-            existing_task.name = desired_name
-            updated_fields.append("name")
-        if existing_task.crontab_id != crontab.id:
-            existing_task.crontab = crontab
-            updated_fields.append("crontab")
-        if existing_task.interval_id is not None:
-            existing_task.interval = None
-            updated_fields.append("interval")
-        if existing_task.clocked_id is not None:
-            existing_task.clocked = None
-            updated_fields.append("clocked")
-        if existing_task.solar_id is not None:
-            existing_task.solar = None
-            updated_fields.append("solar")
-        if existing_task.one_off:
-            existing_task.one_off = False
-            updated_fields.append("one_off")
-        if existing_task.kwargs != desired_kwargs:
-            existing_task.kwargs = desired_kwargs
-            updated_fields.append("kwargs")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if existing_task.start_time is None or not was_enabled:
-            existing_task.start_time = next_sync_start
-            updated_fields.append("start_time")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task
-
-    return PeriodicTask.objects.create(
-        name=(
-            f"Import from {source_label} ({instance.display_name} #{instance.id}) for "
-            f"{user.username} (every {ARR_SYNC_INTERVAL_HOURS} hours)"
-        ),
-        task=task_name,
-        crontab=crontab,
-        kwargs=json.dumps({"instance_id": instance.id}),
-        start_time=next_sync_start,
-        enabled=True,
-    )
-
-
-def _ensure_lastfm_poll_schedule():
-    """Create or update the shared Last.fm polling schedule."""
-    from django_celery_beat.models import IntervalSchedule, PeriodicTask
-
-    poll_interval_minutes = getattr(settings, "LASTFM_POLL_INTERVAL_MINUTES", 15)
-    interval, _ = IntervalSchedule.objects.get_or_create(
-        every=poll_interval_minutes,
-        period=IntervalSchedule.MINUTES,
-    )
-    task_name = f"Poll Last.fm for all users (every {poll_interval_minutes} minutes)"
-    existing_task = PeriodicTask.objects.filter(
-        task="Poll Last.fm for all users"
-    ).first()
-
-    if existing_task:
-        updated_fields = []
-        if existing_task.name != task_name:
-            existing_task.name = task_name
-            updated_fields.append("name")
-        if existing_task.interval_id != interval.id:
-            existing_task.interval = interval
-            updated_fields.append("interval")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if existing_task.start_time is None:
-            existing_task.start_time = timezone.now()
-            updated_fields.append("start_time")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task, poll_interval_minutes
-
-    return PeriodicTask.objects.create(
-        name=task_name,
-        task="Poll Last.fm for all users",
-        interval=interval,
-        start_time=timezone.now(),
-        enabled=True,
-    ), poll_interval_minutes
-
-
-def _save_lastfm_history_reset(account, cutoff_uts: int):
-    """Persist a fresh Last.fm history import state."""
-    account.reset_history_import(cutoff_uts)
-    account.save(
-        update_fields=[
-            "history_import_status",
-            "history_import_cutoff_uts",
-            "history_import_next_page",
-            "history_import_total_pages",
-            "history_import_started_at",
-            "history_import_completed_at",
-            "history_import_last_error_message",
-        ],
-    )
 
 
 @require_POST
@@ -1047,13 +595,7 @@ def plex_callback(request):
 @require_POST
 def plex_disconnect(request):
     """Remove stored Plex credentials."""
-
-    def _disconnect():
-        _disable_plex_watchlist_schedule(request.user)
-        PlexWebhookShare.objects.filter(owner=request.user).delete()
-        PlexAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Plex", _disconnect)
+    connections.disconnect_plex(request.user)
     messages.info(request, "Disconnected Plex.")
     return redirect("import_data")
 
@@ -1155,15 +697,11 @@ def import_plex(request):
 @require_POST
 def plex_disable_watchlist(request):
     """Disable recurring Plex watchlist sync for the current user."""
-    plex_account = getattr(request.user, "plex_account", None)
-    if not plex_account:
-        messages.error(request, "Connect Plex before changing watchlist sync.")
+    try:
+        connections.disable_plex_watchlist(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
-
-    _disable_plex_watchlist_schedule(request.user)
-    if plex_account.watchlist_sync_enabled:
-        plex_account.watchlist_sync_enabled = False
-        plex_account.save(update_fields=["watchlist_sync_enabled"])
 
     messages.info(request, "Disabled Plex watchlist sync.")
     return redirect("import_data")
@@ -1618,67 +1156,43 @@ def import_steam(request):
     return _integration_redirect(request, connected_slug="steam")
 
 
+def _arr_connect_view(request, label, connect):
+    try:
+        connect(
+            request.user,
+            request.POST.get("base_url", ""),
+            request.POST.get("api_key", ""),
+            request.POST.get("name", ""),
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
+        return _integration_redirect(request)
+
+    messages.success(
+        request,
+        f"Connected {label}. Initial import queued and recurring sync enabled.",
+    )
+    return _integration_redirect(request, connected_slug=label.lower())
+
+
+def _arr_instance_action(request, action):
+    """Run a Radarr/Sonarr instance action, mapping a foreign instance to a 404."""
+    try:
+        return action(request.user, request.POST.get("instance_id"))
+    except connections.NotConnectedError as exc:
+        raise Http404 from exc
+
+
 @require_POST
 def radarr_connect(request):
     """Connect a new Radarr instance using base URL + API key."""
-    base_url = request.POST.get("base_url", "").strip()
-    api_key = request.POST.get("api_key", "").strip()
-    name = request.POST.get("name", "").strip()
-    if not base_url or not api_key:
-        messages.error(request, "Radarr base URL and API key are required.")
-        return _integration_redirect(request)
-
-    try:
-        RadarrClient(base_url, api_key).healthcheck()
-    except (helpers.MediaImportError, requests.RequestException) as exc:
-        messages.error(request, f"Failed to connect to Radarr: {exc}")
-        return _integration_redirect(request)
-
-    try:
-        instance = _run_with_lock_retry(
-            "create Radarr instance",
-            lambda: RadarrInstance.objects.create(
-                user=request.user,
-                name=name,
-                base_url=base_url,
-                api_key=helpers.encrypt(api_key),
-            ),
-        )
-    except IntegrityError:
-        messages.error(
-            request, "You already have a Radarr instance connected at this URL."
-        )
-        return _integration_redirect(request)
-
-    _ensure_arr_schedule(instance, RADARR_RECURRING_TASK_NAME, "Radarr")
-    tasks.import_radarr.delay(user_id=request.user.id, mode="new", instance_id=instance.id)
-    messages.success(
-        request,
-        "Connected Radarr. Initial import queued and recurring sync enabled.",
-    )
-    return _integration_redirect(request, connected_slug="radarr")
+    return _arr_connect_view(request, "Radarr", connections.connect_radarr)
 
 
 @require_POST
 def radarr_disconnect(request):
     """Disconnect one Radarr instance."""
-    from django_celery_beat.models import PeriodicTask
-
-    instance = get_object_or_404(
-        RadarrInstance, pk=request.POST.get("instance_id"), user=request.user
-    )
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            _periodic_task_filter_for_instance(instance.id),
-            task=RADARR_RECURRING_TASK_NAME,
-        ).delete()
-        CollectionSourceState.objects.filter(
-            user=request.user, source="radarr", source_instance_id=instance.id
-        ).delete()
-        instance.delete()
-
-    _run_with_lock_retry("disconnect Radarr", _disconnect)
+    _arr_instance_action(request, connections.disconnect_radarr)
     messages.info(request, "Disconnected Radarr.")
     return redirect("import_data")
 
@@ -1686,12 +1200,7 @@ def radarr_disconnect(request):
 @require_POST
 def import_radarr(request):
     """Queue Radarr import and ensure recurring schedule exists."""
-    instance = get_object_or_404(
-        RadarrInstance, pk=request.POST.get("instance_id"), user=request.user
-    )
-
-    tasks.import_radarr.delay(user_id=request.user.id, mode="new", instance_id=instance.id)
-    _ensure_arr_schedule(instance, RADARR_RECURRING_TASK_NAME, "Radarr")
+    _arr_instance_action(request, connections.start_radarr_import)
     messages.info(request, "Radarr import queued.")
     return redirect("import_data")
 
@@ -1699,64 +1208,13 @@ def import_radarr(request):
 @require_POST
 def sonarr_connect(request):
     """Connect a new Sonarr instance using base URL + API key."""
-    base_url = request.POST.get("base_url", "").strip()
-    api_key = request.POST.get("api_key", "").strip()
-    name = request.POST.get("name", "").strip()
-    if not base_url or not api_key:
-        messages.error(request, "Sonarr base URL and API key are required.")
-        return _integration_redirect(request)
-
-    try:
-        SonarrClient(base_url, api_key).healthcheck()
-    except (helpers.MediaImportError, requests.RequestException) as exc:
-        messages.error(request, f"Failed to connect to Sonarr: {exc}")
-        return _integration_redirect(request)
-
-    try:
-        instance = _run_with_lock_retry(
-            "create Sonarr instance",
-            lambda: SonarrInstance.objects.create(
-                user=request.user,
-                name=name,
-                base_url=base_url,
-                api_key=helpers.encrypt(api_key),
-            ),
-        )
-    except IntegrityError:
-        messages.error(
-            request, "You already have a Sonarr instance connected at this URL."
-        )
-        return _integration_redirect(request)
-
-    _ensure_arr_schedule(instance, SONARR_RECURRING_TASK_NAME, "Sonarr")
-    tasks.import_sonarr.delay(user_id=request.user.id, mode="new", instance_id=instance.id)
-    messages.success(
-        request,
-        "Connected Sonarr. Initial import queued and recurring sync enabled.",
-    )
-    return _integration_redirect(request, connected_slug="sonarr")
+    return _arr_connect_view(request, "Sonarr", connections.connect_sonarr)
 
 
 @require_POST
 def sonarr_disconnect(request):
     """Disconnect one Sonarr instance."""
-    from django_celery_beat.models import PeriodicTask
-
-    instance = get_object_or_404(
-        SonarrInstance, pk=request.POST.get("instance_id"), user=request.user
-    )
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            _periodic_task_filter_for_instance(instance.id),
-            task=SONARR_RECURRING_TASK_NAME,
-        ).delete()
-        CollectionSourceState.objects.filter(
-            user=request.user, source="sonarr", source_instance_id=instance.id
-        ).delete()
-        instance.delete()
-
-    _run_with_lock_retry("disconnect Sonarr", _disconnect)
+    _arr_instance_action(request, connections.disconnect_sonarr)
     messages.info(request, "Disconnected Sonarr.")
     return redirect("import_data")
 
@@ -1764,12 +1222,7 @@ def sonarr_disconnect(request):
 @require_POST
 def import_sonarr(request):
     """Queue Sonarr import and ensure recurring schedule exists."""
-    instance = get_object_or_404(
-        SonarrInstance, pk=request.POST.get("instance_id"), user=request.user
-    )
-
-    tasks.import_sonarr.delay(user_id=request.user.id, mode="new", instance_id=instance.id)
-    _ensure_arr_schedule(instance, SONARR_RECURRING_TASK_NAME, "Sonarr")
+    _arr_instance_action(request, connections.start_sonarr_import)
     messages.info(request, "Sonarr import queued.")
     return redirect("import_data")
 
@@ -1777,73 +1230,16 @@ def import_sonarr(request):
 @require_POST
 def jellyfin_connect(request):
     """Connect a Jellyfin server using base URL + API key."""
-    base_url = request.POST.get("base_url", "").strip()
-    api_key = request.POST.get("api_key", "").strip()
-    username = request.POST.get("username", "").strip()
-    if not base_url or not api_key:
-        messages.error(request, "Jellyfin base URL and API key are required.")
-        return redirect("integrations")
-
-    client = JellyfinClient(base_url, api_key)
     try:
-        client.healthcheck()
-        current_user = client.get_current_user()
-        if not current_user and username:
-            current_user = client.find_user_by_name(username)
-    except (JellyfinAuthError, JellyfinClientError) as exc:
-        messages.error(request, f"Failed to connect to Jellyfin: {exc}")
+        connections.connect_jellyfin(
+            request.user,
+            request.POST.get("base_url", ""),
+            request.POST.get("api_key", ""),
+            request.POST.get("username", ""),
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("integrations")
-
-    if not current_user or not current_user.get("Id"):
-        messages.error(
-            request,
-            "Could not resolve a Jellyfin user for this API key. "
-            "Dashboard API keys are not tied to a user, so enter the exact "
-            "Jellyfin username in the username field and try again.",
-        )
-        return redirect("integrations")
-
-    existing_account = getattr(request.user, "jellyfin_account", None)
-    identity_changed = existing_account is not None and (
-        existing_account.base_url != base_url
-        or existing_account.jellyfin_user_id != current_user["Id"]
-    )
-
-    defaults = {
-        "base_url": base_url,
-        "api_key": helpers.encrypt(api_key),
-        "jellyfin_user_id": current_user["Id"],
-        "jellyfin_username": current_user.get("Name", ""),
-        "connection_broken": False,
-        "last_error_message": "",
-    }
-    if existing_account is None or identity_changed:
-        # A different server/user invalidates any cached pull state: a
-        # Playback Reporting rowid or "unavailable" result from the old
-        # identity would otherwise silently carry over to the new one.
-        defaults.update(
-            {
-                "playback_reporting_available": None,
-                "playback_reporting_last_rowid": None,
-                "library_backfill_completed_at": None,
-            },
-        )
-
-    def _connect():
-        account, _ = JellyfinAccount.objects.update_or_create(
-            user=request.user,
-            defaults=defaults,
-        )
-        if account.pull_history_enabled:
-            _ensure_jellyfin_pull_schedule(request.user, account)
-        return account
-
-    _run_with_lock_retry("connect Jellyfin", _connect)
-
-    # Seamless by default: queue an automatic history pull right away so a
-    # newly connected user sees their watch history without any manual
-    # export/upload step, and keep it running on a schedule going forward.
-    tasks.pull_jellyfin_history.delay(user_id=request.user.id)
 
     messages.success(
         request,
@@ -1855,13 +1251,7 @@ def jellyfin_connect(request):
 @require_POST
 def jellyfin_disconnect(request):
     """Disconnect the Jellyfin integration."""
-
-    def _disconnect():
-        _disable_jellyfin_push_schedule(request.user)
-        _disable_jellyfin_pull_schedule(request.user)
-        JellyfinAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Jellyfin", _disconnect)
+    connections.disconnect_jellyfin(request.user)
     messages.info(request, "Disconnected Jellyfin.")
     return redirect("integrations")
 
@@ -1869,35 +1259,18 @@ def jellyfin_disconnect(request):
 @require_POST
 def jellyfin_settings(request):
     """Update Jellyfin push-sync and history-pull toggles."""
-    account = getattr(request.user, "jellyfin_account", None)
-    if not account:
-        messages.error(request, "Connect Jellyfin before changing sync settings.")
+    try:
+        connections.update_jellyfin_settings(
+            request.user,
+            push_watched_enabled="push_watched_enabled" in request.POST,
+            push_unwatched_enabled="push_unwatched_enabled" in request.POST,
+            scheduled_push_enabled="scheduled_push_enabled" in request.POST,
+            instant_push_enabled="instant_push_enabled" in request.POST,
+            pull_history_enabled="pull_history_enabled" in request.POST,
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("integrations")
-
-    account.push_watched_enabled = "push_watched_enabled" in request.POST
-    account.push_unwatched_enabled = "push_unwatched_enabled" in request.POST
-    account.scheduled_push_enabled = "scheduled_push_enabled" in request.POST
-    account.instant_push_enabled = "instant_push_enabled" in request.POST
-    account.pull_history_enabled = "pull_history_enabled" in request.POST
-    account.save(
-        update_fields=[
-            "push_watched_enabled",
-            "push_unwatched_enabled",
-            "scheduled_push_enabled",
-            "instant_push_enabled",
-            "pull_history_enabled",
-        ],
-    )
-
-    if account.scheduled_push_enabled:
-        _ensure_jellyfin_push_schedule(request.user, account)
-    else:
-        _disable_jellyfin_push_schedule(request.user)
-
-    if account.pull_history_enabled:
-        _ensure_jellyfin_pull_schedule(request.user, account)
-    else:
-        _disable_jellyfin_pull_schedule(request.user)
 
     messages.success(request, "Jellyfin sync settings updated.")
     return redirect("integrations")
@@ -1906,12 +1279,12 @@ def jellyfin_settings(request):
 @require_POST
 def jellyfin_push_now(request):
     """Queue an immediate Jellyfin watched-state push."""
-    account = getattr(request.user, "jellyfin_account", None)
-    if not account:
-        messages.error(request, "Connect Jellyfin before syncing.")
+    try:
+        connections.push_jellyfin_now(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("integrations")
 
-    tasks.push_jellyfin_watched.delay(user_id=request.user.id, force=True)
     messages.info(request, "Jellyfin sync queued.")
     return redirect("integrations")
 
@@ -1919,12 +1292,12 @@ def jellyfin_push_now(request):
 @require_POST
 def jellyfin_pull_now(request):
     """Queue an immediate automatic Jellyfin history pull."""
-    account = getattr(request.user, "jellyfin_account", None)
-    if not account or not account.is_connected:
-        messages.error(request, "Connect Jellyfin before importing history.")
+    try:
+        connections.pull_jellyfin_now(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("integrations")
 
-    tasks.pull_jellyfin_history.delay(user_id=request.user.id)
     messages.info(request, "Jellyfin history import queued.")
     return redirect("integrations")
 
@@ -1971,88 +1344,19 @@ def jellyfin_playback_reporting_import(request):
     return redirect("integrations")
 
 
-def _ensure_audiobookshelf_schedule(user):
-    """Create or update the recurring Audiobookshelf import schedule for a user."""
-    from django_celery_beat.models import IntervalSchedule, PeriodicTask
-
-    poll_interval_minutes = getattr(
-        settings, "AUDIOBOOKSHELF_POLL_INTERVAL_MINUTES", 15
-    )
-    interval, _ = IntervalSchedule.objects.get_or_create(
-        every=poll_interval_minutes,
-        period=IntervalSchedule.MINUTES,
-    )
-    task_name = (
-        f"Import from Audiobookshelf for {user.username} "
-        f"(every {poll_interval_minutes} minutes)"
-    )
-    existing_task = PeriodicTask.objects.filter(
-        task="Import from Audiobookshelf (Recurring)",
-        kwargs__regex=user_kwargs_regex(user.id),
-    ).first()
-
-    if existing_task:
-        updated_fields = []
-        if existing_task.name != task_name:
-            existing_task.name = task_name
-            updated_fields.append("name")
-        if existing_task.interval_id != interval.id:
-            existing_task.interval = interval
-            updated_fields.append("interval")
-        if existing_task.crontab_id is not None:
-            existing_task.crontab = None
-            updated_fields.append("crontab")
-        if not existing_task.enabled:
-            existing_task.enabled = True
-            updated_fields.append("enabled")
-        if updated_fields:
-            existing_task.save(update_fields=updated_fields)
-        return existing_task
-
-    return PeriodicTask.objects.create(
-        name=task_name,
-        task="Import from Audiobookshelf (Recurring)",
-        interval=interval,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=timezone.now(),
-        enabled=True,
-    )
-
-
 @require_POST
 def audiobookshelf_connect(request):
     """Connect Audiobookshelf account using base URL + API token."""
-    base_url = request.POST.get("base_url", "").strip()
-    api_token = request.POST.get("api_token", "").strip()
-
-    if not base_url or not api_token:
-        messages.error(request, "Audiobookshelf base URL and API token are required.")
-        return _integration_redirect(request)
-
     try:
-        client = AudiobookshelfClient(base_url, api_token)
-        client.get_me()
-    except AudiobookshelfAuthError as exc:
-        messages.error(request, str(exc))
-        return _integration_redirect(request)
-    except Exception as exc:
-        messages.error(request, f"Failed to connect to Audiobookshelf: {exc}")
-        return _integration_redirect(request)
-
-    def _connect():
-        AudiobookshelfAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "base_url": base_url,
-                "api_token": helpers.encrypt(api_token),
-                "connection_broken": False,
-                "last_error_message": "",
-            },
+        connections.connect_audiobookshelf(
+            request.user,
+            request.POST.get("base_url", ""),
+            request.POST.get("api_token", ""),
         )
-        _ensure_audiobookshelf_schedule(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
+        return _integration_redirect(request)
 
-    _run_with_lock_retry("connect Audiobookshelf", _connect)
-    tasks.import_audiobookshelf.delay(user_id=request.user.id, mode="new")
     messages.success(request, "Connected Audiobookshelf. Initial import queued.")
     return _integration_redirect(request, connected_slug="audiobookshelf")
 
@@ -2060,16 +1364,7 @@ def audiobookshelf_connect(request):
 @require_POST
 def audiobookshelf_disconnect(request):
     """Disconnect Audiobookshelf integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task="Import from Audiobookshelf (Recurring)",
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        AudiobookshelfAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Audiobookshelf", _disconnect)
+    connections.disconnect_audiobookshelf(request.user)
     messages.info(request, "Disconnected Audiobookshelf.")
     return redirect("import_data")
 
@@ -2077,13 +1372,11 @@ def audiobookshelf_disconnect(request):
 @require_POST
 def import_audiobookshelf(request):
     """Queue Audiobookshelf import and ensure recurring schedule exists."""
-    account = getattr(request.user, "audiobookshelf_account", None)
-    if not account:
-        messages.error(request, "Connect Audiobookshelf before importing.")
+    try:
+        connections.start_audiobookshelf_import(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
-
-    tasks.import_audiobookshelf.delay(user_id=request.user.id, mode="new")
-    _ensure_audiobookshelf_schedule(request.user)
 
     messages.info(request, "Audiobookshelf import queued.")
     return redirect("import_data")
@@ -2429,7 +1722,6 @@ def plex_cover(request, token):
     return response
 
 
-STORYTELLER_RECURRING_TASK_NAME = "Import from Storyteller (Recurring)"
 STORYTELLER_PENDING_SESSION_KEY = "storyteller_pending_auth"
 
 
@@ -2445,36 +1737,6 @@ def _fix_storyteller_uri(uri, base_url):
     if match:
         return base_url + match.group(1)
     return uri
-
-
-def _ensure_storyteller_schedule(user):
-    """Create the recurring Storyteller import schedule if missing."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    existing_task = PeriodicTask.objects.filter(
-        task=STORYTELLER_RECURRING_TASK_NAME,
-        kwargs__regex=user_kwargs_regex(user.id),
-        enabled=True,
-    ).first()
-    if existing_task:
-        return
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=0,
-        hour="*/2",
-        day_of_week="*",
-        day_of_month="*",
-        month_of_year="*",
-        timezone=timezone.get_default_timezone(),
-    )
-    PeriodicTask.objects.create(
-        name=f"Import from Storyteller for {user.username} (every 2 hours)",
-        task=STORYTELLER_RECURRING_TASK_NAME,
-        crontab=crontab,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=timezone.now(),
-        enabled=True,
-    )
 
 
 @require_POST
@@ -2581,16 +1843,7 @@ def storyteller_cancel(request):
 @require_POST
 def storyteller_disconnect(request):
     """Disconnect the Storyteller integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task=STORYTELLER_RECURRING_TASK_NAME,
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        StorytellerAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Storyteller", _disconnect)
+    connections.disconnect_storyteller(request.user)
     messages.info(request, "Disconnected Storyteller.")
     return redirect("import_data")
 
@@ -2598,111 +1851,51 @@ def storyteller_disconnect(request):
 @require_POST
 def import_storyteller(request):
     """Queue a Storyteller import and ensure the recurring schedule exists."""
-    account = getattr(request.user, "storyteller_account", None)
-    if not account:
-        messages.error(request, "Connect Storyteller before importing.")
+    try:
+        connections.start_storyteller_import(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    tasks.import_storyteller.delay(user_id=request.user.id, mode="new")
-    _ensure_storyteller_schedule(request.user)
     messages.info(request, "Storyteller import queued.")
     return redirect("import_data")
 
 
-KOREADER_IMPORT_TASK_NAME = "Import from KOReader"
-KOREADER_MAX_COMPLETION = 100
-
-
-def _parse_finished_threshold_percent(post):
-    """Return a 0-1 completion threshold from a percentage form field."""
-    raw = (post.get("finished_threshold_percent") or "").strip()
-    if not raw:
-        return 1.0
-    try:
-        percent = float(raw)
-    except ValueError as exc:
-        msg = "Completion threshold must be a number between 1 and 100."
-        raise ValueError(msg) from exc
-    if not 1 <= percent <= KOREADER_MAX_COMPLETION:
-        msg = "Completion threshold must be between 1 and 100 percent."
-        raise ValueError(msg)
-    return percent / 100.0
-
-
-def _koreader_options_from_post(post):
+def _koreader_form_options(post):
     """Read KOReader account toggles from a form POST."""
     return {
         "verify_ssl": post.get("verify_ssl") == "on",
         "create_missing": post.get("create_missing") == "on",
         "skip_finished_books": post.get("skip_finished_books") == "on",
-        "finished_threshold": _parse_finished_threshold_percent(post),
+        "finished_threshold_percent": post.get("finished_threshold_percent") or "",
     }
-
-
-def _validate_koreader_connection(server_url, username, auth_key, verify_ssl):
-    """Verify credentials against the sync server or raise."""
-    client = KoreaderClient(server_url, username, auth_key, verify_ssl=verify_ssl)
-    client.auth()
 
 
 @require_POST
 def koreader_connect(request):
     """Connect a KOReader sync server account."""
-    server_url = request.POST.get("server_url", "").strip().rstrip("/")
-    username = request.POST.get("username", "").strip()
-    password = request.POST.get("password", "")
-    try:
-        options = _koreader_options_from_post(request.POST)
-    except ValueError as exc:
-        messages.error(request, str(exc))
-        return redirect("import_data")
     mode = request.POST.get("mode", "new")
     frequency = request.POST.get("frequency", "once")
     import_time = request.POST.get("time", "00:00")
 
-    if not server_url or not username or not password:
-        messages.error(request, "Server URL, username, and password are required.")
-        return redirect("import_data")
-
-    auth_key = KoreaderClient.password_to_auth_key(password)
     try:
-        _validate_koreader_connection(
-            server_url,
-            username,
-            auth_key,
-            options["verify_ssl"],
+        account = connections.connect_koreader(
+            request.user,
+            request.POST.get("server_url", ""),
+            request.POST.get("username", ""),
+            request.POST.get("password", ""),
+            **_koreader_form_options(request.POST),
         )
-    except KoreaderAuthError as exc:
-        messages.error(request, str(exc))
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
-    except KoreaderClientError as exc:
-        messages.error(request, f"Could not reach KOReader sync server: {exc}")
-        return redirect("import_data")
-    except requests.RequestException as exc:
-        messages.error(request, f"Could not reach KOReader sync server: {exc}")
-        return redirect("import_data")
-
-    _run_with_lock_retry(
-        "connect KOReader",
-        lambda: KoreaderAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "server_url": server_url,
-                "username": username,
-                "auth_key": helpers.encrypt(auth_key),
-                **options,
-                "connection_broken": False,
-                "last_error_message": "",
-            },
-        ),
-    )
 
     if frequency == "once":
-        tasks.import_koreader.delay(user_id=request.user.id, mode=mode)
+        connections.queue_koreader_import(request.user, mode)
         messages.success(request, "Connected to KOReader. Import queued.")
     else:
         helpers.create_import_schedule(
-            username=username,
+            username=account.username,
             request=request,
             mode=mode,
             frequency=frequency,
@@ -2710,7 +1903,7 @@ def koreader_connect(request):
             source="KOReader",
             extra_kwargs={"user_id": request.user.id},
         )
-        tasks.import_koreader.delay(user_id=request.user.id, mode=mode)
+        connections.queue_koreader_import(request.user, mode)
         messages.success(request, "Connected to KOReader. Import scheduled.")
     return redirect("import_data")
 
@@ -2718,73 +1911,18 @@ def koreader_connect(request):
 @require_POST
 def koreader_settings(request):
     """Update KOReader connection and sync options."""
-    account = getattr(request.user, "koreader_account", None)
-    if not account:
-        messages.error(request, "Connect KOReader before changing settings.")
-        return redirect("import_data")
-
-    server_url = request.POST.get("server_url", "").strip().rstrip("/")
-    username = request.POST.get("username", "").strip()
-    password = request.POST.get("password", "")
     try:
-        options = _koreader_options_from_post(request.POST)
-    except ValueError as exc:
-        messages.error(request, str(exc))
-        return redirect("import_data")
-
-    if not server_url or not username:
-        messages.error(request, "Server URL and username are required.")
-        return redirect("import_data")
-
-    if password:
-        auth_key = KoreaderClient.password_to_auth_key(password)
-    else:
-        try:
-            auth_key = helpers.decrypt_or_raise(account.auth_key)
-        except helpers.MediaImportError as exc:
-            messages.error(request, str(exc))
-            return redirect("import_data")
-
-    try:
-        _validate_koreader_connection(
-            server_url,
-            username,
-            auth_key,
-            options["verify_ssl"],
+        connections.update_koreader_settings(
+            request.user,
+            request.POST.get("server_url", ""),
+            request.POST.get("username", ""),
+            request.POST.get("password", ""),
+            **_koreader_form_options(request.POST),
         )
-    except KoreaderAuthError as exc:
-        messages.error(request, str(exc))
-        return redirect("import_data")
-    except KoreaderClientError as exc:
-        messages.error(request, f"Could not reach KOReader sync server: {exc}")
-        return redirect("import_data")
-    except requests.RequestException as exc:
-        messages.error(request, f"Could not reach KOReader sync server: {exc}")
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    account.server_url = server_url
-    account.username = username
-    account.auth_key = helpers.encrypt(auth_key)
-    account.verify_ssl = options["verify_ssl"]
-    account.create_missing = options["create_missing"]
-    account.skip_finished_books = options["skip_finished_books"]
-    account.finished_threshold = options["finished_threshold"]
-    account.connection_broken = False
-    account.last_error_message = ""
-    account.save(
-        update_fields=[
-            "server_url",
-            "username",
-            "auth_key",
-            "verify_ssl",
-            "create_missing",
-            "skip_finished_books",
-            "finished_threshold",
-            "connection_broken",
-            "last_error_message",
-            "updated_at",
-        ],
-    )
     messages.success(request, "KOReader settings saved.")
     return redirect("import_data")
 
@@ -2792,17 +1930,7 @@ def koreader_settings(request):
 @require_POST
 def koreader_disconnect(request):
     """Disconnect the KOReader integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task=KOREADER_IMPORT_TASK_NAME,
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        KoreaderDocumentLink.objects.filter(user=request.user).delete()
-        KoreaderAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect KOReader", _disconnect)
+    connections.disconnect_koreader(request.user)
     messages.info(request, "Disconnected KOReader.")
     return redirect("import_data")
 
@@ -2820,7 +1948,7 @@ def import_koreader(request):
     import_time = request.POST["time"]
 
     if frequency == "once":
-        tasks.import_koreader.delay(user_id=request.user.id, mode=mode)
+        connections.start_koreader_import(request.user, mode)
         messages.info(request, "KOReader import queued.")
     else:
         helpers.create_import_schedule(
@@ -2835,86 +1963,20 @@ def import_koreader(request):
     return redirect("import_data")
 
 
-STREMIO_RECURRING_TASK_NAME = "Import from Stremio (Recurring)"
-
-
-def _ensure_stremio_schedule(user):
-    """Create the recurring Stremio import schedule if missing."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    existing_task = PeriodicTask.objects.filter(
-        task=STREMIO_RECURRING_TASK_NAME,
-        kwargs__regex=user_kwargs_regex(user.id),
-        enabled=True,
-    ).first()
-    if existing_task:
-        return
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=0,
-        hour="*/2",
-        day_of_week="*",
-        day_of_month="*",
-        month_of_year="*",
-        timezone=timezone.get_default_timezone(),
-    )
-    PeriodicTask.objects.create(
-        name=f"Import from Stremio for {user.username} (every 2 hours)",
-        task=STREMIO_RECURRING_TASK_NAME,
-        crontab=crontab,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=timezone.now(),
-        enabled=True,
-    )
-
-
 @require_POST
 def stremio_connect(request):
     """Connect a Stremio account using email/password or a pasted auth key."""
-    email = request.POST.get("email", "").strip()
-    password = request.POST.get("password", "").strip()
-    auth_key = request.POST.get("auth_key", "").strip()
-
-    if not auth_key and not (email and password):
-        messages.error(
-            request, "Enter your Stremio email and password, or an auth key."
-        )
-        return _integration_redirect(request)
-
     try:
-        if not auth_key:
-            auth_key = stremio.login(email, password)
-        else:
-            # Validate a pasted auth key before storing it.
-            stremio.get_user(auth_key)
-    except helpers.MediaImportError as error:
-        logger.exception("Stremio login failed")
-        messages.error(
-            request,
-            "Could not connect to Stremio. Check your credentials; for accounts created "
-            "via Facebook login, paste an auth key instead or set a password first. "
-            f"({error})",
+        connections.connect_stremio(
+            request.user,
+            request.POST.get("email", ""),
+            request.POST.get("password", ""),
+            request.POST.get("auth_key", ""),
         )
-        return _integration_redirect(request)
-    except Exception as error:
-        logger.exception("Failed to connect to Stremio")
-        messages.error(request, f"Failed to connect to Stremio: {error}")
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return _integration_redirect(request)
 
-    def _connect():
-        StremioAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "auth_key": helpers.encrypt(auth_key),
-                "email": helpers.encrypt(email) if email else "",
-                "connection_broken": False,
-                "last_error_message": "",
-            },
-        )
-        _ensure_stremio_schedule(request.user)
-
-    _run_with_lock_retry("connect Stremio", _connect)
-    tasks.import_stremio.delay(user_id=request.user.id, mode="new")
     messages.success(
         request,
         "Connected to Stremio. Initial import queued; your library will sync every 2 hours.",
@@ -2925,16 +1987,7 @@ def stremio_connect(request):
 @require_POST
 def stremio_disconnect(request):
     """Disconnect the Stremio integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task=STREMIO_RECURRING_TASK_NAME,
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        StremioAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Stremio", _disconnect)
+    connections.disconnect_stremio(request.user)
     messages.info(request, "Disconnected Stremio.")
     return redirect("import_data")
 
@@ -2942,227 +1995,66 @@ def stremio_disconnect(request):
 @require_POST
 def import_stremio(request):
     """Queue a Stremio import and ensure the recurring schedule exists."""
-    account = getattr(request.user, "stremio_account", None)
-    if not account:
-        messages.error(request, "Connect Stremio before importing.")
+    try:
+        connections.start_stremio_import(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    tasks.import_stremio.delay(user_id=request.user.id, mode="new")
-    _ensure_stremio_schedule(request.user)
     messages.info(request, "Stremio import queued.")
     return redirect("import_data")
 
 
-XBOX_RECURRING_TASK_NAME = "Import from Xbox (Recurring)"
-PSN_RECURRING_TASK_NAME = "Import from PSN (Recurring)"
-CONSOLE_RECURRING_FREQUENCIES = {"daily": "*", "2days": "*/2"}
-CONSOLE_DEFAULT_IMPORT_TIME = "04:00"
+def _console_import_params(request):
+    """Read a console import's mode/frequency/time from the form POST."""
+    return {
+        "mode": request.POST.get("mode") or "new",
+        "frequency": request.POST.get("frequency") or "once",
+        "time": request.POST.get("time") or connections.CONSOLE_DEFAULT_IMPORT_TIME,
+    }
 
 
-def _next_crontab_run(crontab):
-    """Return the next fire time for a crontab schedule.
-
-    New periodic tasks are created with this as their `start_time`; beat
-    treats a task whose `start_time` has already passed as due immediately,
-    which would run the import once on creation and again on schedule.
-    """
-    schedule_timezone = zoneinfo.ZoneInfo(str(crontab.timezone))
-    cron_expression = (
-        f"{crontab.minute} {crontab.hour} {crontab.day_of_month} "
-        f"{crontab.month_of_year} {crontab.day_of_week}"
-    )
-    now = timezone.now().astimezone(schedule_timezone)
-    return croniter.croniter(cron_expression, now).get_next(datetime)
-
-
-def _console_schedule_name(source, user, parsed_time, frequency):
-    """Name a user's console schedule for the beat admin and the schedule list."""
-    return f"Import from {source} for {user.username} at {parsed_time} {frequency}"
-
-
-def _reclaim_console_schedule_name(source, task_name, parsed_time, frequency):
-    """Free a schedule name whose holder no longer answers to it.
-
-    `PeriodicTask.name` is unique and these names are built from the
-    username, which can be changed and freed for someone else to take — so
-    a name outlives its owner's claim to it. The kwargs `user_id` is the
-    real owner: rename the holder to match whoever that is now, or drop it
-    if that user is gone. Returns whether the name is ours to take.
-    """
-    from django_celery_beat.models import PeriodicTask
-
-    holder = PeriodicTask.objects.filter(name=task_name).first()
-    if holder is None:
-        return True
-
-    try:
-        holder_user_id = json.loads(holder.kwargs or "{}").get("user_id")
-    except (TypeError, ValueError):
-        holder_user_id = None
-
-    holder_user = (
-        users.models.User.objects.filter(id=holder_user_id).first()
-        if holder_user_id
-        else None
-    )
-    if holder_user is None:
-        holder.delete()
-        return True
-
-    current_name = _console_schedule_name(source, holder_user, parsed_time, frequency)
-    if current_name == task_name:
-        # The holder is entitled to the name; it just isn't ours.
-        return False
-
-    holder.name = current_name
-    holder.save(update_fields=["name"])
-    return True
-
-
-def _create_console_schedule(
-    request,
-    source,
-    recurring_task_name,
-    mode,
-    frequency,
-    import_time,
-):
-    """Create a recurring console import schedule for the chosen time."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    try:
-        parsed_time = datetime.strptime(import_time, "%H:%M").time()  # noqa: DTZ007  # wall-clock value; the crontab carries the timezone
-    except (TypeError, ValueError):
-        messages.error(request, "Invalid import time.")
-        return
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute=parsed_time.minute,
-        hour=parsed_time.hour,
-        day_of_week=CONSOLE_RECURRING_FREQUENCIES[frequency],
-        day_of_month="*",
-        month_of_year="*",
-        timezone=timezone.get_default_timezone(),
-    )
-
-    task_name = _console_schedule_name(source, request.user, parsed_time, frequency)
-    desired_kwargs = json.dumps({"user_id": request.user.id, "mode": mode})
-    existing_task = (
-        PeriodicTask.objects.filter(
-            _periodic_task_filter_for_user(request.user.id),
-            task=recurring_task_name,
-            crontab=crontab,
-        )
-        .order_by("-enabled", "id")
-        .first()
-    )
-    if existing_task:
-        if existing_task.enabled:
-            messages.error(request, "The same import task is already scheduled.")
-            return
-
-        # A disabled task still owns its unique name, so revive it instead of
-        # creating a second one that would collide.
-        existing_task.name = task_name
-        existing_task.kwargs = desired_kwargs
-        existing_task.start_time = _next_crontab_run(crontab)
-        existing_task.enabled = True
-        existing_task.save(
-            update_fields=["name", "kwargs", "start_time", "enabled"],
-        )
+def _report_console_import(request, source, queued):
+    """Turn a console import outcome into the message the web UI has always shown."""
+    if queued.outcome == "reenabled":
         messages.success(request, f"{source} import task re-enabled.")
-        return
-
-    if not _reclaim_console_schedule_name(source, task_name, parsed_time, frequency):
-        messages.error(request, "The same import task is already scheduled.")
-        return
-
-    try:
-        PeriodicTask.objects.create(
-            name=task_name,
-            task=recurring_task_name,
-            crontab=crontab,
-            kwargs=desired_kwargs,
-            start_time=_next_crontab_run(crontab),
-            enabled=True,
-        )
-    except IntegrityError:
-        logger.exception("%s schedule %s could not be created", source, task_name)
-        messages.error(request, "The same import task is already scheduled.")
-        return
-
-    messages.success(request, f"{source} import task scheduled.")
-
-
-def _start_console_import(request, source, task, recurring_task_name):
-    """Queue a one-off console import, or schedule a recurring one.
-
-    A scheduled import only runs on its schedule; a one time import runs
-    straight away and creates no periodic task.
-    """
-    mode = request.POST.get("mode") or "new"
-    frequency = request.POST.get("frequency") or "once"
-    import_time = request.POST.get("time") or CONSOLE_DEFAULT_IMPORT_TIME
-
-    if frequency not in CONSOLE_RECURRING_FREQUENCIES:
-        task.delay(user_id=request.user.id, mode=mode)
+    elif queued.outcome == "scheduled":
+        messages.success(request, f"{source} import task scheduled.")
+    else:
         messages.info(
             request,
             f"The task to import media from {source} has been queued.",
         )
-        return
 
-    _create_console_schedule(
-        request,
-        source,
-        recurring_task_name,
-        mode,
-        frequency,
-        import_time,
-    )
+
+def _schedule_console_import(request, source, task, recurring_task_name):
+    """Start a console import right after connecting, with lock retry."""
+    params = _console_import_params(request)
+    try:
+        queued = _run_with_lock_retry(
+            f"schedule {source} import",
+            lambda: connections.start_console_import(
+                request.user, source, task, recurring_task_name, **params
+            ),
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
+        return
+    _report_console_import(request, source, queued)
 
 
 @require_POST
 def xbox_connect(request):
     """Connect an Xbox account using an OpenXBL API key."""
-    api_key = request.POST.get("api_key", "").strip()
-    if not api_key:
-        messages.error(request, "An OpenXBL API key is required.")
-        return redirect("import_data")
-
     try:
-        xuid, gamertag = xbox_api.get_account(api_key)
-    except helpers.MediaImportError as error:
-        messages.error(request, f"Could not connect to Xbox: {error}")
-        return redirect("import_data")
-    except Exception as error:
-        logger.exception("Failed to connect to Xbox")
-        messages.error(
-            request,
-            "Failed to connect to Xbox "
-            f"({exception_summary(error)}). Check the logs for details.",
-        )
+        account = connections.connect_xbox(request.user, request.POST.get("api_key", ""))
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    _run_with_lock_retry(
-        "connect Xbox",
-        lambda: XboxAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "api_key": helpers.encrypt(api_key),
-                "xuid": xuid,
-                "gamertag": gamertag,
-                "connection_broken": False,
-                "last_error_message": "",
-            },
-        ),
-    )
-    messages.success(request, f"Connected to Xbox as {gamertag or xuid}.")
-    _run_with_lock_retry(
-        "schedule Xbox import",
-        lambda: _start_console_import(
-            request, "Xbox", tasks.import_xbox, XBOX_RECURRING_TASK_NAME
-        ),
+    messages.success(request, f"Connected to Xbox as {account.gamertag or account.xuid}.")
+    _schedule_console_import(
+        request, "Xbox", tasks.import_xbox, connections.XBOX_RECURRING_TASK_NAME
     )
     return redirect("import_data")
 
@@ -3170,16 +2062,7 @@ def xbox_connect(request):
 @require_POST
 def xbox_disconnect(request):
     """Disconnect the Xbox integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            _periodic_task_filter_for_user(request.user.id),
-            task=XBOX_RECURRING_TASK_NAME,
-        ).delete()
-        XboxAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Xbox", _disconnect)
+    connections.disconnect_xbox(request.user)
     messages.info(request, "Disconnected Xbox.")
     return redirect("import_data")
 
@@ -3187,62 +2070,33 @@ def xbox_disconnect(request):
 @require_POST
 def import_xbox(request):
     """Queue a one-off Xbox import or schedule a recurring one."""
-    account = getattr(request.user, "xbox_account", None)
-    if not account:
-        messages.error(request, "Connect Xbox before importing.")
+    try:
+        queued = connections.start_xbox_import(
+            request.user, **_console_import_params(request)
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    _start_console_import(request, "Xbox", tasks.import_xbox, XBOX_RECURRING_TASK_NAME)
+    _report_console_import(request, "Xbox", queued)
     return redirect("import_data")
 
 
 @require_POST
 def psn_connect(request):
     """Connect a PlayStation Network account using an NPSSO token."""
-    npsso = request.POST.get("npsso", "").strip()
-    if not npsso:
-        messages.error(request, "A PSN NPSSO token is required.")
-        return redirect("import_data")
-
     try:
-        account_id, online_id = psn_api.get_account(npsso)
-    except helpers.MediaImportError as error:
-        messages.error(
-            request,
-            f"Could not connect to PlayStation Network: {error}",
-        )
-        return redirect("import_data")
-    except Exception as error:
-        logger.exception("Failed to connect to PlayStation Network")
-        messages.error(
-            request,
-            "Failed to connect to PlayStation Network "
-            f"({exception_summary(error)}). Check the logs for details.",
-        )
+        account = connections.connect_psn(request.user, request.POST.get("npsso", ""))
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    _run_with_lock_retry(
-        "connect PSN",
-        lambda: PSNAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "npsso": helpers.encrypt(npsso),
-                "account_id": account_id,
-                "online_id": online_id,
-                "connection_broken": False,
-                "last_error_message": "",
-            },
-        ),
-    )
     messages.success(
         request,
-        f"Connected to PlayStation Network as {online_id or account_id}.",
+        f"Connected to PlayStation Network as {account.online_id or account.account_id}.",
     )
-    _run_with_lock_retry(
-        "schedule PSN import",
-        lambda: _start_console_import(
-            request, "PSN", tasks.import_psn, PSN_RECURRING_TASK_NAME
-        ),
+    _schedule_console_import(
+        request, "PSN", tasks.import_psn, connections.PSN_RECURRING_TASK_NAME
     )
     return redirect("import_data")
 
@@ -3250,16 +2104,7 @@ def psn_connect(request):
 @require_POST
 def psn_disconnect(request):
     """Disconnect the PlayStation Network integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            _periodic_task_filter_for_user(request.user.id),
-            task=PSN_RECURRING_TASK_NAME,
-        ).delete()
-        PSNAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect PSN", _disconnect)
+    connections.disconnect_psn(request.user)
     messages.info(request, "Disconnected PlayStation Network.")
     return redirect("import_data")
 
@@ -3267,152 +2112,45 @@ def psn_disconnect(request):
 @require_POST
 def import_psn(request):
     """Queue a one-off PSN import or schedule a recurring one."""
-    account = getattr(request.user, "psn_account", None)
-    if not account:
-        messages.error(request, "Connect PlayStation Network before importing.")
+    try:
+        queued = connections.start_psn_import(
+            request.user, **_console_import_params(request)
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    _start_console_import(request, "PSN", tasks.import_psn, PSN_RECURRING_TASK_NAME)
+    _report_console_import(request, "PSN", queued)
     return redirect("import_data")
 
 
 @require_POST
 def pocketcasts_connect(request):
     """Connect Pocket Casts account using email and password."""
-    email = request.POST.get("email", "").strip()
-    password = request.POST.get("password", "").strip()
-
-    if not email:
-        messages.error(request, "Email is required.")
-        return _integration_redirect(request)
-
-    if not password:
-        messages.error(request, "Password is required.")
-        return _integration_redirect(request)
-
-    # Attempt to login with credentials
     try:
-        logger.debug("Attempting Pocket Casts login with configured credentials")
-        login_response = pocketcasts_api.login(email, password)
-        access_token = login_response["accessToken"]
-        refresh_token = login_response.get("refreshToken", "")
-
-        logger.info(
-            "Successfully logged in to Pocket Casts for user %s", request.user.username
+        account = connections.connect_pocketcasts(
+            request.user,
+            request.POST.get("email", ""),
+            request.POST.get("password", ""),
         )
-    except PocketCastsAuthError:
-        logger.exception("Pocket Casts login failed")
-        messages.error(
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
+        return _integration_redirect(request)
+
+    if account.initial_import_queued:
+        messages.success(
             request,
-            "Invalid email or password. For accounts created via 'Sign in with Apple' or 'Sign in with Google', "
-            "please set a password first using Pocket Casts' 'Forgot Password' feature, then enter your email and new password here.",
+            "Connected to Pocket Casts successfully. Initial import queued. Recurring imports will run every 2 hours.",
         )
-        return _integration_redirect(request)
-    except Exception as e:
-        logger.exception("Failed to login to Pocket Casts")
-        messages.error(request, f"Failed to connect to Pocket Casts: {e}")
-        return _integration_redirect(request)
-
-    # Encrypt and store credentials and tokens
-    try:
-        encrypted_email = helpers.encrypt(email)
-        encrypted_password = helpers.encrypt(password)
-        encrypted_access = helpers.encrypt(access_token)
-        encrypted_refresh = helpers.encrypt(refresh_token) if refresh_token else None
-
-        # Parse expiration from JWT
-        token_expires_at = pocketcasts_api.parse_token_expiration(access_token)
-
-        from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-        def _connect():
-            PocketCastsAccount.objects.update_or_create(
-                user=request.user,
-                defaults={
-                    "email": encrypted_email,
-                    "password": encrypted_password,
-                    "access_token": encrypted_access,
-                    "refresh_token": encrypted_refresh,
-                    "token_expires_at": token_expires_at,
-                    "connection_broken": False,  # Clear broken flag on successful connection
-                },
-            )
-
-            # Set up 2-hour recurring import if it doesn't exist
-            existing_task = PeriodicTask.objects.filter(
-                task="Import from Pocket Casts (Recurring)",
-                kwargs__regex=user_kwargs_regex(request.user.id),
-                enabled=True,
-            ).first()
-
-            if existing_task:
-                return False
-
-            # Create crontab for every 2 hours (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
-            crontab, _ = CrontabSchedule.objects.get_or_create(
-                minute=0,
-                hour="*/2",
-                day_of_week="*",
-                day_of_month="*",
-                month_of_year="*",
-                timezone=timezone.get_default_timezone(),
-            )
-
-            task_name = (
-                f"Import from Pocket Casts for {request.user.username} (every 2 hours)"
-            )
-            PeriodicTask.objects.create(
-                name=task_name,
-                task="Import from Pocket Casts (Recurring)",
-                crontab=crontab,
-                kwargs=json.dumps(
-                    {
-                        "user_id": request.user.id,
-                    }
-                ),
-                start_time=timezone.now(),
-                enabled=True,
-            )
-            return True
-
-        newly_scheduled = _run_with_lock_retry("connect Pocket Casts", _connect)
-
-        if newly_scheduled:
-            # Run initial import
-            tasks.import_pocketcasts.delay(
-                user_id=request.user.id,
-                mode="new",
-            )
-            messages.success(
-                request,
-                "Connected to Pocket Casts successfully. Initial import queued. Recurring imports will run every 2 hours.",
-            )
-        else:
-            messages.success(request, "Connected to Pocket Casts successfully.")
-    except Exception as e:
-        logger.exception("Failed to store Pocket Casts credentials")
-        messages.error(request, f"Failed to store credentials: {e}")
-        return _integration_redirect(request)
-
+    else:
+        messages.success(request, "Connected to Pocket Casts successfully.")
     return _integration_redirect(request, connected_slug="pocketcasts")
 
 
 @require_POST
 def pocketcasts_disconnect(request):
     """Remove stored Pocket Casts credentials and delete periodic import task."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        # Delete periodic import task if it exists
-        PeriodicTask.objects.filter(
-            task="Import from Pocket Casts (Recurring)",
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-
-        # Clear all credentials (full disconnect)
-        PocketCastsAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Pocket Casts", _disconnect)
+    connections.disconnect_pocketcasts(request.user)
     messages.info(request, "Disconnected Pocket Casts and removed scheduled imports.")
     return redirect("import_data")
 
@@ -3420,111 +2158,32 @@ def pocketcasts_disconnect(request):
 @require_POST
 def gpodder_connect(request):
     """Connect a GPodder-compatible account using Basic Auth credentials."""
-    server_url = gpodder_api.normalize_server_url(request.POST.get("server_url", ""))
-    username = request.POST.get("username", "").strip()
-    password = request.POST.get("password", "").strip()
-    device_filter = request.POST.get("device_filter", "").strip()
-
-    if not username:
-        messages.error(request, "Username is required.")
-        return _integration_redirect(request)
-
-    if not password:
-        messages.error(request, "Password is required.")
-        return _integration_redirect(request)
-
-    credentials = gpodder_api.GPodderCredentials(
-        server_url=server_url,
-        username=username,
-        password=password,
-    )
     try:
-        gpodder_api.verify_login(credentials)
-    except GPodderAuthError:
-        messages.error(request, "Invalid GPodder username or password.")
-        return _integration_redirect(request)
-    except GPodderClientError as exc:
-        messages.error(request, f"Failed to connect to GPodder: {exc}")
-        return _integration_redirect(request)
-
-    # Device id stays "yamtrack-<id>": it is registered on the remote
-    # GPodder server, and a new id would start a fresh sync from scratch.
-    device_id = f"yamtrack-{request.user.id}"
-
-    try:
-        from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-        def _connect():
-            GPodderAccount.objects.update_or_create(
-                user=request.user,
-                defaults={
-                    "server_url": helpers.encrypt(server_url),
-                    "username": helpers.encrypt(username),
-                    "password": helpers.encrypt(password),
-                    "device_id": device_id,
-                    "device_filter": device_filter,
-                    "connection_broken": False,
-                    "last_error_message": "",
-                },
-            )
-
-            existing_task = PeriodicTask.objects.filter(
-                task=GPODDER_RECURRING_TASK_NAME,
-                kwargs__regex=user_kwargs_regex(request.user.id),
-                enabled=True,
-            ).first()
-            if existing_task:
-                return False
-
-            crontab, _ = CrontabSchedule.objects.get_or_create(
-                minute=0,
-                hour="*/2",
-                day_of_week="*",
-                day_of_month="*",
-                month_of_year="*",
-                timezone=timezone.get_default_timezone(),
-            )
-            PeriodicTask.objects.create(
-                name=f"Import from GPodder for {request.user.username} (every 2 hours)",
-                task=GPODDER_RECURRING_TASK_NAME,
-                crontab=crontab,
-                kwargs=json.dumps({"user_id": request.user.id}),
-                start_time=timezone.now(),
-                enabled=True,
-            )
-            return True
-
-        newly_scheduled = _run_with_lock_retry("connect GPodder", _connect)
-
-        if newly_scheduled:
-            tasks.import_gpodder.delay(user_id=request.user.id, mode="new")
-            messages.success(
-                request,
-                "Connected to GPodder successfully. Initial sync queued. Recurring syncs will run every 2 hours.",
-            )
-        else:
-            messages.success(request, "Connected to GPodder successfully.")
-    except Exception as exc:
-        logger.exception("Failed to store GPodder credentials")
-        messages.error(request, f"Failed to save GPodder connection: {exc}")
+        account = connections.connect_gpodder(
+            request.user,
+            request.POST.get("server_url", ""),
+            request.POST.get("username", ""),
+            request.POST.get("password", ""),
+            request.POST.get("device_filter", ""),
+        )
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return _integration_redirect(request)
 
+    if account.initial_import_queued:
+        messages.success(
+            request,
+            "Connected to GPodder successfully. Initial sync queued. Recurring syncs will run every 2 hours.",
+        )
+    else:
+        messages.success(request, "Connected to GPodder successfully.")
     return _integration_redirect(request, connected_slug="gpodder")
 
 
 @require_POST
 def gpodder_disconnect(request):
     """Remove stored GPodder credentials and scheduled imports."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task=GPODDER_RECURRING_TASK_NAME,
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        GPodderAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect GPodder", _disconnect)
+    connections.disconnect_gpodder(request.user)
     messages.info(request, "Disconnected GPodder and removed scheduled imports.")
     return redirect("import_data")
 
@@ -3532,101 +2191,27 @@ def gpodder_disconnect(request):
 @require_POST
 def lastfm_connect(request):
     """Connect Last.fm account using username."""
-    username = request.POST.get("lastfm_username", "").strip()
-
-    if not username:
-        messages.error(request, "Last.fm username is required.")
-        return _integration_redirect(request)
-
-    # Validate username by making a test API call
     try:
-        logger.debug("Validating Last.fm username: %s", username)
-        # Make a minimal API call to verify user exists and has public scrobbles
-        lastfm_api.get_recent_tracks(username=username, limit=1, page=1)
-        logger.info("Successfully validated Last.fm username: %s", username)
-    except LastFMClientError:
-        logger.exception("Last.fm username validation failed")
-        messages.error(
-            request,
-            "Invalid Last.fm username or user not found. Please check your username and ensure your scrobbles are public.",
-        )
-        return _integration_redirect(request)
-    except LastFMRateLimitError:
-        logger.exception("Last.fm rate limit during validation")
-        messages.error(
-            request,
-            "Last.fm API rate limit exceeded. Please try again in a few moments.",
-        )
-        return _integration_redirect(request)
-    except LastFMAPIError as e:
-        logger.exception("Last.fm API error during validation")
-        messages.error(request, f"Failed to connect to Last.fm: {e}")
-        return _integration_redirect(request)
-    except Exception as e:
-        logger.exception("Unexpected error validating Last.fm username")
-        messages.error(request, f"Failed to connect to Last.fm: {e}")
+        connections.connect_lastfm(request.user, request.POST.get("lastfm_username", ""))
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return _integration_redirect(request)
 
-    # Store username and initialize sync state
-    try:
-        import time
-
-        current_timestamp = int(time.time())
-
-        def _connect():
-            lastfm_account, _ = LastFMAccount.objects.update_or_create(
-                user=request.user,
-                defaults={
-                    "lastfm_username": username,
-                    "last_fetch_timestamp_uts": current_timestamp,
-                    "connection_broken": False,
-                    "failure_count": 0,
-                    "last_error_code": "",
-                    "last_error_message": "",
-                    "last_failed_at": None,
-                },
-            )
-            _save_lastfm_history_reset(lastfm_account, current_timestamp - 1)
-            _ensure_lastfm_poll_schedule()
-
-        _run_with_lock_retry("connect Last.fm", _connect)
-        poll_interval_minutes = getattr(settings, "LASTFM_POLL_INTERVAL_MINUTES", 15)
-        tasks.poll_lastfm_for_user.delay(user_id=request.user.id)
-        tasks.import_lastfm_history.delay(user_id=request.user.id, reset=False)
-        messages.success(
-            request,
-            (
-                "Connected to Last.fm successfully. Recurring syncs will run every "
-                f"{poll_interval_minutes} minutes. Initial sync and full history import queued."
-            ),
-        )
-    except Exception as e:
-        logger.exception("Failed to store Last.fm connection")
-        messages.error(request, f"Failed to save Last.fm connection: {e}")
-        return _integration_redirect(request)
-
+    poll_interval_minutes = getattr(settings, "LASTFM_POLL_INTERVAL_MINUTES", 15)
+    messages.success(
+        request,
+        (
+            "Connected to Last.fm successfully. Recurring syncs will run every "
+            f"{poll_interval_minutes} minutes. Initial sync and full history import queued."
+        ),
+    )
     return _integration_redirect(request, connected_slug="lastfm")
 
 
 @require_POST
 def lastfm_disconnect(request):
     """Remove Last.fm connection."""
-    from integrations.models import ImportRun
-
-    LastFMAccount.objects.filter(user=request.user).delete()
-    # Deleting the account already stops future self-requeued chunks (they
-    # no-op when the account is gone), but flag any in-flight run too so
-    # the cooperative cancel check picks it up before its next requeue.
-    ImportRun.objects.filter(
-        user=request.user,
-        source="lastfm",
-        status=ImportRun.Status.RUNNING,
-    ).update(cancel_requested=True)
-
-    # If no users left, we could disable the periodic task, but we'll leave it
-    # running - it will just skip if no users are connected
-    # This allows the task to stay configured for future users
-
+    connections.disconnect_lastfm(request.user)
     messages.info(request, "Disconnected Last.fm.")
     return redirect("import_data")
 
@@ -3634,17 +2219,12 @@ def lastfm_disconnect(request):
 @require_POST
 def poll_lastfm_manual(request):
     """Manually trigger Last.fm polling for the current user."""
-    lastfm_account = getattr(request.user, "lastfm_account", None)
-    if not lastfm_account:
-        messages.error(request, "Connect Last.fm before syncing.")
+    try:
+        connections.poll_lastfm_now(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    lastfm_account.refresh_from_db()
-    if not lastfm_account.is_connected:
-        messages.error(request, "Last.fm connection is broken. Please reconnect.")
-        return redirect("import_data")
-
-    tasks.poll_lastfm_for_user.delay(user_id=request.user.id)
     messages.info(request, "Last.fm sync queued. Scrobbles will be imported shortly.")
     return redirect("import_data")
 
@@ -3652,96 +2232,32 @@ def poll_lastfm_manual(request):
 @require_POST
 def import_lastfm_history_manual(request):
     """Queue or rerun a full Last.fm history import for the current user."""
-    lastfm_account = getattr(request.user, "lastfm_account", None)
-    if not lastfm_account:
-        messages.error(request, "Connect Last.fm before importing history.")
+    try:
+        connections.start_lastfm_history_import(request.user)
+    except connections.AlreadyRunningError as exc:
+        messages.info(request, exc.web_message)
+        return redirect("import_data")
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    lastfm_account.refresh_from_db()
-    if not lastfm_account.is_connected:
-        messages.error(request, "Last.fm connection is broken. Please reconnect.")
-        return redirect("import_data")
-
-    if lastfm_account.history_import_is_active:
-        messages.info(request, "Full Last.fm history import already running.")
-        return redirect("import_data")
-
-    import time
-
-    cutoff_uts = (lastfm_account.last_fetch_timestamp_uts or int(time.time())) - 1
-    _save_lastfm_history_reset(lastfm_account, cutoff_uts)
-    tasks.import_lastfm_history.delay(user_id=request.user.id, reset=False)
     messages.info(request, "Full Last.fm history import queued.")
     return redirect("import_data")
-
-
-def _ensure_koito_poll_schedule(user):
-    """Create the recurring Koito poll schedule for a user if missing."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    existing_task = PeriodicTask.objects.filter(
-        task=tasks.KOITO_POLL_TASK_NAME,
-        kwargs__regex=user_kwargs_regex(user.id),
-        enabled=True,
-    ).first()
-    if existing_task:
-        return
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute="*/15",
-        hour="*",
-        day_of_week="*",
-        day_of_month="*",
-        month_of_year="*",
-        timezone=timezone.get_default_timezone(),
-    )
-    PeriodicTask.objects.create(
-        name=f"Poll Koito for {user.username} (every 15 minutes)",
-        task=tasks.KOITO_POLL_TASK_NAME,
-        crontab=crontab,
-        kwargs=json.dumps({"user_id": user.id}),
-        start_time=timezone.now(),
-        enabled=True,
-    )
 
 
 @require_POST
 def koito_connect(request):
     """Connect a Koito account using base URL + API key."""
-    base_url = request.POST.get("base_url", "").strip().rstrip("/")
-    api_key = request.POST.get("api_key", "").strip()
-
-    if not base_url or not api_key:
-        messages.error(request, "Koito server URL and API key are required.")
-        return _integration_redirect(request)
-
     try:
-        koito_api.validate_connection(base_url, api_key)
-    except koito_api.KoitoAuthError as exc:
-        messages.error(request, str(exc))
-        return _integration_redirect(request)
-    except Exception as exc:
-        messages.error(request, f"Failed to connect to Koito: {exc}")
-        return _integration_redirect(request)
-
-    def _connect():
-        KoitoAccount.objects.update_or_create(
-            user=request.user,
-            defaults={
-                "base_url": base_url,
-                "api_key": helpers.encrypt(api_key),
-                "last_fetch_timestamp_uts": int(timezone.now().timestamp()),
-                "connection_broken": False,
-                "failure_count": 0,
-                "last_error_message": "",
-                "last_failed_at": None,
-            },
+        connections.connect_koito(
+            request.user,
+            request.POST.get("base_url", ""),
+            request.POST.get("api_key", ""),
         )
-        _ensure_koito_poll_schedule(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
+        return _integration_redirect(request)
 
-    _run_with_lock_retry("connect Koito", _connect)
-    tasks.poll_koito_for_user.delay(user_id=request.user.id)
-    tasks.import_koito_history.delay(user_id=request.user.id, reset=True)
     messages.success(request, "Connected Koito. Full history import queued.")
     return _integration_redirect(request, connected_slug="koito")
 
@@ -3749,16 +2265,7 @@ def koito_connect(request):
 @require_POST
 def koito_disconnect(request):
     """Disconnect the Koito integration."""
-    from django_celery_beat.models import PeriodicTask
-
-    def _disconnect():
-        PeriodicTask.objects.filter(
-            task=tasks.KOITO_POLL_TASK_NAME,
-            kwargs__regex=user_kwargs_regex(request.user.id),
-        ).delete()
-        KoitoAccount.objects.filter(user=request.user).delete()
-
-    _run_with_lock_retry("disconnect Koito", _disconnect)
+    connections.disconnect_koito(request.user)
     messages.info(request, "Disconnected Koito.")
     return redirect("import_data")
 
@@ -3766,17 +2273,12 @@ def koito_disconnect(request):
 @require_POST
 def poll_koito_manual(request):
     """Manually trigger a Koito sync for the current user."""
-    koito_account = getattr(request.user, "koito_account", None)
-    if not koito_account:
-        messages.error(request, "Connect Koito before syncing.")
+    try:
+        connections.poll_koito_now(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    koito_account.refresh_from_db()
-    if not koito_account.is_connected:
-        messages.error(request, "Koito connection is broken. Please reconnect.")
-        return redirect("import_data")
-
-    tasks.poll_koito_for_user.delay(user_id=request.user.id)
     messages.info(request, "Koito sync queued. Listens will be imported shortly.")
     return redirect("import_data")
 
@@ -3784,21 +2286,15 @@ def poll_koito_manual(request):
 @require_POST
 def import_koito_history_manual(request):
     """Queue or rerun a full Koito history import for the current user."""
-    koito_account = getattr(request.user, "koito_account", None)
-    if not koito_account:
-        messages.error(request, "Connect Koito before importing history.")
+    try:
+        connections.start_koito_history_import(request.user)
+    except connections.AlreadyRunningError as exc:
+        messages.info(request, exc.web_message)
+        return redirect("import_data")
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    koito_account.refresh_from_db()
-    if not koito_account.is_connected:
-        messages.error(request, "Koito connection is broken. Please reconnect.")
-        return redirect("import_data")
-
-    if koito_account.history_import_is_active:
-        messages.info(request, "Full Koito history import already running.")
-        return redirect("import_data")
-
-    tasks.import_koito_history.delay(user_id=request.user.id, reset=True)
     messages.info(request, "Full Koito history import queued.")
     return redirect("import_data")
 
@@ -3808,126 +2304,41 @@ def import_pocketcasts(request):
     """Queue a Pocket Casts history import for the current user.
 
     Pocket Casts always uses mode="new" and runs every 2 hours automatically.
-    First import is "new", subsequent recurring imports are also "new".
     """
-    pocketcasts_account = getattr(request.user, "pocketcasts_account", None)
-    if not pocketcasts_account:
-        messages.error(request, "Connect Pocket Casts before importing.")
+    try:
+        queued = connections.start_pocketcasts_import(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    # Refresh from DB to get latest status
-    pocketcasts_account.refresh_from_db()
-
-    # Allow sync even if connection is broken - importer will attempt refresh
-
-    # Check if this is the first import (no existing schedule)
-    from django_celery_beat.models import PeriodicTask
-
-    existing_task = PeriodicTask.objects.filter(
-        task="Import from Pocket Casts (Recurring)",
-        kwargs__regex=user_kwargs_regex(request.user.id),
-        enabled=True,
-    ).first()
-
-    # Always use mode="new" for Pocket Casts
-    mode = "new"
-
-    if not existing_task:
-        # First import - run immediately, then set up 2-hour schedule
-        tasks.import_pocketcasts.delay(
-            user_id=request.user.id,
-            mode=mode,
-        )
+    if queued.schedule_created:
         messages.info(
             request,
             "The task to import media from Pocket Casts has been queued. Recurring imports will run every 2 hours.",
         )
-
-        # Set up 2-hour recurring schedule
-        from django.utils import timezone as tz
-        from django_celery_beat.models import CrontabSchedule
-
-        # Create crontab for every 2 hours (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
-        crontab, _ = CrontabSchedule.objects.get_or_create(
-            minute=0,
-            hour="*/2",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-            timezone=tz.get_default_timezone(),
-        )
-
-        task_name = (
-            f"Import from Pocket Casts for {request.user.username} (every 2 hours)"
-        )
-        PeriodicTask.objects.create(
-            name=task_name,
-            task="Import from Pocket Casts (Recurring)",
-            crontab=crontab,
-            kwargs=json.dumps(
-                {
-                    "user_id": request.user.id,
-                }
-            ),
-            start_time=tz.now(),
-            enabled=True,
-        )
     else:
-        # Just run a manual import
-        tasks.import_pocketcasts.delay(
-            user_id=request.user.id,
-            mode=mode,
-        )
         messages.info(
             request, "The task to import media from Pocket Casts has been queued."
         )
-
     return redirect("import_data")
 
 
 @require_POST
 def import_gpodder(request):
     """Queue a GPodder podcast history sync for the current user."""
-    gpodder_account = getattr(request.user, "gpodder_account", None)
-    if not gpodder_account:
-        messages.error(request, "Connect GPodder before syncing.")
+    try:
+        queued = connections.start_gpodder_import(request.user)
+    except connections.IntegrationError as exc:
+        messages.error(request, exc.web_message)
         return redirect("import_data")
 
-    gpodder_account.refresh_from_db()
-
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
-    existing_task = PeriodicTask.objects.filter(
-        task=GPODDER_RECURRING_TASK_NAME,
-        kwargs__regex=user_kwargs_regex(request.user.id),
-        enabled=True,
-    ).first()
-
-    if not existing_task:
-        crontab, _ = CrontabSchedule.objects.get_or_create(
-            minute=0,
-            hour="*/2",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-            timezone=timezone.get_default_timezone(),
-        )
-        PeriodicTask.objects.create(
-            name=f"Import from GPodder for {request.user.username} (every 2 hours)",
-            task=GPODDER_RECURRING_TASK_NAME,
-            crontab=crontab,
-            kwargs=json.dumps({"user_id": request.user.id}),
-            start_time=timezone.now(),
-            enabled=True,
-        )
+    if queued.schedule_created:
         messages.info(
             request,
             "The task to import media from GPodder has been queued. Recurring syncs will run every 2 hours.",
         )
     else:
         messages.info(request, "The task to import media from GPodder has been queued.")
-
-    tasks.import_gpodder.delay(user_id=request.user.id, mode="new")
     return redirect("import_data")
 
 
@@ -4647,7 +3058,7 @@ def sync_direction_settings(request):
     and grants no writes — rather than recording an approval that would never
     be honoured and reporting it as if it had been.
     """
-    from integrations.state import identity, settings_view
+    from integrations.state import settings_view
 
     binding = SyncBinding.objects.filter(
         pk=request.POST.get("binding_id"),
@@ -4662,19 +3073,9 @@ def sync_direction_settings(request):
         messages.error(request, "Unknown synchronization direction.")
         return redirect("integrations")
 
-    if direction == settings_view.DIRECTION_OFF:
-        identity.deactivate_binding(binding)
-        messages.success(
-            request,
-            f"Turned off watched-state sync for {binding.get_client_kind_display()}.",
-        )
-        return redirect("integrations")
-
-    adapter = outbound.get_adapter(binding)
-    supported = set(adapter.CAPABILITIES) if adapter is not None else set()
-    capabilities = settings_view.capabilities_for_direction(direction, supported)
-
-    if not capabilities:
+    try:
+        partially_granted = settings_view.set_binding_direction(binding, direction)
+    except settings_view.DirectionNotSupportedError:
         messages.error(
             request,
             (
@@ -4684,18 +3085,12 @@ def sync_direction_settings(request):
         )
         return redirect("integrations")
 
-    identity.activate_binding(
-        binding,
-        capabilities=capabilities,
-        directions=settings_view.directions_for_choice(direction, capabilities),
-    )
-
-    granted = settings_view.capabilities_for_direction(direction, supported)
-    requested = settings_view.capabilities_for_direction(
-        direction,
-        set(settings_view.CAPABILITY_LABELS),
-    )
-    if len(granted) < len(requested):
+    if direction == settings_view.DIRECTION_OFF:
+        messages.success(
+            request,
+            f"Turned off watched-state sync for {binding.get_client_kind_display()}.",
+        )
+    elif partially_granted:
         messages.warning(
             request,
             (

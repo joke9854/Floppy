@@ -564,7 +564,7 @@ class KoreaderImporterTests(TestCase):
         mock_progress.assert_not_called()
 
     @patch("integrations.views.tasks.import_koreader.delay")
-    @patch("integrations.views._validate_koreader_connection")
+    @patch("integrations.connections._validate_koreader_connection")
     def test_settings_updates_account_options(self, mock_validate, mock_delay):
         user = get_user_model().objects.create_user(
             username="koreader-settings",
