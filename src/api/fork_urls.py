@@ -9,6 +9,7 @@ from . import (
     fork_views,
     fork_views_discover,
     fork_views_integrations,
+    fork_views_library,
     fork_views_lists,
     fork_views_metadata,
     fork_views_music,
@@ -130,6 +131,36 @@ urlpatterns = [
         r"^history/?$",
         fork_views_tracking.HistoryView.as_view(),
         name="api_history",
+    ),
+    re_path(
+        r"^metadata/languages/?$",
+        fork_views_library.MetadataLanguagesView.as_view(),
+        name="api_metadata_languages",
+    ),
+    re_path(
+        r"^media/book/hardcover/(?P<media_id>[^/]+)/edition/?$",
+        fork_views_library.HardcoverEditionView.as_view(),
+        name="api_hardcover_edition",
+    ),
+    re_path(
+        r"^music/albums/(?P<album_id>\d+)/release/?$",
+        fork_views_library.MusicReleaseView.as_view(),
+        name="api_music_album_release",
+    ),
+    re_path(
+        r"^tags/(?P<tag_id>\d+)/items/?$",
+        fork_views_library.TagItemsView.as_view(),
+        name="api_tag_items",
+    ),
+    re_path(
+        r"^collection/bulk/?$",
+        fork_views_library.CollectionBulkAddView.as_view(),
+        name="api_collection_bulk",
+    ),
+    re_path(
+        r"^collection/fields/?$",
+        fork_views_library.CollectionFieldsView.as_view(),
+        name="api_collection_fields",
     ),
     re_path(
         r"^history/genres/?$",

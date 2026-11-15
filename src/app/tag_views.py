@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils.translation import gettext
 from django.views.decorators.http import require_GET, require_POST
 
-from app import cache_utils
+from app import cache_utils, library_actions
 from app import statistics as stats
 from app.models import Item, ItemTag, MediaTypes, Tag
 from app.providers import services
@@ -460,14 +460,7 @@ def tag_bulk_toggle(request):
 
     tag = get_object_or_404(Tag, user=request.user, name__iexact=tag_name)
 
-    if action == "add":
-        ItemTag.objects.bulk_create(
-            [ItemTag(tag=tag, item_id=item_id) for item_id in item_ids],
-            ignore_conflicts=True,
-        )
-    else:
-        ItemTag.objects.filter(tag=tag, item_id__in=item_ids).delete()
-    cache_utils.clear_media_list_cache_for_user(request.user.id)
+    library_actions.toggle_tag(request.user, tag, action, item_ids)
 
     return HttpResponse(status=204)
 

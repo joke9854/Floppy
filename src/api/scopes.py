@@ -139,7 +139,20 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_metadata.MediaProviderPreferenceView": {
         "GET": "metadata:read",
         "PUT": "metadata:write",
+        "PATCH": "metadata:write",
     },
+    "api.fork_views_library.MetadataLanguagesView": {"GET": "metadata:read"},
+    "api.fork_views_library.HardcoverEditionView": {
+        "GET": "metadata:read",
+        "PUT": "metadata:write",
+    },
+    "api.fork_views_library.MusicReleaseView": {
+        "GET": "music:read",
+        "PUT": "music:write",
+    },
+    "api.fork_views_library.TagItemsView": {"POST": _W},
+    "api.fork_views_library.CollectionBulkAddView": {"POST": _W},
+    "api.fork_views_library.CollectionFieldsView": {"GET": _R, "PUT": _W},
     "api.fork_views_metadata.MediaEpisodeScoreView": {"PATCH": _W},
     "api.fork_views_music.MusicArtistsView": {
         "GET": "music:read",

@@ -21,6 +21,7 @@ from app import (
     custom_metadata,
     helpers,
     history_cache,
+    library_actions,
     metadata_utils,
 )
 from app.db_retry import is_retryable_error, run_retryable_db_operation
@@ -28,7 +29,6 @@ from app.log_safety import exception_summary, safe_url
 from app.models import (
     CollectionEntry,
     Episode,
-    HardcoverEditionPreference,
     Item,
     MediaTypes,
     MetadataProviderPreference,
@@ -155,11 +155,7 @@ def update_metadata_language_preference(request, source, media_type, media_id):
     if language and language not in valid_codes:
         messages.error(request, gettext("That metadata language is not available."))
     else:
-        MetadataProviderPreference.objects.update_or_create(
-            user=request.user,
-            item=item,
-            defaults={"language": language},
-        )
+        library_actions.set_metadata_language(request.user, item, language)
         messages.success(request, gettext("Metadata language updated."))
 
     if return_url and (
@@ -373,19 +369,8 @@ def remap_metadata_provider(request, source, media_type, media_id):
             request, gettext("That remap target is not valid for this title.")
         )
     else:
-        metadata_resolution.upsert_provider_links(
-            item,
-            {"media_id": provider_media_id},
-            provider=provider,
-            provider_media_type=metadata_resolution.provider_route_media_type(
-                media_type,
-                provider,
-            ),
-        )
-        MetadataProviderPreference.objects.update_or_create(
-            user=request.user,
-            item=item,
-            defaults={"provider": provider},
+        library_actions.remap_metadata_provider(
+            request.user, item, media_type, provider, provider_media_id
         )
         messages.success(request, gettext("Remapped to the selected match."))
 
@@ -466,18 +451,7 @@ def set_hardcover_edition(request, item_id):
     if not edition_id:
         messages.error(request, gettext("Select an edition to use."))
     else:
-        HardcoverEditionPreference.objects.update_or_create(
-            user=request.user,
-            item=item,
-            defaults={"edition_id": edition_id},
-        )
-        cache.delete(
-            f"{Sources.HARDCOVER.value}_{MediaTypes.BOOK.value}_{item.media_id}",
-        )
-        cache.delete(
-            f"{Sources.HARDCOVER.value}_{MediaTypes.BOOK.value}_"
-            f"{item.media_id}_{edition_id}",
-        )
+        library_actions.set_hardcover_edition(request.user, item, edition_id)
         messages.success(request, gettext("Edition updated."))
 
     if return_url and (

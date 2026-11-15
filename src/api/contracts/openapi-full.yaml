@@ -809,6 +809,136 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/collection/bulk/:
+    post:
+      operationId: bulkAddToCollection
+      description: Create the missing collection entries.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionBulkRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionBulkRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionBulkRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionBulkResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
+  /api/v1/collection/fields/:
+    get:
+      operationId: getCollectionFields
+      description: Return the groups and fields, in display order.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionFieldSchema'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
+    put:
+      operationId: saveCollectionFields
+      description: Replace the whole schema. Groups and fields with an id are updated,
+        those without one are created, and the user's groups and fields missing from
+        the payload are deleted (limited to `known_field_ids` when it is sent).
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionFieldSchemaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionFieldSchemaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionFieldSchemaRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionFieldSchema'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/collection/seasons/{season_item_id}/:
     delete:
       operationId: api_v1_collection_seasons_destroy
@@ -7244,6 +7374,99 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: metadata:write
+    patch:
+      operationId: api_v1_media_provider_preference_partial_update
+      description: |-
+        Change the provider, remap the title, or set its metadata language.
+
+        Language codes are checked against TMDB's list, so a TMDB outage
+        answers 503 `provider_unavailable`.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProviderPreferencePatch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProviderPreferencePatch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProviderPreferencePatch'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderPreferencePatchResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderPreferenceError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: metadata:write
   /api/v1/media/{media_type}/{source}/{media_id}/ratings-graph/:
     get:
       operationId: getMediaRatingsGraph
@@ -8061,6 +8284,114 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/media/book/hardcover/{media_id}/edition/:
+    get:
+      operationId: listHardcoverEditions
+      description: Return the book's editions and the one this user picked.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardcoverEditionsResponse'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: metadata:read
+    put:
+      operationId: setHardcoverEdition
+      description: Use this edition of the book for this user.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EditionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EditionRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditionResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: metadata:write
   /api/v1/metadata/items/{item_id}/:
     get:
       operationId: api_v1_metadata_items_retrieve
@@ -8216,6 +8547,44 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: metadata:write
+  /api/v1/metadata/languages/:
+    get:
+      operationId: listMetadataLanguages
+      description: Return the language codes `provider-preference` accepts.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetadataLanguage'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: metadata:read
   /api/v1/music/albums/:
     get:
       operationId: api_v1_music_albums_retrieve
@@ -8469,6 +8838,121 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: music:write
+  /api/v1/music/albums/{album_id}/release/:
+    get:
+      operationId: listMusicReleases
+      description: Return the album's releases and the one this user picked.
+      parameters:
+      - in: path
+        name: album_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicReleasesResponse'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: music:read
+    put:
+      operationId: setMusicRelease
+      description: Use this release for this user and rebuild the album's tracklist.
+      parameters:
+      - in: path
+        name: album_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MusicReleaseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MusicReleaseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MusicReleaseRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MusicReleaseResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
         '401':
           content:
             application/json:
@@ -11251,6 +11735,66 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/tags/{tag_id}/items/:
+    post:
+      operationId: bulkTagItems
+      description: Tag (`add`) or untag (`remove`) the items.
+      parameters:
+      - in: path
+        name: tag_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagItemsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TagItemsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TagItemsRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagItemsResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/tasks/{task_id}/:
     get:
       operationId: api_v1_tasks_retrieve
@@ -11888,6 +12432,14 @@ paths:
       x-required-scope: any
 components:
   schemas:
+    ActionEnum:
+      enum:
+      - add
+      - remove
+      type: string
+      description: |-
+        * `add` - add
+        * `remove` - remove
     ActivityData:
       type: object
       description: Activity calendar (``app.stats_activity.get_activity_data``).
@@ -12662,6 +13214,36 @@ components:
             $ref: '#/components/schemas/CineTrackShowInput'
       required:
       - shows
+    CollectionBulkRequest:
+      type: object
+      description: Items to add to the collection.
+      properties:
+        item_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          maxItems: 500
+      required:
+      - item_ids
+    CollectionBulkResult:
+      type: object
+      description: Counts of collection entries.
+      properties:
+        created:
+          type: integer
+        already_present:
+          type: integer
+        skipped_ids:
+          type: array
+          items:
+            type: integer
+          description: Unknown items, and shows or seasons whose episodes could not
+            be listed.
+      required:
+      - already_present
+      - created
+      - skipped_ids
     CollectionEntryCreateRequest:
       type: object
       description: Body for adding an owned copy to the collection.
@@ -12736,6 +13318,98 @@ components:
       - media_type
       - resolution
       - updated_at
+    CollectionField:
+      type: object
+      description: One custom collection field.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        label:
+          type: string
+        field_type:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        media_types:
+          type: array
+          items:
+            type: string
+        provenance:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionFieldProvenance'
+          readOnly: true
+      required:
+      - field_type
+      - id
+      - label
+      - media_types
+      - options
+      - provenance
+    CollectionFieldGroup:
+      type: object
+      description: A named group of custom collection fields.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionField'
+      required:
+      - fields
+      - id
+      - name
+    CollectionFieldProvenance:
+      type: object
+      description: An import that writes to this field.
+      properties:
+        source:
+          type: string
+        source_label:
+          type: string
+        created_field:
+          type: boolean
+        import_run_id:
+          type: integer
+          nullable: true
+      required:
+      - created_field
+      - import_run_id
+      - source
+      - source_label
+    CollectionFieldSchema:
+      type: object
+      description: The user's whole custom field schema.
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionFieldGroup'
+      required:
+      - groups
+    CollectionFieldSchemaRequest:
+      type: object
+      description: The whole schema to keep.
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionFieldGroup'
+        known_field_ids:
+          type: array
+          items:
+            type: integer
+          description: Field ids the client knew about. When sent, only those can
+            be deleted, so fields an import added meanwhile survive.
+      required:
+      - groups
     CollectionFormError:
       type: object
       description: Body of a 400 caused by a missing `item_id` or invalid fields.
@@ -13913,6 +14587,22 @@ components:
       - media_type
       - rows
       - show_more
+    EditionRequest:
+      type: object
+      description: The edition to use.
+      properties:
+        edition_id:
+          type: string
+      required:
+      - edition_id
+    EditionResult:
+      type: object
+      description: The edition now in use.
+      properties:
+        edition_id:
+          type: string
+      required:
+      - edition_id
     EpisodeBulkPlaysRequest:
       type: object
       description: A season/episode range of plays to spread over a date range.
@@ -14228,6 +14918,52 @@ components:
           allOf:
           - $ref: '#/components/schemas/ProviderGameLengths'
           nullable: true
+    HardcoverEdition:
+      type: object
+      description: One Hardcover edition of a book.
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+        publisher:
+          type: string
+          nullable: true
+        release_date:
+          type: string
+          nullable: true
+      required:
+      - format
+      - id
+      - image
+      - language
+      - publisher
+      - release_date
+      - title
+    HardcoverEditionsResponse:
+      type: object
+      description: The user's chosen edition and the book's editions.
+      properties:
+        edition_id:
+          type: string
+          nullable: true
+        editions:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardcoverEdition'
+      required:
+      - edition_id
+      - editions
     HealthApiResponse:
       type: object
       description: Overall health plus each plugin's result, keyed by plugin name.
@@ -15574,6 +16310,17 @@ components:
       - enabled
       - media_type
       - message
+    MetadataLanguage:
+      type: object
+      description: One metadata language; the empty code is the server default.
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+      required:
+      - code
+      - name
     MovieWatchRequest:
       type: object
       description: Optional details for a movie play.
@@ -15856,6 +16603,86 @@ components:
           type: integer
       required:
       - deleted_plays
+    MusicRelease:
+      type: object
+      description: One MusicBrainz release (pressing) of an album.
+      properties:
+        release_id:
+          type: string
+        title:
+          type: string
+        release_date:
+          type: string
+        country:
+          type: string
+        status:
+          type: string
+        formats:
+          type: array
+          items:
+            type: string
+        labels:
+          type: array
+          items:
+            type: string
+        catalog_numbers:
+          type: array
+          items:
+            type: string
+        barcode:
+          type: string
+        track_count:
+          type: integer
+      required:
+      - barcode
+      - catalog_numbers
+      - country
+      - formats
+      - labels
+      - release_date
+      - release_id
+      - status
+      - title
+      - track_count
+    MusicReleaseRequest:
+      type: object
+      description: The release to use.
+      properties:
+        release_id:
+          type: string
+      required:
+      - release_id
+    MusicReleaseResult:
+      type: object
+      description: The release now in use and whether its tracklist was refreshed.
+      properties:
+        release_id:
+          type: string
+        tracks_synced:
+          type: boolean
+          description: False when MusicBrainz could not return the tracklist; retry
+            later.
+        track_count:
+          type: integer
+          nullable: true
+      required:
+      - release_id
+      - track_count
+      - tracks_synced
+    MusicReleasesResponse:
+      type: object
+      description: The user's chosen release and the album's releases.
+      properties:
+        release_id:
+          type: string
+          nullable: true
+        releases:
+          type: array
+          items:
+            $ref: '#/components/schemas/MusicRelease'
+      required:
+      - release_id
+      - releases
     MusicSongPlayRequest:
       type: object
       description: A song play to record.
@@ -16164,6 +16991,19 @@ components:
           nullable: true
         notes:
           type: string
+    PatchedProviderPreferencePatch:
+      type: object
+      description: 'Any of: the provider to prefer, a remap target, the metadata language.'
+      properties:
+        provider:
+          type: string
+        provider_media_id:
+          type: string
+          description: 'Remap: link the title to this id on `provider` (required with
+            it) and prefer that provider. The link applies to every user.'
+        language:
+          type: string
+          description: Metadata language code; empty for the server default.
     PatchedTagRequest:
       type: object
       description: Tag name.
@@ -16992,8 +17832,13 @@ components:
           type: array
           items:
             type: string
+        language:
+          type: string
+          description: Metadata language for this title; empty means the server default.
+            Codes come from `GET metadata/languages/`.
       required:
       - available_providers
+      - language
       - provider
     ProviderPreferenceError:
       type: object
@@ -17008,6 +17853,18 @@ components:
             type: string
       required:
       - detail
+    ProviderPreferencePatchResult:
+      type: object
+      description: The title's preference after the change.
+      properties:
+        provider:
+          type: string
+          nullable: true
+        language:
+          type: string
+      required:
+      - language
+      - provider
     ProviderPreferenceRequest:
       type: object
       description: Metadata provider to prefer.
@@ -18162,6 +19019,35 @@ components:
       - created_at
       - id
       - name
+    TagItemsRequest:
+      type: object
+      description: Items to tag or untag.
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        item_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          maxItems: 500
+      required:
+      - action
+      - item_ids
+    TagItemsResult:
+      type: object
+      description: What was tagged or untagged.
+      properties:
+        action:
+          type: string
+        item_ids:
+          type: array
+          items:
+            type: integer
+          description: The ids acted on; unknown item ids are left out.
+      required:
+      - action
+      - item_ids
     TagList:
       type: object
       description: User tags.

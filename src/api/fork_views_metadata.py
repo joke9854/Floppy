@@ -9,7 +9,7 @@ from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
-from app import custom_metadata
+from app import custom_metadata, library_actions
 from app import metadata_sync_views as web_metadata_views
 from app.models import (
     Item,
@@ -17,6 +17,7 @@ from app.models import (
     MetadataProviderPreference,
     Sources,
 )
+from app.providers import tmdb
 from app.services import metadata_resolution
 from app.services.metadata_projection import project_item_metadata
 
@@ -147,6 +148,13 @@ class ProviderPreferenceSerializer(serializers.Serializer):
 
     provider = serializers.CharField(allow_null=True)
     available_providers = serializers.ListField(child=serializers.CharField())
+    language = serializers.CharField(
+        allow_blank=True,
+        help_text=(
+            "Metadata language for this title; empty means the server default. "
+            "Codes come from `GET metadata/languages/`."
+        ),
+    )
 
 
 class ProviderPreferenceRequestSerializer(serializers.Serializer):
@@ -159,6 +167,31 @@ class ProviderPreferenceUpdateSerializer(serializers.Serializer):
     """Preferred provider after the change."""
 
     provider = serializers.CharField()
+
+
+class ProviderPreferencePatchSerializer(serializers.Serializer):
+    """Any of: the provider to prefer, a remap target, the metadata language."""
+
+    provider = serializers.CharField(required=False)
+    provider_media_id = serializers.CharField(
+        required=False,
+        help_text=(
+            "Remap: link the title to this id on `provider` (required with it) "
+            "and prefer that provider. The link applies to every user."
+        ),
+    )
+    language = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Metadata language code; empty for the server default.",
+    )
+
+
+class ProviderPreferencePatchResultSerializer(serializers.Serializer):
+    """The title's preference after the change."""
+
+    provider = serializers.CharField(allow_null=True)
+    language = serializers.CharField(allow_blank=True)
 
 
 class ProviderPreferenceErrorSerializer(DetailErrorSerializer):
@@ -324,8 +357,9 @@ class MediaProviderPreferenceView(drf_views.APIView):
         ]
         return Response(
             {
-                "provider": preference.provider if preference else None,
+                "provider": (preference.provider or None) if preference else None,
                 "available_providers": options,
+                "language": (preference.language or "") if preference else "",
             },
             status=HTTP.OK,
         )
@@ -351,6 +385,89 @@ class MediaProviderPreferenceView(drf_views.APIView):
             return Response({"detail": "Item not found."}, status=HTTP.NOT_FOUND)
 
         provider = (request.data.get("provider") or "").strip()
+        error = self._unavailable_provider(item, media_type, provider)
+        if error is not None:
+            return error
+        self._prefer_provider(request, item, media_type, source, media_id, provider)
+        return Response({"provider": provider}, status=HTTP.OK)
+
+    @extend_schema(
+        parameters=[MEDIA_TYPE_PARAM],
+        request=ProviderPreferencePatchSerializer,
+        responses={
+            200: ProviderPreferencePatchResultSerializer,
+            400: ProviderPreferenceErrorSerializer,
+            404: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
+    def patch(self, request, media_type, source, media_id):
+        """Change the provider, remap the title, or set its metadata language.
+
+        Language codes are checked against TMDB's list, so a TMDB outage
+        answers 503 `provider_unavailable`.
+        """
+        if not check_valid_type(media_type):
+            return Response(
+                {"detail": "Unsupported media type."},
+                status=HTTP.BAD_REQUEST,
+            )
+        item = self._get_item(media_type, source, media_id)
+        if item is None:
+            return Response({"detail": "Item not found."}, status=HTTP.NOT_FOUND)
+        data = request.data if isinstance(request.data, dict) else {}
+        if not {"provider", "provider_media_id", "language"} & set(data):
+            return Response(
+                {"detail": "Send provider, provider_media_id or language."},
+                status=HTTP.BAD_REQUEST,
+            )
+        provider = str(data.get("provider") or "").strip()
+        provider_media_id = str(data.get("provider_media_id") or "").strip()
+        language = (
+            str(data.get("language") or "").strip() if "language" in data else None
+        )
+        remap = "provider_media_id" in data
+
+        if remap or "provider" in data:
+            error = self._unavailable_provider(item, media_type, provider)
+            if error is not None:
+                return error
+        if remap and (provider == item.source or not provider_media_id):
+            return Response(
+                {"detail": "That remap target is not valid for this title."},
+                status=HTTP.BAD_REQUEST,
+            )
+        if language:
+            valid_codes = {code for code, _name in tmdb.metadata_languages()}
+            if language not in valid_codes:
+                return Response(
+                    {"detail": "That metadata language is not available."},
+                    status=HTTP.BAD_REQUEST,
+                )
+
+        if remap:
+            library_actions.remap_metadata_provider(
+                request.user, item, media_type, provider, provider_media_id
+            )
+        elif "provider" in data:
+            self._prefer_provider(request, item, media_type, source, media_id, provider)
+        if language is not None:
+            library_actions.set_metadata_language(request.user, item, language)
+
+        preference = MetadataProviderPreference.objects.filter(
+            user=request.user,
+            item=item,
+        ).first()
+        return Response(
+            {
+                "provider": (preference.provider or None) if preference else None,
+                "language": (preference.language or "") if preference else "",
+            },
+            status=HTTP.OK,
+        )
+
+    @staticmethod
+    def _unavailable_provider(item, media_type, provider):
         allowed_providers = {
             choice.value
             for choice in metadata_resolution.available_metadata_provider_options(
@@ -358,15 +475,18 @@ class MediaProviderPreferenceView(drf_views.APIView):
                 identity_provider=item.source,
             )
         }
-        if provider not in allowed_providers:
-            return Response(
-                {
-                    "detail": "That metadata provider is not available for this title.",
-                    "available_providers": sorted(allowed_providers),
-                },
-                status=HTTP.BAD_REQUEST,
-            )
+        if provider in allowed_providers:
+            return None
+        return Response(
+            {
+                "detail": "That metadata provider is not available for this title.",
+                "available_providers": sorted(allowed_providers),
+            },
+            status=HTTP.BAD_REQUEST,
+        )
 
+    @staticmethod
+    def _prefer_provider(request, item, media_type, source, media_id, provider):
         supports_custom = custom_metadata.supports_custom_provider(media_type)
         if provider == Sources.MANUAL.value and supports_custom:
             current_display_metadata = (
@@ -385,7 +505,6 @@ class MediaProviderPreferenceView(drf_views.APIView):
             item=item,
             defaults={"provider": provider},
         )
-        return Response({"provider": provider}, status=HTTP.OK)
 
 
 # /api/v1/media/[...]/[season_number]/episodes/[episode_number]/score/

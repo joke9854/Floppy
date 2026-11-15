@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
-from app import bulk_actions
-from app.collection_views import (
-    _SEASON_OR_SHOW_MEDIA_TYPES,
-    _expand_collection_entry_to_episodes,
-)
-from app.models import CollectionEntry, Item, Status
+from app import bulk_actions, library_actions
+from app.models import Status
 
 
 def _missing_item_ids_response():
@@ -56,47 +51,12 @@ def bulk_collection_quick_add(request):
     if not item_ids:
         return _missing_item_ids_response()
 
-    items_by_id = Item.objects.in_bulk(item_ids)
-    result = {"created": 0, "already_present": 0, "skipped": 0}
-    result["skipped"] = len(item_ids) - len(items_by_id)
-
-    ordinary_items = [
-        item
-        for item_id, item in items_by_id.items()
-        if item_id in item_ids and item.media_type not in _SEASON_OR_SHOW_MEDIA_TYPES
-    ]
-    existing_ids = set(
-        CollectionEntry.objects.filter(
-            user=request.user,
-            item_id__in=[item.id for item in ordinary_items],
-        ).values_list("item_id", flat=True),
-    )
-    to_create = [
-        CollectionEntry(user=request.user, item=item)
-        for item in ordinary_items
-        if item.id not in existing_ids
-    ]
-    if to_create:
-        CollectionEntry.objects.bulk_create(to_create)
-    result["created"] += len(to_create)
-    result["already_present"] += len(ordinary_items) - len(to_create)
-
-    for item_id in item_ids:
-        item = items_by_id.get(item_id)
-        if item is None or item.media_type not in _SEASON_OR_SHOW_MEDIA_TYPES:
-            continue
-        try:
-            with transaction.atomic():
-                created_entries, skipped_count = _expand_collection_entry_to_episodes(
-                    request.user,
-                    item,
-                    cleaned_data={},
-                )
-        except Exception:
-            result["skipped"] += 1
-            continue
-        result["created"] += len(created_entries)
-        result["already_present"] += skipped_count
+    outcome = library_actions.add_items_to_collection(request.user, item_ids)
+    result = {
+        "created": outcome["created"],
+        "already_present": outcome["already_present"],
+        "skipped": len(outcome["skipped_ids"]),
+    }
 
     result["success"] = True
     result["message"] = (
