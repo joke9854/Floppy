@@ -62,15 +62,21 @@ Provider metadata for any title, tracked or not, is `GET media/{type}/{source}/{
   stay the same, and the rename would only churn `reverse()` calls in tests.
 - Typed clients (openapi-typescript) are generated from `openapi-full.yaml` in P3.
 
-### C. Title pages (Home, Library, detail screens)
+### C. Title pages (done)
 
-| Web | Missing in the API |
+All read-only, scope `watchlist:read`, in `api/fork_views_pages.py`. The page
+data is built once in `app/people_data.py` (person, studio) and
+`app.history_views.collect_history_genres`, and the web pages call the same
+functions. Responses carry data only: no colors, sort menus or filter state;
+the client filters and sorts the full lists.
+
+| Web | API |
 |---|---|
-| `person_detail` | Person or author page with credits |
-| `studio_detail` | Studio page with titles |
-| `history_genres` | Genre breakdown shown on History |
-| `trakt_series_graph_fragment` | Trakt rating graph data |
-| `activity_sessions_modal` | Watch sessions of an item (check what it reads) |
+| `person_detail` | `GET people/{source}/{person_id}/`: profile, every credit (with `item_id`, genres, `watched`, minutes), watched credits, known for, watched totals. 400 for a source without person pages, 404/503 from the provider |
+| `studio_detail` | `GET studios/{source}/{studio_id}/`: profile (IGDB) and credited titles. 404 for an unknown studio, 503 when IGDB is down |
+| `history_genres` | `GET history/genres/`: values for the history `genre` and `implied_genre` filters |
+| `trakt_series_graph_fragment` (and the provider and IMDb graphs) | `GET media/{tv,anime}/{source}/{id}/ratings-graph/?rating_source=provider\|trakt\|imdb&season=N`: stored season and episode scores; `pending` while Trakt ratings of aired episodes are missing, and a pending poll queues the season fetch at most every 10 minutes |
+| `activity_sessions_modal` | `GET history/?media_type=&source=&media_id=&logging_style=sessions` already had the filters; history entries now carry `notes`. The modal's streak and gap figures are derived from the days on the client |
 
 ### D. Tracking actions
 
