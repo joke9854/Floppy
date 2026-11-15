@@ -78,22 +78,26 @@ the client filters and sorts the full lists.
 | `trakt_series_graph_fragment` (and the provider and IMDb graphs) | `GET media/{tv,anime}/{source}/{id}/ratings-graph/?rating_source=provider\|trakt\|imdb&season=N`: stored season and episode scores; `pending` while Trakt ratings of aired episodes are missing, and a pending poll queues the season fetch at most every 10 minutes |
 | `activity_sessions_modal` | `GET history/?media_type=&source=&media_id=&logging_style=sessions` already had the filters; history entries now carry `notes`. The modal's streak and gap figures are derived from the days on the client |
 
-### D. Tracking actions
+### D. Tracking actions (done, except album resync)
 
-| Web | Missing in the API |
+| Web | API |
 |---|---|
-| `media_rewatch` | Start or stop a rewatch of a show or season |
-| `create_entry` | Create a manual entry (check whether `POST media/{type}/` with source `manual` covers it) |
-| `update_metadata_language_preference` | Per-item metadata language |
-| `remap_metadata_provider` | Cross-provider id mapping |
-| `move_library_item` | Move a show to another provider id |
-| `migrate_grouped_anime` | Convert flat MAL anime to grouped |
-| `set_hardcover_edition` | Pick a Hardcover edition |
-| `set_music_release` | Pick a MusicBrainz release |
-| `sync_album_metadata` | Resync an album (artists have it) |
-| `tag_bulk_toggle` | Tag many items at once |
-| `bulk_collection_quick_add` | Add many items to the collection |
-| `collection_fields_save` | Custom collection fields |
+| `media_rewatch` | `GET/POST/DELETE media/{tv,anime}/{source}/{id}/rewatch/` and `.../{season}/rewatch/` (`329717e3c`). `started_at` is an exact date-time with offset; 409 when there is nothing to rewatch |
+| `create_entry` | Already covered: `POST media/{type}/` with source `manual`. Its provider branch now answers 503/404 instead of a bare 500, and so does `PATCH media/{type}/{source}/{id}/` (`92c339dfb`) |
+| `update_metadata_language_preference`, `remap_metadata_provider` | `PATCH media/{type}/{source}/{id}/provider-preference/` (`language`, `provider` + `provider_media_id`); GET returns the language; codes from `GET metadata/languages/` (`582b03c66`) |
+| `move_library_item` | `POST media/{tv,anime}/{source}/{id}/move/` (`d8de3019c`) |
+| `migrate_grouped_anime` | `POST media/anime/mal/{id}/migrate-grouped/` (`d8de3019c`) |
+| `set_hardcover_edition` | `GET/PUT media/book/hardcover/{id}/edition/` (`582b03c66`) |
+| `set_music_release` | `GET/PUT music/albums/{id}/release/` (`582b03c66`) |
+| `tag_bulk_toggle` | `POST tags/{id}/items/` (`582b03c66`) |
+| `bulk_collection_quick_add` | `POST collection/bulk/` (`582b03c66`) |
+| `collection_fields_save` | `GET/PUT collection/fields/` (`582b03c66`) |
+| `sync_album_metadata` | **Not added.** It deletes and rebuilds the album's tracks, which sets `Music.track` to null on every user's plays of that album (`on_delete=SET_NULL`), and can merge albums. Picking a release (`set_music_release`, web and API) rebuilds tracks the same way. Decide how plays keep their track before exposing a resync |
+
+The shared changes live in `app/library_actions.py`; the web views call it.
+
+Still missing: reading and writing the custom field values of one
+collection entry (`collection/{entry_id}/` has no field values).
 
 ### E. Lists
 
