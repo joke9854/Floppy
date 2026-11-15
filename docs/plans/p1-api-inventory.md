@@ -99,14 +99,22 @@ The shared changes live in `app/library_actions.py`; the web views call it.
 Still missing: reading and writing the custom field values of one
 collection entry (`collection/{entry_id}/` has no field values).
 
-### E. Lists
+### E. Lists (done)
 
-| Web | Missing in the API |
+| Web | API |
 |---|---|
-| `list_share_view` | Publish the current view as a public smart list |
-| `list_import_csv` / `list_export_csv` | List CSV import and export |
-| `bulk_list_add` | Add many items to a list |
-| Trakt lists and MDBList (`trakt_lists_*`, `mdblist_*`) | List imports: connect, disconnect, sync now, import by URL |
+| `list_share_view` | `POST lists/share-view/`: 201 with the new public smart list, 200 with the identical one already shared (`3da610e04`) |
+| `list_export_csv` | `GET lists/{id}/export/` (`3da610e04`) |
+| `list_import_csv` | `POST lists/import/` (multipart `file`), 202 with a task id; imports as a new list (`3da610e04`) |
+| `bulk_list_add` | `POST lists/{id}/items/bulk/`, up to 500 `item_ids` (`3da610e04`) |
+| `trakt_lists_credentials` | `PUT lists/imports/trakt/credentials/` |
+| `trakt_lists_oauth`, `trakt_lists_device_*`, `trakt_lists_callback` | Device-code flow only: `POST lists/imports/trakt/device/` returns the code to show; `POST lists/imports/trakt/device/poll/` answers `pending` or `importing` with a task id, 410 once the code is gone. The device code stays on the server. The redirect flow is not needed by an app |
+| `mdblist_connect` / `mdblist_disconnect` | `PUT` / `DELETE lists/imports/mdblist/` |
+| `mdblist_sync_now` | `POST lists/imports/mdblist/sync/` |
+| `mdblist_import_url` | `POST lists/imports/mdblist/import/` |
+| (status) | `GET lists/imports/`: Trakt credentials present, authorization pending, MDBList connection state. No secret is returned |
+
+Share view and bulk add live in `lists/list_actions.py`; the web views call it.
 
 ### F. Preferences the screens keep
 

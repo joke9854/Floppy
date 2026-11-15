@@ -2809,6 +2809,334 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: lists:write
+  /api/v1/lists/imports/:
+    get:
+      operationId: getListImportStatus
+      description: Return the import setup, without any stored secret.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListImportStatus'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:read
+  /api/v1/lists/imports/mdblist/:
+    put:
+      operationId: connectMDBList
+      description: Validate and store the key, schedule syncs, queue the first import.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MDBListConnectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MDBListConnectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MDBListConnectRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Missing or invalid API key, or unknown sync frequency.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+    delete:
+      operationId: disconnectMDBList
+      description: Remove the key and the recurring sync; imported lists stay.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/imports/mdblist/import/:
+    post:
+      operationId: importMDBListList
+      description: Queue the import.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MDBListReferenceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MDBListReferenceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MDBListReferenceRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/imports/mdblist/sync/:
+    post:
+      operationId: syncMDBListNow
+      description: Clear a broken-connection flag and queue the sync.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/imports/trakt/credentials/:
+    put:
+      operationId: setTraktListCredentials
+      description: Save the client id and secret, encrypted.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraktCredentialsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TraktCredentialsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TraktCredentialsRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/imports/trakt/device/:
+    post:
+      operationId: startTraktListAuthorization
+      description: Ask Trakt for a device code and return the code to show.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraktDeviceCode'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No Trakt credentials, or Trakt rejected the client ID.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/imports/trakt/device/poll/:
+    post:
+      operationId: pollTraktListAuthorization
+      description: Return pending, or importing with the import task id.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraktDevicePoll'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Authorization was denied, used or refused. Start again.
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No authorization is pending, or its code expired.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
   /api/v1/lists/share-view/:
     post:
       operationId: shareLibraryView
@@ -16812,6 +17140,17 @@ components:
           format: uri
       required:
       - file
+    ListImportStatus:
+      type: object
+      description: State of the list import services.
+      properties:
+        trakt:
+          $ref: '#/components/schemas/TraktListImportStatus'
+        mdblist:
+          $ref: '#/components/schemas/MDBListStatus'
+      required:
+      - mdblist
+      - trakt
     ListItemDetailResponse:
       oneOf:
       - $ref: '#/components/schemas/CompleteMediaResponse'
@@ -17133,6 +17472,56 @@ components:
       - message
       - user_name
       - valid
+    MDBListConnectRequest:
+      type: object
+      description: The user's MDBList API key and how often to sync.
+      properties:
+        api_key:
+          type: string
+        sync_frequency:
+          allOf:
+          - $ref: '#/components/schemas/SyncFrequencyEnum'
+          description: |-
+            Defaults to `24h`.
+
+            * `6h` - 6h
+            * `12h` - 12h
+            * `24h` - 24h
+            * `weekly` - weekly
+      required:
+      - api_key
+    MDBListReferenceRequest:
+      type: object
+      description: A public MDBList list.
+      properties:
+        list_reference:
+          type: string
+          description: List URL or ID.
+      required:
+      - list_reference
+    MDBListStatus:
+      type: object
+      description: MDBList connection.
+      properties:
+        connected:
+          type: boolean
+        sync_frequency:
+          type: string
+          nullable: true
+        connection_broken:
+          type: boolean
+        last_error_message:
+          type: string
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - connected
+      - connection_broken
+      - last_error_message
+      - last_sync_at
+      - sync_frequency
     MediaProgressRequest:
       type: object
       description: Progress step to apply.
@@ -19530,6 +19919,18 @@ components:
       - status
       - unavailable_capabilities
       - unresolved_references
+    SyncFrequencyEnum:
+      enum:
+      - 6h
+      - 12h
+      - 24h
+      - weekly
+      type: string
+      description: |-
+        * `6h` - 6h
+        * `12h` - 12h
+        * `24h` - 24h
+        * `weekly` - weekly
     SyncHistoryEpisode:
       type: object
       description: Request or response shape for the sync write endpoints.
@@ -20378,6 +20779,67 @@ components:
       - status
       - total_episodes_left
       - tracked
+    TraktCredentialsRequest:
+      type: object
+      description: The user's own Trakt API application.
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+      required:
+      - client_id
+      - client_secret
+    TraktDeviceCode:
+      type: object
+      description: What to show the user while they authorize on Trakt.
+      properties:
+        user_code:
+          type: string
+        verification_url:
+          type: string
+        interval:
+          type: integer
+          description: Seconds between polls.
+        expires_in:
+          type: integer
+          description: Seconds until the code expires.
+      required:
+      - expires_in
+      - interval
+      - user_code
+      - verification_url
+    TraktDevicePoll:
+      type: object
+      description: '`pending` until the user authorizes, then `importing`.'
+      properties:
+        status:
+          $ref: '#/components/schemas/TraktDevicePollStatusEnum'
+        interval:
+          type: integer
+        task_id:
+          type: string
+      required:
+      - status
+    TraktDevicePollStatusEnum:
+      enum:
+      - pending
+      - importing
+      type: string
+      description: |-
+        * `pending` - pending
+        * `importing` - importing
+    TraktListImportStatus:
+      type: object
+      description: Trakt list import setup.
+      properties:
+        has_credentials:
+          type: boolean
+        authorization_pending:
+          type: boolean
+      required:
+      - authorization_pending
+      - has_credentials
     UserNotifications:
       type: object
       description: Notification settings.

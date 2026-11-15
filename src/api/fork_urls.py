@@ -11,6 +11,7 @@ from . import (
     fork_views_integrations,
     fork_views_library,
     fork_views_list_actions,
+    fork_views_list_imports,
     fork_views_lists,
     fork_views_metadata,
     fork_views_moves,
@@ -384,6 +385,41 @@ urlpatterns = [
         r"^lists/import/?$",
         fork_views_list_actions.ListImportView.as_view(),
         name="api_list_import",
+    ),
+    re_path(
+        r"^lists/imports/?$",
+        fork_views_list_imports.ListImportStatusView.as_view(),
+        name="api_list_imports_status",
+    ),
+    re_path(
+        r"^lists/imports/trakt/credentials/?$",
+        fork_views_list_imports.TraktListCredentialsView.as_view(),
+        name="api_list_imports_trakt_credentials",
+    ),
+    re_path(
+        r"^lists/imports/trakt/device/?$",
+        fork_views_list_imports.TraktListDeviceView.as_view(),
+        name="api_list_imports_trakt_device",
+    ),
+    re_path(
+        r"^lists/imports/trakt/device/poll/?$",
+        fork_views_list_imports.TraktListDevicePollView.as_view(),
+        name="api_list_imports_trakt_poll",
+    ),
+    re_path(
+        r"^lists/imports/mdblist/?$",
+        fork_views_list_imports.MDBListConnectionView.as_view(),
+        name="api_list_imports_mdblist",
+    ),
+    re_path(
+        r"^lists/imports/mdblist/sync/?$",
+        fork_views_list_imports.MDBListSyncView.as_view(),
+        name="api_list_imports_mdblist_sync",
+    ),
+    re_path(
+        r"^lists/imports/mdblist/import/?$",
+        fork_views_list_imports.MDBListImportListView.as_view(),
+        name="api_list_imports_mdblist_import",
     ),
     re_path(
         r"^lists/(?P<list_id>\d+)/items/bulk/?$",

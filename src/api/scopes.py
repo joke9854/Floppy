@@ -135,6 +135,13 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_list_actions.ListBulkAddView": {"POST": "lists:write"},
     "api.fork_views_list_actions.ListExportCsvView": {"GET": "lists:read"},
     "api.fork_views_list_actions.ListImportView": {"POST": "lists:write"},
+    "api.fork_views_list_imports.ListImportStatusView": {"GET": "lists:read"},
+    "api.fork_views_list_imports.TraktListCredentialsView": {"PUT": "lists:write"},
+    "api.fork_views_list_imports.TraktListDeviceView": {"POST": "lists:write"},
+    "api.fork_views_list_imports.TraktListDevicePollView": {"POST": "lists:write"},
+    "api.fork_views_list_imports.MDBListConnectionView": {"PUT": "lists:write", "DELETE": "lists:write"},
+    "api.fork_views_list_imports.MDBListSyncView": {"POST": "lists:write"},
+    "api.fork_views_list_imports.MDBListImportListView": {"POST": "lists:write"},
     "api.fork_views_metadata.ItemImageView": {"PATCH": "metadata:write"},
     "api.fork_views_metadata.ItemMetadataView": {
         "GET": "metadata:read",
