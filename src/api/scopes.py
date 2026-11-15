@@ -262,6 +262,11 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
         "GET": "user:read",
         "PATCH": "user:write",
     },
+    "api.fork_views_screen_prefs.TableColumnsView": {
+        "GET": "user:read",
+        "PUT": "user:write",
+    },
+    "api.fork_views_screen_prefs.AnimeLibraryConvertView": {"POST": _W},
     "api.fork_views_users.UserSidebarView": {
         "GET": "user:read",
         "PUT": "user:write",

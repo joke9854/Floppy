@@ -670,3 +670,66 @@ def resolve_default_column_config(
         for column in base_columns
         if column.user_hideable
     ]
+
+
+def media_column_sort(media_type: str, current_sort: str) -> str:
+    """Return the sort the column rules use, or `title` for a sort the type lacks."""
+    unsupported = (
+        (current_sort == "time_left" and media_type != MediaTypes.TV.value)
+        or (
+            current_sort == "runtime"
+            and media_type
+            not in {
+                MediaTypes.MOVIE.value,
+                MediaTypes.TV.value,
+                MediaTypes.ANIME.value,
+            }
+        )
+        or (current_sort == "time_to_beat" and media_type != MediaTypes.GAME.value)
+        or (current_sort == "platform" and media_type != MediaTypes.GAME.value)
+        or (
+            current_sort == "plays"
+            and media_type
+            not in {
+                MediaTypes.MOVIE.value,
+                MediaTypes.TV.value,
+                MediaTypes.ANIME.value,
+            }
+        )
+        or (
+            current_sort == "time_watched"
+            and media_type
+            not in {
+                MediaTypes.MOVIE.value,
+                MediaTypes.TV.value,
+                MediaTypes.ANIME.value,
+            }
+        )
+        or (
+            current_sort == "next_episode_air_date"
+            and media_type
+            not in {
+                MediaTypes.TV.value,
+                MediaTypes.SEASON.value,
+                MediaTypes.ANIME.value,
+            }
+        )
+        or (
+            current_sort == "critic_rating"
+            and media_type
+            in {
+                MediaTypes.MUSIC.value,
+                MediaTypes.PODCAST.value,
+            }
+        )
+        or (
+            current_sort == "popularity"
+            and media_type
+            not in {
+                MediaTypes.MOVIE.value,
+                MediaTypes.TV.value,
+                MediaTypes.ANIME.value,
+            }
+        )
+    )
+    return "title" if unsupported else current_sort

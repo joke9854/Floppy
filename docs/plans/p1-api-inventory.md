@@ -116,18 +116,18 @@ collection entry (`collection/{entry_id}/` has no field values).
 
 Share view and bulk add live in `lists/list_actions.py`; the web views call it.
 
-### F. Preferences the screens keep
+### F. Preferences the screens keep (done)
 
-| Web | Missing in the API |
+| Web | API |
 |---|---|
-| `medialist_columns`, `list_detail_columns` | Table columns |
-| `medialist_entry_grouping` | Entry grouping |
-| `toggle_pinned_provider` | Pinned watch providers |
-| `update_statistics_preferences`, `update_statistics_compare_mode`, `update_top_talent_sort`, `update_genre_sort`, `update_studio_sort` | Statistics display settings |
-| `appearance` | Check which fields `user/preferences/` already covers |
-| `convert_anime_library` | Queue the anime library conversion |
+| `medialist_columns`, `list_detail_columns` | `GET/PUT user/table-columns/` with `table_type` (`media`, `artist`, `album`, `list`), `media_type` (`all` for lists) and `sort`; unknown keys are dropped, as on the web |
+| `medialist_entry_grouping` | `user/preferences/` booleans `movie_/anime_/manga_/game_/book_show_each_play`; a change clears the list cache |
+| `toggle_pinned_provider` | `user/preferences/` `pinned_watch_providers` (a PATCH replaces the list) |
+| `update_statistics_preferences`, `update_statistics_compare_mode`, `update_top_talent_sort`, `update_genre_sort`, `update_studio_sort` | `user/preferences/`: `stats_split_tv_anime`, `statistics_compare_mode`, `genre_sort_by`, `studio_sort_by` (`top_talent_sort_by` and the others were already there). Changes rebuild the statistics days as the web dialog does |
+| `appearance` | `user/preferences/`: `sidebar_style`, `floating_sidebar`, `detail_page_layouts` (validated like the web form) |
+| `convert_anime_library` | `POST user/anime-library/convert/`, 202 with a task id |
 
-Proposal: fold these into `user/preferences/` (one PATCH), not one endpoint each.
+The column sort rule moved to `app.columns.media_column_sort`, shared with the web view.
 
 ### G. Account and security (web session only)
 

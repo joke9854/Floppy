@@ -13062,6 +13062,35 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/user/anime-library/convert/:
+    post:
+      operationId: convertAnimeLibrary
+      description: Queue the conversion and return its task id.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Demo accounts are view-only.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: watchlist:write
   /api/v1/user/notifications/:
     get:
       operationId: api_v1_user_notifications_retrieve
@@ -13433,6 +13462,111 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: user:write
+  /api/v1/user/table-columns/:
+    get:
+      operationId: getTableColumns
+      description: Return the user's columns for the table.
+      parameters:
+      - in: query
+        name: media_type
+        schema:
+          type: string
+        description: Media type; `all` is accepted for `list` tables.
+        required: true
+      - in: query
+        name: sort
+        schema:
+          type: string
+        description: Sort shown with the table; some columns exist only for some sorts.
+          Defaults to the saved sort (`date_added` for lists).
+      - in: query
+        name: table_type
+        schema:
+          type: string
+          enum:
+          - album
+          - artist
+          - list
+          - media
+        description: '`media` (default) for a library list, `artist` or `album` for
+          the music tables, `list` for a custom list''s table.'
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableColumns'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: user:read
+    put:
+      operationId: setTableColumns
+      description: Save the order and hidden columns, then return the result.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TableColumnsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TableColumnsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TableColumnsRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableColumns'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Demo accounts are view-only.
         '401':
           content:
             application/json:
@@ -18408,6 +18542,40 @@ components:
           type: boolean
         clickable_media_cards:
           type: boolean
+        statistics_compare_mode:
+          type: string
+        genre_sort_by:
+          type: string
+        studio_sort_by:
+          type: string
+        sidebar_style:
+          type: string
+        floating_sidebar:
+          type: string
+        stats_split_tv_anime:
+          type: boolean
+        movie_show_each_play:
+          type: boolean
+          description: Show each play of a movie as its own row instead of grouping.
+        anime_show_each_play:
+          type: boolean
+        manga_show_each_play:
+          type: boolean
+        game_show_each_play:
+          type: boolean
+        book_show_each_play:
+          type: boolean
+        pinned_watch_providers:
+          type: array
+          items:
+            type: string
+          description: Watch-provider names shown first in filter menus, in order.
+            A PATCH replaces the whole list.
+        detail_page_layouts:
+          type: object
+          additionalProperties: {}
+          description: Ordered visible sections per detail-page family and zone, as
+            the web Appearance settings save them. A PATCH replaces the whole value.
     PersonCredit:
       type: object
       description: One title in a person's credits.
@@ -20391,6 +20559,74 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SyncStatusItem'
+    TableColumn:
+      type: object
+      description: One column the user can show, hide or move.
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        visible:
+          type: boolean
+      required:
+      - key
+      - label
+      - visible
+    TableColumns:
+      type: object
+      description: The user's columns for one table, in display order.
+      properties:
+        table_type:
+          type: string
+        media_type:
+          type: string
+        sort:
+          type: string
+          description: The sort the column rules used.
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableColumn'
+      required:
+      - columns
+      - media_type
+      - sort
+      - table_type
+    TableColumnsRequest:
+      type: object
+      description: New order and hidden columns; unknown keys are dropped.
+      properties:
+        table_type:
+          $ref: '#/components/schemas/TableTypeEnum'
+        media_type:
+          type: string
+        sort:
+          type: string
+        order:
+          type: array
+          items:
+            type: string
+        hidden:
+          type: array
+          items:
+            type: string
+      required:
+      - hidden
+      - media_type
+      - order
+    TableTypeEnum:
+      enum:
+      - media
+      - artist
+      - album
+      - list
+      type: string
+      description: |-
+        * `media` - media
+        * `artist` - artist
+        * `album` - album
+        * `list` - list
     Tag:
       type: object
       description: A user tag; list responses add `item_count`.
@@ -20943,25 +21179,72 @@ components:
           type: boolean
         clickable_media_cards:
           type: boolean
+        statistics_compare_mode:
+          type: string
+        genre_sort_by:
+          type: string
+        studio_sort_by:
+          type: string
+        sidebar_style:
+          type: string
+        floating_sidebar:
+          type: string
+        stats_split_tv_anime:
+          type: boolean
+        movie_show_each_play:
+          type: boolean
+          description: Show each play of a movie as its own row instead of grouping.
+        anime_show_each_play:
+          type: boolean
+        manga_show_each_play:
+          type: boolean
+        game_show_each_play:
+          type: boolean
+        book_show_each_play:
+          type: boolean
+        pinned_watch_providers:
+          type: array
+          items:
+            type: string
+          description: Watch-provider names shown first in filter menus, in order.
+            A PATCH replaces the whole list.
+        detail_page_layouts:
+          type: object
+          additionalProperties: {}
+          description: Ordered visible sections per detail-page family and zone, as
+            the web Appearance settings save them. A PATCH replaces the whole value.
       required:
       - activity_history_view
       - anime_library_mode
+      - anime_show_each_play
       - auto_pause_in_progress_enabled
       - book_comic_manga_progress_percentage
+      - book_show_each_play
       - clickable_media_cards
       - date_format
+      - detail_page_layouts
       - duration_format
+      - floating_sidebar
       - game_logging_style
+      - game_show_each_play
+      - genre_sort_by
       - hide_completed_recommendations
       - hide_zero_rating
+      - manga_show_each_play
       - media_card_subtitle_display
       - mobile_grid_layout
+      - movie_show_each_play
       - obfuscate_episodes
+      - pinned_watch_providers
       - progress_bar
       - quick_season_update_mobile
       - rating_scale
       - scrobble_watched_percent
       - session_duration
+      - sidebar_style
+      - statistics_compare_mode
+      - stats_split_tv_anime
+      - studio_sort_by
       - time_format
       - title_display_preference
       - top_talent_sort_by

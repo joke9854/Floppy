@@ -1,15 +1,19 @@
 # FORK: user-settings endpoints under /api/v1/user/ mirroring the web
 # settings pages. URL wiring lives in fork_urls.py.
+import json
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from django.core.exceptions import ValidationError
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
-from app import history_cache, statistics_cache
+from app import cache_utils, history_cache, statistics_cache
+from app.media_list_entry_grouping import ENTRY_GROUPING_PREFERENCE_FIELDS
 from app.models import Item
+from users.appearance import parse_detail_layouts
 from users.forms import NotificationSettingsForm
 from users.views import SIDEBAR_MEDIA_TYPES
 
@@ -35,6 +39,11 @@ _CHOICE_PREFERENCE_FIELDS = (
     "quick_season_update_mobile",
     "session_duration",
     "scrobble_watched_percent",
+    "statistics_compare_mode",
+    "genre_sort_by",
+    "studio_sort_by",
+    "sidebar_style",
+    "floating_sidebar",
 )
 
 _BOOLEAN_PREFERENCE_FIELDS = (
@@ -45,7 +54,13 @@ _BOOLEAN_PREFERENCE_FIELDS = (
     "auto_pause_in_progress_enabled",
     "obfuscate_episodes",
     "clickable_media_cards",
+    "stats_split_tv_anime",
+    *ENTRY_GROUPING_PREFERENCE_FIELDS.values(),
 )
+
+# Most pinned watch providers, and longest provider name, a PATCH may set.
+MAX_PINNED_PROVIDERS = 100
+MAX_PROVIDER_NAME_LENGTH = 200
 
 # Fields whose change requires the web view's statistics-cache refresh.
 _STATS_SENSITIVE_FIELDS = {
@@ -53,7 +68,19 @@ _STATS_SENSITIVE_FIELDS = {
     "top_talent_sort_by",
     "week_start_day",
     "duration_format",
+    "stats_split_tv_anime",
 }
+
+# Fields the web Statistics settings dialog also rebuilds every cached day for.
+_STATS_DAY_FIELDS = {
+    "rating_scale",
+    "week_start_day",
+    "duration_format",
+    "stats_split_tv_anime",
+}
+
+# Fields the media lists read when grouping repeat entries.
+_GROUPING_FIELDS = set(ENTRY_GROUPING_PREFERENCE_FIELDS.values())
 
 
 def _field_choices(user, field_name):
@@ -65,7 +92,26 @@ def _serialize_preferences(user):
     payload = {}
     for field in _CHOICE_PREFERENCE_FIELDS + _BOOLEAN_PREFERENCE_FIELDS:
         payload[field] = getattr(user, field)
+    payload["pinned_watch_providers"] = list(user.pinned_watch_providers or [])
+    payload["detail_page_layouts"] = dict(user.detail_page_layouts or {})
     return payload
+
+
+def _clean_pinned_providers(value):
+    """Return (provider names, error) for a pinned-providers list."""
+    if not isinstance(value, list) or len(value) > MAX_PINNED_PROVIDERS:
+        return None, (
+            "pinned_watch_providers must be a list of at most "
+            f"{MAX_PINNED_PROVIDERS} provider names."
+        )
+    names = []
+    for raw in value:
+        name = raw.strip() if isinstance(raw, str) else ""
+        if not name or len(name) > MAX_PROVIDER_NAME_LENGTH:
+            return None, "Each pinned provider must be a non-empty name."
+        if name not in names:
+            names.append(name)
+    return names, None
 
 
 class UserPreferencesValuesSerializer(serializers.Serializer):
@@ -93,6 +139,32 @@ class UserPreferencesValuesSerializer(serializers.Serializer):
     auto_pause_in_progress_enabled = serializers.BooleanField()
     obfuscate_episodes = serializers.BooleanField()
     clickable_media_cards = serializers.BooleanField()
+    statistics_compare_mode = serializers.CharField()
+    genre_sort_by = serializers.CharField()
+    studio_sort_by = serializers.CharField()
+    sidebar_style = serializers.CharField()
+    floating_sidebar = serializers.CharField()
+    stats_split_tv_anime = serializers.BooleanField()
+    movie_show_each_play = serializers.BooleanField(
+        help_text="Show each play of a movie as its own row instead of grouping.",
+    )
+    anime_show_each_play = serializers.BooleanField()
+    manga_show_each_play = serializers.BooleanField()
+    game_show_each_play = serializers.BooleanField()
+    book_show_each_play = serializers.BooleanField()
+    pinned_watch_providers = serializers.ListField(
+        child=serializers.CharField(),
+        help_text=(
+            "Watch-provider names shown first in filter menus, in order. A PATCH "
+            "replaces the whole list."
+        ),
+    )
+    detail_page_layouts = serializers.DictField(
+        help_text=(
+            "Ordered visible sections per detail-page family and zone, as the "
+            "web Appearance settings save them. A PATCH replaces the whole value."
+        ),
+    )
 
 
 class UserPreferencesResponseSerializer(serializers.Serializer):
@@ -278,6 +350,32 @@ class UserPreferencesView(drf_views.APIView):
                 fields_to_update.append(field)
                 changed.add(field)
 
+        if "pinned_watch_providers" in request.data:
+            names, error = _clean_pinned_providers(
+                request.data["pinned_watch_providers"],
+            )
+            if error:
+                return Response({"detail": error}, status=HTTP.BAD_REQUEST)
+            if list(user.pinned_watch_providers or []) != names:
+                user.pinned_watch_providers = names
+                fields_to_update.append("pinned_watch_providers")
+                changed.add("pinned_watch_providers")
+
+        if "detail_page_layouts" in request.data:
+            try:
+                layouts = parse_detail_layouts(
+                    json.dumps(request.data["detail_page_layouts"]),
+                )
+            except ValidationError as error:
+                return Response(
+                    {"detail": error.messages[0]},
+                    status=HTTP.BAD_REQUEST,
+                )
+            if (user.detail_page_layouts or {}) != layouts:
+                user.detail_page_layouts = layouts
+                fields_to_update.append("detail_page_layouts")
+                changed.add("detail_page_layouts")
+
         if fields_to_update:
             user.save(update_fields=fields_to_update)
             user.refresh_from_db()
@@ -295,12 +393,19 @@ class UserPreferencesView(drf_views.APIView):
                     force=True,
                     logging_styles=("sessions", "repeats"),
                 )
+            if changed & _STATS_DAY_FIELDS:
+                statistics_cache.invalidate_all_statistics_days(
+                    user.id,
+                    reason="statistics_preferences_changed",
+                )
             if changed & _STATS_SENSITIVE_FIELDS:
                 statistics_cache.invalidate_statistics_cache(user.id)
                 statistics_cache.schedule_all_ranges_refresh(
                     user.id,
                     debounce_seconds=0,
                 )
+            if changed & _GROUPING_FIELDS:
+                cache_utils.clear_media_list_cache_for_user(user.id)
 
         return Response(
             {

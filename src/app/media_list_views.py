@@ -22,6 +22,7 @@ from app import cache_utils, helpers, history_cache
 from app import statistics as stats
 from app.bulk_actions import build_bulk_action_data
 from app.columns import (
+    media_column_sort,
     resolve_column_config,
     resolve_columns,
     resolve_default_column_config,
@@ -3280,65 +3281,7 @@ def update_table_columns(request, media_type):
     current_sort = request.POST.get("sort") or getattr(
         request.user, f"{media_type}_sort", MediaSortChoices.SCORE
     )
-    if (
-        (current_sort == "time_left" and media_type != MediaTypes.TV.value)
-        or (
-            current_sort == "runtime"
-            and media_type
-            not in {
-                MediaTypes.MOVIE.value,
-                MediaTypes.TV.value,
-                MediaTypes.ANIME.value,
-            }
-        )
-        or (current_sort == "time_to_beat" and media_type != MediaTypes.GAME.value)
-        or (current_sort == "platform" and media_type != MediaTypes.GAME.value)
-        or (
-            current_sort == "plays"
-            and media_type
-            not in {
-                MediaTypes.MOVIE.value,
-                MediaTypes.TV.value,
-                MediaTypes.ANIME.value,
-            }
-        )
-        or (
-            current_sort == "time_watched"
-            and media_type
-            not in {
-                MediaTypes.MOVIE.value,
-                MediaTypes.TV.value,
-                MediaTypes.ANIME.value,
-            }
-        )
-        or (
-            current_sort == "next_episode_air_date"
-            and media_type
-            not in {
-                MediaTypes.TV.value,
-                MediaTypes.SEASON.value,
-                MediaTypes.ANIME.value,
-            }
-        )
-        or (
-            current_sort == "critic_rating"
-            and media_type
-            in {
-                MediaTypes.MUSIC.value,
-                MediaTypes.PODCAST.value,
-            }
-        )
-        or (
-            current_sort == "popularity"
-            and media_type
-            not in {
-                MediaTypes.MOVIE.value,
-                MediaTypes.TV.value,
-                MediaTypes.ANIME.value,
-            }
-        )
-    ):
-        current_sort = "title"
+    current_sort = media_column_sort(media_type, current_sort)
 
     if settings.DEBUG:
         logger.info(

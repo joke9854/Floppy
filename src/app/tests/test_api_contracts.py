@@ -809,6 +809,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/lists/imports/trakt/device/", "POST"),
             ("/api/v1/lists/imports/trakt/device/poll/", "POST"),
             ("/api/v1/lists/imports/mdblist/sync/", "POST"),
+            ("/api/v1/user/anime-library/convert/", "POST"),
             ("/api/v1/podcasts/shows/{show_id}/mark-all-played/", "POST"),
             ("/api/v1/user/notifications/test/", "POST"),
             ("/api/v1/user/token/regenerate/", "POST"),

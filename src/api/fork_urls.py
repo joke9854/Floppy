@@ -21,6 +21,7 @@ from . import (
     fork_views_podcast,
     fork_views_progress_changes,
     fork_views_rewatch,
+    fork_views_screen_prefs,
     fork_views_scrobble,
     fork_views_statistics,
     fork_views_sync_items,
@@ -470,6 +471,16 @@ urlpatterns = [
         r"^user/preferences/?$",
         fork_views_users.UserPreferencesView.as_view(),
         name="api_user_preferences",
+    ),
+    re_path(
+        r"^user/table-columns/?$",
+        fork_views_screen_prefs.TableColumnsView.as_view(),
+        name="api_user_table_columns",
+    ),
+    re_path(
+        r"^user/anime-library/convert/?$",
+        fork_views_screen_prefs.AnimeLibraryConvertView.as_view(),
+        name="api_user_anime_library_convert",
     ),
     re_path(
         r"^user/sidebar/?$",
