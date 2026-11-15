@@ -292,6 +292,24 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     # Rotating the account token would let a scoped token mint an unscoped one.
     "api.fork_views_onboarding.OnboardingView": {"GET": "user:read", "PATCH": "user:write"},
     "api.fork_views_users.UserTokenRegenerateView": {"POST": NEVER},
+    # Connecting, disconnecting and settings store or remove another service's
+    # credentials: session logins only.
+    "api.fork_views_integration_connections.IntegrationsView": {"GET": "imports:read"},
+    "api.fork_views_integration_connections.IntegrationConnectionView": {"PUT": NEVER, "DELETE": NEVER},
+    "api.fork_views_integration_connections.IntegrationSettingsView": {"PATCH": NEVER},
+    "api.fork_views_integration_connections.IntegrationImportView": {"POST": "imports:write"},
+    "api.fork_views_integration_connections.IntegrationActionView": {"POST": "imports:write"},
+    "api.fork_views_integration_connections.ArrInstancesView": {"POST": NEVER},
+    "api.fork_views_integration_connections.ArrInstanceDetailView": {"DELETE": NEVER},
+    "api.fork_views_integration_connections.ArrInstanceImportView": {"POST": "imports:write"},
+    # Direction and pause approve or withdraw a provider's access to watched
+    # state: consent, like credentials, so session logins only.
+    "api.fork_views_sync_settings.SyncSettingsView": {"GET": "sync:read"},
+    "api.fork_views_sync_settings.SyncSettingDetailView": {"PATCH": NEVER},
+    "api.fork_views_match.MatchReferencesView": {"GET": "watchlist:read"},
+    "api.fork_views_match.MatchReferenceDecisionView": {"POST": "watchlist:write"},
+    "api.fork_views_match.MatchFixPreviewView": {"POST": "watchlist:read"},
+    "api.fork_views_match.MatchFixApplyView": {"POST": "watchlist:write"},
     # Account and credential management (P1-G): session logins only, so no
     # credential can mint, widen or revoke credentials or change the password.
     "api.fork_views_account.AccountView": {"GET": NEVER, "PATCH": NEVER},

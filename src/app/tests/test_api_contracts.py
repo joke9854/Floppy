@@ -812,6 +812,8 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/user/anime-library/convert/", "POST"),
             ("/api/v1/imports/runs/{run_id}/cancel/", "POST"),
             ("/api/v1/imports/runs/{run_id}/rollback/", "POST"),
+            ("/api/v1/integrations/{service}/actions/{action}/", "POST"),
+            ("/api/v1/integrations/{service}/instances/{instance_id}/import/", "POST"),
             ("/api/v1/podcasts/shows/{show_id}/mark-all-played/", "POST"),
             ("/api/v1/user/notifications/test/", "POST"),
             ("/api/v1/user/token/regenerate/", "POST"),

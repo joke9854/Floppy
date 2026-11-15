@@ -81,6 +81,53 @@ class ImportDispatchTests(FloppyApiTestCase):
         self.addCleanup(discard_staged_upload, queued)
         self.assertTrue(queued.endswith(".csv"))
 
+    @patch("api.fork_views_integrations.tasks.import_trakt.delay")
+    def test_trakt_public_profile_dispatch(self, mock_delay):
+        """A public Trakt profile imports by username."""
+        mock_delay.return_value.id = "trakt-task-1"
+        response = self.call_api(
+            "post",
+            "api_import_dispatch",
+            args=("trakt",),
+            payload={"username": "someone", "mode": "new"},
+            headers=self.auth_headers,
+        )
+        self.assertEqual(response.status_code, HTTP.ACCEPTED)
+        self.assertEqual(
+            mock_delay.call_args.kwargs,
+            {"username": "someone", "user_id": self.user1.id, "mode": "new"},
+        )
+
+    @patch("api.fork_views_integrations.tasks.import_clz.delay")
+    def test_clz_dispatch_passes_the_media_type(self, mock_delay):
+        """CLZ takes the collection's media type."""
+        mock_delay.return_value.id = "clz-task-1"
+        upload = io.BytesIO(b"Title\nA Book\n")
+        upload.name = "clz.csv"
+        response = self.client.post(
+            reverse("api_import_dispatch", args=("clz",)),
+            {"file": upload, "mode": "new", "media_type": "book"},
+            **self.auth_headers,
+        )
+        self.assertEqual(response.status_code, HTTP.ACCEPTED)
+        kwargs = mock_delay.call_args.kwargs
+        self.addCleanup(discard_staged_upload, kwargs["file"])
+        self.assertEqual(kwargs["media_type"], "book")
+
+    @patch("api.fork_views_integrations.tasks.import_tvtime_shows.delay")
+    def test_tvtime_shows_dispatch(self, mock_delay):
+        """TV Time shows and movies are separate file services."""
+        mock_delay.return_value.id = "tvtime-task-1"
+        upload = io.BytesIO(b"tv_show_name\nShow\n")
+        upload.name = "shows.csv"
+        response = self.client.post(
+            reverse("api_import_dispatch", args=("tvtime-shows",)),
+            {"file": upload, "mode": "new"},
+            **self.auth_headers,
+        )
+        self.assertEqual(response.status_code, HTTP.ACCEPTED)
+        self.addCleanup(discard_staged_upload, mock_delay.call_args.kwargs["file"])
+
     def test_file_missing_rejected(self):
         """File services without an upload return 400."""
         response = self.call_api(

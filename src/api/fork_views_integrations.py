@@ -14,6 +14,7 @@ from rest_framework import views as drf_views
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
+from app.models import MediaTypes
 from integrations import exports, tasks
 from integrations.upload_staging import (
     enqueue_staged_task,
@@ -33,6 +34,7 @@ _USERNAME_IMPORTS = {
     "anilist": ("import_anilist", "AniList username"),
     "kitsu": ("import_kitsu", "Kitsu user ID"),
     "steam": ("import_steam", "Steam ID"),
+    "trakt": ("import_trakt", "Trakt username (public profile)"),
 }
 
 # File-driven imports: service -> (task export, file label).
@@ -47,6 +49,9 @@ _FILE_IMPORTS = {
     "goodreads": ("import_goodreads", "Goodreads CSV"),
     "hardcover": ("import_hardcover", "Hardcover CSV"),
     "storygraph": ("import_storygraph", "StoryGraph CSV"),
+    "clz": ("import_clz", "CLZ export (CSV or XML)"),
+    "tvtime-shows": ("import_tvtime_shows", "TV Time shows CSV"),
+    "tvtime-movies": ("import_tvtime_movies", "TV Time movies CSV"),
 }
 
 
@@ -65,6 +70,10 @@ class ImportRequestSerializer(serializers.Serializer):
     file = serializers.FileField(required=False)
     mode = serializers.CharField(
         required=False, help_text="Import mode; defaults to the user's setting."
+    )
+    media_type = serializers.CharField(
+        required=False,
+        help_text="clz only: which collection the export holds.",
     )
 
 
@@ -111,10 +120,12 @@ class ImportActivitySerializer(serializers.Serializer):
 class ImportDispatchView(drf_views.APIView):
     """Queue a one-off import for a service (mirrors the web import forms).
 
-    Username services (mal, anilist, kitsu, steam) take {"username", "mode"}.
-    File services (yamtrack, trakt-collection, trakt-export, hltb, grouvee,
-    imdb, goodreads, hardcover, storygraph) take a multipart upload in the
-    "file" field plus an optional "mode". Returns 202 with a task_id pollable at
+    Username services (mal, anilist, kitsu, steam, trakt for a public
+    profile) take {"username", "mode"}. File services (yamtrack,
+    trakt-collection, trakt-export, hltb, grouvee, imdb, goodreads, hardcover,
+    storygraph, clz, tvtime-shows, tvtime-movies) take a multipart upload in
+    the "file" field plus an optional "mode"; clz also takes an optional
+    "media_type". Returns 202 with a task_id pollable at
     /api/v1/tasks/{task_id}. Recurring schedules stay web-only.
     """
 
@@ -175,6 +186,10 @@ class ImportDispatchView(drf_views.APIView):
                     {"detail": "The upload could not be staged."},
                     status=HTTP.INSUFFICIENT_STORAGE,
                 )
+            extra = {}
+            if service == "clz" and request.data.get("media_type") in MediaTypes.values:
+                # CLZ exports one collection; the type says which.
+                extra["media_type"] = request.data["media_type"]
             try:
                 task = enqueue_staged_task(
                     task_fn,
@@ -182,6 +197,7 @@ class ImportDispatchView(drf_views.APIView):
                     file=staged_file,
                     mode=mode,
                     staged_paths=(staged_file,),
+                    **extra,
                 )
             except Exception:
                 logger.exception("Could not queue %s upload", label)

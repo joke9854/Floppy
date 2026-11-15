@@ -2000,6 +2000,766 @@ paths:
                 $ref: '#/components/schemas/InfoApiResponse'
           description: ''
       x-required-scope: any
+  /api/v1/integrations/:
+    get:
+      operationId: listIntegrations
+      description: Return each service's state, without secrets.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationOverview'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:read
+  /api/v1/integrations/{service}/:
+    put:
+      operationId: connectIntegration
+      description: Check the credentials with the service, store them and start an
+        import.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          enum:
+          - audiobookshelf
+          - gpodder
+          - jellyfin
+          - koito
+          - koreader
+          - lastfm
+          - pocketcasts
+          - psn
+          - stremio
+          - xbox
+        description: '`jellyfin`: base_url, api_key, username (optional); `audiobookshelf`:
+          base_url, api_token; `koreader`: server_url, username, password, verify_ssl,
+          create_missing, skip_finished_books, finished_threshold_percent; `stremio`:
+          auth_key, or email and password; `xbox`: api_key (OpenXBL); `psn`: npsso;
+          `pocketcasts`: email, password; `gpodder`: server_url (optional), username,
+          password, device_filter (optional); `lastfm`: username; `koito`: base_url,
+          api_key'
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationStatus'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Bad credentials or input.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected` or `already_running`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `integration_unreachable`, with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    delete:
+      operationId: disconnectIntegration
+      description: Remove the stored credentials and schedules; imported data stays.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^[a-z]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/{service}/actions/{action}/:
+    post:
+      operationId: runIntegrationAction
+      description: Run the action.
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+          pattern: ^[a-z-]+$
+        required: true
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^[a-z]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationQueued'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Bad credentials or input.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected` or `already_running`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `integration_unreachable`, with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
+  /api/v1/integrations/{service}/import/:
+    post:
+      operationId: startIntegrationImport
+      description: Queue the import and return its task.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^[a-z]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationImportRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IntegrationImportRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IntegrationImportRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationQueued'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Bad credentials or input.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected` or `already_running`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `integration_unreachable`, with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
+  /api/v1/integrations/{service}/instances/:
+    post:
+      operationId: addArrInstance
+      description: Check the server, store it and start its first import.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^radarr|sonarr$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArrInstanceCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArrInstanceCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArrInstanceCreate'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationInstance'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Bad credentials or input.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected` or `already_running`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `integration_unreachable`, with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/{service}/instances/{instance_id}/:
+    delete:
+      operationId: removeArrInstance
+      description: Remove the server, its schedule and its collection state.
+      parameters:
+      - in: path
+        name: instance_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^radarr|sonarr$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/{service}/instances/{instance_id}/import/:
+    post:
+      operationId: startArrImport
+      description: Queue the import.
+      parameters:
+      - in: path
+        name: instance_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^radarr|sonarr$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationQueued'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
+  /api/v1/integrations/{service}/settings/:
+    patch:
+      operationId: updateIntegrationSettings
+      description: |-
+        Save the settings and return the service state.
+
+        Jellyfin: the five push/pull booleans. KOReader: server_url, username,
+        password (blank keeps the stored one), verify_ssl, create_missing,
+        skip_finished_books, finished_threshold_percent; re-checked with the
+        server.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^[a-z]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationStatus'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Bad credentials or input.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected` or `already_running`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `integration_unreachable`, with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/match-fix/{item_id}/apply/:
+    post:
+      operationId: applyMatchFix
+      description: Move the tracking and return the title it now lives on.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchApplyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MatchApplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MatchApplyRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchItem'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The preview is out of date; preview again.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
+  /api/v1/integrations/match-fix/{item_id}/preview/:
+    post:
+      operationId: previewMatchFix
+      description: Return the preview and its token; nothing moves yet.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchPreviewRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MatchPreviewRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MatchPreviewRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
+  /api/v1/integrations/match-references/:
+    get:
+      operationId: listMatchReferences
+      description: Return up to 100 of each, most recent first.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchReferenceList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
+  /api/v1/integrations/match-references/{reference_id}/decision/:
+    post:
+      operationId: decideMatchReference
+      description: Save the decision and return the reference.
+      parameters:
+      - in: path
+        name: reference_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchDecisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MatchDecisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MatchDecisionRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchReference'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/lists/:
     get:
       operationId: api_v1_lists_retrieve
@@ -12940,6 +13700,100 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/sync/settings/:
+    get:
+      operationId: listSyncSettings
+      description: Return the connections.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSettingList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: sync:read
+  /api/v1/sync/settings/{binding_id}/:
+    patch:
+      operationId: updateSyncSetting
+      description: Apply the direction and pause switch sent.
+      parameters:
+      - in: path
+        name: binding_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSyncSettingUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSyncSettingUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSyncSettingUpdate'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSettingUpdated'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The connection can do nothing in that direction.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/sync/status/:
     post:
       operationId: api_v1_sync_status_create
@@ -14705,6 +15559,19 @@ components:
       - last_active
       - name
       - scopes
+    ArrInstanceCreate:
+      type: object
+      description: A Radarr or Sonarr server.
+      properties:
+        base_url:
+          type: string
+        api_key:
+          type: string
+        name:
+          type: string
+      required:
+      - api_key
+      - base_url
     BlankEnum:
       enum:
       - ''
@@ -16566,6 +17433,14 @@ components:
       - detail
       - newest_sequence
       - oldest_sequence
+    DecisionEnum:
+      enum:
+      - ignore
+      - remove_correction
+      type: string
+      description: |-
+        * `ignore` - ignore
+        * `remove_correction` - remove_correction
     DetailError:
       type: object
       description: Shared API error body.
@@ -16583,6 +17458,18 @@ components:
           type: string
       required:
       - detail
+    DirectionEnum:
+      enum:
+      - 'off'
+      - inbound
+      - outbound
+      - both
+      type: string
+      description: |-
+        * `off` - off
+        * `inbound` - inbound
+        * `outbound` - outbound
+        * `both` - both
     DiscoverCandidate:
       type: object
       description: One Discover card (``app.discover.schemas.CandidateItem.to_dict``).
@@ -17186,7 +18073,7 @@ components:
       description: A new recurring backup.
       properties:
         frequency:
-          $ref: '#/components/schemas/FrequencyEnum'
+          $ref: '#/components/schemas/ExportScheduleCreateFrequencyEnum'
         time:
           type: string
           description: Time of day, `HH:MM`, server time zone.
@@ -17201,6 +18088,16 @@ components:
       required:
       - frequency
       - time
+    ExportScheduleCreateFrequencyEnum:
+      enum:
+      - daily
+      - 2days
+      - weekly
+      type: string
+      description: |-
+        * `daily` - daily
+        * `2days` - 2days
+        * `weekly` - weekly
     ExportScheduleList:
       type: object
       description: The user's recurring backups.
@@ -17236,16 +18133,6 @@ components:
       required:
       - detail
       - errors
-    FrequencyEnum:
-      enum:
-      - daily
-      - 2days
-      - weekly
-      type: string
-      description: |-
-        * `daily` - daily
-        * `2days` - 2days
-        * `weekly` - weekly
     FromEnum:
       enum:
       - tracker
@@ -17596,6 +18483,9 @@ components:
         mode:
           type: string
           description: Import mode; defaults to the user's setting.
+        media_type:
+          type: string
+          description: 'clz only: which collection the export holds.'
     ImportRollback:
       type: object
       description: What the undo removed.
@@ -17784,6 +18674,139 @@ components:
       - timezone
       - track_time
       - version
+    IntegrationImportRequest:
+      type: object
+      description: Optional import settings.
+      properties:
+        mode:
+          type: string
+          description: '`new` (default) or `overwrite`; koreader, xbox, psn.'
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/IntegrationImportRequestFrequencyEnum'
+          description: |-
+            xbox and psn: run once (default) or on a schedule.
+
+            * `once` - once
+            * `daily` - daily
+            * `2days` - 2days
+        time:
+          type: string
+          description: 'xbox and psn schedules: `HH:MM`, default 04:00.'
+    IntegrationImportRequestFrequencyEnum:
+      enum:
+      - once
+      - daily
+      - 2days
+      type: string
+      description: |-
+        * `once` - once
+        * `daily` - daily
+        * `2days` - 2days
+    IntegrationInstance:
+      type: object
+      description: One Radarr or Sonarr server.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        base_url:
+          type: string
+        connected:
+          type: boolean
+        connection_broken:
+          type: boolean
+        last_error_message:
+          type: string
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - base_url
+      - connected
+      - connection_broken
+      - id
+      - last_error_message
+      - last_sync_at
+      - name
+    IntegrationOverview:
+      type: object
+      description: Every integration's connection state.
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationStatus'
+        radarr:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationInstance'
+        sonarr:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationInstance'
+      required:
+      - radarr
+      - services
+      - sonarr
+    IntegrationQueued:
+      type: object
+      description: What was started.
+      properties:
+        task_id:
+          type: string
+          nullable: true
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/IntegrationQueuedOutcomeEnum'
+          description: |-
+            `scheduled`/`reenabled`: a recurring import was set up.
+
+            * `queued` - queued
+            * `scheduled` - scheduled
+            * `reenabled` - reenabled
+      required:
+      - outcome
+      - task_id
+    IntegrationQueuedOutcomeEnum:
+      enum:
+      - queued
+      - scheduled
+      - reenabled
+      type: string
+      description: |-
+        * `queued` - queued
+        * `scheduled` - scheduled
+        * `reenabled` - reenabled
+    IntegrationStatus:
+      type: object
+      description: One account-based service.
+      properties:
+        service:
+          type: string
+        connected:
+          type: boolean
+        connection_broken:
+          type: boolean
+        last_error_message:
+          type: string
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+        details:
+          type: object
+          additionalProperties: {}
+          description: Non-secret settings of the service.
+      required:
+      - connected
+      - connection_broken
+      - details
+      - last_error_message
+      - last_sync_at
+      - service
     IntegrationToken:
       type: object
       description: A named API token, without its secret.
@@ -18920,6 +19943,170 @@ components:
       - last_error_message
       - last_sync_at
       - sync_frequency
+    MatchApplyRequest:
+      type: object
+      description: The previewed correction.
+      properties:
+        destination_item_id:
+          type: integer
+        token:
+          type: string
+        episode_mapping:
+          type: object
+          additionalProperties: {}
+        decisions:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'Per conflicting field: `source` or `destination`.'
+        note:
+          type: string
+          maxLength: 500
+      required:
+      - destination_item_id
+      - token
+    MatchDecisionRequest:
+      type: object
+      description: What to do with a reference.
+      properties:
+        decision:
+          allOf:
+          - $ref: '#/components/schemas/DecisionEnum'
+          description: |-
+            `ignore`: future imports skip this identity. `remove_correction`: drop a saved correction or ignore, back to the automatic match.
+
+            * `ignore` - ignore
+            * `remove_correction` - remove_correction
+      required:
+      - decision
+    MatchItem:
+      type: object
+      description: A Floppy title.
+      properties:
+        id:
+          type: integer
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+      required:
+      - id
+      - media_id
+      - media_type
+      - source
+      - title
+    MatchPreview:
+      type: object
+      description: What the correction would move.
+      properties:
+        token:
+          type: string
+          description: Send back with the apply.
+        destination_item_id:
+          type: integer
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        episodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        required_episode_keys:
+          type: array
+          items:
+            type: string
+        episode_mapping:
+          type: object
+          additionalProperties: {}
+        scalar_conflicts:
+          type: object
+          additionalProperties: {}
+          description: Fields set differently on both sides; pick one per field.
+      required:
+      - counts
+      - destination_item_id
+      - episode_mapping
+      - episodes
+      - required_episode_keys
+      - scalar_conflicts
+      - token
+    MatchPreviewRequest:
+      type: object
+      description: The TMDB title to move to.
+      properties:
+        destination_media_id:
+          type: string
+          description: TMDB id, same media type.
+        episode_mapping:
+          type: object
+          additionalProperties: {}
+          description: 'For shows: source `season:episode` -> {season, episode}.'
+      required:
+      - destination_media_id
+    MatchReference:
+      type: object
+      description: How one external identity was matched.
+      properties:
+        id:
+          type: integer
+        integration:
+          type: string
+        source_account:
+          type: string
+        external_namespace:
+          type: string
+        external_identity:
+          type: string
+        media_type:
+          type: string
+        review_status:
+          type: string
+        matched_item:
+          allOf:
+          - $ref: '#/components/schemas/MatchItem'
+          nullable: true
+        corrected_item:
+          allOf:
+          - $ref: '#/components/schemas/MatchItem'
+          nullable: true
+        decision_note:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - corrected_item
+      - decision_note
+      - external_identity
+      - external_namespace
+      - id
+      - integration
+      - matched_item
+      - media_type
+      - review_status
+      - source_account
+      - updated_at
+    MatchReferenceList:
+      type: object
+      description: Matches waiting for review, and decisions already saved.
+      properties:
+        needs_review:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchReference'
+        saved:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchReference'
+      required:
+      - needs_review
+      - saved
     MediaProgressRequest:
       type: object
       description: Progress step to apply.
@@ -19816,6 +21003,14 @@ components:
         language:
           type: string
           description: Metadata language code; empty for the server default.
+    PatchedSyncSettingUpdate:
+      type: object
+      description: Fields to change.
+      properties:
+        direction:
+          $ref: '#/components/schemas/DirectionEnum'
+        kill_switch:
+          type: boolean
     PatchedTagRequest:
       type: object
       description: Tag name.
@@ -21316,6 +22511,27 @@ components:
       - playback
       - removed
       - watched
+    SyncCapability:
+      type: object
+      description: One thing a connection may do.
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        approved:
+          type: boolean
+        supported:
+          type: boolean
+        unavailable:
+          type: boolean
+          description: Approved, but the provider's adapter cannot do it yet.
+      required:
+      - approved
+      - code
+      - label
+      - supported
+      - unavailable
     SyncCheckpoint:
       type: object
       description: Where one connection has got to for one resource and direction.
@@ -21930,6 +23146,133 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SyncRemoveEpisode'
+    SyncSetting:
+      type: object
+      description: One connection's sync settings and health.
+      properties:
+        id:
+          type: integer
+        client_kind:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+        is_operational:
+          type: boolean
+        kill_switch:
+          type: boolean
+          description: Paused by the user.
+        direction:
+          $ref: '#/components/schemas/DirectionEnum'
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCapability'
+        has_adapter:
+          type: boolean
+        can_write:
+          type: boolean
+        last_reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_message:
+          type: string
+          nullable: true
+        pending_deliveries:
+          type: integer
+        failed_deliveries:
+          type: integer
+        open_conflicts:
+          type: integer
+      required:
+      - can_write
+      - capabilities
+      - client_kind
+      - direction
+      - failed_deliveries
+      - has_adapter
+      - id
+      - is_operational
+      - kill_switch
+      - label
+      - last_error_message
+      - last_reconciled_at
+      - open_conflicts
+      - pending_deliveries
+      - status
+    SyncSettingList:
+      type: object
+      description: Every connection's sync settings.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncSetting'
+      required:
+      - results
+    SyncSettingUpdated:
+      type: object
+      description: The connection after the change.
+      properties:
+        id:
+          type: integer
+        client_kind:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+        is_operational:
+          type: boolean
+        kill_switch:
+          type: boolean
+          description: Paused by the user.
+        direction:
+          $ref: '#/components/schemas/DirectionEnum'
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCapability'
+        has_adapter:
+          type: boolean
+        can_write:
+          type: boolean
+        last_reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_message:
+          type: string
+          nullable: true
+        pending_deliveries:
+          type: integer
+        failed_deliveries:
+          type: integer
+        open_conflicts:
+          type: integer
+        partially_granted:
+          type: boolean
+          description: The adapter supports only part of the chosen direction; the
+            rest is listed as unavailable.
+      required:
+      - can_write
+      - capabilities
+      - client_kind
+      - direction
+      - failed_deliveries
+      - has_adapter
+      - id
+      - is_operational
+      - kill_switch
+      - label
+      - last_error_message
+      - last_reconciled_at
+      - open_conflicts
+      - partially_granted
+      - pending_deliveries
+      - status
     SyncStatusItem:
       type: object
       description: Request or response shape for the sync write endpoints.
