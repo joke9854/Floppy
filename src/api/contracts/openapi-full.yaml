@@ -9500,6 +9500,61 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: music:write
+  /api/v1/music/albums/{album_id}/resync/:
+    post:
+      operationId: resyncMusicAlbum
+      description: Resync the album and return where its plays now live.
+      parameters:
+      - in: path
+        name: album_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlbumResyncResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No MusicBrainz release could be found for this album.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: music:write
   /api/v1/music/albums/{album_id}/tracks/:
     get:
       operationId: api_v1_music_albums_tracks_retrieve
@@ -13046,6 +13101,24 @@ components:
       - longest_streak_start
       - most_active_day
       - most_active_day_percentage
+    AlbumResyncResult:
+      type: object
+      description: The album holding the plays after a resync.
+      properties:
+        album_id:
+          type: integer
+          description: The album now holding the plays. Differs from the requested
+            id when that album was a duplicate and was merged into this one.
+        merged:
+          type: boolean
+        track_count:
+          type: integer
+          nullable: true
+          description: Tracks in the refreshed tracklist; null after a merge.
+      required:
+      - album_id
+      - merged
+      - track_count
     AnimeMigrationRequest:
       type: object
       description: Which provider's grouped series to migrate into.

@@ -150,6 +150,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
         "GET": "music:read",
         "PUT": "music:write",
     },
+    "api.fork_views_library.AlbumResyncView": {"POST": "music:write"},
     "api.fork_views_library.TagItemsView": {"POST": _W},
     "api.fork_views_moves.MediaMoveView": {"POST": _W},
     "api.fork_views_moves.AnimeGroupedMigrationView": {"POST": _W},

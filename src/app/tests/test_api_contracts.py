@@ -805,6 +805,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
                 "POST",
             ),
             ("/api/v1/music/artists/{artist_id}/sync-discography/", "POST"),
+            ("/api/v1/music/albums/{album_id}/resync/", "POST"),
             ("/api/v1/podcasts/shows/{show_id}/mark-all-played/", "POST"),
             ("/api/v1/user/notifications/test/", "POST"),
             ("/api/v1/user/token/regenerate/", "POST"),

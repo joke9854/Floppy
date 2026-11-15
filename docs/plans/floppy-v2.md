@@ -134,7 +134,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 | Phase | Content | Status |
 |---|---|---|
 | P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta at https://floppybeta.bingehub.stream |
-| P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Started. Inventory and slices A-I in `docs/plans/p1-api-inventory.md` (board items P1-A to P1-I). Done: P1-A typed errors, provider outages answer 503 `provider_unavailable` (`a40ab14a4`, `04a0145f3`); P1-B full contract `src/api/contracts/openapi-full.yaml` checked against the code (`2d8cc2b9b`); P1-C title pages (people, studios, history genres, ratings graphs, play notes); P1-D tracking actions (rewatch, move, anime grouping, language and remap, editions, releases, bulk tags and collection, collection fields), album resync held back. Next: P1-E |
+| P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Started. Inventory and slices A-I in `docs/plans/p1-api-inventory.md` (board items P1-A to P1-I). Done: P1-A typed errors, provider outages answer 503 `provider_unavailable` (`a40ab14a4`, `04a0145f3`); P1-B full contract `src/api/contracts/openapi-full.yaml` checked against the code (`2d8cc2b9b`); P1-C title pages (people, studios, history genres, ratings graphs, play notes); P1-D tracking actions (rewatch, move, anime grouping, language and remap, editions, releases, bulk tags and collection, collection fields), album resync (after fixing track rebuilds unlinking plays). Next: P1-E |
 | P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
 | P4 | Screens, one at a time, each with a parity checklist, measured and tried on beta before it switches: Home, Library, detail pages, Track dialog, History, Calendar, Discover, Statistics, Lists, Settings and integrations, Imports | Not started |
@@ -196,3 +196,7 @@ outcomes, classify HTTP failures, never delete user data to debug.
   `POST media/{type}/` and `PATCH media/...` now answer 503 on provider
   outages. Album resync is held back because rebuilding tracks unlinks
   every user's plays from them (`Music.track` SET_NULL).
+- 2026-11-15: fixed album tracklist rebuilds (release pick, "Sync album",
+  duplicate merge) unlinking every user's plays from their tracks: tracks
+  now keep their rows by recording id and track-less plays are relinked.
+  Added `POST music/albums/{id}/resync/`. P1-D complete.

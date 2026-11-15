@@ -170,6 +170,11 @@ urlpatterns = [
         name="api_music_album_release",
     ),
     re_path(
+        r"^music/albums/(?P<album_id>\d+)/resync/?$",
+        fork_views_library.AlbumResyncView.as_view(),
+        name="api_music_album_resync",
+    ),
+    re_path(
         r"^tags/(?P<tag_id>\d+)/items/?$",
         fork_views_library.TagItemsView.as_view(),
         name="api_tag_items",

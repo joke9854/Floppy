@@ -235,6 +235,76 @@ class MusicReleaseTests(FloppyApiTestCase):
         self.assertEqual(response.json()["releases"][0]["formats"], ["CD"])
 
 
+class AlbumResyncTests(FloppyApiTestCase):
+    """POST music/albums/{id}/resync/ (the service is covered in app tests)."""
+
+    def setUp(self):
+        super().setUp()
+        artist = Artist.objects.create(name="Band")
+        self.album = Album.objects.create(
+            title="Album",
+            artist=artist,
+            musicbrainz_release_id="rel-1",
+            musicbrainz_release_group_id="group-1",
+        )
+
+    def _post(self, album_id=None):
+        return self.call_api(
+            "post",
+            "api_music_album_resync",
+            args=(album_id or self.album.id,),
+            headers=self.auth_headers,
+        )
+
+    @patch("app.providers.musicbrainz.get_release_for_group", return_value="rel-1")
+    @patch(
+        "app.providers.musicbrainz.get_release",
+        return_value={
+            "release_group_id": "group-1",
+            "genres": [],
+            "tracks": [
+                {"disc_number": 1, "track_number": 1, "title": "One", "recording_id": "r1"},
+            ],
+        },
+    )
+    def test_resync_refreshes_the_tracklist(self, _release, _for_group):
+        response = self._post()
+
+        self.assertEqual(response.status_code, HTTP.OK)
+        self.assertEqual(
+            response.json(),
+            {"album_id": self.album.id, "merged": False, "track_count": 1},
+        )
+
+    @patch(
+        "api.fork_views_library.resync_album",
+        side_effect=lambda album: SimpleNamespace(
+            album=SimpleNamespace(id=999), merged=True, track_count=None
+        ),
+    )
+    def test_merge_returns_the_surviving_album(self, _resync):
+        response = self._post()
+        self.assertEqual(
+            response.json(), {"album_id": 999, "merged": True, "track_count": None}
+        )
+
+    @patch("app.providers.musicbrainz.get_release_for_group", return_value=None)
+    def test_no_release_is_400(self, _for_group):
+        self.album.musicbrainz_release_id = ""
+        self.album.save(update_fields=["musicbrainz_release_id"])
+        self.assertEqual(self._post().status_code, HTTP.BAD_REQUEST)
+
+    @patch("app.providers.musicbrainz.get_release_for_group", return_value="rel-1")
+    @patch("app.providers.musicbrainz.get_release", side_effect=_outage())
+    def test_musicbrainz_outage_is_503(self, _release, _for_group):
+        response = self._post()
+        self.assertEqual(response.status_code, HTTP.SERVICE_UNAVAILABLE)
+        self.assertEqual(response.json()["code"], "provider_unavailable")
+
+    def test_unknown_album_is_404(self):
+        self.assertEqual(self._post(album_id=987654).status_code, HTTP.NOT_FOUND)
+
+
 class TagItemsTests(FloppyApiTestCase):
     def setUp(self):
         super().setUp()

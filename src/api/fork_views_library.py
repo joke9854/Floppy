@@ -31,10 +31,15 @@ from app.models import (
     Tag,
 )
 from app.providers import credentials, hardcover, musicbrainz, tmdb
-from app.services.music import sync_album_release_tracks
+from app.services.music import resync_album, sync_album_release_tracks
 
 from .contract_serializers import DetailErrorSerializer
-from .provider_errors import PROVIDER_UNAVAILABLE_DETAIL
+from .provider_errors import (
+    PROVIDER_UNAVAILABLE_DETAIL,
+    is_provider_failure,
+    is_provider_not_found,
+    provider_unavailable_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -366,6 +371,74 @@ class MusicReleaseView(drf_views.APIView):
             )
         return Response(
             {"release_id": release_id, "tracks_synced": True, "track_count": track_count},
+            status=HTTP.OK,
+        )
+
+
+class AlbumResyncResultSerializer(serializers.Serializer):
+    """The album holding the plays after a resync."""
+
+    album_id = serializers.IntegerField(
+        help_text=(
+            "The album now holding the plays. Differs from the requested id "
+            "when that album was a duplicate and was merged into this one."
+        ),
+    )
+    merged = serializers.BooleanField()
+    track_count = serializers.IntegerField(
+        allow_null=True,
+        help_text="Tracks in the refreshed tracklist; null after a merge.",
+    )
+
+
+class AlbumResyncView(drf_views.APIView):
+    """Re-fetch an album from MusicBrainz and refresh its tracklist.
+
+    The web's "Sync album". Tracks still on the release keep their identity,
+    so plays stay linked; only plays of recordings no longer on the release
+    lose their track. The tracklist is shared by every user.
+    """
+
+    @extend_schema(
+        operation_id="resyncMusicAlbum",
+        request=None,
+        responses={
+            200: AlbumResyncResultSerializer,
+            400: OpenApiResponse(
+                DetailErrorSerializer,
+                description="No MusicBrainz release could be found for this album.",
+            ),
+            404: DetailErrorSerializer,
+            503: _PROVIDER_503,
+        },
+    )
+    def post(self, request, album_id):
+        """Resync the album and return where its plays now live."""
+        album = Album.objects.filter(id=album_id).first()
+        if album is None:
+            return Response({"detail": "Album not found."}, status=HTTP.NOT_FOUND)
+        try:
+            result = resync_album(album)
+        except Exception as error:
+            if not is_provider_failure(error):
+                raise
+            if is_provider_not_found(error):
+                return Response(
+                    {"detail": "MusicBrainz no longer has this album's release."},
+                    status=HTTP.BAD_REQUEST,
+                )
+            return provider_unavailable_response()
+        if result.track_count is None and not result.merged:
+            return Response(
+                {"detail": "No MusicBrainz release could be found for this album."},
+                status=HTTP.BAD_REQUEST,
+            )
+        return Response(
+            {
+                "album_id": result.album.id,
+                "merged": result.merged,
+                "track_count": result.track_count,
+            },
             status=HTTP.OK,
         )
 

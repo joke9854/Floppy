@@ -78,7 +78,7 @@ the client filters and sorts the full lists.
 | `trakt_series_graph_fragment` (and the provider and IMDb graphs) | `GET media/{tv,anime}/{source}/{id}/ratings-graph/?rating_source=provider\|trakt\|imdb&season=N`: stored season and episode scores; `pending` while Trakt ratings of aired episodes are missing, and a pending poll queues the season fetch at most every 10 minutes |
 | `activity_sessions_modal` | `GET history/?media_type=&source=&media_id=&logging_style=sessions` already had the filters; history entries now carry `notes`. The modal's streak and gap figures are derived from the days on the client |
 
-### D. Tracking actions (done, except album resync)
+### D. Tracking actions (done)
 
 | Web | API |
 |---|---|
@@ -92,7 +92,7 @@ the client filters and sorts the full lists.
 | `tag_bulk_toggle` | `POST tags/{id}/items/` (`582b03c66`) |
 | `bulk_collection_quick_add` | `POST collection/bulk/` (`582b03c66`) |
 | `collection_fields_save` | `GET/PUT collection/fields/` (`582b03c66`) |
-| `sync_album_metadata` | **Not added.** It deletes and rebuilds the album's tracks, which sets `Music.track` to null on every user's plays of that album (`on_delete=SET_NULL`), and can merge albums. Picking a release (`set_music_release`, web and API) rebuilds tracks the same way. Decide how plays keep their track before exposing a resync |
+| `sync_album_metadata` | `POST music/albums/{id}/resync/` returns the album holding the plays (another id after a duplicate merge). Rebuilds now keep track rows by recording id, so plays stay linked (`11974a08b`) |
 
 The shared changes live in `app/library_actions.py`; the web views call it.
 
