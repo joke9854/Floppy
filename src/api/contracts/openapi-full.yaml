@@ -2070,6 +2070,48 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
       x-required-scope: lists:write
+  /api/v1/lists/{list_id}/export/:
+    get:
+      operationId: exportListCsv
+      description: Stream the list's CSV.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:read
   /api/v1/lists/{list_id}/items/:
     get:
       operationId: api_v1_lists_items_retrieve
@@ -2208,6 +2250,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: lists:write
+  /api/v1/lists/{list_id}/items/bulk/:
+    post:
+      operationId: addListItemsBulk
+      description: Add the items and return the counts.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListBulkAddRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ListBulkAddRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ListBulkAddRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBulkAdd'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No permission to edit, or the list is a smart list.
         '404':
           content:
             application/json:
@@ -2653,6 +2755,112 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
+      x-required-scope: lists:write
+  /api/v1/lists/import/:
+    post:
+      operationId: importListCsv
+      description: Stage the upload and queue the import; poll the returned task.
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ListImportRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '507':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: lists:write
+  /api/v1/lists/share-view/:
+    post:
+      operationId: shareLibraryView
+      description: Create or reuse the list and return it.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListShareViewRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ListShareViewRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ListShareViewRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListShareView'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListShareView'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
       x-required-scope: lists:write
   /api/v1/media/:
     get:
@@ -16488,6 +16696,33 @@ components:
             $ref: '#/components/schemas/ListActivity'
       required:
       - results
+    ListBulkAdd:
+      type: object
+      description: What happened to the requested items.
+      properties:
+        added:
+          type: integer
+        already_present:
+          type: integer
+        skipped:
+          type: integer
+          description: Ids that match no item.
+      required:
+      - added
+      - already_present
+      - skipped
+    ListBulkAddRequest:
+      type: object
+      description: Items to add.
+      properties:
+        item_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          description: Floppy item ids, at most 500.
+      required:
+      - item_ids
     ListCollaborators:
       type: object
       description: List owner and collaborators by username.
@@ -16568,6 +16803,15 @@ components:
       required:
       - pagination
       - results
+    ListImportRequest:
+      type: object
+      description: A list CSV, as exported by the list export.
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
     ListItemDetailResponse:
       oneOf:
       - $ref: '#/components/schemas/CompleteMediaResponse'
@@ -16748,6 +16992,34 @@ components:
       - name
       - owner
       - public_slug
+    ListShareView:
+      type: object
+      description: The public smart list holding the shared view.
+      properties:
+        list_id:
+          type: integer
+        url:
+          type: string
+          description: Public web path of the list.
+        created:
+          type: boolean
+          description: False when an identical shared view already existed.
+      required:
+      - created
+      - list_id
+      - url
+    ListShareViewRequest:
+      type: object
+      description: |-
+        The library view to share, in the smart-rules shape.
+
+        Besides `media_type`, any smart filter key (status, rating, genre, year,
+        sort, ...) is accepted; omitted filters use their defaults.
+      properties:
+        media_type:
+          type: string
+      required:
+      - media_type
     ListSmartRules:
       type: object
       description: Smart-list rules and current membership size.

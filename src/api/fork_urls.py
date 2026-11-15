@@ -10,6 +10,7 @@ from . import (
     fork_views_discover,
     fork_views_integrations,
     fork_views_library,
+    fork_views_list_actions,
     fork_views_lists,
     fork_views_metadata,
     fork_views_moves,
@@ -373,6 +374,26 @@ urlpatterns = [
         r"^lists/(?P<list_id>\d+)/activity/?$",
         fork_views_lists.ListActivityView.as_view(),
         name="api_list_activity",
+    ),
+    re_path(
+        r"^lists/share-view/?$",
+        fork_views_list_actions.ListShareViewView.as_view(),
+        name="api_list_share_view",
+    ),
+    re_path(
+        r"^lists/import/?$",
+        fork_views_list_actions.ListImportView.as_view(),
+        name="api_list_import",
+    ),
+    re_path(
+        r"^lists/(?P<list_id>\d+)/items/bulk/?$",
+        fork_views_list_actions.ListBulkAddView.as_view(),
+        name="api_list_items_bulk",
+    ),
+    re_path(
+        r"^lists/(?P<list_id>\d+)/export/?$",
+        fork_views_list_actions.ListExportCsvView.as_view(),
+        name="api_list_export",
     ),
     re_path(
         r"^collection/status/(?P<item_id>\d+)/?$",
