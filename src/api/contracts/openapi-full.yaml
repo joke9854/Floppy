@@ -1236,6 +1236,35 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: exports:read
+  /api/v1/export/letterboxd/:
+    get:
+      operationId: exportLetterboxdCsv
+      description: Stream the CSV.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: exports:read
   /api/v1/export/template/:
     get:
       operationId: api_v1_export_template_retrieve
@@ -1265,6 +1294,119 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: exports:read
+  /api/v1/exports/schedules/:
+    get:
+      operationId: listExportSchedules
+      description: Return the recurring backups.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportScheduleList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: exports:read
+    post:
+      operationId: createExportSchedule
+      description: Create the schedule; the first backup runs at the next slot.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportScheduleCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExportScheduleCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExportScheduleCreate'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportSchedule'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Demo accounts are view-only.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: exports:write
+  /api/v1/exports/schedules/{schedule_id}/:
+    delete:
+      operationId: deleteExportSchedule
+      description: Delete the schedule; backups already written stay.
+      parameters:
+      - in: path
+        name: schedule_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: exports:write
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -1677,6 +1819,173 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: imports:read
+  /api/v1/imports/runs/:
+    get:
+      operationId: listImportRuns
+      description: Return the latest runs, newest first.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRunList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:read
+  /api/v1/imports/runs/{run_id}/cancel/:
+    post:
+      operationId: cancelImportRun
+      description: Cancel the run and return it.
+      parameters:
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRunRecord'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Not running.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
+  /api/v1/imports/runs/{run_id}/rollback/:
+    post:
+      operationId: rollbackImportRun
+      description: Remove the run's rows and take back its music plays.
+      parameters:
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRollback'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Still running; cancel it first.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
+  /api/v1/imports/schedules/{schedule_id}/:
+    delete:
+      operationId: deleteImportSchedule
+      description: Delete the schedule (or disconnect Last.fm, see `outcome`).
+      parameters:
+      - in: path
+        name: schedule_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportScheduleDeleted'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
   /api/v1/info/:
     get:
       operationId: api_v1_info_retrieve
@@ -16839,6 +17148,69 @@ components:
       - item
       - item_id
       - parent_id
+    ExportSchedule:
+      type: object
+      description: A recurring backup export.
+      properties:
+        id:
+          type: integer
+        frequency:
+          type: string
+          nullable: true
+        next_run:
+          type: string
+          format: date-time
+          nullable: true
+        last_run:
+          type: string
+          format: date-time
+          nullable: true
+        media_types:
+          type: array
+          items:
+            type: string
+        include_lists:
+          type: boolean
+        include_collection:
+          type: boolean
+      required:
+      - frequency
+      - id
+      - include_collection
+      - include_lists
+      - last_run
+      - media_types
+      - next_run
+    ExportScheduleCreate:
+      type: object
+      description: A new recurring backup.
+      properties:
+        frequency:
+          $ref: '#/components/schemas/FrequencyEnum'
+        time:
+          type: string
+          description: Time of day, `HH:MM`, server time zone.
+        media_types:
+          type: array
+          items:
+            type: string
+        include_lists:
+          type: boolean
+        include_collection:
+          type: boolean
+      required:
+      - frequency
+      - time
+    ExportScheduleList:
+      type: object
+      description: The user's recurring backups.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportSchedule'
+      required:
+      - results
     ExternalIds:
       type: object
       description: External ids that name an item instead of source + media_id.
@@ -16864,6 +17236,16 @@ components:
       required:
       - detail
       - errors
+    FrequencyEnum:
+      enum:
+      - daily
+      - 2days
+      - weekly
+      type: string
+      description: |-
+        * `daily` - daily
+        * `2days` - 2days
+        * `weekly` - weekly
     FromEnum:
       enum:
       - tracker
@@ -17214,6 +17596,19 @@ components:
         mode:
           type: string
           description: Import mode; defaults to the user's setting.
+    ImportRollback:
+      type: object
+      description: What the undo removed.
+      properties:
+        deleted:
+          type: integer
+          description: Rows removed.
+        reverted:
+          type: integer
+          description: Music plays taken back.
+      required:
+      - deleted
+      - reverted
     ImportRun:
       type: object
       description: One past import run.
@@ -17239,10 +17634,75 @@ components:
       - source
       - status
       - summary
+    ImportRunList:
+      type: object
+      description: Recent import runs, newest first.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRunRecord'
+      required:
+      - results
+    ImportRunRecord:
+      type: object
+      description: One import run.
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+        status:
+          $ref: '#/components/schemas/ImportRunRecordStatusEnum'
+        created_count:
+          type: integer
+        updated_count:
+          type: integer
+        skipped_count:
+          type: integer
+        failed_count:
+          type: integer
+        remaining_estimate:
+          type: integer
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_count
+      - failed_count
+      - finished_at
+      - id
+      - remaining_estimate
+      - skipped_count
+      - source
+      - started_at
+      - status
+      - updated_count
+    ImportRunRecordStatusEnum:
+      enum:
+      - running
+      - completed
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `running` - running
+        * `completed` - completed
+        * `failed` - failed
+        * `cancelled` - cancelled
     ImportSchedule:
       type: object
       description: One recurring import schedule.
       properties:
+        id:
+          type: integer
+          nullable: true
+          description: Pass to DELETE imports/schedules/{id}/.
         source:
           type: string
           nullable: true
@@ -17264,12 +17724,35 @@ components:
           type: string
           nullable: true
       required:
+      - id
       - last_run
       - mode
       - next_run
       - schedule
       - source
       - username
+    ImportScheduleDeleted:
+      type: object
+      description: How the schedule was removed.
+      properties:
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/ImportScheduleDeletedOutcomeEnum'
+          description: |-
+            `disconnected_lastfm`: Last.fm polls every account from one shared schedule, so removing it disconnects this account's Last.fm.
+
+            * `deleted` - deleted
+            * `disconnected_lastfm` - disconnected_lastfm
+      required:
+      - outcome
+    ImportScheduleDeletedOutcomeEnum:
+      enum:
+      - deleted
+      - disconnected_lastfm
+      type: string
+      description: |-
+        * `deleted` - deleted
+        * `disconnected_lastfm` - disconnected_lastfm
     InfoApiResponse:
       type: object
       description: Public server info, including the capability flags clients probe.
@@ -19118,22 +19601,6 @@ components:
       - sources
       - status
       - step
-    OutcomeEnum:
-      enum:
-      - created
-      - already_satisfied
-      - not_found
-      - metadata_unavailable
-      - conflict
-      - failed
-      type: string
-      description: |-
-        * `created` - created
-        * `already_satisfied` - already_satisfied
-        * `not_found` - not_found
-        * `metadata_unavailable` - metadata_unavailable
-        * `conflict` - conflict
-        * `failed` - failed
     Pagination:
       type: object
       description: Stable limit/offset response metadata.
@@ -21107,7 +21574,7 @@ components:
         type:
           $ref: '#/components/schemas/SyncHistoryResultTypeEnum'
         outcome:
-          $ref: '#/components/schemas/OutcomeEnum'
+          $ref: '#/components/schemas/SyncHistoryResultOutcomeEnum'
         stored_season_number:
           type: integer
         stored_episode_number:
@@ -21124,6 +21591,22 @@ components:
       - client_event_id
       - outcome
       - type
+    SyncHistoryResultOutcomeEnum:
+      enum:
+      - created
+      - already_satisfied
+      - not_found
+      - metadata_unavailable
+      - conflict
+      - failed
+      type: string
+      description: |-
+        * `created` - created
+        * `already_satisfied` - already_satisfied
+        * `not_found` - not_found
+        * `metadata_unavailable` - metadata_unavailable
+        * `conflict` - conflict
+        * `failed` - failed
     SyncHistoryResultTypeEnum:
       enum:
       - movie

@@ -88,6 +88,10 @@ class ImportRunSerializer(serializers.Serializer):
 class ImportScheduleSerializer(serializers.Serializer):
     """One recurring import schedule."""
 
+    id = serializers.IntegerField(
+        allow_null=True,
+        help_text="Pass to DELETE imports/schedules/{id}/.",
+    )
     source = serializers.CharField(allow_null=True)
     username = serializers.CharField(allow_blank=True, allow_null=True)
     last_run = serializers.DateTimeField(allow_null=True)
@@ -220,6 +224,7 @@ class ImportActivityView(drf_views.APIView):
         ]
         schedules = [
             {
+                "id": getattr(entry.get("task"), "id", None),
                 "source": entry.get("source"),
                 "username": entry.get("username"),
                 "last_run": entry.get("last_run"),

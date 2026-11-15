@@ -1,8 +1,6 @@
 import base64
 import json
 import logging
-import re
-import uuid
 from io import BytesIO
 from itertools import batched
 from pathlib import Path
@@ -54,15 +52,13 @@ from integrations.models import (
     ExternalReferenceReviewStatus,
     ImportRun,
     IntegrationToken,
-    LastFMAccount,
     PlexAccount,
     PlexWebhookShare,
     SyncBinding,
     SyncClientKind,
 )
-from integrations.plex_watchlist import WATCHLIST_TASK_NAME
 from users import appearance as appearance_config
-from users import cache_management
+from users import cache_management, data_management
 from users import credentials as user_credentials
 from users.forms import (
     AuthenticatorSetupForm,
@@ -2139,70 +2135,28 @@ def _delete_orphaned_music_catalog():
 
 @require_POST
 def cancel_import_run(request, run_id):
-    """Cancel a running import.
-
-    Only covers importers that run as a single Celery task invocation
-    (revoke(terminate=True) stops it outright, deployed worker pool is
-    prefork so SIGTERM reaches the running task). Last.fm/Koito history
-    backfills self-reschedule across many task invocations with no single
-    task id to revoke against -- those are cancelled cooperatively instead
-    (see cancel_requested on ImportRun).
-    """
-    from config.celery import app as celery_app
-
+    """Cancel a running import."""
     run = get_object_or_404(ImportRun, id=run_id, user=request.user)
-
-    if run.status != ImportRun.Status.RUNNING:
-        messages.error(request, "This import is not running.")
+    try:
+        data_management.cancel_import_run(run)
+    except data_management.DataManagementError as error:
+        messages.error(request, str(error))
         return redirect("import_data")
-
-    if run.task_id:
-        celery_app.control.revoke(run.task_id, terminate=True)
-
-    ImportRun.objects.filter(id=run.id).update(
-        status=ImportRun.Status.CANCELLED,
-        cancel_requested=True,
-        finished_at=timezone.now(),
-    )
     messages.success(request, "Import cancelled.")
     return redirect("import_data")
 
 
 @require_POST
 def rollback_import_run(request, run_id):
-    """Undo the media rows created or touched by one import run.
-
-    Most media types are insert-only for a given run, so those rows are
-    just deleted. Music is different: rows are mutated in place (progress
-    incremented per scrobble), so a plain delete-by-run could destroy
-    plays from other runs or manual entries sharing the same row -- it
-    gets a history-based revert instead (see revert_music_import_run).
-    """
-    from app.services.music_scrobble import revert_music_import_run
-
+    """Undo the media rows created or touched by one import run."""
     run = get_object_or_404(ImportRun, id=run_id, user=request.user)
-
-    if run.status == ImportRun.Status.RUNNING:
-        messages.error(request, "Cancel the import before rolling it back.")
+    try:
+        total_deleted, total_reverted = data_management.rollback_import_run(
+            run, request.user
+        )
+    except data_management.DataManagementError as error:
+        messages.error(request, str(error))
         return redirect("import_data")
-
-    rollback_media_types = [
-        media_type
-        for media_type in MediaTypes.values
-        if media_type not in (MediaTypes.EPISODE.value, MediaTypes.MUSIC.value)
-    ]
-
-    total_deleted = 0
-    for media_type in rollback_media_types:
-        model = apps.get_model(app_label="app", model_name=media_type)
-        deleted_count, _ = model.objects.filter(
-            user=request.user, import_run=run
-        ).delete()
-        total_deleted += deleted_count
-
-    music_result = revert_music_import_run(run, request.user)
-    total_deleted += music_result["deleted"]
-    total_reverted = music_result["reverted"]
 
     if total_deleted or total_reverted:
         parts = []
@@ -2216,63 +2170,28 @@ def rollback_import_run(request, run_id):
     return redirect("import_data")
 
 
-def _task_belongs_to_user(task, user):
-    """Return whether a periodic task's kwargs name exactly this user.
-
-    A plain substring test reads `"user_id": 1` out of `"user_id": 11`, so
-    the id has to be anchored on the delimiter that follows it. Quoting and
-    spacing vary with how the kwargs were written.
-    """
-    if not task.kwargs:
-        return False
-
-    return bool(
-        re.search(
-            rf"""['"]user_id['"]:\s*{user.id}\s*[,}}]""",
-            task.kwargs,
-        ),
-    )
-
-
 @require_POST
 def delete_import_schedule(request):
     """Delete an import schedule."""
-    task_name = request.POST.get("task_name")
+    task = PeriodicTask.objects.filter(name=request.POST.get("task_name")).first()
+    if task is None:
+        messages.error(request, "Import schedule not found.")
+        return redirect("import_data")
     try:
-        task = PeriodicTask.objects.get(name=task_name)
-    except PeriodicTask.DoesNotExist:
-        messages.error(request, "Import schedule not found.")
+        outcome = data_management.delete_import_schedule(request.user, task)
+    except data_management.DataManagementError as error:
+        messages.error(request, str(error))
         return redirect("import_data")
-
-    # Last.fm polling is a single shared task covering every connected
-    # user (it has no per-user kwargs), so it can never match the
-    # kwargs__contains ownership check below. "Deleting" it for one user
-    # can only mean disconnecting that user's account.
-    if task.task == "Poll Last.fm for all users":
-        LastFMAccount.objects.filter(user=request.user).delete()
+    if outcome == "disconnected_lastfm":
         messages.info(request, "Disconnected Last.fm.")
-        return redirect("import_data")
-
-    if not _task_belongs_to_user(task, request.user):
-        messages.error(request, "Import schedule not found.")
-        return redirect("import_data")
-
-    if task.task == WATCHLIST_TASK_NAME:
-        PlexAccount.objects.filter(user=request.user).update(
-            watchlist_sync_enabled=False,
-        )
-    task.delete()
-    messages.success(request, "Import schedule deleted.")
+    else:
+        messages.success(request, "Import schedule deleted.")
     return redirect("import_data")
 
 
 @require_POST
 def create_export_schedule(request):
     """Create a one-time export or a recurring scheduled export."""
-    import datetime as dt
-
-    from django_celery_beat.models import CrontabSchedule
-
     if request.user.is_demo:
         messages.error(request, "This section is view-only for demo accounts.")
         return redirect("export_data")
@@ -2312,69 +2231,17 @@ def create_export_schedule(request):
         return build_export_response()
 
     try:
-        parsed_time = dt.datetime.strptime(export_time, "%H:%M").time()  # noqa: DTZ007  # date-only value; no timezone applies
-    except ValueError:
-        messages.error(request, "Invalid export time.")
+        data_management.create_export_schedule(
+            request.user,
+            frequency=frequency,
+            export_time=export_time,
+            media_types=media_types,
+            include_lists=include_lists,
+            include_collection=include_collection,
+        )
+    except data_management.DataManagementError as error:
+        messages.error(request, str(error))
         return redirect("export_data")
-
-    if frequency == "daily":
-        day_of_week = "*"
-    elif frequency == "2days":
-        day_of_week = "*/2"
-    elif frequency == "weekly":
-        day_of_week = "0"  # Sunday
-    else:
-        messages.error(request, "Invalid export frequency.")
-        return redirect("export_data")
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        hour=parsed_time.hour,
-        minute=parsed_time.minute,
-        day_of_week=day_of_week,
-        timezone=timezone.get_default_timezone(),
-    )
-
-    task_kwargs = {
-        "user_id": request.user.id,
-        "media_types": media_types,
-        "include_lists": include_lists,
-        "include_collection": include_collection,
-    }
-
-    # A user can have several schedules at once (e.g. daily watch history,
-    # weekly lists, monthly collection); only reject an exact duplicate -
-    # same content and same cadence - rather than any second schedule.
-    existing_schedules = PeriodicTask.objects.filter(
-        task="Scheduled backup export",
-        kwargs__contains=f'"user_id": {request.user.id}',
-        enabled=True,
-        crontab=crontab,
-    )
-    for schedule in existing_schedules:
-        existing_kwargs = json.loads(schedule.kwargs)
-        if (
-            sorted(existing_kwargs.get("media_types") or []) == sorted(media_types)
-            and existing_kwargs.get("include_lists") == include_lists
-            and existing_kwargs.get("include_collection") == include_collection
-        ):
-            messages.error(
-                request,
-                "An identical backup schedule already exists.",
-            )
-            return redirect("export_data")
-
-    task_name = (
-        f"Backup export for {request.user.username} at {parsed_time} {frequency} "
-        f"({uuid.uuid4().hex[:8]})"
-    )
-    PeriodicTask.objects.create(
-        name=task_name,
-        task="Scheduled backup export",
-        crontab=crontab,
-        kwargs=json.dumps(task_kwargs),
-        start_time=timezone.now(),
-        enabled=True,
-    )
 
     logger.info(
         "User %s created recurring export schedule (%s) and started CSV export",
@@ -2383,19 +2250,13 @@ def create_export_schedule(request):
     )
     return build_export_response()
 
-
 @require_POST
 def delete_export_schedule(request):
     """Delete a scheduled backup export."""
-    task_name = request.POST.get("task_name")
-    try:
-        task = PeriodicTask.objects.get(
-            name=task_name,
-            kwargs__contains=f'"user_id": {request.user.id}',
-        )
-        task.delete()
+    task = PeriodicTask.objects.filter(name=request.POST.get("task_name")).first()
+    if task is not None and data_management.delete_export_schedule(request.user, task):
         messages.success(request, "Backup schedule deleted.")
-    except PeriodicTask.DoesNotExist:
+    else:
         messages.error(request, "Backup schedule not found.")
     return redirect("export_data")
 

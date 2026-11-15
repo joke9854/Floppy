@@ -41,6 +41,7 @@ SCOPE_DESCRIPTIONS = {
     "imports:read": "Read import activity.",
     "imports:write": "Start imports.",
     "exports:read": "Download exports.",
+    "exports:write": "Create and remove scheduled backups.",
     "sync:read": (
         "Read sync activities, change feeds, and conflicts, and register this "
         "app's pull connection."
@@ -114,6 +115,13 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_integrations.ImportActivityView": {"GET": "imports:read"},
     "api.fork_views_integrations.ExportCsvView": {"GET": "exports:read"},
     "api.fork_views_integrations.ExportTemplateView": {"GET": "exports:read"},
+    "api.fork_views_data.ImportRunsView": {"GET": "imports:read"},
+    "api.fork_views_data.ImportRunCancelView": {"POST": "imports:write"},
+    "api.fork_views_data.ImportRunRollbackView": {"POST": "imports:write"},
+    "api.fork_views_data.ImportScheduleDetailView": {"DELETE": "imports:write"},
+    "api.fork_views_data.ExportSchedulesView": {"GET": "exports:read", "POST": "exports:write"},
+    "api.fork_views_data.ExportScheduleDetailView": {"DELETE": "exports:write"},
+    "api.fork_views_data.ExportLetterboxdView": {"GET": "exports:read"},
     "api.fork_views_lists.ListSmartRulesView": {
         "GET": "lists:read",
         "PUT": "lists:write",

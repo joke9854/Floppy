@@ -8,6 +8,7 @@ from . import (
     cinetrack_character_views,
     fork_views,
     fork_views_account,
+    fork_views_data,
     fork_views_discover,
     fork_views_integrations,
     fork_views_library,
@@ -558,6 +559,41 @@ urlpatterns = [
         r"^user/app-sessions/(?P<session_id>[ra]\d+)/?$",
         fork_views_account.AppSessionDetailView.as_view(),
         name="api_user_app_session_detail",
+    ),
+    re_path(
+        r"^imports/runs/?$",
+        fork_views_data.ImportRunsView.as_view(),
+        name="api_import_runs",
+    ),
+    re_path(
+        r"^imports/runs/(?P<run_id>\d+)/cancel/?$",
+        fork_views_data.ImportRunCancelView.as_view(),
+        name="api_import_run_cancel",
+    ),
+    re_path(
+        r"^imports/runs/(?P<run_id>\d+)/rollback/?$",
+        fork_views_data.ImportRunRollbackView.as_view(),
+        name="api_import_run_rollback",
+    ),
+    re_path(
+        r"^imports/schedules/(?P<schedule_id>\d+)/?$",
+        fork_views_data.ImportScheduleDetailView.as_view(),
+        name="api_import_schedule_detail",
+    ),
+    re_path(
+        r"^exports/schedules/?$",
+        fork_views_data.ExportSchedulesView.as_view(),
+        name="api_export_schedules",
+    ),
+    re_path(
+        r"^exports/schedules/(?P<schedule_id>\d+)/?$",
+        fork_views_data.ExportScheduleDetailView.as_view(),
+        name="api_export_schedule_detail",
+    ),
+    re_path(
+        r"^export/letterboxd/?$",
+        fork_views_data.ExportLetterboxdView.as_view(),
+        name="api_export_letterboxd",
     ),
     re_path(
         r"^imports/activity/?$",
