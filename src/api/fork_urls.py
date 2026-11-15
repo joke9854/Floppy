@@ -12,6 +12,7 @@ from . import (
     fork_views_lists,
     fork_views_metadata,
     fork_views_music,
+    fork_views_pages,
     fork_views_playback,
     fork_views_podcast,
     fork_views_progress_changes,
@@ -129,6 +130,26 @@ urlpatterns = [
         r"^history/?$",
         fork_views_tracking.HistoryView.as_view(),
         name="api_history",
+    ),
+    re_path(
+        r"^history/genres/?$",
+        fork_views_pages.HistoryGenresView.as_view(),
+        name="api_history_genres",
+    ),
+    re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/ratings-graph/?$",
+        fork_views_pages.MediaRatingsGraphView.as_view(),
+        name="api_media_ratings_graph",
+    ),
+    re_path(
+        r"^people/(?P<source>[^/]+)/(?P<person_id>[^/]+)/?$",
+        fork_views_pages.PersonDetailView.as_view(),
+        name="api_person_detail",
+    ),
+    re_path(
+        r"^studios/(?P<source>[^/]+)/(?P<studio_id>[^/]+)/?$",
+        fork_views_pages.StudioDetailView.as_view(),
+        name="api_studio_detail",
     ),
     re_path(
         r"^history/(?P<media_type>[^/]+)/(?P<history_id>[^/]+)/?$",

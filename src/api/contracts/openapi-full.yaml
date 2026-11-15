@@ -1383,6 +1383,35 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/history/genres/:
+    get:
+      operationId: listHistoryGenres
+      description: Return the user's genres and implied genres, sorted by name.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryGenresResponse'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
   /api/v1/home/:
     get:
       operationId: api_v1_home_retrieve
@@ -7201,6 +7230,74 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: metadata:write
+  /api/v1/media/{media_type}/{source}/{media_id}/ratings-graph/:
+    get:
+      operationId: getMediaRatingsGraph
+      description: Return each season's episodes with score and vote count.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: query
+        name: rating_source
+        schema:
+          type: string
+          enum:
+          - imdb
+          - provider
+          - trakt
+        description: Whose ratings to return; defaults to `provider`.
+      - in: query
+        name: season
+        schema:
+          type: integer
+        description: Only this season.
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingsGraphResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Not a show, or an invalid parameter.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
   /api/v1/media/{media_type}/{source}/{media_id}/recommendations/:
     get:
       operationId: api_v1_media_recommendations_retrieve
@@ -8903,6 +9000,67 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: music:write
+  /api/v1/people/{source}/{person_id}/:
+    get:
+      operationId: getPerson
+      description: Return the profile, every credit and the user's watched totals.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetailResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The source has no person pages.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The provider has no such person.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
   /api/v1/playback/now-playing/:
     get:
       operationId: api_v1_playback_now_playing_retrieve
@@ -10189,6 +10347,61 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: statistics:write
+  /api/v1/studios/{source}/{studio_id}/:
+    get:
+      operationId: getStudio
+      description: Return the studio's profile and titles.
+      parameters:
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: studio_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioDetailResponse'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: No studio with this id is known to this server.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. Code `provider_unavailable`,
+            with `Retry-After`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
   /api/v1/sync/activities/:
     get:
       operationId: api_v1_sync_activities_retrieve
@@ -14065,8 +14278,8 @@ components:
             type: object
             additionalProperties: {}
           description: History entries of the day, newest first. Each carries at least
-            `media_type`, `item`, `title` and `poster`; the remaining keys depend
-            on the media type.
+            `media_type`, `item`, `title`, `poster` and `notes` (the play's current
+            notes, empty when none); the remaining keys depend on the media type.
         total_minutes:
           type: integer
         total_runtime_display:
@@ -14075,6 +14288,21 @@ components:
       - date
       - entries
       - weekday
+    HistoryGenresResponse:
+      type: object
+      description: Genre values the history `genre` and `implied_genre` filters accept.
+      properties:
+        genres:
+          type: array
+          items:
+            type: string
+        implied_genres:
+          type: array
+          items:
+            type: string
+      required:
+      - genres
+      - implied_genres
     HistoryResponse:
       type: object
       description: A page of history days.
@@ -16018,6 +16246,175 @@ components:
           type: boolean
         clickable_media_cards:
           type: boolean
+    PersonCredit:
+      type: object
+      description: One title in a person's credits.
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        role:
+          type: string
+        departments:
+          type: array
+          items:
+            type: string
+        credit_type:
+          type: string
+        vote_average:
+          type: number
+          format: double
+          nullable: true
+        vote_count:
+          type: integer
+          nullable: true
+        popularity:
+          type: number
+          format: double
+          nullable: true
+        item_id:
+          type: integer
+          nullable: true
+          description: Floppy's item id when the title is known to this server (by
+            any user); null otherwise. Not a sign that this user tracks it.
+        genres:
+          type: array
+          items:
+            type: string
+          description: Genres of the Floppy item; empty without `item_id`.
+        implied_genres:
+          type: array
+          items:
+            type: string
+        watched:
+          type: boolean
+          description: This user watched or read it.
+        watched_minutes:
+          type: integer
+          nullable: true
+          description: Minutes this user spent on the person's part of it.
+      required:
+      - credit_type
+      - departments
+      - genres
+      - image
+      - implied_genres
+      - item_id
+      - media_id
+      - media_type
+      - popularity
+      - role
+      - source
+      - title
+      - vote_average
+      - vote_count
+      - watched
+      - watched_minutes
+      - year
+    PersonDetailResponse:
+      type: object
+      description: A person page.
+      properties:
+        person:
+          $ref: '#/components/schemas/PersonProfile'
+        credits:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonCredit'
+          description: Every credit, one per title, in the provider's order.
+        watched_credits:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonCredit'
+          description: Titles this user watched or read; for authors this can include
+            tracked books the provider did not list.
+        known_for:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonCredit'
+          description: Most-voted on-screen credits, at most ten.
+        watched:
+          $ref: '#/components/schemas/PersonWatched'
+      required:
+      - credits
+      - known_for
+      - person
+      - watched
+      - watched_credits
+    PersonProfile:
+      type: object
+      description: Who the person is.
+      properties:
+        source:
+          type: string
+        person_id:
+          type: string
+        name:
+          type: string
+        image:
+          type: string
+        biography:
+          type: string
+        known_for_department:
+          type: string
+        birth_date:
+          type: string
+          nullable: true
+        death_date:
+          type: string
+          nullable: true
+        place_of_birth:
+          type: string
+        is_author:
+          type: boolean
+        source_url:
+          type: string
+      required:
+      - biography
+      - birth_date
+      - death_date
+      - image
+      - is_author
+      - known_for_department
+      - name
+      - person_id
+      - place_of_birth
+      - source
+      - source_url
+    PersonWatched:
+      type: object
+      description: What this user watched or read of the person's work.
+      properties:
+        movies:
+          type: integer
+        shows:
+          type: integer
+        books:
+          type: integer
+          description: Books, comics and manga.
+        plays:
+          type: integer
+          nullable: true
+        minutes:
+          type: integer
+          nullable: true
+          description: 'Null for authors: reading time is not counted per author.'
+      required:
+      - books
+      - minutes
+      - movies
+      - plays
+      - shows
     PieChart:
       type: object
       description: Chart.js pie chart data.
@@ -16613,6 +17010,72 @@ components:
           type: string
       required:
       - provider
+    RatingSourceEnum:
+      enum:
+      - imdb
+      - provider
+      - trakt
+      type: string
+      description: |-
+        * `imdb` - imdb
+        * `provider` - provider
+        * `trakt` - trakt
+    RatingsGraphEpisode:
+      type: object
+      description: One episode's rating.
+      properties:
+        episode_number:
+          type: integer
+        score:
+          type: number
+          format: double
+          nullable: true
+        votes:
+          type: integer
+      required:
+      - episode_number
+      - score
+      - votes
+    RatingsGraphResponse:
+      type: object
+      description: Ratings of a show by season and episode.
+      properties:
+        rating_source:
+          $ref: '#/components/schemas/RatingSourceEnum'
+        pending:
+          type: boolean
+          description: True while Trakt ratings of aired episodes are still being
+            fetched; poll again later. Always false for other sources.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/RatingsGraphSeason'
+      required:
+      - pending
+      - rating_source
+      - seasons
+    RatingsGraphSeason:
+      type: object
+      description: One season with its rated episodes.
+      properties:
+        season_number:
+          type: integer
+        score:
+          type: number
+          format: double
+          nullable: true
+          description: Stored season rating, when the rating source has one.
+        votes:
+          type: integer
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RatingsGraphEpisode'
+      required:
+      - episodes
+      - score
+      - season_number
+      - votes
     ScoreDataset:
       type: object
       description: Score counts for one media type.
@@ -16944,6 +17407,74 @@ components:
       - datasets
       - labels
       - total_completed
+    StudioDetailResponse:
+      type: object
+      description: A studio page.
+      properties:
+        source:
+          type: string
+        studio_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          description: From IGDB; empty for studios known only from local credits.
+        source_url:
+          type: string
+        founded:
+          type: string
+          nullable: true
+        developed_count:
+          type: integer
+          nullable: true
+        published_count:
+          type: integer
+          nullable: true
+        titles:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioTitle'
+          description: Credited titles, newest first, then by title.
+      required:
+      - description
+      - developed_count
+      - founded
+      - name
+      - published_count
+      - source
+      - source_url
+      - studio_id
+      - titles
+    StudioTitle:
+      type: object
+      description: One credited title of a studio.
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        item_id:
+          type: integer
+          nullable: true
+          description: Floppy's item id when the title is known to this server.
+      required:
+      - image
+      - item_id
+      - media_id
+      - media_type
+      - source
+      - title
+      - year
     SyncActivities:
       type: object
       description: When each area of the account last changed.

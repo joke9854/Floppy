@@ -19,6 +19,7 @@ from app.fork_services_episode import (
 )
 from app.fork_services_movie import resolve_or_create_movie
 from app.history_cache_utils import normalize_history_media_type_tokens
+from app.history_views import attach_session_notes
 from app.models import (
     Episode,
     ItemTag,
@@ -728,8 +729,9 @@ class HistoryDaySerializer(serializers.Serializer):
         child=serializers.DictField(),
         help_text=(
             "History entries of the day, newest first. Each carries at least "
-            "`media_type`, `item`, `title` and `poster`; the remaining keys "
-            "depend on the media type."
+            "`media_type`, `item`, `title`, `poster` and `notes` (the play's "
+            "current notes, empty when none); the remaining keys depend on "
+            "the media type."
         ),
     )
     total_minutes = serializers.IntegerField(required=False)
@@ -829,6 +831,7 @@ class HistoryView(drf_views.APIView):
                 logging_style_override=logging_style or None,
                 cap_entries_per_day=False,
             )
+            attach_session_notes(history_days)
             flat_entries = [
                 {**entry, "url": _entry_url(entry)}
                 for day in history_days
@@ -860,6 +863,7 @@ class HistoryView(drf_views.APIView):
                 max_entries_per_day=max_entries_per_day,
             )
             total_days = None
+        attach_session_notes(history_days)
         if indexable_request:
             paginated = paginate_data(
                 request,

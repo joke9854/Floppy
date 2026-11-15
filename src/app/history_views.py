@@ -805,7 +805,7 @@ def _annotate_history_day_for_template(day):
     return annotated_day
 
 
-def _attach_session_notes(days):
+def attach_session_notes(days):
     """Attach current per-instance notes without changing cached history payloads."""
     ids_by_media_type = defaultdict(set)
     for day in days:
@@ -926,7 +926,7 @@ def activity_sessions_modal(request):
         history_days,
         request.user,
     )
-    _attach_session_notes(history_days)
+    attach_session_notes(history_days)
     history_days = [
         annotated_day
         for day in history_days
@@ -1045,6 +1045,14 @@ def history_genres(request):
     """Return sorted list of unique genres from the user's tracked items."""
     from django.http import JsonResponse
 
+    return JsonResponse(collect_history_genres(request.user))
+
+
+def collect_history_genres(user):
+    """Return the genres and implied genres of the user's tracked items.
+
+    Shared by the web history filter and `GET /api/v1/history/genres/`.
+    """
     from app.models import (
         BoardGame,
         Episode,
@@ -1063,13 +1071,13 @@ def history_genres(request):
     # Book, Comic, and Manga use Library of Congress subject headings in their genres
     # field rather than real genre names, so exclude them from the genre list.
     for model_cls in [Movie, Game, Music, BoardGame, Podcast]:
-        for genres_list in model_cls.objects.filter(user=request.user).values_list(
+        for genres_list in model_cls.objects.filter(user=user).values_list(
             "item__genres", flat=True
         ):
             if genres_list:
                 genres.update(str(g).strip() for g in genres_list if _is_valid_genre(g))
         for implied_genres_list in model_cls.objects.filter(
-            user=request.user
+            user=user
         ).values_list(
             "item__implied_genres",
             flat=True,
@@ -1080,19 +1088,17 @@ def history_genres(request):
                 )
 
     for genres_list in Episode.all_objects.filter(
-        related_season__user=request.user
+        related_season__user=user
     ).values_list("related_season__related_tv__item__genres", flat=True):
         if genres_list:
             genres.update(str(g).strip() for g in genres_list if _is_valid_genre(g))
 
     genres.discard("")
     implied_genres.discard("")
-    return JsonResponse(
-        {
-            "genres": sorted(genres, key=str.lower),
-            "implied_genres": sorted(implied_genres, key=str.lower),
-        },
-    )
+    return {
+        "genres": sorted(genres, key=str.lower),
+        "implied_genres": sorted(implied_genres, key=str.lower),
+    }
 
 
 @require_GET
