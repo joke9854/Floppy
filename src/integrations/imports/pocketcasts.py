@@ -32,6 +32,7 @@ from integrations.imports.helpers import (
     decrypt,
     encrypt,
 )
+from integrations.task_filters import user_kwargs_regex
 
 logger = logging.getLogger(__name__)
 
@@ -747,7 +748,7 @@ class PocketCastsImporter:
 
         PeriodicTask.objects.filter(
             task="Import from Pocket Casts (Recurring)",
-            kwargs__contains=f'"user_id": {self.user.id}',
+            kwargs__regex=user_kwargs_regex(self.user.id),
         ).delete()
         logger.info("Removed scheduled imports for user %s", self.user.username)
 

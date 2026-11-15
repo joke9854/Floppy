@@ -16,6 +16,7 @@ from django_celery_results.models import TaskResult
 
 from app.models import Item, MediaTypes, Sources, Status
 from integrations import import_progress
+from integrations.task_filters import user_kwargs_regex
 from users import helpers
 
 EXCLUDED_SEARCH_TYPES = [MediaTypes.SEASON.value, MediaTypes.EPISODE.value]
@@ -2094,10 +2095,9 @@ class User(AbstractUser):
             )
 
         # Get periodic export schedules
-        periodic_tasks_filter_text = f'"user_id": {self.id}'
         periodic_tasks = PeriodicTask.objects.filter(
             task=export_task_name,
-            kwargs__contains=periodic_tasks_filter_text,
+            kwargs__regex=user_kwargs_regex(self.id),
             enabled=True,
         ).select_related("crontab")
 

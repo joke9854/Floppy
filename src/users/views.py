@@ -57,6 +57,7 @@ from integrations.models import (
     SyncBinding,
     SyncClientKind,
 )
+from integrations.task_filters import user_kwargs_regex
 from users import appearance as appearance_config
 from users import cache_management, data_management
 from users import credentials as user_credentials
@@ -1405,7 +1406,7 @@ def import_data(request):
 
         audiobookshelf_periodic_task = PeriodicTask.objects.filter(
             task="Import from Audiobookshelf (Recurring)",
-            kwargs__contains=f'"user_id": {user.id}',
+            kwargs__regex=user_kwargs_regex(user.id),
             enabled=True,
         ).first()
         if audiobookshelf_periodic_task and audiobookshelf_periodic_task.interval:
