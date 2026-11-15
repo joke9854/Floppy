@@ -391,22 +391,20 @@ class MusicAlbumSyncViewTests(TestCase):
         )
         cache.set("musicbrainz_release_for_group_release-group", "vinyl-reissue")
 
-    @patch("app.music_album_views.musicbrainz.get_release")
-    @patch("app.music_album_views.ensure_album_has_release_id")
+    @patch("app.providers.musicbrainz.get_release")
+    @patch("app.providers.musicbrainz.get_release_for_group")
     def test_resync_clears_stale_release_group_cache_and_rebuilds_tracks(
         self,
-        mock_ensure_release_id,
+        mock_release_for_group,
         mock_get_release,
     ):
-        def fake_ensure_release_id(album):
-            # The view must clear the previous release_id before calling
-            # this, otherwise a bad pick can never be re-derived.
-            self.assertFalse(album.musicbrainz_release_id)
-            album.musicbrainz_release_id = "digital-original"
-            album.save(update_fields=["musicbrainz_release_id"])
-            return True
+        def fake_release_for_group(release_group_id):
+            # The cached pick must be gone before the lookup, otherwise a
+            # bad pick can never be re-derived.
+            self.assertIsNone(cache.get(f"musicbrainz_release_for_group_{release_group_id}"))
+            return "digital-original"
 
-        mock_ensure_release_id.side_effect = fake_ensure_release_id
+        mock_release_for_group.side_effect = fake_release_for_group
         mock_get_release.return_value = {
             "release_group_id": "release-group",
             "genres": [],

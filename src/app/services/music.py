@@ -3,6 +3,7 @@
 import logging
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 
 from django.conf import settings
 from django.db import IntegrityError, models
@@ -1591,6 +1592,113 @@ def populate_album_tracks(album: Album) -> int:
         return 0
 
 
+def replace_album_tracklist(album: Album, tracks_data, genres_for) -> int:
+    """Make the album's tracklist match a release without unlinking plays.
+
+    Plays point at Track rows (`Music.track`, SET_NULL), so deleting and
+    recreating the tracklist would unlink every user's plays of the album.
+    Instead each existing track that carries one of the release's recordings
+    keeps its row and moves to its new position; a track with no recording
+    id keeps its row only at the same position. Tracks whose recording is
+    not on the release are deleted, which is the only case a play loses its
+    track. Plays left without a track are then relinked by recording id.
+
+    `genres_for(track_data)` returns the genres stored for one track.
+    Returns the number of tracks in the album afterwards.
+    """
+    from django.db import transaction
+
+    rows = {}
+    unnumbered = []
+    for track_data in tracks_data:
+        row = {
+            "disc_number": track_data.get("disc_number", 1),
+            "track_number": track_data.get("track_number"),
+            "title": track_data.get("title", "Unknown Track"),
+            "musicbrainz_recording_id": track_data.get("recording_id") or None,
+            "duration_ms": track_data.get("duration_ms"),
+            "genres": genres_for(track_data),
+        }
+        if row["track_number"] is None:
+            unnumbered.append(row)
+        else:
+            # One track per position; a later duplicate wins, as before.
+            rows[(row["disc_number"], row["track_number"])] = row
+    rows = [*rows.values(), *unnumbered]
+
+    with transaction.atomic():
+        existing = list(Track.objects.select_for_update().filter(album=album))
+        by_recording = defaultdict(list)
+        by_position = {}
+        for track in existing:
+            if track.musicbrainz_recording_id:
+                by_recording[track.musicbrainz_recording_id].append(track)
+            elif track.track_number is not None:
+                by_position[(track.disc_number, track.track_number)] = track
+
+        used = set()
+        matches = []
+        for row in rows:
+            match = None
+            recording_id = row["musicbrainz_recording_id"]
+            if recording_id:
+                match = next(
+                    (t for t in by_recording.get(recording_id, []) if t.pk not in used),
+                    None,
+                )
+            elif row["track_number"] is not None:
+                candidate = by_position.get((row["disc_number"], row["track_number"]))
+                if candidate is not None and candidate.pk not in used:
+                    match = candidate
+            if match is not None:
+                used.add(match.pk)
+            matches.append((match, row))
+
+        Track.objects.filter(album=album).exclude(pk__in=used).delete()
+        # Free every kept position first: two kept tracks may swap places,
+        # and the per-disc unique constraint skips null track numbers.
+        Track.objects.filter(pk__in=used).update(track_number=None)
+        for match, row in matches:
+            if match is None:
+                Track.objects.create(album=album, **row)
+                continue
+            for field, value in row.items():
+                setattr(match, field, value)
+            match.save(update_fields=list(row))
+
+        relink_album_plays(album)
+    return len(rows)
+
+
+def relink_album_plays(album: Album) -> int:
+    """Link this album's plays that have no track to the track of their recording.
+
+    A play's `item.media_id` is its MusicBrainz recording id. Covers every
+    user's plays. Returns the number of plays linked.
+    """
+    track_ids = {}
+    for recording_id, track_id in Track.objects.filter(
+        album=album,
+        musicbrainz_recording_id__isnull=False,
+    ).values_list("musicbrainz_recording_id", "id"):
+        if recording_id:
+            track_ids.setdefault(recording_id, track_id)
+    if not track_ids:
+        return 0
+    unlinked = Music.objects.filter(
+        album=album,
+        track__isnull=True,
+        item__media_id__in=list(track_ids),
+    ).values_list("id", "item__media_id")
+    by_track = defaultdict(list)
+    for music_id, recording_id in unlinked:
+        by_track[track_ids[recording_id]].append(music_id)
+    linked = 0
+    for track_id, music_ids in by_track.items():
+        linked += Music.objects.filter(id__in=music_ids).update(track_id=track_id)
+    return linked
+
+
 def sync_album_release_tracks(album: Album, release_id: str) -> int:
     """Replace an album's tracklist with a specific MusicBrainz release's tracks.
 
@@ -1618,21 +1726,13 @@ def sync_album_release_tracks(album: Album, release_id: str) -> int:
     album.implied_genres = _album_implied_genres(direct_genres)
 
     tracks_data = release_data.get("tracks", [])
-    Track.objects.filter(album=album).delete()
-    for track_data in tracks_data:
-        Track.objects.update_or_create(
-            album=album,
-            disc_number=track_data.get("disc_number", 1),
-            track_number=track_data.get("track_number"),
-            defaults={
-                "title": track_data.get("title", "Unknown Track"),
-                "musicbrainz_recording_id": track_data.get("recording_id"),
-                "duration_ms": track_data.get("duration_ms"),
-                "genres": _dedupe_display_values(
-                    track_data.get("genres", []) or direct_genres,
-                ),
-            },
-        )
+    replace_album_tracklist(
+        album,
+        tracks_data,
+        lambda track_data: _dedupe_display_values(
+            track_data.get("genres", []) or direct_genres,
+        ),
+    )
 
     album.musicbrainz_release_id = release_id
     album.tracks_populated = True
@@ -1653,6 +1753,91 @@ def sync_album_release_tracks(album: Album, release_id: str) -> int:
         release_id,
     )
     return len(tracks_data)
+
+
+@dataclass(frozen=True)
+class AlbumResyncResult:
+    """What a resync did.
+
+    `album` is the album that holds the plays afterwards: a different one
+    when this album was a duplicate and got merged into it. `track_count`
+    is None when no MusicBrainz release could be found.
+    """
+
+    album: Album
+    merged: bool
+    track_count: int | None
+
+
+def resync_album(album: Album) -> AlbumResyncResult:
+    """Re-fetch the album's release from MusicBrainz and refresh its tracklist.
+
+    Re-derives the release from the release group, since an earlier sync may
+    have picked a partial pressing; keeps the stored release when the group
+    lookup finds nothing. When the release reveals that this album duplicates
+    one already tracked for the same artist, moves its plays there and
+    deletes it. Provider errors from fetching the release propagate.
+    """
+    from django.core.cache import cache as django_cache
+
+    from app.providers import musicbrainz
+
+    if album.musicbrainz_release_group_id:
+        django_cache.delete(
+            f"musicbrainz_release_for_group_{album.musicbrainz_release_group_id}"
+        )
+        release_id = musicbrainz.get_release_for_group(
+            album.musicbrainz_release_group_id,
+        )
+        if release_id and release_id != album.musicbrainz_release_id:
+            album.musicbrainz_release_id = release_id
+            album.save(update_fields=["musicbrainz_release_id"])
+    if not album.musicbrainz_release_id:
+        return AlbumResyncResult(album=album, merged=False, track_count=None)
+
+    django_cache.delete(f"musicbrainz_release_{album.musicbrainz_release_id}")
+    release_data = musicbrainz.get_release(album.musicbrainz_release_id)
+
+    fetched_release_group_id = release_data.get("release_group_id")
+    if fetched_release_group_id and album.artist_id:
+        canonical = (
+            Album.objects.filter(
+                artist_id=album.artist_id,
+                musicbrainz_release_group_id=fetched_release_group_id,
+            )
+            .exclude(pk=album.pk)
+            .first()
+        )
+        if canonical:
+            Music.objects.filter(album=album).update(album=canonical)
+            if not canonical.musicbrainz_release_id:
+                canonical.musicbrainz_release_id = album.musicbrainz_release_id
+                canonical.save(update_fields=["musicbrainz_release_id"])
+            # Deleting the duplicate deletes its tracks and unlinks the
+            # moved plays from them; link them to the canonical tracklist.
+            album.delete()
+            relink_album_plays(canonical)
+            return AlbumResyncResult(album=canonical, merged=True, track_count=None)
+        if not album.musicbrainz_release_group_id:
+            album.musicbrainz_release_group_id = fetched_release_group_id
+            album.release_type = release_data.get("release_type", "")
+            album.save(update_fields=["musicbrainz_release_group_id", "release_type"])
+
+    new_image = release_data.get("image", "")
+    if new_image and new_image != settings.IMG_NONE:
+        album.image = new_image
+    if release_data.get("genres"):
+        album.genres = release_data.get("genres")
+
+    track_count = replace_album_tracklist(
+        album,
+        release_data.get("tracks", []),
+        lambda track_data: track_data.get("genres", [])
+        or release_data.get("genres", []),
+    )
+    album.tracks_populated = True
+    album.save(update_fields=["tracks_populated", "image", "genres"])
+    return AlbumResyncResult(album=album, merged=False, track_count=track_count)
 
 
 def prefetch_album_covers(artist: Artist, limit: int | None = 20) -> int:
