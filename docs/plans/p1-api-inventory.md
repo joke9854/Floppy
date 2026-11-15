@@ -149,26 +149,31 @@ by no client; tests call them as a session.
 
 The credential changes live in `users/credentials.py`; the web views call it.
 
-### H. Integrations management
+### H. Integrations management (done, except the follow-up below)
 
-The API can queue one-off imports for mal, anilist, kitsu, steam, yamtrack,
-hltb, grouvee, imdb, goodreads, hardcover and storygraph, and read import
-activity. Missing:
+| Web | API |
+|---|---|
+| Connection state (`integrations`, `import_data` pages) | `GET integrations/`: each key- or password-based service, its non-secret settings, Radarr and Sonarr servers. No stored secret |
+| Connect, disconnect, settings for Jellyfin, Audiobookshelf, KOReader, Stremio, Xbox, PSN, Pocket Casts, GPodder, Last.fm, Koito; Radarr/Sonarr servers; Plex and Storyteller disconnect | `PUT/DELETE integrations/{service}/`, `PATCH integrations/{jellyfin,koreader}/settings/`, `POST/DELETE integrations/{radarr,sonarr}/instances/`. Scope `NEVER` (they store another service's credentials), so they wait for P3's session bridge like section G |
+| Import now, Jellyfin push/pull now, Last.fm/Koito poll and history import, stop Plex watchlist sync | `POST integrations/{service}/import/`, `.../instances/{id}/import/`, `.../actions/{action}/` (`imports:write`) |
+| Trakt public profile, TV Time, CLZ | Added to `POST imports/{service}/`: `trakt`, `tvtime-shows`, `tvtime-movies`, `clz` (with `media_type`) |
+| Cancel or undo an import run; remove an import schedule | `GET imports/runs/`, `POST imports/runs/{id}/cancel/` and `.../rollback/`, `DELETE imports/schedules/{id}/` (id now in `imports/activity`) |
+| Export schedules, Letterboxd export | `GET/POST exports/schedules/`, `DELETE exports/schedules/{id}/` (new scope `exports:write`), `GET export/letterboxd/` |
+| `sync_direction_settings`, `sync_kill_switch` | `GET sync/settings/`, `PATCH sync/settings/{id}/` (`NEVER`: it approves a provider's access to watched state) |
+| `match_fix`, `match_reference_status` | `GET integrations/match-references/`, `POST .../{id}/decision/`, `POST integrations/match-fix/{item_id}/preview/` and `.../apply/` |
 
-- Connection state for every service (the `integrations` settings page).
-- Connect, disconnect and settings for Radarr, Sonarr, Jellyfin, Plex,
-  Audiobookshelf, Storyteller, KOReader, Stremio, Xbox, PSN, Pocket Casts,
-  gPodder, Last.fm and Koito; Plex usernames, libraries and webhook shares;
-  Jellyfin webhook events, push and pull now, Playback Reporting import;
-  Seerr settings.
-- Imports not in the dispatch list: Trakt (public, export file, collection
-  CSV), TV Time, CLZ, Plex, Simkl and AniList through OAuth.
-- Import and export schedules; rollback or cancel an import run.
-- Match fixes (`match_fix`, `match_reference_status`).
-- Sync direction and pause per connection (conflicts already have an API).
-- Letterboxd CSV export.
+Errors: 400 for bad credentials or input; 503 `integration_unreachable` with
+`Retry-After` when the service cannot be reached; 409 `not_connected` or
+`already_running`. Remote error text is never returned.
 
-OAuth callbacks and device-code pages stay web routes; the screens link to them.
+The service logic moved to `integrations/connections.py`, import runs and
+schedules to `users/data_management.py`; the web views call them.
+
+**Follow-up (board item):** Plex usernames, library choice and webhook
+shares, and the Plex import form; Jellyfin Playback Reporting upload; Seerr
+settings; creating recurring import schedules (Trakt, KOReader, Plex).
+OAuth and device-code sign-ins (Plex, Trakt, Simkl, AniList, Storyteller)
+stay web pages.
 
 ### I. Instance administration (superuser, web session only)
 
