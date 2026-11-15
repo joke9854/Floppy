@@ -77,6 +77,41 @@ class ProviderOutageTests(FloppyApiTestCase):
             response = self.call_api("get", "api_media_detail", args=("movie", "tmdb", "424242"), headers=self.auth_headers)
         self.assertEqual(response.status_code, HTTP.NOT_FOUND)
 
+    def test_track_media(self):
+        with patch("api.views.services.get_media_metadata", side_effect=_provider_error()):
+            response = self.call_api(
+                "post",
+                "api_media_type_list",
+                args=("movie",),
+                payload={"source": "tmdb", "media_id": "424242"},
+                headers=self.auth_headers,
+            )
+        self.assert_unavailable(response)
+
+    def test_track_media_keeps_404(self):
+        with patch("api.views.services.get_media_metadata", side_effect=_provider_error(404)):
+            response = self.call_api(
+                "post",
+                "api_media_type_list",
+                args=("movie",),
+                payload={"source": "tmdb", "media_id": "424242"},
+                headers=self.auth_headers,
+            )
+        self.assertEqual(response.status_code, HTTP.NOT_FOUND)
+        self.assertEqual(response.json()["code"], "not_found")
+
+    def test_update_media(self):
+        item = self.movie_medias[0].item
+        with patch("api.views.services.get_media_metadata", side_effect=_provider_error()):
+            response = self.call_api(
+                "patch",
+                "api_media_detail",
+                args=("movie", item.source, item.media_id),
+                payload={"score": 7},
+                headers=self.auth_headers,
+            )
+        self.assert_unavailable(response)
+
     def test_search(self):
         with patch("api.views.services.search", side_effect=_provider_error()), self.assertLogs("api", level="ERROR"):
             response = self.call_api("get", "api_search_provider", args=("movie",), headers=self.auth_headers)

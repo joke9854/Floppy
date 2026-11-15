@@ -16,6 +16,7 @@ from django.utils.timezone import datetime, localdate, make_aware
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
+    OpenApiResponse,
     PolymorphicProxySerializer,
     extend_schema,
 )
@@ -110,7 +111,7 @@ from .helpers import (
     try_parse_date,
     validate_body,
 )
-from .provider_errors import provider_unavailable_response
+from .provider_errors import provider_unavailable_response, resolution_failure_response
 from .schema import (
     MEDIA_LIST_FILTER_PARAMS,
     MEDIA_LIST_ROOT_PARAMS,
@@ -1156,6 +1157,10 @@ class MediaTypeListView(drf_views.APIView):
             404: DetailErrorSerializer,
             409: DetailErrorSerializer,
             500: DetailErrorSerializer,
+            503: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Metadata provider unavailable; code `provider_unavailable`, with `Retry-After`.",
+            ),
         },
     )
     def post(self, request, media_type):
@@ -1284,14 +1289,16 @@ class MediaTypeListView(drf_views.APIView):
                 [season_number],
                 language=metadata_resolution.metadata_language_default(request.user),
             )
-        except Exception:
-            logger.exception("Internal Server Error.")
-            return Response(
-                {
-                    "detail": "Internal Server Error.",
-                },
-                status=HTTP.INTERNAL_SERVER_ERROR,
+        except Exception as error:
+            logger.warning(
+                "Track media failed resolving %s %s %s: %s",
+                media_type,
+                source,
+                media_id,
+                type(error).__name__,
+                exc_info=True,
             )
+            return resolution_failure_response(error, "Media not found.")
 
         # FORK: bucket-aware item resolution + localized title fields. A raw
         # get_or_create on media_id/source/media_type can match the wrong
@@ -1641,6 +1648,10 @@ class MediaDetailView(drf_views.APIView):
             403: DetailErrorSerializer,
             404: DetailErrorSerializer,
             500: DetailErrorSerializer,
+            503: OpenApiResponse(
+                DetailErrorSerializer,
+                description="Metadata provider unavailable; code `provider_unavailable`, with `Retry-After`.",
+            ),
         },
     )
     def patch(self, request, media_type, source, media_id):
@@ -1745,14 +1756,16 @@ class MediaDetailView(drf_views.APIView):
                 source,
                 language=metadata_resolution.metadata_language_default(request.user),
             )
-        except Exception:
-            logger.exception("Internal Server Error.")
-            return Response(
-                {
-                    "detail": "Internal Server Error.",
-                },
-                status=HTTP.INTERNAL_SERVER_ERROR,
+        except Exception as error:
+            logger.warning(
+                "Media update failed resolving %s %s %s: %s",
+                media_type,
+                source,
+                media_id,
+                type(error).__name__,
+                exc_info=True,
             )
+            return resolution_failure_response(error, "Media not found.")
 
         if (
             "related" in media_metadata

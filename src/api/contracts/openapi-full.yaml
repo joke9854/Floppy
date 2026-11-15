@@ -3112,6 +3112,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable; code `provider_unavailable`,
+            with `Retry-After`.
         '401':
           content:
             application/json:
@@ -3290,6 +3297,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable; code `provider_unavailable`,
+            with `Retry-After`.
         '401':
           content:
             application/json:

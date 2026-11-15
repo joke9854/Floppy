@@ -637,7 +637,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/media/{media_type}/", "post"): (
                 "trackMedia",
                 "TrackedMediaResponse",
-                {"201", "400", "401", "403", "404", "409", "500"},
+                {"201", "400", "401", "403", "404", "409", "500", "503"},
                 "TrackMediaRequest",
             ),
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "get"): (
@@ -649,7 +649,7 @@ class OpenAPIArtifactTests(SimpleTestCase):
             ("/api/v1/media/{media_type}/{source}/{media_id}/", "patch"): (
                 "updateMediaItem",
                 "CompleteMediaResponse",
-                {"200", "400", "401", "403", "404", "500"},
+                {"200", "400", "401", "403", "404", "500", "503"},
                 "TrackedMediaUpdateRequest",
             ),
             (
