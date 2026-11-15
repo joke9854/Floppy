@@ -6113,6 +6113,208 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: progress:write
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/rewatch/:
+    get:
+      operationId: getSeasonRewatch
+      description: Return whether a pass is open.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchState'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
+    post:
+      operationId: startSeasonRewatch
+      description: Open a pass from `started_at` (default now).
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchStartResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Nothing to rewatch from that date, or every season is already
+            being rewatched; code `conflict`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
+    delete:
+      operationId: stopSeasonRewatch
+      description: Close the open pass(es); plays logged during the pass stay.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchState'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/sync/:
     post:
       operationId: syncMediaSeason
@@ -7611,6 +7813,190 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:read
+  /api/v1/media/{media_type}/{source}/{media_id}/rewatch/:
+    get:
+      operationId: getShowRewatch
+      description: Return whether a pass is open.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchState'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:read
+    post:
+      operationId: startShowRewatch
+      description: Open a pass from `started_at` (default now).
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RewatchStartRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchStartResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Nothing to rewatch from that date, or every season is already
+            being rewatched; code `conflict`.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
+    delete:
+      operationId: stopShowRewatch
+      description: Close the open pass(es); plays logged during the pass stay.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewatchState'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The user does not track this show or season.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/seasons/:
     get:
       operationId: api_v1_media_seasons_retrieve
@@ -17947,6 +18333,75 @@ components:
       - score
       - season_number
       - votes
+    RewatchSeason:
+      type: object
+      description: One season's pass.
+      properties:
+        season_number:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - season_number
+      - started_at
+    RewatchStartRequest:
+      type: object
+      description: When the pass starts.
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: ISO 8601 date-time with a UTC offset, not in the future. Defaults
+            to now.
+    RewatchStartResult:
+      type: object
+      description: The state after starting, plus the seasons left alone.
+      properties:
+        rewatching:
+          type: boolean
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: For a show, the earliest open season pass.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewatchSeason'
+          description: 'Shows only: every season (specials excluded) and its pass.'
+        skipped_seasons:
+          type: array
+          items:
+            type: integer
+          description: Seasons already fully watched from `started_at`, left as they
+            were.
+      required:
+      - rewatching
+      - seasons
+      - skipped_seasons
+      - started_at
+    RewatchState:
+      type: object
+      description: Whether a pass is open and since when.
+      properties:
+        rewatching:
+          type: boolean
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: For a show, the earliest open season pass.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewatchSeason'
+          description: 'Shows only: every season (specials excluded) and its pass.'
+      required:
+      - rewatching
+      - seasons
+      - started_at
     ScoreDataset:
       type: object
       description: Score counts for one media type.

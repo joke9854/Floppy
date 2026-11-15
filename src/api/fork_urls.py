@@ -17,6 +17,7 @@ from . import (
     fork_views_playback,
     fork_views_podcast,
     fork_views_progress_changes,
+    fork_views_rewatch,
     fork_views_scrobble,
     fork_views_statistics,
     fork_views_sync_items,
@@ -131,6 +132,16 @@ urlpatterns = [
         r"^history/?$",
         fork_views_tracking.HistoryView.as_view(),
         name="api_history",
+    ),
+    re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/rewatch/?$",
+        fork_views_rewatch.ShowRewatchView.as_view(),
+        name="api_show_rewatch",
+    ),
+    re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/rewatch/?$",
+        fork_views_rewatch.SeasonRewatchView.as_view(),
+        name="api_season_rewatch",
     ),
     re_path(
         r"^metadata/languages/?$",
