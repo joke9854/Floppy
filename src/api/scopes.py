@@ -151,6 +151,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
         "PUT": "music:write",
     },
     "api.fork_views_library.TagItemsView": {"POST": _W},
+    "api.fork_views_moves.MediaMoveView": {"POST": _W},
+    "api.fork_views_moves.AnimeGroupedMigrationView": {"POST": _W},
     "api.fork_views_rewatch.ShowRewatchView": {"GET": _R, "POST": _W, "DELETE": _W},
     "api.fork_views_rewatch.SeasonRewatchView": {"GET": _R, "POST": _W, "DELETE": _W},
     "api.fork_views_library.CollectionBulkAddView": {"POST": _W},

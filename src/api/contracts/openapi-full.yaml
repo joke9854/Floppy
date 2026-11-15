@@ -7347,6 +7347,86 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
       x-required-scope: lists:write
+  /api/v1/media/{media_type}/{source}/{media_id}/move/:
+    post:
+      operationId: moveTrackedShow
+      description: Move the tracking and return where it now lives.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovedTitle'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The move is not possible; `detail` says why. Nothing changed.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. (code `provider_unavailable`),
+            or the database is busy (code `database_busy`). Both carry `Retry-After`;
+            nothing changed.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
   /api/v1/media/{media_type}/{source}/{media_id}/progress/:
     post:
       operationId: updateMediaProgress
@@ -8657,6 +8737,74 @@ paths:
                 $ref: '#/components/schemas/WatchedStateRevisionConflict'
           description: Revision conflict (body has `revision`), or an ambiguous item
             (body has only `detail`).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: watchlist:write
+  /api/v1/media/anime/mal/{media_id}/migrate-grouped/:
+    post:
+      operationId: migrateAnimeToGrouped
+      description: Migrate and return the grouped show.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimeMigrationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnimeMigrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnimeMigrationRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovedTitle'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The move is not possible; `detail` says why. Nothing changed.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Metadata provider unavailable. Try again later. (code `provider_unavailable`),
+            or the database is busy (code `database_busy`). Both carry `Retry-After`;
+            nothing changed.
         '401':
           content:
             application/json:
@@ -12898,6 +13046,14 @@ components:
       - longest_streak_start
       - most_active_day
       - most_active_day_percentage
+    AnimeMigrationRequest:
+      type: object
+      description: Which provider's grouped series to migrate into.
+      properties:
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+      required:
+      - provider
     AppConnection:
       type: object
       description: A registered app connection and where its cursor should start.
@@ -16707,6 +16863,38 @@ components:
       required:
       - code
       - name
+    MoveRequest:
+      type: object
+      description: Where to move the show.
+      properties:
+        target_media_type:
+          $ref: '#/components/schemas/TargetMediaTypeEnum'
+        target_source:
+          type: string
+        target_media_id:
+          type: string
+      required:
+      - target_media_id
+      - target_media_type
+      - target_source
+    MovedTitle:
+      type: object
+      description: The title now holding the user's tracking.
+      properties:
+        media_type:
+          type: string
+          description: 'Library: `tv` or `anime`.'
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+      required:
+      - media_id
+      - media_type
+      - source
+      - title
     MovieWatchRequest:
       type: object
       description: Optional details for a movie play.
@@ -19521,6 +19709,14 @@ components:
           type: string
       required:
       - name
+    TargetMediaTypeEnum:
+      enum:
+      - tv
+      - anime
+      type: string
+      description: |-
+        * `tv` - tv
+        * `anime` - anime
     TaskQueued:
       type: object
       description: A background task was queued; poll /api/v1/tasks/{task_id}/.

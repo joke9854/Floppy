@@ -12,6 +12,7 @@ from . import (
     fork_views_library,
     fork_views_lists,
     fork_views_metadata,
+    fork_views_moves,
     fork_views_music,
     fork_views_pages,
     fork_views_playback,
@@ -132,6 +133,16 @@ urlpatterns = [
         r"^history/?$",
         fork_views_tracking.HistoryView.as_view(),
         name="api_history",
+    ),
+    re_path(
+        r"^media/anime/mal/(?P<media_id>[^/]+)/migrate-grouped/?$",
+        fork_views_moves.AnimeGroupedMigrationView.as_view(),
+        name="api_anime_migrate_grouped",
+    ),
+    re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/move/?$",
+        fork_views_moves.MediaMoveView.as_view(),
+        name="api_media_move",
     ),
     re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/rewatch/?$",
