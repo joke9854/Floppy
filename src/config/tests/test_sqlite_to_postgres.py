@@ -160,11 +160,11 @@ class CopyToPostgresTests(TransactionTestCase):
         from users.models import User
 
         source = sqlite3.connect(self.db_path)
-        source.execute("UPDATE app_item SET source = ?", ("x" * 40,))
+        source.execute("UPDATE app_item SET media_id = ?", ("7" * 600,))
         source.commit()
         source.close()
 
-        with self.assertRaisesMessage(CopyError, "app_item.source"):
+        with self.assertRaisesMessage(CopyError, "app_item.media_id"):
             sqlite_to_postgres.copy_database(self.db_path, log=lambda _m: None)
         self.assertFalse(User.objects.exists())
         self.assertFalse(sqlite_to_postgres.marker_path(self.db_path).exists())

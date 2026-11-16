@@ -79,6 +79,19 @@ SQLite cost is measured on the minimal tier in P2-B.
   import progress, library changed. nginx turns off buffering for the path.
 - Checked with uvicorn on the dev machine, then the Docker Image workflow
   and beta (gunicorn does not run on Windows).
+- Found while planning (2026-11-16):
+  - uvicorn 0.52.1 is already installed (through the MCP SDK); its
+    `uvicorn.workers` is deprecated in favour of the `uvicorn-worker`
+    package, which would be a new dependency.
+  - The uvicorn worker honours `max_requests` and `timeout` but never calls
+    gunicorn's `post_request`, so the per-worker memory ceiling in
+    `config/gunicorn.py` (retire a worker above its RSS limit after 50
+    requests and 60 s) has to move into a worker subclass that checks RSS
+    on its heartbeat.
+  - `preload_app` and the `gc.freeze()` in `when_ready` carry over.
+  - Under ASGI each request runs its sync view in a thread of its own, so
+    threads are no longer capped by `GUNICORN_THREADS`; the Postgres pool
+    maximum needs its own setting.
 
 ### P2-C: poster size variants
 
