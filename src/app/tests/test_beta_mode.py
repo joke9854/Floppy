@@ -300,9 +300,12 @@ class WriteDatabaseSnapshotTests(SimpleTestCase):
         ):
             call_command("write_database_snapshot", dest="x", stdout=StringIO())
 
-    def test_postgres_is_refused(self):
+    def test_postgres_failure_is_an_error(self):
         with (
             override_settings(USING_SQLITE_DATABASE=False),
+            patch(
+                "config.postgres_snapshot.create_postgres_snapshot", return_value=None
+            ),
             self.assertRaisesMessage(CommandError, "pg_dump"),
         ):
             call_command("write_database_snapshot", dest="x", stdout=StringIO())

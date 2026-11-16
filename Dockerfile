@@ -103,7 +103,10 @@ WORKDIR /floppy
 # silently creates an empty database.
 RUN ln -s /floppy /yamtrack
 
-RUN apk add --no-cache nginx shadow \
+# postgresql-client: pg_dump/pg_restore for the nightly Postgres snapshot
+# (config/postgres_snapshot.py). A newer pg_dump reads older servers.
+RUN apk add --no-cache nginx shadow postgresql-client \
+    && pg_dump --version \
     && chmod +x /runtime-entrypoint.sh /entrypoint.sh \
     # create user abc for later PUID/PGID mapping
     && useradd -U -M -s /bin/sh abc \

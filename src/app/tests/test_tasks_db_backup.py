@@ -28,12 +28,28 @@ class WriteDatabaseSnapshotTaskTests(SimpleTestCase):
         self.assertEqual(result, {"status": "skipped", "reason": "disabled"})
 
     @override_settings(USING_SQLITE_DATABASE=False, DB_SNAPSHOT_ENABLED=True)
-    def test_skips_on_postgres(self):
-        with mock.patch("app.tasks_db_backup.create_live_database_snapshot") as snapshot:
+    def test_postgres_gets_a_pg_dump_snapshot(self):
+        with (
+            mock.patch("app.tasks_db_backup.create_live_database_snapshot") as sqlite,
+            mock.patch(
+                "config.postgres_snapshot.create_postgres_snapshot",
+                return_value=Path("/backups/database/floppy-postgres-x.dump"),
+            ) as postgres,
+        ):
             result = write_database_snapshot()
 
-        snapshot.assert_not_called()
-        self.assertEqual(result, {"status": "skipped", "reason": "postgres"})
+        sqlite.assert_not_called()
+        postgres.assert_called_once()
+        self.assertEqual(result["status"], "ok")
+
+    @override_settings(USING_SQLITE_DATABASE=False, DB_SNAPSHOT_ENABLED=True)
+    def test_postgres_snapshot_failure_is_reported(self):
+        with mock.patch(
+            "config.postgres_snapshot.create_postgres_snapshot", return_value=None
+        ):
+            result = write_database_snapshot()
+
+        self.assertEqual(result["status"], "error")
 
     @override_settings(USING_SQLITE_DATABASE=True, DB_SNAPSHOT_ENABLED=True)
     def test_reports_error_without_raising_when_snapshot_fails(self):

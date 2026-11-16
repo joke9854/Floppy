@@ -30,11 +30,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Write the snapshot and print its path."""
         if not settings.USING_SQLITE_DATABASE:
-            message = (
-                "This database is not SQLite. Use pg_dump to copy a PostgreSQL "
-                "database."
-            )
-            raise CommandError(message)
+            from config.postgres_snapshot import create_postgres_snapshot
+
+            path = create_postgres_snapshot(Path(options["dest"]), max_keep=1)
+            if path is None:
+                message = "pg_dump could not write the snapshot. See the log."
+                raise CommandError(message)
+            self.stdout.write(str(path))
+            return
 
         path = create_live_database_snapshot(
             str(settings.FLOPPY_DB_PATH),

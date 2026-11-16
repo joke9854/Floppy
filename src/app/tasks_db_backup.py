@@ -23,17 +23,17 @@ logger = logging.getLogger(__name__)
 
 @shared_task(name="Write database snapshot", ignore_result=True)
 def write_database_snapshot():
-    """Write a verified raw .sqlite3 snapshot to BACKUP_DIR/database/.
+    """Write a verified snapshot to BACKUP_DIR/database/.
 
-    No-ops when the deployment uses PostgreSQL, or when the feature is
-    disabled -- checked here, not only at schedule-definition time, so
+    SQLite: a raw .sqlite3 copy. Postgres: a pg_dump custom-format file
+    (config/postgres_snapshot.py). No-ops when the feature is disabled -- checked here, not only at schedule-definition time, so
     toggling DB_SNAPSHOT_ENABLED takes effect on the next run. Never raises:
     a snapshot failure must never crash a worker or retry-storm.
     """
-    if not settings.USING_SQLITE_DATABASE:
-        return {"status": "skipped", "reason": "postgres"}
     if not settings.DB_SNAPSHOT_ENABLED:
         return {"status": "skipped", "reason": "disabled"}
+    if not settings.USING_SQLITE_DATABASE:
+        return _write_postgres_snapshot()
 
     # Both cgroup envelopes, bracketing the copy. Production's largest
     # observed excursion -- roughly 1-2 GB to above 5 GB, decaying over hours
@@ -61,6 +61,24 @@ def write_database_snapshot():
         return {"status": "error", "reason": "snapshot could not be verified"}
 
     _log_snapshot_envelope(path, before, (time.perf_counter() - started) * 1000)
+    return {"status": "ok", "path": str(path)}
+
+
+def _write_postgres_snapshot():
+    """Postgres branch of write_database_snapshot; never raises."""
+    from config.postgres_snapshot import create_postgres_snapshot
+
+    try:
+        path = create_postgres_snapshot(
+            Path(settings.BACKUP_DIR) / "database",
+            max_keep=settings.DB_SNAPSHOT_RETENTION_COUNT,
+        )
+    except Exception:
+        logger.exception("Postgres snapshot task failed unexpectedly")
+        return {"status": "error", "reason": "unexpected failure"}
+    if path is None:
+        return {"status": "error", "reason": "pg_dump snapshot failed"}
+    logger.info("db_snapshot name=%s engine=postgres", path.name)
     return {"status": "ok", "path": str(path)}
 
 

@@ -65,8 +65,8 @@ jobs:
       - name: OAuth app sign-in
         run: uv run --no-sync python src/manage.py test api.tests.test_oauth_app_signin --exclude-tag network
 
-      - name: ASGI web process and gunicorn config
-        run: uv run --no-sync python src/manage.py test config.tests.test_asgi config.tests.test_gunicorn config.tests.test_gunicorn_worker_memory --exclude-tag network
+      - name: ASGI web process, gunicorn config and installer
+        run: uv run --no-sync python src/manage.py test config.tests.test_asgi config.tests.test_gunicorn config.tests.test_gunicorn_worker_memory app.tests.test_installer --exclude-tag network
 
   sqlite-postgres-copy:
     # v2 P2-A: copy a real SQLite install into Postgres and check every row.
@@ -114,9 +114,9 @@ jobs:
       - name: Configure test secret
         run: echo "SECRET=$(uv run --no-sync python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> "$GITHUB_ENV"
 
-      - name: SQLite to Postgres copy
+      - name: SQLite to Postgres copy and pg_dump snapshot
         working-directory: src
-        run: uv run --no-sync python manage.py test config.tests.test_sqlite_to_postgres --exclude-tag network -v 2
+        run: uv run --no-sync python manage.py test config.tests.test_sqlite_to_postgres config.tests.test_postgres_snapshot app.tests.test_tasks_db_backup --exclude-tag network -v 2
 
   mcp:
     runs-on: ubuntu-latest
