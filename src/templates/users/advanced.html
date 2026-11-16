@@ -29,12 +29,19 @@
           <br>
           {% translate "If this Floppy instance is shared with other users, the logs may still include their activity, just not their secrets." %}
         </p>
+        {% if not request.user.is_superuser %}
+          <p class="text-xs text-[var(--color-text-muted)] mb-4">
+            {% translate "The logs cover every account on this instance, so only an administrator can download them. The server owner can make an account an administrator with: manage.py promote_superuser USERNAME" %}
+          </p>
+        {% endif %}
         <div class="flex flex-wrap gap-3">
-          <a href="{% url 'export_logs' %}"
-             class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm">
-            {% include "app/icons/vertical-sliders.svg" with classes="w-4 h-4 mr-2" %}
-            {% translate "Download Sanitized Logs" %}
-          </a>
+          {% if request.user.is_superuser %}
+            <a href="{% url 'export_logs' %}"
+               class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm">
+              {% include "app/icons/vertical-sliders.svg" with classes="w-4 h-4 mr-2" %}
+              {% translate "Download Sanitized Logs" %}
+            </a>
+          {% endif %}
           <a href="https://github.com/dannyvfilms/Floppy/issues/new?title={{ bug_report_title|urlencode }}&body={{ bug_report_body|urlencode }}"
              target="_blank"
              rel="noopener noreferrer"

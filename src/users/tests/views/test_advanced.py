@@ -682,7 +682,9 @@ class ExportLogsTests(TestCase):
     def setUp(self):
         """Create a user and an isolated log directory to read from."""
         self.credentials = {"username": "test", "password": "12345"}
-        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.user = get_user_model().objects.create_user(
+            **self.credentials, is_superuser=True
+        )
         self.client.login(**self.credentials)
 
         log_dir = Path(tempfile.mkdtemp())
@@ -723,3 +725,18 @@ class ExportLogsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("only entry", response.content.decode())
+
+    def test_export_logs_needs_a_superuser(self):
+        """The log covers every account, so other users get 403 and no button."""
+        self.log_file.write_text("someone else's activity\n")
+        self.user.is_superuser = False
+        self.user.save(update_fields=["is_superuser"])
+
+        with override_settings(LOG_FILE=str(self.log_file)):
+            response = self.client.get(reverse("export_logs"))
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("activity", response.content.decode())
+
+        page = self.client.get(reverse("advanced"))
+        self.assertNotContains(page, reverse("export_logs"))
+        self.assertContains(page, "promote_superuser")

@@ -1730,7 +1730,12 @@ def clear_image_cache(request):
 
 @require_GET
 def export_logs(request):
-    """Return recent application logs, with secrets redacted, as a text file."""
+    """Return recent application logs, with secrets redacted, as a text file.
+
+    Superusers only: the log covers every account on the instance.
+    """
+    if not request.user.is_superuser:
+        return HttpResponse(status=403)
     from pathlib import Path
 
     from app.log_safety import redact_secrets
