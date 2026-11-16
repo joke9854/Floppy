@@ -64,6 +64,17 @@ def _as_text(value):
     return str(value or "").strip()
 
 
+def _credit_text(value, field_name):
+    """Normalize a credit text field and cut it to the column's length.
+
+    SQLite stores longer text without complaint, but Postgres rejects it and
+    the whole credit sync for the item would fail. Provider roles can be long
+    joined character lists, so the tail is dropped instead.
+    """
+    max_length = ItemPersonCredit._meta.get_field(field_name).max_length
+    return _as_text(value)[:max_length].rstrip()
+
+
 def is_regular_show_cast_credit(source, sort_order):
     """Return whether a show-level cast credit should count as series-regular fallback."""
     if source != Sources.TMDB.value:
@@ -245,10 +256,11 @@ def _normalize_credit_rows(rows):
                 "image": _as_text(row.get("image")),
                 "known_for_department": _as_text(row.get("known_for_department")),
                 "gender": _coerce_gender(row.get("gender")),
-                "role": _as_text(
-                    row.get("role") or row.get("character") or row.get("job") or ""
+                "role": _credit_text(
+                    row.get("role") or row.get("character") or row.get("job") or "",
+                    "role",
                 ),
-                "department": _as_text(row.get("department")),
+                "department": _credit_text(row.get("department"), "department"),
                 "sort_order": _as_int(
                     row["order"]
                     if "order" in row and row["order"] is not None
@@ -405,8 +417,8 @@ def _normalize_author_rows(rows):
                     row.get("known_for_department") or row.get("department") or "Author"
                 ),
                 "gender": _coerce_gender(row.get("gender")),
-                "role": _as_text(row.get("role")),
-                "department": _as_text(row.get("department")),
+                "role": _credit_text(row.get("role"), "role"),
+                "department": _credit_text(row.get("department"), "department"),
                 "sort_order": _as_int(
                     row["order"]
                     if "order" in row and row["order"] is not None

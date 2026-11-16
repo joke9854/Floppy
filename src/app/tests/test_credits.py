@@ -203,3 +203,114 @@ class CreditSyncSourceTests(TestCase):
         self.assertEqual(person.source_person_id, "OL11A")
         self.assertEqual(person.name, "Open Author")
         self.assertEqual(person.biography, "Author bio")
+
+
+class CreditTextLengthTests(TestCase):
+    """Long provider text must fit the credit columns (Postgres enforces them)."""
+
+    def setUp(self):
+        self.item = Item.objects.create(
+            media_id="long-1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Long Roles",
+            image="http://example.com/long.jpg",
+        )
+
+    def test_cast_and_crew_roles_are_cut_to_the_column_length(self):
+        credits.sync_item_credits_from_metadata(
+            self.item,
+            {
+                "cast": [{"person_id": "1", "name": "Voice", "role": "Hero / " * 80}],
+                "crew": [
+                    {
+                        "person_id": "2",
+                        "name": "Crew",
+                        "job": "Writer",
+                        "department": "Writing" * 40,
+                    },
+                ],
+            },
+        )
+
+        cast = ItemPersonCredit.objects.get(person__source_person_id="1")
+        crew = ItemPersonCredit.objects.get(person__source_person_id="2")
+        self.assertLessEqual(len(cast.role), 255)
+        self.assertTrue(cast.role.startswith("Hero / Hero"))
+        self.assertFalse(cast.role.endswith(" "))
+        self.assertLessEqual(len(crew.department), 120)
+
+    def test_author_roles_are_cut_to_the_column_length(self):
+        credits.sync_item_author_credits(
+            self.item,
+            [{"person_id": "OL9A", "name": "Author", "role": "x" * 400}],
+        )
+
+        credit = ItemPersonCredit.objects.get(role_type=CreditRoleType.AUTHOR.value)
+        self.assertEqual(len(credit.role), 255)
+
+
+class TrimLongCreditRolesMigrationTests(TestCase):
+    """0189 cuts stored long roles and drops the ones that become duplicates."""
+
+    def setUp(self):
+        self.item = Item.objects.create(
+            media_id="long-2",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Stored Long Roles",
+            image="http://example.com/long2.jpg",
+        )
+        self.person = Person.objects.create(
+            source=Sources.TMDB.value,
+            source_person_id="10",
+            name="Actor",
+        )
+        self.other = Person.objects.create(
+            source=Sources.TMDB.value,
+            source_person_id="11",
+            name="Other",
+        )
+
+    def _credit(self, person, role):
+        return ItemPersonCredit.objects.create(
+            item=self.item,
+            person=person,
+            role_type=CreditRoleType.CAST.value,
+            role=role,
+            department="Acting",
+        )
+
+    def _run(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        module = import_module("app.migrations.0189_trim_long_credit_roles")
+        module.trim_long_credit_roles(apps, None)
+
+    def test_long_roles_are_cut_and_duplicates_removed(self):
+        prefix = "a" * 255
+        kept = self._credit(self.person, prefix)
+        duplicate = self._credit(self.person, prefix + "b" * 50)
+        long_role = self._credit(self.other, "c" * 254 + " d" * 30)
+        short = self._credit(self.other, "Short role")
+
+        self._run()
+
+        self.assertFalse(ItemPersonCredit.objects.filter(pk=duplicate.pk).exists())
+        kept.refresh_from_db()
+        long_role.refresh_from_db()
+        short.refresh_from_db()
+        self.assertEqual(kept.role, prefix)
+        self.assertEqual(long_role.role, "c" * 254)
+        self.assertEqual(short.role, "Short role")
+
+    def test_nothing_to_do_changes_nothing(self):
+        credit = self._credit(self.person, "Short role")
+
+        self._run()
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.role, "Short role")
+        self.assertEqual(ItemPersonCredit.objects.count(), 1)
