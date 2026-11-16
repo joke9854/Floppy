@@ -154,7 +154,12 @@ class CopyToPostgresTests(TransactionTestCase):
         # Sequences continue after the copied ids.
         self.assertGreater(User.objects.create_user(username="after").id, user.id)
         self.assertTrue(sqlite_to_postgres.marker_path(self.db_path).exists())
-        self.assertIn("already copied", sqlite_to_postgres.skip_reason(self.db_path))
+        self.assertIn("already has accounts", sqlite_to_postgres.skip_reason(self.db_path))
+
+    def test_a_marker_never_leaves_postgres_empty(self):
+        # The Postgres volume was recreated; ./db still holds the old marker.
+        sqlite_to_postgres.marker_path(self.db_path).write_text("{}", encoding="utf-8")
+        self.assertIsNone(sqlite_to_postgres.skip_reason(self.db_path))
 
     def test_a_bad_value_copies_nothing(self):
         from users.models import User

@@ -14,7 +14,9 @@ that has accounts is copied over once, at start, by the entrypoint:
    Postgres in place of the user's data; the next start tries again.
 
 The SQLite file is only ever opened read-only here and is never deleted. A
-marker file next to it records the finished copy.
+marker file next to it records the finished copy, as a record only: whether
+to copy depends on the two databases alone, so a Postgres volume recreated
+empty is filled again instead of serving an empty library.
 """
 
 from __future__ import annotations
@@ -136,8 +138,6 @@ def skip_reason(sqlite_path):
     sqlite_path = Path(sqlite_path)
     if not sqlite_path.is_file():
         return "there is no SQLite database to copy"
-    if marker_path(sqlite_path).exists():
-        return "this SQLite database was already copied"
     source = _open_source(sqlite_path)
     try:
         if not _sqlite_user_count(source):
