@@ -29,9 +29,9 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 
 | Slice | Content | Status |
 |---|---|---|
-| P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture; nightly `pg_dump` snapshots for Postgres installs; installer and README stack use Postgres; beta trial ready (`beta-use-postgres.sh`), not yet run on real data |
+| P2-A | Postgres default and automatic SQLite copy | Built; beta runs on Postgres since 2026-11-16 (884,220 rows copied in about 1.5 minutes, every episode and movie watch time identical to SQLite, after `ce741ac88` cut two over-long credit roles); nightly `pg_dump` and refresh checks pending |
 | P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Built and pushed: the server switch (`db0d6b636`) and the events endpoint (`8a0938ea5`); beta checks pending |
-| P2-C | Poster size variants with content-hashed names | Not started |
+| P2-C | Poster size variants with content-hashed names | Built: card-size copies for non-TMDB images, versioned URLs cached as immutable; check on beta pending |
 
 Order: A before B, because ASGI needs a connection pool. Under ASGI every
 request runs in its own thread, so persistent connections
@@ -101,6 +101,35 @@ SQLite cost is measured on the minimal tier in P2-B.
   a content hash in the file name, served with `immutable` caching.
 - Existing image URLs keep working unchanged; variants are an extra choice
   for the web and the API.
+
+Built (2026-11-16):
+
+- TMDB images were already sized by TMDB (`tmdb_size`, `tmdb_srcset`), so
+  the copies serve the other providers: fanart.tv (most of the live
+  library), TVDB, IGDB, MAL and the rest.
+- `/image-cache/<token>?w=<width>` answers with a copy of the cached
+  original at that width, made on its first request (Pillow; JPEG decodes
+  at a reduced scale) and stored beside it as
+  `<key>.<version>.w<width>.img`. The version is the original's content
+  hash prefix plus `VARIANT_RECIPE`, bumped when the resize settings change.
+  Widths: 92, 154, 185, 300, 342, 500, 780 (the template sizes); any other
+  `w` sends the original, and so does an original that is not wider, a GIF
+  or an animation. Never upscaled.
+- With `v=<version>` matching the cached original the answer is
+  `Cache-Control: public, max-age=31536000, immutable`; any other or no
+  `v`, or a resize that failed, keeps the one-day cache.
+- Templates are unchanged: `tmdb_size:'wN'` marks a non-TMDB URL with its
+  width (`SizedImageUrl`) and `image_url` asks for that copy, with the
+  version once the original is cached; `tmdb_srcset` lists the copies at
+  its widths for non-TMDB images too (cards: 185/342, Progress card up to
+  500 as approved).
+- Immutable URLs mean browsers stop asking, so rendering a versioned URL
+  marks the original as used (at most once a day); otherwise the retention
+  cleanup would drop posters on screen.
+- The nightly cleanup also removes copies whose original is gone or has
+  changed; cache stats and clearing include the copies.
+- The API is unchanged (`rewrite_payload_images` adds no width): an API
+  client may append `?w=` to a cached image URL. CineTrack does not yet.
 
 ### P2-B commit 1: the server switch (2026-11-16)
 

@@ -10,7 +10,7 @@ import time
 from contextlib import suppress
 from ipaddress import ip_address
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
 from django.conf import settings
@@ -36,6 +36,7 @@ _local_setting = {"value": None, "expires": 0.0}
 
 def _forget_local_setting(**_kwargs):
     _local_setting["value"] = None
+    _render_versions.clear()
 
 
 request_started.connect(_forget_local_setting, dispatch_uid="image_cache_setting")
@@ -75,6 +76,26 @@ APPROVED_IMAGE_HOSTS = frozenset(
     },
 )
 APPROVED_IMAGE_HOST_SUFFIXES = (".mzstatic.com",)
+
+# Card sizes (v2 P2-C). A cached original wider than a requested width gets a
+# resized copy beside it, made on its first request and named after the
+# original's content hash, so a page that names that hash in its URL (v=) can
+# let browsers keep the image without asking again. TMDB images are sized by
+# TMDB itself (tmdb_size), so these serve the other providers: fanart.tv,
+# TVDB, IGDB, MAL and the rest. Only these widths are made; any other w is
+# ignored and the original is sent.
+VARIANT_WIDTHS = frozenset({92, 154, 185, 300, 342, 500, 780})
+VARIANT_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
+# Part of every version: change it when the resize settings change, so the
+# copies made with the old ones are neither served nor kept.
+VARIANT_RECIPE = "1"
+VARIANT_SUFFIX = ".img"
+VARIANT_JPEG_QUALITY = 85
+IMMUTABLE_MAX_AGE_SECONDS = 365 * DAY_SECONDS
+# Rendered versions for the current request (cleared when the next starts): a
+# card asks for its poster at two or three widths.
+_render_versions = {}
+RENDER_VERSIONS_MAX = 2048
 
 
 def cache_root():
@@ -223,11 +244,58 @@ def _paths(url):
     return root / f"{key}.data", root / f"{key}.json"
 
 
-def rewrite_image_url(url, request=None):
-    """Rewrite an approved image URL to Floppy when caching is enabled."""
+def _version(metadata):
+    """Return the version a cached original's copies are named after."""
+    content_hash = str((metadata or {}).get("etag") or "").strip('"')
+    if len(content_hash) < 16:  # noqa: PLR2004 - a sha256 hex prefix
+        return None
+    return f"{content_hash[:16]}-{VARIANT_RECIPE}"
+
+
+def _variant_path(data_path, version, width):
+    return data_path.with_name(f"{data_path.stem}.{version}.w{width}{VARIANT_SUFFIX}")
+
+
+def _render_version(url):
+    """Return the cached original's version for a page URL, or None.
+
+    Pages that carry the version are kept by browsers without asking again, so
+    no request marks the poster as used any more: rendering it does instead,
+    at most once a day, or the retention cleanup would drop posters in use.
+    """
+    if url in _render_versions:
+        return _render_versions[url]
+    data_path, metadata_path = _paths(url)
+    version = None
+    try:
+        modified = metadata_path.stat().st_mtime
+    except OSError:
+        modified = None
+    if modified is not None:
+        version = _version(_metadata(data_path, metadata_path))
+        if version and time.time() - modified > DAY_SECONDS:
+            _mark_used(metadata_path)
+    if len(_render_versions) >= RENDER_VERSIONS_MAX:
+        _render_versions.clear()
+    _render_versions[url] = version
+    return version
+
+
+def rewrite_image_url(url, request=None, width=None):
+    """Rewrite an approved image URL to Floppy when caching is enabled.
+
+    ``width`` (one of VARIANT_WIDTHS) asks for a card-size copy; once the
+    original is cached the URL also names its version.
+    """
     if not is_enabled() or not is_approved_url(url):
         return url
     path = reverse("image_cache", kwargs={"token": _token_for_url(url)})
+    if width in VARIANT_WIDTHS:
+        query = {"w": width}
+        version = _render_version(url)
+        if version:
+            query["v"] = version
+        path = f"{path}?{urlencode(query)}"
     if request is not None:
         return request.build_absolute_uri(path)
     return path
@@ -396,6 +464,97 @@ def _shrink_fanart(path, url):
     resized.save(path, format=image_format, quality=85, optimize=True)
 
 
+def _ensure_variant(data_path, version, width):
+    """Return the copy of a cached original at ``width``.
+
+    None means the original is the answer: it is not wider, or not a format
+    that is resized (GIF, animations). Raises OSError when resizing fails.
+    """
+    path = _variant_path(data_path, version, width)
+    if path.is_file():
+        return path
+    from PIL import Image
+
+    temporary = None
+    try:
+        with Image.open(data_path) as image:
+            image_format = image.format
+            original_width, original_height = image.size
+            if (
+                image_format not in VARIANT_FORMATS
+                or original_width <= width
+                or getattr(image, "is_animated", False)
+            ):
+                return None
+            height = max(1, round(original_height * width / original_width))
+            if image_format == "JPEG":
+                # Decode at the nearest smaller scale JPEG allows: a fraction
+                # of the work and memory of a full decode.
+                image.draft("RGB", (width, height))
+                resized = image.convert("RGB")
+            elif image.mode in {"P", "1"}:
+                resized = image.convert("RGBA")
+            else:
+                resized = image.copy()
+        resized.thumbnail((width, height), Image.Resampling.LANCZOS)
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=data_path.parent,
+            prefix=f".{path.stem}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = handle.name
+            resized.save(
+                handle,
+                format=image_format,
+                quality=VARIANT_JPEG_QUALITY,
+                optimize=True,
+            )
+        Path(temporary).replace(path)
+        temporary = None
+    except Image.DecompressionBombError as error:
+        raise OSError(str(error)) from error
+    finally:
+        if temporary:
+            _remove_temp(temporary)
+    return path
+
+
+def _requested_width(request):
+    try:
+        width = int(request.GET.get("w", ""))
+    except ValueError:
+        return None
+    return width if width in VARIANT_WIDTHS else None
+
+
+def _remove_stale_variants(root):
+    """Remove copies whose original is gone or has changed; return bytes freed."""
+    removed_bytes = 0
+    versions = {}
+    try:
+        paths = list(root.glob(f"*{VARIANT_SUFFIX}"))
+    except OSError:
+        return 0
+    for path in paths:
+        key, _, rest = path.name.partition(".")
+        if key not in versions:
+            data_path, metadata_path = root / f"{key}.data", root / f"{key}.json"
+            versions[key] = (
+                _version(_metadata(data_path, metadata_path)) if data_path.is_file() else None
+            )
+        if rest.split(".", 1)[0] == versions[key]:
+            continue
+        try:
+            size = path.stat().st_size
+            path.unlink()
+        except OSError:
+            continue
+        removed_bytes += size
+    return removed_bytes
+
+
 def _metadata(data_path, metadata_path):
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -440,6 +599,21 @@ def serve_cached_image(token, request):
 
     _mark_used(metadata_path)
     etag = metadata.get("etag")
+    version = _version(metadata)
+    # The answer is fixed by the version unless resizing failed and the
+    # original stands in for the copy this once.
+    settled = version is not None
+    width = _requested_width(request)
+    if width is not None and version is not None:
+        try:
+            variant = _ensure_variant(data_path, version, width)
+        except OSError:
+            logger.debug("Unable to resize cached image to %s", width, exc_info=True)
+            variant = None
+            settled = False
+        if variant is not None:
+            data_path = variant
+            etag = f'"{version}-w{width}"'
     if etag and request.headers.get("If-None-Match") == etag:
         response = HttpResponse(status=304)
     elif settings.IMAGE_CACHE_ACCEL_REDIRECT:
@@ -458,7 +632,10 @@ def serve_cached_image(token, request):
         response["Content-Length"] = str(data_path.stat().st_size)
     if etag:
         response["ETag"] = etag
-    response["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE_SECONDS}"
+    if settled and request.GET.get("v") == version:
+        response["Cache-Control"] = f"public, max-age={IMMUTABLE_MAX_AGE_SECONDS}, immutable"
+    else:
+        response["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE_SECONDS}"
     response["X-Content-Type-Options"] = "nosniff"
     return response
 
@@ -470,7 +647,7 @@ def cache_stats():
     total_bytes = 0
     try:
         for path in root.iterdir():
-            if path.is_file() and path.suffix in {".data", ".json"}:
+            if path.is_file() and path.suffix in {".data", ".json", VARIANT_SUFFIX}:
                 total_bytes += path.stat().st_size
                 if path.suffix == ".data":
                     count += 1
@@ -488,7 +665,7 @@ def clear_cache():
         paths = [
             path
             for path in root.iterdir()
-            if path.is_file() and path.suffix in {".data", ".json"}
+            if path.is_file() and path.suffix in {".data", ".json", VARIANT_SUFFIX}
         ]
     except OSError:
         return {"removed_count": 0, "removed_bytes": 0}
@@ -531,6 +708,7 @@ def cleanup_stale_images():
             removed_bytes += entry_bytes
         except OSError:
             continue
+    removed_bytes += _remove_stale_variants(root)
     return {"removed_count": removed_count, "removed_bytes": removed_bytes}
 
 

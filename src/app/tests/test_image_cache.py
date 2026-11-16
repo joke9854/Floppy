@@ -347,3 +347,223 @@ class ImageCacheServiceTests(TestCase):
         self.assertTrue(result["image"].startswith("http://testserver/image-cache/"))
         self.assertEqual(result["nested"][0]["image_url"], "https://example.com/manual.jpg")
         self.assertEqual(set(result), set(payload))
+
+
+def _image_bytes(size, image_format, mode="RGB"):
+    output = BytesIO()
+    color = (200, 30, 30, 128) if mode == "RGBA" else "red"
+    Image.new(mode, size, color).save(output, format=image_format)
+    return output.getvalue()
+
+
+class ImageVariantTests(TestCase):
+    """Card-size copies of cached originals (v2 P2-C)."""
+
+    TVDB_URL = "https://artworks.thetvdb.com/banners/posters/81189-1.jpg"
+
+    def setUp(self):
+        self.data_dir = tempfile.TemporaryDirectory()
+        self.settings_override = override_settings(FLOPPY_DATA_DIR=self.data_dir.name)
+        self.settings_override.enable()
+        image_cache.invalidate_setting_cache()
+        image_cache.set_enabled(True)
+        request_started.send(sender=self.__class__)
+
+    def tearDown(self):
+        image_cache.invalidate_setting_cache()
+        self.settings_override.disable()
+        gc.collect()
+        self.data_dir.cleanup()
+
+    def _cache(self, url, size=(680, 1000), image_format="JPEG", mode="RGB"):
+        body = _image_bytes(size, image_format, mode)
+        content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "GIF": "image/gif"}[image_format]
+        with patch(
+            "app.image_cache.requests.get",
+            return_value=_response(body, content_type=content_type),
+        ):
+            self.assertTrue(image_cache._fetch_to_disk(url))
+        request_started.send(sender=self.__class__)
+        return image_cache._paths(url)
+
+    def _get(self, url, **query):
+        path = reverse("image_cache", kwargs={"token": image_cache._token_for_url(url)})
+        response = self.client.get(path, query)
+        body = b"".join(response.streaming_content) if response.streaming else response.content
+        response.close()
+        return response, body
+
+    def _version(self, url):
+        data_path, metadata_path = image_cache._paths(url)
+        return image_cache._version(image_cache._metadata(data_path, metadata_path))
+
+    def test_a_card_width_gets_a_smaller_copy_named_after_the_content_hash(self):
+        data_path, _ = self._cache(self.TVDB_URL)
+        version = self._version(self.TVDB_URL)
+
+        first, body = self._get(self.TVDB_URL, w=342)
+        variant = data_path.with_name(f"{data_path.stem}.{version}.w342.img")
+        made_at = variant.stat().st_mtime
+        second, _ = self._get(self.TVDB_URL, w=342)
+
+        with Image.open(BytesIO(body)) as image:
+            self.assertEqual((image.size, image.format), ((342, 503), "JPEG"))
+        self.assertEqual(first["Content-Type"], "image/jpeg")
+        self.assertEqual(first["ETag"], f'"{version}-w342"')
+        self.assertEqual(variant.stat().st_mtime, made_at)
+        self.assertEqual(second.status_code, 200)
+        original, _ = self._get(self.TVDB_URL)
+        self.assertNotEqual(original["ETag"], first["ETag"])
+
+    def test_transparent_png_stays_a_transparent_png(self):
+        url = "https://artworks.thetvdb.com/banners/posters/alpha.png"
+        self._cache(url, size=(800, 1200), image_format="PNG", mode="RGBA")
+
+        _, body = self._get(url, w=185)
+
+        with Image.open(BytesIO(body)) as image:
+            self.assertEqual((image.size, image.format, image.mode), ((185, 278), "PNG", "RGBA"))
+
+    def test_narrow_originals_unknown_widths_and_gifs_get_the_original(self):
+        mal = "https://cdn.myanimelist.net/images/anime/1/1.jpg"
+        gif = "https://artworks.thetvdb.com/banners/posters/moving.gif"
+        mal_data, _ = self._cache(mal, size=(225, 320))
+        self._cache(self.TVDB_URL)
+        gif_data, _ = self._cache(gif, size=(600, 900), image_format="GIF")
+
+        _, narrow = self._get(mal, w=342)
+        _, unknown = self._get(self.TVDB_URL, w=999)
+        _, moving = self._get(gif, w=342)
+
+        self.assertEqual(narrow, mal_data.read_bytes())
+        self.assertEqual(unknown, image_cache._paths(self.TVDB_URL)[0].read_bytes())
+        self.assertEqual(moving, gif_data.read_bytes())
+        self.assertEqual(list(mal_data.parent.glob("*.img")), [])
+
+    def test_the_page_url_names_the_version_and_only_that_is_immutable(self):
+        self.assertEqual(
+            image_cache.rewrite_image_url(self.TVDB_URL, width=342),
+            reverse("image_cache", kwargs={"token": image_cache._token_for_url(self.TVDB_URL)})
+            + "?w=342",
+        )
+        self._cache(self.TVDB_URL)
+        version = self._version(self.TVDB_URL)
+
+        rendered = image_cache.rewrite_image_url(self.TVDB_URL, width=342)
+        current, _ = self._get(self.TVDB_URL, w=342, v=version)
+        stale, _ = self._get(self.TVDB_URL, w=342, v="0" * 16 + "-1")
+
+        self.assertTrue(rendered.endswith(f"?w=342&v={version}"))
+        self.assertEqual(
+            current["Cache-Control"],
+            f"public, max-age={image_cache.IMMUTABLE_MAX_AGE_SECONDS}, immutable",
+        )
+        self.assertEqual(stale["Cache-Control"], "public, max-age=86400")
+
+    def test_a_failed_resize_sends_the_original_without_immutable(self):
+        data_path, _ = self._cache(self.TVDB_URL)
+        version = self._version(self.TVDB_URL)
+
+        with patch("app.image_cache._ensure_variant", side_effect=OSError("disk full")):
+            response, body = self._get(self.TVDB_URL, w=342, v=version)
+
+        self.assertEqual(body, data_path.read_bytes())
+        self.assertEqual(response["Cache-Control"], "public, max-age=86400")
+
+    def test_behind_nginx_the_copy_is_handed_over(self):
+        data_path, _ = self._cache(self.TVDB_URL)
+        version = self._version(self.TVDB_URL)
+
+        with override_settings(IMAGE_CACHE_ACCEL_REDIRECT="/_floppy-image-cache/"):
+            response, _ = self._get(self.TVDB_URL, w=154)
+
+        self.assertEqual(
+            response["X-Accel-Redirect"],
+            f"/_floppy-image-cache/{data_path.stem}.{version}.w154.img",
+        )
+
+    def test_without_a_width_urls_and_api_payloads_are_unchanged(self):
+        self._cache(self.TVDB_URL)
+        plain = image_cache.rewrite_image_url(self.TVDB_URL)
+        payload = image_cache.rewrite_payload_images({"image": self.TVDB_URL})
+
+        self.assertNotIn("?", plain)
+        self.assertEqual(payload, {"image": plain})
+        image_cache.set_enabled(False)
+        self.assertEqual(image_cache.rewrite_image_url(self.TVDB_URL, width=342), self.TVDB_URL)
+
+    def test_rendering_counts_as_use_at_most_once_a_day(self):
+        _, metadata_path = self._cache(self.TVDB_URL)
+        old_time = time.time() - image_cache.DEFAULT_RETENTION_DAYS * image_cache.DAY_SECONDS - 1
+        os.utime(metadata_path, (old_time, old_time))
+
+        image_cache.rewrite_image_url(self.TVDB_URL, width=342)
+        touched = metadata_path.stat().st_mtime
+        request_started.send(sender=self.__class__)
+        image_cache.rewrite_image_url(self.TVDB_URL, width=185)
+
+        self.assertGreater(touched, old_time)
+        self.assertEqual(metadata_path.stat().st_mtime, touched)
+        self.assertEqual(image_cache.cleanup_stale_images()["removed_count"], 0)
+
+    def test_copies_of_a_changed_or_removed_original_are_cleaned_up(self):
+        data_path, metadata_path = self._cache(self.TVDB_URL)
+        self._get(self.TVDB_URL, w=342)
+        self._get(self.TVDB_URL, w=185)
+        stats = image_cache.cache_stats()
+        self.assertEqual(stats["count"], 1)
+        self.assertGreater(
+            stats["bytes"],
+            data_path.stat().st_size + metadata_path.stat().st_size,
+        )
+
+        # The nightly refetch found new art: the old copies are no use.
+        self._cache(self.TVDB_URL, size=(700, 1000))
+        self._get(self.TVDB_URL, w=342)
+        image_cache.cleanup_stale_images()
+        version = self._version(self.TVDB_URL)
+        self.assertEqual(
+            sorted(path.name for path in data_path.parent.glob("*.img")),
+            [f"{data_path.stem}.{version}.w342.img"],
+        )
+
+        summary = image_cache.clear_cache()
+        self.assertEqual(summary["removed_count"], 1)
+        self.assertEqual(list(data_path.parent.iterdir()), [])
+
+
+class CardImageFilterTests(TestCase):
+    """tmdb_size, image_url and tmdb_srcset ask the cache for card sizes."""
+
+    def setUp(self):
+        self.data_dir = tempfile.TemporaryDirectory()
+        self.settings_override = override_settings(FLOPPY_DATA_DIR=self.data_dir.name)
+        self.settings_override.enable()
+        image_cache.invalidate_setting_cache()
+        image_cache.set_enabled(True)
+        request_started.send(sender=self.__class__)
+
+    def tearDown(self):
+        image_cache.invalidate_setting_cache()
+        self.settings_override.disable()
+        self.data_dir.cleanup()
+
+    def test_other_providers_get_the_width_and_tmdb_keeps_its_own_sizes(self):
+        from app.templatetags import app_tags
+
+        fanart = "https://assets.fanart.tv/fanart/movie-poster-1.jpg"
+        tmdb = "https://image.tmdb.org/t/p/w500/poster.jpg"
+
+        self.assertTrue(app_tags.image_url(app_tags.tmdb_size(fanart, "w342")).endswith("?w=342"))
+        self.assertNotIn("?", app_tags.image_url(app_tags.tmdb_size(tmdb, "w342")))
+        self.assertEqual(app_tags.tmdb_size(fanart, "w342"), fanart)
+        srcset = app_tags.tmdb_srcset(fanart, "w185,w342")
+        self.assertRegex(srcset, r"^/image-cache/\S+\?w=185 185w, /image-cache/\S+\?w=342 342w$")
+        tmdb_srcset = app_tags.tmdb_srcset(tmdb)
+        self.assertIn(" 185w, ", tmdb_srcset)
+        self.assertNotIn("?w=", tmdb_srcset)
+        self.assertEqual(app_tags.tmdb_srcset("https://example.com/manual.jpg"), "")
+
+        image_cache.set_enabled(False)
+        self.assertEqual(app_tags.tmdb_srcset(fanart), "")
+        self.assertEqual(app_tags.image_url(app_tags.tmdb_size(fanart, "w342")), fanart)

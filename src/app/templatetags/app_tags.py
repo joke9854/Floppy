@@ -159,20 +159,45 @@ def image_url(value):
     """
     if value and value == settings.IMG_NONE:
         return static("img/ct-placeholder.svg")
-    return image_cache.rewrite_image_url(value)
+    return image_cache.rewrite_image_url(value, width=getattr(value, "card_width", None))
 
 
 TMDB_IMAGE_SIZE_RE = re.compile(r"^(https://image\.tmdb\.org/t/p/)(?:w\d+|h\d+|original)(/.+)$")
+WIDTH_SIZE_RE = re.compile(r"^w(\d+)$")
+
+
+class SizedImageUrl(str):  # noqa: SLOT000 - card_width needs an instance dict
+    """A non-TMDB image URL that remembers the card width it is drawn at.
+
+    tmdb_size cannot put a width into another provider's URL, so it hands it
+    to image_url this way, which asks the image cache for a copy that size.
+    Everywhere else it is the plain URL.
+    """
+
+    def __new__(cls, value, card_width):
+        """Return the URL carrying ``card_width``."""
+        url = super().__new__(cls, value)
+        url.card_width = card_width
+        return url
+
+
+def _size_width(size):
+    match = WIDTH_SIZE_RE.match(size or "")
+    return int(match.group(1)) if match else None
 
 
 @register.filter
 def tmdb_size(value, size):
-    """Return a TMDB image URL at another size; other URLs pass through.
+    """Return a TMDB image URL at another size; other URLs remember the width.
 
-    Only the rendered URL changes: stored image URLs keep their size.
+    Only the rendered URL changes: stored image URLs keep their size. Other
+    providers' images are sized by the image cache (image_url).
     """
     match = TMDB_IMAGE_SIZE_RE.match(value) if isinstance(value, str) else None
     if not match:
+        width = _size_width(size)
+        if isinstance(value, str) and value and width:
+            return SizedImageUrl(value, width)
         return value
     return f"{match.group(1)}{size}{match.group(2)}"
 
@@ -184,10 +209,27 @@ def tmdb_srcset(value, sizes="w185,w342"):
     Cards stop at w342: a ~136-200px poster tile is still over 2x sharp on a
     3x phone, and w500 would weigh about twice as much per poster.
     """
-    if not isinstance(value, str) or not TMDB_IMAGE_SIZE_RE.match(value):
+    if not isinstance(value, str) or not value:
         return ""
+    if TMDB_IMAGE_SIZE_RE.match(value):
+        return ", ".join(
+            f"{image_url(tmdb_size(value, size))} {size[1:]}w" for size in sizes.split(",")
+        )
+    # Other providers' images: the image cache's card-size copies, when it
+    # caches this image at all (otherwise the provider URL has one size).
+    if (
+        value == settings.IMG_NONE
+        or not image_cache.is_enabled()
+        or not image_cache.is_approved_url(value)
+    ):
+        return ""
+    widths = [
+        width
+        for width in (_size_width(size) for size in sizes.split(","))
+        if width in image_cache.VARIANT_WIDTHS
+    ]
     return ", ".join(
-        f"{image_url(tmdb_size(value, size))} {size[1:]}w" for size in sizes.split(",")
+        f"{image_cache.rewrite_image_url(str(value), width=width)} {width}w" for width in widths
     )
 
 

@@ -240,3 +240,8 @@ outcomes, classify HTTP failures, never delete user data to debug.
 - 2026-11-16: P2-B built: the container serves Django over ASGI (uvicorn
   inside gunicorn) with the request cap, memory ceiling and streaming kept;
   `GET /api/v1/events/` (scope `events:read`) streams `task.finished`.
+- 2026-11-16: Beta runs on Postgres (the copy took about 1.5 minutes; two
+  credit roles over 255 characters were cut first, `ce741ac88`). P2-C
+  built: non-TMDB posters get card-size copies named after the original's
+  content hash, and pages that name that hash let browsers keep them
+  without revalidating.
