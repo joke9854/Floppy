@@ -23,8 +23,9 @@ DATA_DIR="$FLOPPY_ROOT/db"
 BACKUP_DIR="$FLOPPY_ROOT/backups"
 LOG_DIR="$FLOPPY_ROOT/logs"
 REDIS_DIR="$FLOPPY_ROOT/redis"
+POSTGRES_DIR="$FLOPPY_ROOT/postgres"
 ENV_FILE="$FLOPPY_ROOT/floppy.env"
-mkdir -p "$DATA_DIR" "$BACKUP_DIR" "$LOG_DIR" "$REDIS_DIR"
+mkdir -p "$DATA_DIR" "$BACKUP_DIR" "$LOG_DIR" "$REDIS_DIR" "$POSTGRES_DIR"
 
 # Loads the functions one method implements: install, manage, restart,
 # diagnostics, and the maintenance commands printed at the end.

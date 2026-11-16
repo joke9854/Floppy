@@ -37,7 +37,7 @@ It detects the host, asks how and where to run Floppy, installs Docker or a
 source deployment with your permission, and stops at a working login. See
 [docs/install.md](docs/install.md).
 
-**Compose by hand.** One stack, app plus Redis. Save it as `docker-compose.yml` and run `docker compose up -d`, or paste it straight into a Portainer stack.
+**Compose by hand.** One stack: the app, Postgres and Redis. Save it as `docker-compose.yml`, change both `change_me` passwords to the same long random value, and run `docker compose up -d`, or paste it straight into a Portainer stack. For a small single-user host, `docker-compose.sqlite.yml` in this repository runs without the database service; an install that started on SQLite is copied into Postgres automatically the first time it starts with `DB_HOST` set, and the SQLite file is kept.
 
 ```yaml
 services:
@@ -46,11 +46,18 @@ services:
     container_name: floppy
     restart: unless-stopped
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       - SECRET=change_me_to_a_long_random_string
       - REDIS_URL=redis://redis:6379
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=floppy
+      - DB_USER=floppy
+      - DB_PASSWORD=change_me
       - DEMO_ACCOUNT_ENABLED=False
       - TZ=America/Chicago
       - TMDB_API=your_tmdb_api_key
@@ -58,6 +65,22 @@ services:
       - floppy_db:/floppy/db
     ports:
       - "8000:8000"
+
+  db:
+    image: postgres:16-alpine
+    container_name: floppy-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=floppy
+      - POSTGRES_USER=floppy
+      - POSTGRES_PASSWORD=change_me
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floppy -d floppy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:8-alpine
@@ -74,6 +97,7 @@ services:
 
 volumes:
   floppy_db:
+  postgres_data:
   redis_data:
 ```
 

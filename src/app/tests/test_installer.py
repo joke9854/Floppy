@@ -475,6 +475,7 @@ class GeneratedComposeTests(SimpleTestCase):
             f'"ROOT={root}" "IMAGE=ghcr.io/dannyvfilms/floppy:release" '
             f'"ENV_FILE={root}/floppy.env" "DATA_DIR={root}/db" '
             f'"BACKUP_DIR={root}/backups" "REDIS_DIR={root}/redis" '
+            f'"POSTGRES_DIR={root}/postgres" '
             '"BIND=127.0.0.1" "PORT=8123" "PROJECT=floppy-my-floppy"',
             root,
         )
@@ -492,6 +493,12 @@ class GeneratedComposeTests(SimpleTestCase):
         self.assertIn(f"{root}/db:/floppy/db", floppy["volumes"])
         self.assertIn(f"{root}/backups:/floppy/backups", floppy["volumes"])
         self.assertEqual(floppy["env_file"], [f"{root}/floppy.env"])
+
+        db = compose["services"]["db"]
+        self.assertTrue(db["image"].startswith("postgres:"))
+        self.assertIn(f"{root}/postgres:/var/lib/postgresql/data", db["volumes"])
+        self.assertEqual(db["env_file"], [f"{root}/floppy.env"])
+        self.assertEqual(floppy["depends_on"]["db"]["condition"], "service_healthy")
 
         redis = compose["services"]["redis"]
         self.assertIn(f"{root}/redis:/data", redis["volumes"])

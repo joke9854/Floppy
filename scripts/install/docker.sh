@@ -96,11 +96,23 @@ install_docker() {
     else
         # Compose reads env_file literally, so no quoting here - and no paths,
         # which live in the Compose file where they can be quoted.
+        # Postgres password: letters and digits only, so it needs no quoting
+        # in the env file. Generated here, never shown.
+        db_password=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 32 || true)
+        [ "${#db_password}" -eq 32 ] || fail "Could not generate a database password."
         write_private "$ENV_FILE" <<EOF
 # Floppy installation settings. Edit, then run:
 #   docker compose -f "$COMPOSE_FILE" up -d
 TZ=$FLOPPY_TZ
 REDIS_URL=redis://redis:6379
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=floppy
+DB_USER=floppy
+DB_PASSWORD=$db_password
+POSTGRES_DB=floppy
+POSTGRES_USER=floppy
+POSTGRES_PASSWORD=$db_password
 DEBUG=False
 ADMIN_ENABLED=False
 DEMO_ACCOUNT_ENABLED=False
@@ -122,6 +134,7 @@ EOF
             "DATA_DIR=$DATA_DIR" \
             "BACKUP_DIR=$BACKUP_DIR" \
             "REDIS_DIR=$REDIS_DIR" \
+            "POSTGRES_DIR=$POSTGRES_DIR" \
             "BIND=$BIND_ADDRESS" \
             "PORT=$PORT" \
             "PROJECT=$(compose_project_name)"

@@ -16,6 +16,8 @@ services:
     image: @@IMAGE@@
     restart: unless-stopped
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     env_file:
@@ -25,6 +27,23 @@ services:
       - "@@BACKUP_DIR@@:/floppy/backups"
     ports:
       - "@@BIND@@:@@PORT@@:8000"
+    networks:
+      - floppy-net
+
+  db:
+    # Postgres is the default database. Its password is generated into the
+    # private env file, which both services read.
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - "@@ENV_FILE@@"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floppy -d floppy"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - "@@POSTGRES_DIR@@:/var/lib/postgresql/data"
     networks:
       - floppy-net
 
