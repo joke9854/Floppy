@@ -135,7 +135,7 @@ enough), full component kits (they fight the CineTrack look), svelte-motion
 |---|---|---|
 | P0 | Stable and beta servers, beta mode, versioned images, scripts (`docs/stable-beta.md`) | Live since 2026-11-14: stable 1.0.0, beta 1.0.1-beta.N on a data copy, cron updates; beta at https://floppybeta.bingehub.stream |
 | P1 | Complete API: inventory of web-only actions, endpoints for them, OpenAPI generated from code, typed error codes (503 for provider failures), scopes | Started. Inventory and slices A-I in `docs/plans/p1-api-inventory.md` (board items P1-A to P1-I). Done: P1-A typed errors, provider outages answer 503 `provider_unavailable` (`a40ab14a4`, `04a0145f3`); P1-B full contract `src/api/contracts/openapi-full.yaml` checked against the code (`2d8cc2b9b`); P1-C title pages (people, studios, history genres, ratings graphs, play notes); P1-D tracking actions (rewatch, move, anime grouping, language and remap, editions, releases, bulk tags and collection, collection fields), album resync (after fixing track rebuilds unlinking plays); P1-E lists (share view, bulk add, list CSV, Trakt and MDBList list imports); P1-F screen preferences (table columns, entry grouping, pinned providers, statistics and appearance settings, anime conversion); P1-G account and credentials (session logins only; login and signup moved to P3); P1-H integrations (status, connect and imports, runs and schedules, sync settings, match review, Plex settings and shares, Playback Reporting, Seerr, recurring imports); P1-I instance administration (session only). P1 complete; the session bridge (P3) makes the session-only endpoints reachable. |
-| P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Not started |
+| P2 | Backend foundations: Postgres default (SQLite kept for minimal installs), ASGI and server-sent events, priority job queues, poster size variants | Started. Plan and slices A-C in `docs/plans/p2-backend-foundations.md`. Priority queues already existed. |
 | P3 | SvelteKit foundation in `web/`: adapter-node in the image under supervisord, nginx routing, `/next/`, auth bridge, design tokens, base components, API client, service worker, CI (svelte-check, Vitest, Playwright), bundle and response-time budgets | Not started |
 | P4 | Screens, one at a time, each with a parity checklist, measured and tried on beta before it switches: Home, Library, detail pages, Track dialog, History, Calendar, Discover, Statistics, Lists, Settings and integrations, Imports | Not started |
 | P5 | Cutover: SvelteKit serves `/`, Django templates removed | Not started |
@@ -224,3 +224,10 @@ outcomes, classify HTTP failures, never delete user data to debug.
 - 2026-11-16: P1-I done: provider credentials and defaults, image cache,
   server port, logs (superuser), TMDB proxy, cache clearing, bulk delete
   with confirmation; all scoped `NEVER`. All P1 slices are done.
+- 2026-11-16: The web log download is limited to superusers like the API
+  one (`49034ec16`): the log covers every account.
+- 2026-11-16: P2 planned. Decided with the user: Postgres becomes the
+  default and existing SQLite installs are copied over automatically at
+  start (the SQLite file is kept); the whole app moves to ASGI. Postgres
+  goes first because ASGI needs pooled connections. Priority queues were
+  already in place.
