@@ -1,0 +1,36 @@
+# Beta on Postgres (v2 P2-A trial). beta-use-postgres.sh copies this to
+# ~/floppy/beta/docker-compose.override.yml, which `docker compose` in that
+# folder (beta-update.sh) and beta-refresh-data.sh both load.
+#
+# With DB_HOST set and beta's Postgres empty, beta copies its db.sqlite3 into
+# Postgres once at start; the SQLite file stays. Remove the override
+# (beta-use-postgres.sh --off) to go back to SQLite.
+services:
+  floppy-beta:
+    depends_on:
+      floppy-beta-db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=floppy-beta-db
+      - DB_PORT=5432
+      - DB_NAME=floppy
+      - DB_USER=floppy
+      - DB_PASSWORD=${BETA_DB_PASSWORD:?run beta-use-postgres.sh}
+
+  floppy-beta-db:
+    container_name: floppy-beta-db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=floppy
+      - POSTGRES_USER=floppy
+      - POSTGRES_PASSWORD=${BETA_DB_PASSWORD:?run beta-use-postgres.sh}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floppy -d floppy"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - beta-net

@@ -234,8 +234,9 @@ outcomes, classify HTTP failures, never delete user data to debug.
 - 2026-11-16: P2-A built: `docker-compose.yml` runs Postgres and the
   entrypoint copies a SQLite install over once (one transaction, row counts
   checked, SQLite kept); CI copies a real migrated install into a Postgres
-  service. Not yet tried on real data. Postgres installs have no automatic
-  backup yet (the nightly snapshot only copies SQLite).
+  service. Not yet tried on real data. Postgres installs get a nightly
+  `pg_dump` snapshot; the installer and README stack run Postgres; beta can
+  try it with `beta-use-postgres.sh`.
 - 2026-11-16: P2-B built: the container serves Django over ASGI (uvicorn
   inside gunicorn) with the request cap, memory ceiling and streaming kept;
   `GET /api/v1/events/` (scope `events:read`) streams `task.finished`.

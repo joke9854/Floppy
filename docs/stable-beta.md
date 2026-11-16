@@ -93,3 +93,23 @@ itself. Add a Postgres service and the `DB_*` settings as in the repo's
 
 Try it on beta first. To go back, remove `DB_HOST`: Floppy uses the SQLite
 file again, without anything written to Postgres since the copy.
+
+### Trying Postgres on beta
+
+```
+~/floppy/fork/deploy/stable-beta/beta-use-postgres.sh
+```
+
+adds a Postgres container to beta only (`docker-compose.override.yml` in
+`~/floppy/beta`, password generated into beta's `.env`) and restarts beta,
+which copies its `db.sqlite3` into Postgres at start. Watch the copy in the
+beta logs; the container stops with the reason if anything does not fit.
+
+- `beta-update.sh` and `beta-refresh-data.sh` keep working: a refresh sets
+  beta's Postgres copy aside as the `floppy_previous` database and the next
+  start copies the fresh `db.sqlite3` into an empty one.
+- `beta-use-postgres.sh --off` puts beta back on `db.sqlite3`; the Postgres
+  files stay in `~/floppy/beta/data/postgres` until removed by hand.
+- Postgres installs get a nightly `pg_dump` snapshot in
+  `backups/database/floppy-postgres-*.dump` (restore with
+  `pg_restore --no-owner --dbname=floppy <file>` into an empty database).

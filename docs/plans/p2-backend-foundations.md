@@ -29,7 +29,7 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 
 | Slice | Content | Status |
 |---|---|---|
-| P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture, not yet on real data (beta trial next). Open before stable moves: automatic backups (the nightly snapshot only copies SQLite and is skipped on Postgres, so a Postgres install has none), the installer (`scripts/install/docker.sh`) and the README's hand-written stack still write SQLite |
+| P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture; nightly `pg_dump` snapshots for Postgres installs; installer and README stack use Postgres; beta trial ready (`beta-use-postgres.sh`), not yet run on real data |
 | P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Built in two commits: the server switch (pushed) and the events endpoint (held until beta has run the switch alone) |
 | P2-C | Poster size variants with content-hashed names | Not started |
 
