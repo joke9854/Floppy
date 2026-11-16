@@ -292,6 +292,19 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     # Rotating the account token would let a scoped token mint an unscoped one.
     "api.fork_views_onboarding.OnboardingView": {"GET": "user:read", "PATCH": "user:write"},
     "api.fork_views_users.UserTokenRegenerateView": {"POST": NEVER},
+    # Instance administration and destructive maintenance (P1-I): session
+    # logins only; instance-wide changes also need a superuser.
+    "api.fork_views_admin.MetadataProvidersView": {"GET": NEVER},
+    "api.fork_views_admin.ProviderInstanceCredentialView": {"PUT": NEVER, "DELETE": NEVER},
+    "api.fork_views_admin.ProviderPersonalCredentialView": {"PUT": NEVER},
+    "api.fork_views_admin.DefaultProviderView": {"PUT": NEVER},
+    "api.fork_views_admin.ImageCacheView": {"GET": NEVER, "PATCH": NEVER},
+    "api.fork_views_admin.ImageCacheClearView": {"POST": NEVER},
+    "api.fork_views_admin.ServerPortView": {"GET": NEVER, "PUT": NEVER, "DELETE": NEVER},
+    "api.fork_views_admin.LogsView": {"GET": NEVER},
+    "api.fork_views_admin.TmdbProxyView": {"GET": NEVER, "PUT": NEVER, "DELETE": NEVER},
+    "api.fork_views_admin.CacheClearView": {"POST": NEVER},
+    "api.fork_views_admin.LibraryBulkDeleteView": {"GET": NEVER, "POST": NEVER},
     "api.fork_views_webhook_settings.WebhookSettingsView": {"GET": "user:read", "PATCH": "user:write"},
     # Sharing Plex plays with another account is consent: session logins only.
     "api.fork_views_webhook_settings.PlexSharesView": {"GET": NEVER, "POST": NEVER},

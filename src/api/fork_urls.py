@@ -8,6 +8,7 @@ from . import (
     cinetrack_character_views,
     fork_views,
     fork_views_account,
+    fork_views_admin,
     fork_views_data,
     fork_views_discover,
     fork_views_integration_connections,
@@ -714,6 +715,61 @@ urlpatterns = [
         r"^integrations/jellyfin/playback-reporting/?$",
         fork_views_integration_connections.JellyfinPlaybackReportingView.as_view(),
         name="api_jellyfin_playback_reporting",
+    ),
+    re_path(
+        r"^metadata/providers/?$",
+        fork_views_admin.MetadataProvidersView.as_view(),
+        name="api_metadata_providers",
+    ),
+    re_path(
+        r"^metadata/providers/(?P<slug>[a-z0-9_-]+)/instance/?$",
+        fork_views_admin.ProviderInstanceCredentialView.as_view(),
+        name="api_provider_instance_credentials",
+    ),
+    re_path(
+        r"^metadata/providers/(?P<slug>[a-z0-9_-]+)/personal/?$",
+        fork_views_admin.ProviderPersonalCredentialView.as_view(),
+        name="api_provider_personal_credentials",
+    ),
+    re_path(
+        r"^metadata/default-providers/(?P<media_type>[a-z_]+)/?$",
+        fork_views_admin.DefaultProviderView.as_view(),
+        name="api_default_provider",
+    ),
+    re_path(
+        r"^admin/image-cache/?$",
+        fork_views_admin.ImageCacheView.as_view(),
+        name="api_admin_image_cache",
+    ),
+    re_path(
+        r"^admin/image-cache/clear/?$",
+        fork_views_admin.ImageCacheClearView.as_view(),
+        name="api_admin_image_cache_clear",
+    ),
+    re_path(
+        r"^admin/server-port/?$",
+        fork_views_admin.ServerPortView.as_view(),
+        name="api_admin_server_port",
+    ),
+    re_path(
+        r"^admin/logs/?$",
+        fork_views_admin.LogsView.as_view(),
+        name="api_admin_logs",
+    ),
+    re_path(
+        r"^user/tmdb-proxy/?$",
+        fork_views_admin.TmdbProxyView.as_view(),
+        name="api_user_tmdb_proxy",
+    ),
+    re_path(
+        r"^user/caches/clear/?$",
+        fork_views_admin.CacheClearView.as_view(),
+        name="api_user_caches_clear",
+    ),
+    re_path(
+        r"^library/bulk-delete/?$",
+        fork_views_admin.LibraryBulkDeleteView.as_view(),
+        name="api_library_bulk_delete",
     ),
     re_path(
         r"^integrations/?$",

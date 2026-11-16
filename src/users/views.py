@@ -1801,50 +1801,59 @@ def bulk_delete_by_import_source(request, media_type, source):
     action across every run from that source -- e.g. "delete all Music
     imported from Last.fm" before re-importing from Koito. Irreversible.
     """
-    if media_type == MediaTypes.EPISODE.value or media_type not in MediaTypes.values:
-        messages.error(request, "Unknown media type.")
+    try:
+        deleted_count = delete_import_source_media(request.user, media_type, source)
+    except BulkDeleteError as error:
+        messages.error(request, str(error))
         return redirect("import_data")
-
-    if not ImportRun.objects.filter(user=request.user, source=source).exists():
-        messages.error(request, "Unknown import source.")
-        return redirect("import_data")
-
-    # A running import writes Music rows and re-creates trackers as it goes, so
-    # deleting underneath it leaves rows the sweep has already walked past.
-    # rollback_import_run refuses for the same reason.
-    if ImportRun.objects.filter(
-        user=request.user,
-        source=source,
-        status=ImportRun.Status.RUNNING,
-    ).exists():
-        messages.error(
-            request,
-            "Cancel the running import from this source before deleting it.",
-        )
-        return redirect("import_data")
-
-    model = apps.get_model(app_label="app", model_name=media_type)
-    doomed = model.objects.filter(user=request.user, import_run__source=source)
-    # Capture before the delete: the trackers are reached through these FKs.
-    music_catalog_ids = (
-        _music_catalog_ids_referenced_by(doomed)
-        if media_type == MediaTypes.MUSIC.value
-        else None
-    )
-
-    deleted_count, _ = doomed.delete()
-
-    if music_catalog_ids is not None:
-        deleted_count += _sweep_untracked_music_containers(
-            request.user,
-            *music_catalog_ids,
-        )
 
     if deleted_count:
         messages.success(request, f"Permanently deleted {deleted_count} item(s).")
     else:
         messages.info(request, "Nothing to delete.")
     return redirect("import_data")
+
+
+class BulkDeleteError(ValueError):
+    """The bulk delete cannot run; the message says why."""
+
+
+def delete_import_source_media(user, media_type, source):
+    """Permanently delete the user's media of one type from one import source.
+
+    Returns the number of rows deleted (including emptied artist/album
+    trackers for music). Raises BulkDeleteError for an unknown type or
+    source, or while an import from that source is running.
+    """
+    if media_type == MediaTypes.EPISODE.value or media_type not in MediaTypes.values:
+        msg = "Unknown media type."
+        raise BulkDeleteError(msg)
+    if not ImportRun.objects.filter(user=user, source=source).exists():
+        msg = "Unknown import source."
+        raise BulkDeleteError(msg)
+    # A running import writes Music rows and re-creates trackers as it goes, so
+    # deleting underneath it leaves rows the sweep has already walked past.
+    # rollback_import_run refuses for the same reason.
+    if ImportRun.objects.filter(
+        user=user,
+        source=source,
+        status=ImportRun.Status.RUNNING,
+    ).exists():
+        msg = "Cancel the running import from this source before deleting it."
+        raise BulkDeleteError(msg)
+
+    model = apps.get_model(app_label="app", model_name=media_type)
+    doomed = model.objects.filter(user=user, import_run__source=source)
+    # Capture before the delete: the trackers are reached through these FKs.
+    music_catalog_ids = (
+        _music_catalog_ids_referenced_by(doomed)
+        if media_type == MediaTypes.MUSIC.value
+        else None
+    )
+    deleted_count, _ = doomed.delete()
+    if music_catalog_ids is not None:
+        deleted_count += _sweep_untracked_music_containers(user, *music_catalog_ids)
+    return deleted_count
 
 
 # Cap on ids per `__in` lookup. A >100k-scrobble library can reference more
@@ -1936,9 +1945,41 @@ def bulk_delete_by_media_type(request):
         return redirect("advanced")
 
     delete_metadata = request.POST.get("delete_metadata") == "true"
+    result = delete_media_type(request.user, media_type, delete_metadata=delete_metadata)
 
-    media_querysets = _media_querysets_for_bulk_delete(request.user, media_type)
-    companions = _companion_querysets_for_bulk_delete(request.user, media_type)
+    if result["item_count"]:
+        label = MediaTypes(media_type).label
+        message = (
+            f"Permanently deleted {result['item_count']} {label} item(s) from "
+            "your library."
+        )
+        breakdown = _bulk_delete_breakdown(
+            media_type, result["media_count"], result["companion_counts"]
+        )
+        if breakdown:
+            message += f" ({breakdown})"
+        if delete_metadata:
+            metadata_count = result["metadata_count"]
+            message += (
+                f" Also removed {metadata_count} metadata "
+                f"entr{'y' if metadata_count == 1 else 'ies'}."
+            )
+        messages.success(request, message)
+    else:
+        messages.info(request, "Nothing to delete for that media type.")
+
+    return redirect("advanced")
+
+
+def delete_media_type(user, media_type, *, delete_metadata=False):
+    """Permanently delete all of the user's media of one type.
+
+    Returns {"item_count", "media_count", "companion_counts",
+    "metadata_count"}. `delete_metadata` also removes catalog entries no one
+    tracks any more. The caller checks `media_type` is deletable.
+    """
+    media_querysets = _media_querysets_for_bulk_delete(user, media_type)
+    companions = _companion_querysets_for_bulk_delete(user, media_type)
     media_count = sum(queryset.count() for queryset in media_querysets)
     companion_counts = [(noun, queryset.count()) for noun, queryset in companions]
     item_count = media_count + sum(count for _, count in companion_counts)
@@ -1959,7 +2000,7 @@ def bulk_delete_by_media_type(request):
     if media_type == MediaTypes.MUSIC.value:
         # Per-user music settings, not library rows -- cleared, but not counted
         # as deleted items.
-        MusicReleasePreference.objects.filter(user=request.user).delete()
+        MusicReleasePreference.objects.filter(user=user).delete()
 
     metadata_count = 0
     if delete_metadata:
@@ -1972,29 +2013,23 @@ def bulk_delete_by_media_type(request):
         # Model post-delete signals invalidate runtime caches and schedule
         # refreshes. These payload clears ensure a just-deleted item cannot
         # remain visible in the user's cached History/Statistics/Discover UI.
-        cache_management.clear_history_cache_for_user(request.user.id)
-        cache_management.clear_statistics_cache_for_user(request.user.id)
-        cache_management.clear_discover_cache_for_user(request.user.id)
-        label = MediaTypes(media_type).label
-        message = f"Permanently deleted {item_count} {label} item(s) from your library."
-        breakdown = _bulk_delete_breakdown(media_type, media_count, companion_counts)
-        if breakdown:
-            message += f" ({breakdown})"
-        if delete_metadata:
-            message += f" Also removed {metadata_count} metadata entr{'y' if metadata_count == 1 else 'ies'}."
-        messages.success(request, message)
+        cache_management.clear_history_cache_for_user(user.id)
+        cache_management.clear_statistics_cache_for_user(user.id)
+        cache_management.clear_discover_cache_for_user(user.id)
         logger.info(
             "Permanently deleted %s %s items (metadata=%s, metadata_count=%s) for user %s",
             item_count,
             media_type,
             delete_metadata,
             metadata_count,
-            request.user.id,
+            user.id,
         )
-    else:
-        messages.info(request, "Nothing to delete for that media type.")
-
-    return redirect("advanced")
+    return {
+        "item_count": item_count,
+        "media_count": media_count,
+        "companion_counts": companion_counts,
+        "metadata_count": metadata_count,
+    }
 
 
 def _media_querysets_for_bulk_delete(user, media_type):

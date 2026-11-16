@@ -180,11 +180,21 @@ Plex import now or on a schedule, and watchlist sync, through
 `POST integrations/jellyfin/playback-reporting/`. OAuth and device-code
 sign-ins (Plex, Trakt, Simkl, AniList, Storyteller) stay web pages.
 
-### I. Instance administration (superuser, web session only)
+### I. Instance administration (done)
 
-Instance and personal provider credentials, default provider per media type,
-TMDB proxy, image cache settings and purge, server port, cache clearing, bulk
-delete by type or import source, log download, crash report download.
+Every endpoint here is scoped `NEVER` (session logins only, reachable once
+P3's session bridge exists); instance-wide changes also need a superuser.
+
+| Web | API |
+|---|---|
+| Settings > Metadata (credentials, default providers) | `GET metadata/providers/` (masked previews only), `PUT/DELETE metadata/providers/{slug}/instance/` (superuser), `PUT metadata/providers/{slug}/personal/`, `PUT metadata/default-providers/{tv,anime,book}/` |
+| Image cache settings and purge | `GET/PATCH admin/image-cache/` (PATCH superuser), `POST admin/image-cache/clear/` (superuser) |
+| Server port | `GET/PUT/DELETE admin/server-port/` (writes superuser) |
+| Log download | `GET admin/logs/` (superuser; the web page lets any user download them) |
+| TMDB proxy | `GET/PUT/DELETE user/tmdb-proxy/` (the URL is stored encrypted, never returned) |
+| Cache clearing | `POST user/caches/clear/` (search, history, statistics, discover) |
+| Bulk delete by type or import source | `GET/POST library/bulk-delete/`; `confirm` must equal the media type |
+| Crash report download | Already covered by `GET cinetrack/crash-reports/` |
 
 ## Not needed in the API
 

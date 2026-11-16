@@ -9,6 +9,254 @@ info:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
 paths:
+  /api/v1/admin/image-cache/:
+    get:
+      operationId: getImageCache
+      description: Return the setting and what is cached.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageCache'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    patch:
+      operationId: updateImageCache
+      description: Turn caching on or off, or change how long images are kept.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedImageCacheUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedImageCacheUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedImageCacheUpdate'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageCache'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/admin/image-cache/clear/:
+    post:
+      operationId: clearImageCache
+      description: Purge the cache; images are fetched again when next shown.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageCacheClear'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/admin/logs/:
+    get:
+      operationId: downloadLogs
+      description: Return the logs as a text file.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/admin/server-port/:
+    get:
+      operationId: getServerPort
+      description: Return the port and where it comes from.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerPort'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    put:
+      operationId: setServerPort
+      description: Save the port; restart Floppy to apply it.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerPortUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServerPortUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServerPortUpdate'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerPort'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: FLOPPY_PORT sets the port; change it there.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+    delete:
+      operationId: resetServerPort
+      description: Remove the saved port; the environment or default applies after
+        a restart.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerPort'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
   /api/v1/calendar/:
     get:
       operationId: api_v1_calendar_retrieve
@@ -3061,6 +3309,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/library/bulk-delete/:
+    get:
+      operationId: getBulkDeleteSummary
+      description: Return the rows each import source added, per media type.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteSummary'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    post:
+      operationId: bulkDeleteLibrary
+      description: Delete; this cannot be undone.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
       x-required-scope: none (session or account token only)
   /api/v1/lists/:
     get:
@@ -10833,6 +11156,66 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: metadata:write
+  /api/v1/metadata/default-providers/{media_type}/:
+    put:
+      operationId: setDefaultMetadataProvider
+      description: Save the provider (and, for anime, the library shape).
+      parameters:
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefaultProviderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DefaultProviderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DefaultProviderRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultProvider'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
   /api/v1/metadata/items/{item_id}/:
     get:
       operationId: api_v1_metadata_items_retrieve
@@ -11026,6 +11409,199 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: metadata:read
+  /api/v1/metadata/providers/:
+    get:
+      operationId: getMetadataProviders
+      description: Return provider groups, each field's source and masked preview.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/metadata/providers/{slug}/instance/:
+    put:
+      operationId: setProviderInstanceCredentials
+      description: Save the fields sent; fields set by the environment are kept.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[a-z0-9_-]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+    delete:
+      operationId: clearProviderInstanceCredentials
+      description: Remove the instance-wide credentials.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[a-z0-9_-]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Superusers only (instance-wide setting).
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+      x-required-scope: none (session or account token only)
+  /api/v1/metadata/providers/{slug}/personal/:
+    put:
+      operationId: setProviderPersonalCredentials
+      description: Save the personal fields sent.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[a-z0-9_-]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/music/albums/:
     get:
       operationId: api_v1_music_albums_retrieve
@@ -14668,6 +15244,52 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/user/caches/clear/:
+    post:
+      operationId: clearCaches
+      description: Clear the caches named, or all.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CacheClearRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CacheClearRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CacheClearRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheClear'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/user/catalog-grants/:
     get:
       operationId: listCatalogGrants
@@ -15449,6 +16071,105 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
       x-required-scope: user:write
+  /api/v1/user/tmdb-proxy/:
+    get:
+      operationId: getTmdbProxy
+      description: Say whether a proxy is set (the URL is never returned).
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmdbProxy'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    put:
+      operationId: setTmdbProxy
+      description: Store the proxy URL, encrypted.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TmdbProxyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TmdbProxyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TmdbProxyRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmdbProxy'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    delete:
+      operationId: clearTmdbProxy
+      description: Stop using the proxy.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/user/token/regenerate/:
     post:
       operationId: api_v1_user_token_regenerate_create
@@ -15863,6 +16584,16 @@ components:
       - album_id
       - merged
       - track_count
+    AnimeLibraryModeEnum:
+      enum:
+      - anime
+      - tv
+      - both
+      type: string
+      description: |-
+        * `anime` - anime
+        * `tv` - tv
+        * `both` - both
     AnimeMigrationRequest:
       type: object
       description: Which provider's grouped series to migrate into.
@@ -15969,6 +16700,105 @@ components:
       description: |-
         * `movies` - movies
         * `shows` - shows
+    BulkDeleteRequest:
+      type: object
+      description: What to delete permanently.
+      properties:
+        media_type:
+          $ref: '#/components/schemas/BulkDeleteRequestMediaTypeEnum'
+        confirm:
+          type: string
+          description: Must equal media_type.
+        source:
+          type: string
+          description: Only what this import source added (e.g. `lastfm`).
+        delete_metadata:
+          type: boolean
+          description: Also remove catalog entries no one tracks any more (whole type
+            only).
+      required:
+      - confirm
+      - media_type
+    BulkDeleteRequestMediaTypeEnum:
+      enum:
+      - tv
+      - season
+      - movie
+      - anime
+      - manga
+      - game
+      - book
+      - comic
+      - comicissue
+      - boardgame
+      - music
+      - podcast
+      type: string
+      description: |-
+        * `tv` - tv
+        * `season` - season
+        * `movie` - movie
+        * `anime` - anime
+        * `manga` - manga
+        * `game` - game
+        * `book` - book
+        * `comic` - comic
+        * `comicissue` - comicissue
+        * `boardgame` - boardgame
+        * `music` - music
+        * `podcast` - podcast
+    BulkDeleteResult:
+      type: object
+      description: What was deleted.
+      properties:
+        deleted:
+          type: integer
+        metadata_deleted:
+          type: integer
+      required:
+      - deleted
+      - metadata_deleted
+    BulkDeleteSummary:
+      type: object
+      description: What can be deleted by import source.
+      properties:
+        import_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportSourceSummary'
+      required:
+      - import_sources
+    CacheClear:
+      type: object
+      description: Entries removed per cache.
+      properties:
+        cleared:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - cleared
+    CacheClearRequest:
+      type: object
+      description: Which caches to clear; omit for all.
+      properties:
+        caches:
+          type: array
+          items:
+            $ref: '#/components/schemas/CachesEnum'
+          description: '`search` is shared by the instance; the others are this user''s.'
+    CachesEnum:
+      enum:
+      - search
+      - history
+      - statistics
+      - discover
+      type: string
+      description: |-
+        * `search` - search
+        * `history` - history
+        * `statistics` - statistics
+        * `discover` - discover
     CalendarEnvelope:
       type: object
       description: Paginated calendar events.
@@ -17819,6 +18649,16 @@ components:
       - detail
       - newest_sequence
       - oldest_sequence
+    DaysEnum:
+      enum:
+      - 7
+      - 15
+      - 30
+      type: integer
+      description: |-
+        * `7` - 7
+        * `15` - 15
+        * `30` - 30
     DecisionEnum:
       enum:
       - ignore
@@ -17827,6 +18667,39 @@ components:
       description: |-
         * `ignore` - ignore
         * `remove_correction` - remove_correction
+    DefaultProvider:
+      type: object
+      description: The saved default.
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        anime_needing_conversion:
+          type: integer
+          description: 'anime: tracked titles still in the old shape; convert them
+            with POST user/anime-library/convert/.'
+      required:
+      - anime_needing_conversion
+      - media_type
+      - source
+    DefaultProviderRequest:
+      type: object
+      description: The provider new titles of this type use.
+      properties:
+        source:
+          type: string
+        anime_library_mode:
+          allOf:
+          - $ref: '#/components/schemas/AnimeLibraryModeEnum'
+          description: |-
+            anime only.
+
+            * `anime` - anime
+            * `tv` - tv
+            * `both` - both
+      required:
+      - source
     DetailError:
       type: object
       description: Shared API error body.
@@ -18815,6 +19688,35 @@ components:
       - count
       - hastily_seconds
       - normally_seconds
+    ImageCache:
+      type: object
+      description: External image caching.
+      properties:
+        enabled:
+          type: boolean
+        days:
+          type: integer
+          description: 7, 15 or 30.
+        cached_images:
+          type: integer
+        cached_bytes:
+          type: integer
+      required:
+      - cached_bytes
+      - cached_images
+      - days
+      - enabled
+    ImageCacheClear:
+      type: object
+      description: What the purge removed.
+      properties:
+        removed_count:
+          type: integer
+        removed_bytes:
+          type: integer
+      required:
+      - removed_bytes
+      - removed_count
     ImportActivity:
       type: object
       description: Recent import runs and recurring schedules.
@@ -19049,6 +19951,20 @@ components:
           type: integer
       required:
       - schedule_id
+    ImportSourceSummary:
+      type: object
+      description: Rows an import source added, per media type.
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        count:
+          type: integer
+      required:
+      - count
+      - media_type
+      - source
     InfoApiResponse:
       type: object
       description: Public server info, including the capability flags clients probe.
@@ -21270,6 +22186,14 @@ components:
           format: decimal
           pattern: ^-?\d{0,2}(?:\.\d{0,1})?$
           nullable: true
+    PatchedImageCacheUpdate:
+      type: object
+      description: Fields to change.
+      properties:
+        enabled:
+          type: boolean
+        days:
+          $ref: '#/components/schemas/DaysEnum'
     PatchedItemImageRequest:
       type: object
       description: New artwork URL for the item.
@@ -22780,6 +23704,56 @@ components:
       - default_added_status
       - enabled
       - trigger_statuses
+    ServerPort:
+      type: object
+      description: The port Floppy listens on.
+      properties:
+        effective_port:
+          type: integer
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        saved_port:
+          type: integer
+          nullable: true
+        environment_port:
+          type: integer
+          nullable: true
+        runtime_port:
+          type: integer
+          nullable: true
+          description: The port the running server uses.
+        default_port:
+          type: integer
+        environment_override:
+          type: boolean
+          description: The environment variable sets the port; it cannot be saved
+            here.
+        config_error:
+          type: string
+        restart_required:
+          type: boolean
+      required:
+      - config_error
+      - default_port
+      - effective_port
+      - environment_override
+      - environment_port
+      - restart_required
+      - runtime_port
+      - saved_port
+      - source
+    ServerPortUpdate:
+      type: object
+      description: The port to use after the next restart.
+      properties:
+        port:
+          type: integer
+          maximum: 65535
+          minimum: 1
+      required:
+      - port
     Show:
       type: object
       description: The parent show/podcast for an episode-like tracked media entry.
@@ -24160,6 +25134,22 @@ components:
         * `Planning` - Planning
         * `Paused` - Paused
         * `Dropped` - Dropped
+    TmdbProxy:
+      type: object
+      description: Whether TMDB requests go through the user's proxy.
+      properties:
+        configured:
+          type: boolean
+      required:
+      - configured
+    TmdbProxyRequest:
+      type: object
+      description: The proxy URL; stored encrypted and never returned.
+      properties:
+        url:
+          type: string
+      required:
+      - url
     TokenResponse:
       type: object
       description: The newly issued API token.
