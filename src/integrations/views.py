@@ -51,7 +51,6 @@ from integrations import (
 from integrations import plex as plex_api
 from integrations import plex_cover as plex_cover_proxy
 from integrations.connections import (
-    _ensure_plex_watchlist_schedule,
     _ensure_storyteller_schedule,
     _run_with_lock_retry,
 )
@@ -639,14 +638,22 @@ def import_plex(request):
     _save_plex_usernames(request.user, raw_usernames)
     _save_plex_content_kind(plex_account, library_content_kinds)
 
-    if mode == "watchlist":
-        _ensure_plex_watchlist_schedule(request.user, plex_account)
-        plex_account.watchlist_sync_enabled = True
-        plex_account.save(update_fields=["watchlist_sync_enabled"])
-        tasks.sync_plex_watchlist.delay(
-            user_id=request.user.id,
-            mode="watchlist",
+    # The form offers daily or every two days; anything else ran every two.
+    if frequency not in ("once", "daily"):
+        frequency = "2days"
+    try:
+        connections.start_plex_import(
+            request.user,
+            libraries=library,
+            mode=mode,
+            frequency=frequency,
+            import_time=import_time,
         )
+    except connections.IntegrationError as error:
+        messages.error(request, error.web_message)
+        return redirect("import_data")
+
+    if mode == "watchlist":
         messages.info(
             request,
             (
@@ -654,43 +661,14 @@ def import_plex(request):
                 f"Recurring syncs will run every {WATCHLIST_SYNC_INTERVAL_MINUTES} minutes."
             ),
         )
-        return redirect("import_data")
-
-    # Handle "update_collection" mode separately
-    if mode == "update_collection":
-        if frequency != "once":
-            messages.error(
-                request, "Collection update mode only supports one-time execution."
-            )
-            return redirect("import_data")
-
-        tasks.update_collection_metadata_from_plex.delay(
-            library=library,
-            user_id=request.user.id,
-        )
+    elif mode == "update_collection":
         messages.info(
             request, "The task to update collection metadata from Plex has been queued."
         )
-        return redirect("import_data")
-
-    if frequency != "once":
-        helpers.create_import_schedule(
-            username=plex_account.plex_username or request.user.username,
-            request=request,
-            mode=mode,
-            frequency=frequency,
-            import_time=import_time,
-            source="Plex",
-            extra_kwargs={"library": library},
-        )
-        return redirect("import_data")
-
-    tasks.import_plex.delay(
-        library=library,
-        user_id=request.user.id,
-        mode=mode,
-    )
-    messages.info(request, "The task to import media from Plex has been queued.")
+    elif frequency != "once":
+        messages.success(request, "Plex import task scheduled.")
+    else:
+        messages.info(request, "The task to import media from Plex has been queued.")
     return redirect("import_data")
 
 

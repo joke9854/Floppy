@@ -35,6 +35,7 @@ from . import (
     fork_views_tracking,
     fork_views_users,
     fork_views_watched_state,
+    fork_views_webhook_settings,
 )
 
 urlpatterns = [
@@ -688,6 +689,31 @@ urlpatterns = [
         r"^integrations/match-fix/(?P<item_id>\d+)/apply/?$",
         fork_views_match.MatchFixApplyView.as_view(),
         name="api_match_fix_apply",
+    ),
+    re_path(
+        r"^user/webhook-settings/?$",
+        fork_views_webhook_settings.WebhookSettingsView.as_view(),
+        name="api_user_webhook_settings",
+    ),
+    re_path(
+        r"^integrations/plex/shares/?$",
+        fork_views_webhook_settings.PlexSharesView.as_view(),
+        name="api_plex_shares",
+    ),
+    re_path(
+        r"^integrations/plex/shares/(?P<share_id>\d+)/?$",
+        fork_views_webhook_settings.PlexShareDetailView.as_view(),
+        name="api_plex_share_detail",
+    ),
+    re_path(
+        r"^integrations/plex/shares/(?P<share_id>\d+)/enabled/?$",
+        fork_views_webhook_settings.PlexShareEnabledView.as_view(),
+        name="api_plex_share_enabled",
+    ),
+    re_path(
+        r"^integrations/jellyfin/playback-reporting/?$",
+        fork_views_integration_connections.JellyfinPlaybackReportingView.as_view(),
+        name="api_jellyfin_playback_reporting",
     ),
     re_path(
         r"^integrations/?$",

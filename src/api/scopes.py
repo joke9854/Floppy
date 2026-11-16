@@ -292,6 +292,14 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     # Rotating the account token would let a scoped token mint an unscoped one.
     "api.fork_views_onboarding.OnboardingView": {"GET": "user:read", "PATCH": "user:write"},
     "api.fork_views_users.UserTokenRegenerateView": {"POST": NEVER},
+    "api.fork_views_webhook_settings.WebhookSettingsView": {"GET": "user:read", "PATCH": "user:write"},
+    # Sharing Plex plays with another account is consent: session logins only.
+    "api.fork_views_webhook_settings.PlexSharesView": {"GET": NEVER, "POST": NEVER},
+    "api.fork_views_webhook_settings.PlexShareDetailView": {"PATCH": NEVER, "DELETE": NEVER},
+    "api.fork_views_webhook_settings.PlexShareEnabledView": {"PUT": NEVER},
+    "api.fork_views_integration_connections.JellyfinPlaybackReportingView": {
+        "POST": "imports:write",
+    },
     # Connecting, disconnecting and settings store or remove another service's
     # credentials: session logins only.
     "api.fork_views_integration_connections.IntegrationsView": {"GET": "imports:read"},

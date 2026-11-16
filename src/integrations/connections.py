@@ -965,6 +965,72 @@ def disable_plex_watchlist(user):
         plex_account.save(update_fields=["watchlist_sync_enabled"])
 
 
+PLEX_IMPORT_MODES = ("new", "overwrite", "watchlist", "update_collection")
+
+
+def plex_library_values(plex_account):
+    """Return the `machine::section` keys of the account's known libraries."""
+    if not plex_account or not plex_account.plex_token:
+        return set()
+    return {
+        f"{section.get('machine_identifier')}::{section.get('id')}"
+        for section in (plex_account.sections or [])
+        if section.get("machine_identifier") and section.get("id")
+    }
+
+
+def start_plex_import(user, *, libraries, mode, frequency, import_time):
+    """Run or schedule a Plex import; return ImportQueued.
+
+    `mode` "watchlist" turns on the recurring watchlist sync (outcome
+    "scheduled"); "update_collection" refreshes collection metadata once;
+    "new"/"overwrite" import history now (`frequency` "once") or on a
+    schedule ("daily"/"2days" at `import_time`).
+    """
+    plex_account = getattr(user, "plex_account", None)
+    if not plex_account:
+        msg = "Connect Plex before importing."
+        raise NotConnectedError(msg)
+    if mode not in PLEX_IMPORT_MODES:
+        msg = "Unknown Plex import mode."
+        raise IntegrationError(msg)
+
+    if mode == "watchlist":
+        _ensure_plex_watchlist_schedule(user, plex_account)
+        plex_account.watchlist_sync_enabled = True
+        plex_account.save(update_fields=["watchlist_sync_enabled"])
+        result = tasks.sync_plex_watchlist.delay(user_id=user.id, mode="watchlist")
+        return ImportQueued(result=result, outcome="scheduled")
+
+    if mode == "update_collection":
+        if frequency != "once":
+            msg = "Collection update mode only supports one-time execution."
+            raise IntegrationError(msg)
+        result = tasks.update_collection_metadata_from_plex.delay(
+            library=libraries,
+            user_id=user.id,
+        )
+        return ImportQueued(result=result)
+
+    if frequency != "once":
+        try:
+            helpers.schedule_import(
+                user,
+                username=plex_account.plex_username or user.username,
+                mode=mode,
+                frequency=frequency,
+                import_time=import_time,
+                source="Plex",
+                extra_kwargs={"library": libraries},
+            )
+        except helpers.ImportScheduleError as error:
+            raise IntegrationError(str(error)) from error
+        return ImportQueued(outcome="scheduled")
+
+    result = tasks.import_plex.delay(library=libraries, user_id=user.id, mode=mode)
+    return ImportQueued(result=result)
+
+
 # ---------------------------------------------------------------------------
 # Jellyfin
 # ---------------------------------------------------------------------------

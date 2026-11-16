@@ -39,7 +39,6 @@ from app.models import (
     MediaTypes,
     Music,
     MusicReleasePreference,
-    Status,
 )
 from app.providers import credentials, tmdb
 from app.templatetags import app_tags
@@ -59,7 +58,7 @@ from integrations.models import (
 )
 from integrations.task_filters import user_kwargs_regex
 from users import appearance as appearance_config
-from users import cache_management, data_management
+from users import cache_management, data_management, plex_shares, webhook_settings
 from users import credentials as user_credentials
 from users.forms import (
     AuthenticatorSetupForm,
@@ -2575,112 +2574,33 @@ def update_jellyfin_webhook_events(request):
     return redirect("integrations")
 
 
-def _plex_library_values(account):
-    """Return the library keys currently available through a Plex account."""
-    if not account or not account.plex_token:
-        return set()
-
-    return {
-        f"{section.get('machine_identifier')}::{section.get('id')}"
-        for section in (account.sections or [])
-        if section.get("machine_identifier") and section.get("id")
-    }
-
-
 @require_POST
 def update_plex_webhook_share(request):
     """Create or update one owner-managed Plex webhook share."""
-    user = request.user
-    plex_account = getattr(user, "plex_account", None)
-    if not plex_account or not plex_account.plex_token:
-        messages.error(request, "Connect Plex before sharing its webhook.")
-        return redirect("integrations")
-
-    share_id = request.POST.get("plex_webhook_share_id")
-    if share_id:
-        share = get_object_or_404(
-            PlexWebhookShare.objects.select_related("recipient"),
-            pk=share_id,
-            owner=user,
+    share_id = request.POST.get("plex_webhook_share_id") or None
+    try:
+        share = plex_shares.save_share(
+            request.user,
+            usernames=request.POST.get("plex_webhook_share_username", "").split(","),
+            libraries=(
+                None
+                if "plex_webhook_share_all_libraries" in request.POST
+                else request.POST.getlist("plex_webhook_share_libraries")
+            ),
+            share_id=share_id,
+            recipient_id=(
+                None if share_id else request.POST.get("plex_webhook_share_recipient")
+            ),
         )
-        recipient = share.recipient
-    else:
-        recipient = get_object_or_404(
-            User,
-            pk=request.POST.get("plex_webhook_share_recipient"),
-            is_active=True,
-            is_demo=False,
-            is_test_account=False,
-        )
-        if recipient == user:
-            messages.error(request, "You cannot share a Plex webhook with yourself.")
-            return redirect("integrations")
-        share = PlexWebhookShare(owner=user, recipient=recipient)
-
-    submitted_usernames = [
-        username.strip()
-        for username in request.POST.get("plex_webhook_share_username", "").split(",")
-        if username.strip()
-    ]
-    plex_usernames = []
-    seen_usernames = set()
-    for username in submitted_usernames:
-        normalized_username = username.casefold()
-        if normalized_username not in seen_usernames:
-            seen_usernames.add(normalized_username)
-            plex_usernames.append(username)
-
-    if not plex_usernames:
-        messages.error(request, "Enter one or more Plex usernames for this share.")
+    except plex_shares.PlexShareNotFoundError as error:
+        raise Http404 from error
+    except plex_shares.PlexShareError as error:
+        messages.error(request, str(error))
         return redirect("integrations")
-
-    duplicate_usernames = {
-        username.casefold() for username in plex_usernames
-    }
-    existing_shares = (
-        PlexWebhookShare.objects.filter(owner=user)
-        .exclude(pk=share.pk or None)
-        .values_list("plex_username", flat=True)
-    )
-    if any(
-        duplicate_usernames
-        & {
-            username.strip().casefold()
-            for username in existing_username.split(",")
-            if username.strip()
-        }
-        for existing_username in existing_shares
-    ):
-        messages.error(
-            request,
-            "One or more Plex usernames are already assigned to another shared profile.",
-        )
-        return redirect("integrations")
-
-    valid_library_values = _plex_library_values(plex_account)
-    selected_libraries = []
-    seen_libraries = set()
-    for raw_library in request.POST.getlist("plex_webhook_share_libraries"):
-        library = raw_library.strip()
-        if library and library not in seen_libraries:
-            seen_libraries.add(library)
-            selected_libraries.append(library)
-
-    invalid_libraries = set(selected_libraries) - valid_library_values
-    if invalid_libraries:
-        messages.error(request, "One or more selected Plex libraries are invalid.")
-        return redirect("integrations")
-
-    share.plex_username = ", ".join(plex_usernames)
-    share.allowed_libraries = (
-        None
-        if "plex_webhook_share_all_libraries" in request.POST
-        else selected_libraries
-    )
-    share.save()
     messages.success(
         request,
-        f"Plex webhook shared with {recipient.username}. They must enable it from Integrations.",
+        f"Plex webhook shared with {share.recipient.username}. "
+        "They must enable it from Integrations.",
     )
     return redirect("integrations")
 
@@ -2688,20 +2608,18 @@ def update_plex_webhook_share(request):
 @require_POST
 def toggle_plex_webhook_share(request):
     """Enable or disable a received Plex webhook share."""
-    share = get_object_or_404(
-        PlexWebhookShare.objects.select_related("owner"),
-        pk=request.POST.get("plex_webhook_share_id"),
-        recipient=request.user,
-    )
     enabled = request.POST.get("enabled") == "1"
-    if enabled:
-        owner_account = getattr(share.owner, "plex_account", None)
-        if not owner_account or not owner_account.plex_token:
-            messages.error(request, "The Plex owner is not currently connected.")
-            return redirect("integrations")
-
-    share.recipient_enabled = enabled
-    share.save(update_fields=["recipient_enabled", "updated_at"])
+    try:
+        plex_shares.set_share_enabled(
+            request.user,
+            request.POST.get("plex_webhook_share_id"),
+            enabled=enabled,
+        )
+    except plex_shares.PlexShareNotFoundError as error:
+        raise Http404 from error
+    except plex_shares.PlexShareError as error:
+        messages.error(request, str(error))
+        return redirect("integrations")
     messages.success(
         request,
         "Shared Plex webhook enabled." if enabled else "Shared Plex webhook disabled.",
@@ -2712,13 +2630,12 @@ def toggle_plex_webhook_share(request):
 @require_POST
 def delete_plex_webhook_share(request):
     """Revoke one owner-managed Plex webhook share."""
-    share = get_object_or_404(
-        PlexWebhookShare,
-        pk=request.POST.get("plex_webhook_share_id"),
-        owner=request.user,
-    )
-    recipient_name = share.recipient.username
-    share.delete()
+    try:
+        recipient_name = plex_shares.delete_share(
+            request.user, request.POST.get("plex_webhook_share_id")
+        )
+    except plex_shares.PlexShareNotFoundError as error:
+        raise Http404 from error
     messages.success(request, f"Plex webhook access revoked for {recipient_name}.")
     return redirect("integrations")
 
@@ -2727,34 +2644,9 @@ def delete_plex_webhook_share(request):
 def update_plex_webhook_libraries(request):
     """Update selected Plex libraries allowed for webhook events."""
     redirect_target = request.POST.get("next") or "integrations"
-    selected_libraries = request.POST.getlist("plex_webhook_libraries")
-
-    deduplicated_libraries: list[str] = []
-    seen: set[str] = set()
-    for library in selected_libraries:
-        value = (library or "").strip()
-        if not value or value in seen:
-            continue
-        seen.add(value)
-        deduplicated_libraries.append(value)
-
-    plex_account = getattr(request.user, "plex_account", None)
-    valid_library_values: list[str] = []
-    if plex_account and plex_account.plex_token:
-        sections = plex_account.sections or []
-        for section in sections:
-            machine_identifier = section.get("machine_identifier")
-            section_id = section.get("id")
-            if machine_identifier and section_id:
-                valid_library_values.append(f"{machine_identifier}::{section_id}")
-
-    if valid_library_values:
-        deduplicated_libraries = [
-            value for value in deduplicated_libraries if value in valid_library_values
-        ]
-
-    request.user.plex_webhook_libraries = deduplicated_libraries
-    request.user.save(update_fields=["plex_webhook_libraries"])
+    plex_shares.save_webhook_libraries(
+        request.user, request.POST.getlist("plex_webhook_libraries")
+    )
     messages.success(request, "Plex webhook libraries updated successfully")
     return redirect(redirect_target)
 
@@ -2779,61 +2671,23 @@ def update_jellyseerr_settings(request):
             "enabled",
         }
 
-    raw_trigger = (request.POST.get("jellyseerr_trigger_statuses") or "").strip()
-    raw_allowed = (request.POST.get("jellyseerr_allowed_usernames") or "").strip()
-    default_status = (request.POST.get("jellyseerr_default_added_status") or "").strip()
-
-    # Validate + normalize default status
-    valid_default_statuses = {Status.PLANNING.value, Status.IN_PROGRESS.value}
-    if default_status not in valid_default_statuses:
-        default_status = Status.PLANNING.value
-
-    # Normalize trigger statuses: "pending, processing" -> "PENDING,PROCESSING"
-    valid_seerr_statuses = {
-        "UNKNOWN",
-        "PENDING",
-        "PROCESSING",
-        "PARTIALLY_AVAILABLE",
-        "AVAILABLE",
-    }
-
-    if raw_trigger:
-        tokens = [t.strip().upper() for t in raw_trigger.split(",") if t.strip()]
-        unknown = [t for t in tokens if t not in valid_seerr_statuses]
-        if unknown:
-            messages.error(
-                request,
-                "Seerr trigger statuses contain invalid values: "
-                + ", ".join(unknown)
-                + ". Valid: "
-                + ", ".join(sorted(valid_seerr_statuses)),
-            )
-            return redirect(request.META.get("HTTP_REFERER", "/settings/integrations"))
-        trigger_statuses = ",".join(tokens)
-    else:
-        # Blank means "default behaviour" (processor skips UNKNOWN)
-        trigger_statuses = ""
-
-    # Normalize allowed usernames: " bob, alice " -> "bob,alice"
-    if raw_allowed:
-        allowed_tokens = [t.strip() for t in raw_allowed.split(",") if t.strip()]
-        allowed_usernames = ",".join(allowed_tokens)
-    else:
-        allowed_usernames = ""
-
-    # Save
-    user.jellyseerr_enabled = enabled
-    user.jellyseerr_trigger_statuses = trigger_statuses
-    user.jellyseerr_allowed_usernames = allowed_usernames
-    user.jellyseerr_default_added_status = default_status
-    user.save(
-        update_fields=[
-            "jellyseerr_enabled",
-            "jellyseerr_trigger_statuses",
-            "jellyseerr_allowed_usernames",
-            "jellyseerr_default_added_status",
-        ],
-    )
+    try:
+        webhook_settings.save_seerr_settings(
+            user,
+            enabled=enabled,
+            trigger_statuses=(
+                request.POST.get("jellyseerr_trigger_statuses") or ""
+            ).split(","),
+            allowed_usernames=(
+                request.POST.get("jellyseerr_allowed_usernames") or ""
+            ).split(","),
+            default_added_status=(
+                request.POST.get("jellyseerr_default_added_status") or ""
+            ).strip(),
+        )
+    except webhook_settings.WebhookSettingsError as error:
+        messages.error(request, str(error))
+        return redirect(request.META.get("HTTP_REFERER", "/settings/integrations"))
 
     messages.success(request, "Seerr settings saved.")
     return redirect(request.META.get("HTTP_REFERER", "/settings/integrations"))

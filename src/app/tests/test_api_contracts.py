@@ -324,6 +324,8 @@ class OpenAPIArtifactTests(SimpleTestCase):
                         "none",
                     ),
                     "SyncItemTypeEnum": ("movie", "show", "episode"),
+                    "ImportFrequencyEnum": ("once", "daily", "2days"),
+                    "BackupFrequencyEnum": ("daily", "2days", "weekly"),
                     "BootstrapJobKindEnum": ("movies", "shows"),
                     "KindEnum": ("crash", "anr"),
                 },

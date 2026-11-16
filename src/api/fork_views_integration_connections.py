@@ -14,6 +14,7 @@ Errors: 400 with `detail` for bad credentials or input; 503 code
 not be reached; 409 code `not_connected` or `already_running`.
 """
 
+import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -21,12 +22,17 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework import views as drf_views
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
-from integrations import connections
+from integrations import connections, tasks
+from integrations.imports import helpers as import_helpers
 from integrations.models import RadarrInstance, SonarrInstance
+from integrations.upload_staging import enqueue_staged_task, stage_uploaded_file
 
-from .contract_serializers import DetailErrorSerializer
+from .contract_serializers import DetailErrorSerializer, TaskQueuedSerializer
+
+logger = logging.getLogger(__name__)
 
 UNREACHABLE_RETRY_SECONDS = 30
 CONSOLE_DEFAULT_TIME = "04:00"
@@ -425,15 +431,25 @@ class IntegrationImportRequestSerializer(serializers.Serializer):
     """Optional import settings."""
 
     mode = serializers.CharField(
-        required=False, help_text="`new` (default) or `overwrite`; koreader, xbox, psn."
+        required=False,
+        help_text=(
+            "`new` (default) or `overwrite` (koreader, xbox, psn, plex); plex also "
+            "`watchlist` (recurring watchlist sync) and `update_collection`."
+        ),
     )
     frequency = serializers.ChoiceField(
         choices=["once", "daily", "2days"],
         required=False,
-        help_text="xbox and psn: run once (default) or on a schedule.",
+        help_text="koreader, xbox, psn, plex: run once (default) or on a schedule.",
     )
     time = serializers.CharField(
-        required=False, help_text="xbox and psn schedules: `HH:MM`, default 04:00."
+        required=False,
+        help_text="Schedule time `HH:MM` (default 04:00 for xbox and psn, else 00:00).",
+    )
+    libraries = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text='plex: `machine::section` keys, default ["all"].',
     )
 
 
@@ -468,12 +484,55 @@ def _console_import(start):
     return run
 
 
+def _plex_import(user, data):
+    libraries = data.get("libraries") or ["all"]
+    if not isinstance(libraries, list) or not all(
+        isinstance(value, str) for value in libraries
+    ):
+        msg = 'libraries must be a list of library keys, or ["all"].'
+        raise connections.IntegrationError(msg)
+    valid = connections.plex_library_values(getattr(user, "plex_account", None))
+    if any(value != "all" and valid and value not in valid for value in libraries):
+        msg = "One or more selected Plex libraries are invalid."
+        raise connections.IntegrationError(msg)
+    return connections.start_plex_import(
+        user,
+        libraries=libraries,
+        mode=_text(data, "mode") or "new",
+        frequency=_text(data, "frequency") or "once",
+        import_time=_text(data, "time") or "00:00",
+    )
+
+
+def _koreader_import(user, data):
+    mode = _text(data, "mode") or "new"
+    frequency = _text(data, "frequency") or "once"
+    if frequency == "once":
+        return connections.start_koreader_import(user, mode)
+    account = _related(user, "koreader_account")
+    if account is None:
+        msg = "Connect KOReader first."
+        raise connections.NotConnectedError(msg)
+    try:
+        import_helpers.schedule_import(
+            user,
+            username=account.username,
+            mode=mode,
+            frequency=frequency,
+            import_time=_text(data, "time") or "00:00",
+            source="KOReader",
+            extra_kwargs={"user_id": user.id},
+        )
+    except import_helpers.ImportScheduleError as error:
+        raise connections.IntegrationError(str(error)) from error
+    return connections.ImportQueued(outcome="scheduled")
+
+
 _IMPORTS = {
+    "plex": _plex_import,
     "audiobookshelf": lambda user, _data: connections.start_audiobookshelf_import(user),
     "storyteller": lambda user, _data: connections.start_storyteller_import(user),
-    "koreader": lambda user, data: connections.start_koreader_import(
-        user, _text(data, "mode") or "new"
-    ),
+    "koreader": _koreader_import,
     "stremio": lambda user, _data: connections.start_stremio_import(user),
     "xbox": _console_import(connections.start_xbox_import),
     "psn": _console_import(connections.start_psn_import),
@@ -696,3 +755,79 @@ class ArrInstanceImportView(drf_views.APIView):
         except connections.NotConnectedError:
             return Response({"detail": "Server not found."}, status=HTTP.NOT_FOUND)
         return Response(_queued(result), status=HTTP.ACCEPTED)
+
+
+# --- Jellyfin Playback Reporting ---------------------------------------------
+
+JELLYFIN_PLAYBACK_REPORTING_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+class PlaybackReportingUploadSerializer(serializers.Serializer):
+    """The Playback Reporting TSV export."""
+
+    file = serializers.FileField()
+
+
+class JellyfinPlaybackReportingView(drf_views.APIView):
+    """Import a Jellyfin Playback Reporting export (at most 50 MB)."""
+
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(
+        operation_id="importJellyfinPlaybackReporting",
+        request={"multipart/form-data": PlaybackReportingUploadSerializer},
+        responses={
+            202: TaskQueuedSerializer,
+            400: DetailErrorSerializer,
+            409: OpenApiResponse(
+                DetailErrorSerializer, description="Code `not_connected`."
+            ),
+            503: DetailErrorSerializer,
+            507: DetailErrorSerializer,
+        },
+    )
+    def post(self, request):
+        """Stage the file and queue the import."""
+        account = _related(request.user, "jellyfin_account")
+        if account is None or not account.is_connected:
+            return Response(
+                {
+                    "detail": "Connect Jellyfin before importing Playback Reporting data.",
+                    "code": "not_connected",
+                },
+                status=HTTP.CONFLICT,
+            )
+        upload = request.FILES.get("file")
+        if not upload or upload.size == 0:
+            return Response(
+                {"detail": "Upload a non-empty Playback Reporting TSV in 'file'."},
+                status=HTTP.BAD_REQUEST,
+            )
+        if upload.size > JELLYFIN_PLAYBACK_REPORTING_MAX_UPLOAD_BYTES:
+            return Response(
+                {"detail": "The Playback Reporting export is larger than 50 MB."},
+                status=HTTP.BAD_REQUEST,
+            )
+        try:
+            staged_file = str(stage_uploaded_file(upload))
+        except OSError:
+            logger.exception("Could not stage Playback Reporting upload")
+            return Response(
+                {"detail": "The upload could not be staged."},
+                status=HTTP.INSUFFICIENT_STORAGE,
+            )
+        try:
+            task = enqueue_staged_task(
+                tasks.import_jellyfin_playback_reporting,
+                staged_file,
+                request.user.id,
+                "new",
+                staged_paths=(staged_file,),
+            )
+        except Exception:
+            logger.exception("Could not queue Playback Reporting import")
+            return Response(
+                {"detail": "The import could not be queued."},
+                status=HTTP.SERVICE_UNAVAILABLE,
+            )
+        return Response({"task_id": task.id}, status=HTTP.ACCEPTED)

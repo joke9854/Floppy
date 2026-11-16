@@ -379,6 +379,10 @@ SPECTACULAR_SETTINGS = {
         ),
         # Sync item and search-by-ID result types; otherwise collides on "type".
         "SyncItemTypeEnum": ("movie", "show", "episode"),
+        # Run-now-or-schedule choice of imports, and the backup schedule cadence;
+        # otherwise they collide on "frequency".
+        "ImportFrequencyEnum": ("once", "daily", "2days"),
+        "BackupFrequencyEnum": ("daily", "2days", "weekly"),
         # CineTrack bootstrap job and crash report kinds; otherwise both collide
         # on "kind".
         "BootstrapJobKindEnum": ("movies", "shows"),

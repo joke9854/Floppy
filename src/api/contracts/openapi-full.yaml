@@ -1747,6 +1747,12 @@ paths:
       - bearerAuth: []
       - ApiKeyAuth: []
       responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportScheduled'
+          description: ''
         '202':
           content:
             application/json:
@@ -2539,6 +2545,65 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/integrations/jellyfin/playback-reporting/:
+    post:
+      operationId: importJellyfinPlaybackReporting
+      description: Stage the file and queue the import.
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaybackReportingUpload'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskQueued'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Code `not_connected`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '507':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: imports:write
   /api/v1/integrations/match-fix/{item_id}/apply/:
     post:
       operationId: applyMatchFix
@@ -2760,6 +2825,243 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:write
+  /api/v1/integrations/plex/shares/:
+    get:
+      operationId: listPlexShares
+      description: Return shares granted and received, and possible recipients.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlexShareList'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    post:
+      operationId: createPlexShare
+      description: Share the Plex webhook; the recipient still has to enable it.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlexShareRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlexShareRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlexShareRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlexShare'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/plex/shares/{share_id}/:
+    patch:
+      operationId: updatePlexShare
+      description: Replace the share's Plex usernames and libraries.
+      parameters:
+      - in: path
+        name: share_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlexShareRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlexShareRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlexShareRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlexShare'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+    delete:
+      operationId: revokePlexShare
+      description: Revoke the share.
+      parameters:
+      - in: path
+        name: share_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/integrations/plex/shares/{share_id}/enabled/:
+    put:
+      operationId: setPlexShareEnabled
+      description: Turn the received share on or off.
+      parameters:
+      - in: path
+        name: share_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlexShareEnabled'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlexShareEnabled'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlexShareEnabled'
+        required: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlexShare'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The owner's Plex is not connected.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/lists/:
     get:
       operationId: api_v1_lists_retrieve
@@ -15289,6 +15591,80 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/user/webhook-settings/:
+    get:
+      operationId: getWebhookSettings
+      description: Return the filters and the Plex libraries to choose from.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSettings'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: user:read
+    patch:
+      operationId: updateWebhookSettings
+      description: Save the fields sent.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookSettingsUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookSettingsUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookSettingsUpdate'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: user:write
   /apis/listenbrainz/1/submit-listens/:
     post:
       operationId: submitListenBrainzListens
@@ -15572,6 +15948,16 @@ components:
       required:
       - api_key
       - base_url
+    BackupFrequencyEnum:
+      enum:
+      - daily
+      - 2days
+      - weekly
+      type: string
+      description: |-
+        * `daily` - daily
+        * `2days` - 2days
+        * `weekly` - weekly
     BlankEnum:
       enum:
       - ''
@@ -18073,7 +18459,7 @@ components:
       description: A new recurring backup.
       properties:
         frequency:
-          $ref: '#/components/schemas/ExportScheduleCreateFrequencyEnum'
+          $ref: '#/components/schemas/BackupFrequencyEnum'
         time:
           type: string
           description: Time of day, `HH:MM`, server time zone.
@@ -18088,16 +18474,6 @@ components:
       required:
       - frequency
       - time
-    ExportScheduleCreateFrequencyEnum:
-      enum:
-      - daily
-      - 2days
-      - weekly
-      type: string
-      description: |-
-        * `daily` - daily
-        * `2days` - 2days
-        * `weekly` - weekly
     ExportScheduleList:
       type: object
       description: The user's recurring backups.
@@ -18471,6 +18847,16 @@ components:
             type: string
       required:
       - detail
+    ImportFrequencyEnum:
+      enum:
+      - once
+      - daily
+      - 2days
+      type: string
+      description: |-
+        * `once` - once
+        * `daily` - daily
+        * `2days` - 2days
     ImportRequest:
       type: object
       description: Username for username services, or an upload for file services.
@@ -18486,6 +18872,18 @@ components:
         media_type:
           type: string
           description: 'clz only: which collection the export holds.'
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/ImportFrequencyEnum'
+          description: |-
+            Username services: `once` (default) runs now; `daily`/`2days` creates a recurring import (201 with `schedule_id`).
+
+            * `once` - once
+            * `daily` - daily
+            * `2days` - 2days
+        time:
+          type: string
+          description: Schedule time `HH:MM`, default 00:00.
     ImportRollback:
       type: object
       description: What the undo removed.
@@ -18643,6 +19041,14 @@ components:
       description: |-
         * `deleted` - deleted
         * `disconnected_lastfm` - disconnected_lastfm
+    ImportScheduled:
+      type: object
+      description: A recurring import was created; remove it with DELETE imports/schedules/{id}/.
+      properties:
+        schedule_id:
+          type: integer
+      required:
+      - schedule_id
     InfoApiResponse:
       type: object
       description: Public server info, including the capability flags clients probe.
@@ -18680,29 +19086,26 @@ components:
       properties:
         mode:
           type: string
-          description: '`new` (default) or `overwrite`; koreader, xbox, psn.'
+          description: '`new` (default) or `overwrite` (koreader, xbox, psn, plex);
+            plex also `watchlist` (recurring watchlist sync) and `update_collection`.'
         frequency:
           allOf:
-          - $ref: '#/components/schemas/IntegrationImportRequestFrequencyEnum'
+          - $ref: '#/components/schemas/ImportFrequencyEnum'
           description: |-
-            xbox and psn: run once (default) or on a schedule.
+            koreader, xbox, psn, plex: run once (default) or on a schedule.
 
             * `once` - once
             * `daily` - daily
             * `2days` - 2days
         time:
           type: string
-          description: 'xbox and psn schedules: `HH:MM`, default 04:00.'
-    IntegrationImportRequestFrequencyEnum:
-      enum:
-      - once
-      - daily
-      - 2days
-      type: string
-      description: |-
-        * `once` - once
-        * `daily` - daily
-        * `2days` - 2days
+          description: Schedule time `HH:MM` (default 04:00 for xbox and psn, else
+            00:00).
+        libraries:
+          type: array
+          items:
+            type: string
+          description: 'plex: `machine::section` keys, default ["all"].'
     IntegrationInstance:
       type: object
       description: One Radarr or Sonarr server.
@@ -20969,6 +21372,23 @@ components:
           type: array
           items:
             type: string
+    PatchedPlexShareRequest:
+      type: object
+      description: A new share, or the fields of one to change.
+      properties:
+        recipient_id:
+          type: integer
+          description: New shares only.
+        plex_usernames:
+          type: array
+          items:
+            type: string
+        allowed_libraries:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Omit or null for every library.
     PatchedPodcastTrackerRequest:
       type: object
       description: Tracker fields to set; omitted fields keep their value.
@@ -21141,6 +21561,37 @@ components:
           additionalProperties: {}
           description: Ordered visible sections per detail-page family and zone, as
             the web Appearance settings save them. A PATCH replaces the whole value.
+    PatchedWebhookSettingsUpdate:
+      type: object
+      description: Fields to change; omitted fields keep their value.
+      properties:
+        plex_usernames:
+          type: array
+          items:
+            type: string
+        plex_webhook_libraries:
+          type: array
+          items:
+            type: string
+        plex_content_kinds:
+          type: object
+          additionalProperties:
+            enum:
+            - auto
+            - music
+            - audiobook
+            type: string
+            description: |-
+              * `auto` - auto
+              * `music` - music
+              * `audiobook` - audiobook
+          description: '`machine::section` -> how that library imports.'
+        jellyfin_mark_played_enabled:
+          type: boolean
+        jellyfin_mark_unplayed_enabled:
+          type: boolean
+        seerr:
+          $ref: '#/components/schemas/SeerrSettings'
     PersonCredit:
       type: object
       description: One title in a person's credits.
@@ -21340,6 +21791,123 @@ components:
       required:
       - backgroundColor
       - data
+    PlaybackReportingUpload:
+      type: object
+      description: The Playback Reporting TSV export.
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
+    PlexLibrary:
+      type: object
+      description: A library of the connected Plex server.
+      properties:
+        value:
+          type: string
+          description: '`machine::section` key.'
+        label:
+          type: string
+        server_name:
+          type: string
+        content_kind:
+          type: string
+          description: '`auto`, `music` or `audiobook`.'
+      required:
+      - content_kind
+      - label
+      - server_name
+      - value
+    PlexShare:
+      type: object
+      description: A Plex webhook share.
+      properties:
+        id:
+          type: integer
+        owner:
+          type: string
+          description: Owner's Floppy username.
+        recipient:
+          type: string
+          description: Recipient's Floppy username.
+        plex_usernames:
+          type: array
+          items:
+            type: string
+        allowed_libraries:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: 'null: every library.'
+        recipient_enabled:
+          type: boolean
+      required:
+      - allowed_libraries
+      - id
+      - owner
+      - plex_usernames
+      - recipient
+      - recipient_enabled
+    PlexShareEnabled:
+      type: object
+      description: Accept or pause a received share.
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    PlexShareList:
+      type: object
+      description: Shares the user granted and received.
+      properties:
+        owned:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlexShare'
+        received:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlexShare'
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlexShareRecipient'
+      required:
+      - owned
+      - received
+      - recipients
+    PlexShareRecipient:
+      type: object
+      description: A user a share can go to.
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+      required:
+      - id
+      - username
+    PlexShareRequest:
+      type: object
+      description: A new share, or the fields of one to change.
+      properties:
+        recipient_id:
+          type: integer
+          description: New shares only.
+        plex_usernames:
+          type: array
+          items:
+            type: string
+        allowed_libraries:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Omit or null for every library.
+      required:
+      - plex_usernames
     PodcastEpisodePlay:
       type: object
       description: The recorded play; `duplicate` marks a repeat within five minutes.
@@ -22190,6 +22758,28 @@ components:
       - media_type
       - source
       - title
+    SeerrSettings:
+      type: object
+      description: Seerr webhook settings.
+      properties:
+        enabled:
+          type: boolean
+        trigger_statuses:
+          type: array
+          items:
+            type: string
+          description: 'Empty: default behaviour (UNKNOWN is skipped).'
+        allowed_usernames:
+          type: array
+          items:
+            type: string
+        default_added_status:
+          type: string
+      required:
+      - allowed_usernames
+      - default_added_status
+      - enabled
+      - trigger_statuses
     Show:
       type: object
       description: The parent show/podcast for an episode-like tracked media entry.
@@ -24214,6 +24804,37 @@ components:
       - source
       - unchanged
       - watched
+    WebhookSettings:
+      type: object
+      description: Webhook filters.
+      properties:
+        plex_usernames:
+          type: array
+          items:
+            type: string
+        plex_webhook_libraries:
+          type: array
+          items:
+            type: string
+          description: Libraries the Plex webhook accepts; empty means all.
+        plex_libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlexLibrary'
+          readOnly: true
+        jellyfin_mark_played_enabled:
+          type: boolean
+        jellyfin_mark_unplayed_enabled:
+          type: boolean
+        seerr:
+          $ref: '#/components/schemas/SeerrSettings'
+      required:
+      - jellyfin_mark_played_enabled
+      - jellyfin_mark_unplayed_enabled
+      - plex_libraries
+      - plex_usernames
+      - plex_webhook_libraries
+      - seerr
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

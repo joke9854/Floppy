@@ -149,7 +149,7 @@ by no client; tests call them as a session.
 
 The credential changes live in `users/credentials.py`; the web views call it.
 
-### H. Integrations management (done, except the follow-up below)
+### H. Integrations management (done)
 
 | Web | API |
 |---|---|
@@ -169,11 +169,16 @@ Errors: 400 for bad credentials or input; 503 `integration_unreachable` with
 The service logic moved to `integrations/connections.py`, import runs and
 schedules to `users/data_management.py`; the web views call them.
 
-**Follow-up (board item):** Plex usernames, library choice and webhook
-shares, and the Plex import form; Jellyfin Playback Reporting upload; Seerr
-settings; creating recurring import schedules (Trakt, KOReader, Plex).
-OAuth and device-code sign-ins (Plex, Trakt, Simkl, AniList, Storyteller)
-stay web pages.
+**Follow-up (done 2026-11-16):** `GET/PATCH user/webhook-settings/` (Plex
+usernames and webhook libraries, Plex library content kinds, Jellyfin
+played/unplayed events, Seerr settings); Plex webhook shares
+(`integrations/plex/shares/`, scope `NEVER`: sharing plays is consent);
+Plex import now or on a schedule, and watchlist sync, through
+`POST integrations/plex/import/`; recurring KOReader imports; username imports
+(`mal`, `anilist`, `kitsu`, `steam`, `trakt`) on a schedule through
+`POST imports/{service}/` with `frequency`/`time`;
+`POST integrations/jellyfin/playback-reporting/`. OAuth and device-code
+sign-ins (Plex, Trakt, Simkl, AniList, Storyteller) stay web pages.
 
 ### I. Instance administration (superuser, web session only)
 

@@ -16,6 +16,7 @@ from rest_framework.response import Response
 
 from app.models import MediaTypes
 from integrations import exports, tasks
+from integrations.imports import helpers as import_helpers
 from integrations.upload_staging import (
     enqueue_staged_task,
     stage_uploaded_file,
@@ -35,6 +36,16 @@ _USERNAME_IMPORTS = {
     "kitsu": ("import_kitsu", "Kitsu user ID"),
     "steam": ("import_steam", "Steam ID"),
     "trakt": ("import_trakt", "Trakt username (public profile)"),
+}
+
+# Username services that can also run on a schedule: service -> the source
+# name the scheduled task and the web forms use.
+_SCHEDULE_SOURCES = {
+    "mal": "MyAnimeList",
+    "anilist": "AniList",
+    "kitsu": "Kitsu",
+    "steam": "Steam",
+    "trakt": "Trakt",
 }
 
 # File-driven imports: service -> (task export, file label).
@@ -75,6 +86,23 @@ class ImportRequestSerializer(serializers.Serializer):
         required=False,
         help_text="clz only: which collection the export holds.",
     )
+    frequency = serializers.ChoiceField(
+        choices=["once", "daily", "2days"],
+        required=False,
+        help_text=(
+            "Username services: `once` (default) runs now; `daily`/`2days` "
+            "creates a recurring import (201 with `schedule_id`)."
+        ),
+    )
+    time = serializers.CharField(
+        required=False, help_text="Schedule time `HH:MM`, default 00:00."
+    )
+
+
+class ImportScheduledSerializer(serializers.Serializer):
+    """A recurring import was created; remove it with DELETE imports/schedules/{id}/."""
+
+    schedule_id = serializers.IntegerField()
 
 
 class ImportErrorSerializer(DetailErrorSerializer):
@@ -126,7 +154,8 @@ class ImportDispatchView(drf_views.APIView):
     storygraph, clz, tvtime-shows, tvtime-movies) take a multipart upload in
     the "file" field plus an optional "mode"; clz also takes an optional
     "media_type". Returns 202 with a task_id pollable at
-    /api/v1/tasks/{task_id}. Recurring schedules stay web-only.
+    /api/v1/tasks/{task_id}. Username services also take "frequency"
+    (daily or 2days) and "time" to create a recurring import instead.
     """
 
     parser_classes = [JSONParser, MultiPartParser, FormParser]
@@ -134,6 +163,7 @@ class ImportDispatchView(drf_views.APIView):
     @extend_schema(
         request=ImportRequestSerializer,
         responses={
+            201: ImportScheduledSerializer,
             202: TaskQueuedSerializer,
             400: ImportErrorSerializer,
             404: ImportErrorSerializer,
@@ -162,6 +192,20 @@ class ImportDispatchView(drf_views.APIView):
                     {"detail": f"{label} is required in 'username'."},
                     status=HTTP.BAD_REQUEST,
                 )
+            frequency = str(request.data.get("frequency") or "once")
+            if frequency != "once":
+                try:
+                    schedule = import_helpers.schedule_import(
+                        request.user,
+                        username=username,
+                        mode=mode,
+                        frequency=frequency,
+                        import_time=str(request.data.get("time") or "00:00"),
+                        source=_SCHEDULE_SOURCES[service],
+                    )
+                except import_helpers.ImportScheduleError as error:
+                    return Response({"detail": str(error)}, status=HTTP.BAD_REQUEST)
+                return Response({"schedule_id": schedule.id}, status=HTTP.CREATED)
             task = task_fn.delay(
                 username=username,
                 user_id=request.user.id,

@@ -640,6 +640,74 @@ def backfill_completed_seasons(season_ids):
     return retry_on_lock(lambda: _backfill_completed_season_episodes(seasons))
 
 
+SCHEDULE_FREQUENCIES = {"daily": "*", "2days": "*/2"}
+
+
+class ImportScheduleError(ValueError):
+    """The schedule cannot be created; the message says why."""
+
+
+def schedule_import(
+    user,
+    *,
+    username,
+    mode,
+    frequency,
+    import_time,
+    source,
+    token=None,
+    extra_kwargs=None,
+):
+    """Create a recurring import and return its PeriodicTask.
+
+    `frequency` is "daily" or "2days"; `import_time` is "HH:MM" wall-clock
+    time in Floppy's TIME_ZONE. Raises ImportScheduleError for a bad time or
+    an identical schedule that already exists.
+    """
+    if frequency not in SCHEDULE_FREQUENCIES:
+        msg = "Frequency must be daily or 2days."
+        raise ImportScheduleError(msg)
+    try:
+        # The user enters wall-clock time in Floppy's TIME_ZONE, which the
+        # crontab below uses as is. (astimezone() here converted from the OS
+        # zone: a no-op when they match, a shift when not, OSError on Windows.)
+        import_time = datetime.time.fromisoformat(import_time)
+    except (TypeError, ValueError) as error:
+        msg = "Invalid import time."
+        raise ImportScheduleError(msg) from error
+
+    task_name = f"Import from {source} for {username} at {import_time} {frequency}"
+    if PeriodicTask.objects.filter(name=task_name).exists():
+        msg = "The same import task is already scheduled."
+        raise ImportScheduleError(msg)
+
+    crontab, _ = CrontabSchedule.objects.get_or_create(
+        hour=import_time.hour,
+        minute=import_time.minute,
+        day_of_week=SCHEDULE_FREQUENCIES[frequency],
+        timezone=timezone.get_default_timezone(),
+    )
+
+    kwargs = {
+        "username": username,
+        "user_id": user.id,
+        "mode": mode,
+    }
+
+    if token:
+        kwargs["token"] = token
+    if extra_kwargs:
+        kwargs.update(extra_kwargs)
+
+    return PeriodicTask.objects.create(
+        name=task_name,
+        task=f"Import from {source}",
+        crontab=crontab,
+        kwargs=json.dumps(kwargs),
+        start_time=timezone.now(),
+    )
+
+
 def create_import_schedule(
     username,
     request,
@@ -650,53 +718,26 @@ def create_import_schedule(
     token=None,
     extra_kwargs=None,
 ):
-    """Create an import schedule.
+    """Create an import schedule from a web form, reporting through messages.
 
     extra_kwargs: Optional dictionary of additional task kwargs to persist.
+    Any frequency other than "daily" runs every two days, as the forms offer
+    only those two.
     """
     try:
-        # The user enters wall-clock time in Floppy's TIME_ZONE, which the
-        # crontab below uses as is. (astimezone() here converted from the OS
-        # zone: a no-op when they match, a shift when not, OSError on Windows.)
-        import_time = datetime.time.fromisoformat(import_time)
-    except ValueError:
-        messages.error(request, "Invalid import time.")
-        return
-
-    task_name = f"Import from {source} for {username} at {import_time} {frequency}"
-    if PeriodicTask.objects.filter(name=task_name).exists():
-        messages.error(
-            request,
-            "The same import task is already scheduled.",
+        schedule_import(
+            request.user,
+            username=username,
+            mode=mode,
+            frequency="daily" if frequency == "daily" else "2days",
+            import_time=import_time,
+            source=source,
+            token=token,
+            extra_kwargs=extra_kwargs,
         )
+    except ImportScheduleError as error:
+        messages.error(request, str(error))
         return
-
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        hour=import_time.hour,
-        minute=import_time.minute,
-        day_of_week="*" if frequency == "daily" else "*/2",
-        timezone=timezone.get_default_timezone(),
-    )
-
-    kwargs = {
-        "username": username,
-        "user_id": request.user.id,
-        "mode": mode,
-    }
-
-    if token:
-        kwargs["token"] = token
-    if extra_kwargs:
-        kwargs.update(extra_kwargs)
-
-    # Create new periodic task
-    PeriodicTask.objects.create(
-        name=task_name,
-        task=f"Import from {source}",
-        crontab=crontab,
-        kwargs=json.dumps(kwargs),
-        start_time=timezone.now(),
-    )
     messages.success(request, f"{source} import task scheduled.")
 
 
