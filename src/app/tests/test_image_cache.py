@@ -567,3 +567,34 @@ class CardImageFilterTests(TestCase):
         image_cache.set_enabled(False)
         self.assertEqual(app_tags.tmdb_srcset(fanart), "")
         self.assertEqual(app_tags.image_url(app_tags.tmdb_size(fanart, "w342")), fanart)
+
+    def test_every_template_width_has_copies(self):
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        widths = set()
+        for template in Path(settings.BASE_DIR, "templates").rglob("*.html"):
+            text = template.read_text(encoding="utf-8")
+            for sizes in re.findall(r"tmdb_(?:size|srcset):'([^']*)'", text):
+                widths.update(int(size[1:]) for size in sizes.split(",") if size[1:].isdigit())
+        widths.update({185, 342})  # tmdb_srcset's default
+
+        self.assertTrue(widths)
+        self.assertLessEqual(widths, image_cache.VARIANT_WIDTHS)
+
+    def test_a_rendered_card_asks_for_sized_copies(self):
+        from django.template import Context, Template
+
+        fanart = "https://assets.fanart.tv/fanart/movie-poster-2.jpg"
+        html = Template(
+            "{% load app_tags %}"
+            "<img src=\"{{ poster|tmdb_size:'w342'|image_url }}\""
+            " srcset=\"{{ poster|tmdb_srcset:'w185,w342' }}\">"
+            "<img srcset=\"{{ poster|tmdb_srcset:'w780,w1280' }}\">",
+        ).render(Context({"poster": fanart}))
+
+        self.assertRegex(html, r'src="/image-cache/\S+\?w=342"')
+        self.assertRegex(html, r"\?w=185 185w, /image-cache/\S+\?w=342 342w")
+        self.assertRegex(html, r"\?w=780 780w, /image-cache/\S+\?w=1280 1280w")

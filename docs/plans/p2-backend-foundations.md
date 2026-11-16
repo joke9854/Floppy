@@ -112,7 +112,8 @@ Built (2026-11-16):
   at a reduced scale) and stored beside it as
   `<key>.<version>.w<width>.img`. The version is the original's content
   hash prefix plus `VARIANT_RECIPE`, bumped when the resize settings change.
-  Widths: 92, 154, 185, 300, 342, 500, 780 (the template sizes); any other
+  Widths: 92, 154, 185, 300, 342, 500, 780, 1280 (every width a template
+  asks for through `tmdb_size` or `tmdb_srcset`; a test checks it); any other
   `w` sends the original, and so does an original that is not wider, a GIF
   or an animation. Never upscaled.
 - With `v=<version>` matching the cached original the answer is

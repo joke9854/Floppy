@@ -223,11 +223,9 @@ def tmdb_srcset(value, sizes="w185,w342"):
         or not image_cache.is_approved_url(value)
     ):
         return ""
-    widths = [
-        width
-        for width in (_size_width(size) for size in sizes.split(","))
-        if width in image_cache.VARIANT_WIDTHS
-    ]
+    # A width without copies keeps its place with the cached original, so
+    # the largest candidate is never lost.
+    widths = [width for width in (_size_width(size) for size in sizes.split(",")) if width]
     return ", ".join(
         f"{image_cache.rewrite_image_url(str(value), width=width)} {width}w" for width in widths
     )

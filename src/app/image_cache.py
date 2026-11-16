@@ -82,9 +82,10 @@ APPROVED_IMAGE_HOST_SUFFIXES = (".mzstatic.com",)
 # original's content hash, so a page that names that hash in its URL (v=) can
 # let browsers keep the image without asking again. TMDB images are sized by
 # TMDB itself (tmdb_size), so these serve the other providers: fanart.tv,
-# TVDB, IGDB, MAL and the rest. Only these widths are made; any other w is
-# ignored and the original is sent.
-VARIANT_WIDTHS = frozenset({92, 154, 185, 300, 342, 500, 780})
+# TVDB, IGDB, MAL and the rest. Only these widths (every width a template
+# asks for; a test keeps them in step) are made; any other w is ignored and
+# the original is sent.
+VARIANT_WIDTHS = frozenset({92, 154, 185, 300, 342, 500, 780, 1280})
 VARIANT_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
 # Part of every version: change it when the resize settings change, so the
 # copies made with the old ones are neither served nor kept.
@@ -95,6 +96,7 @@ IMMUTABLE_MAX_AGE_SECONDS = 365 * DAY_SECONDS
 # Rendered versions for the current request (cleared when the next starts): a
 # card asks for its poster at two or three widths.
 _render_versions = {}
+_UNKNOWN = object()
 RENDER_VERSIONS_MAX = 2048
 
 
@@ -263,8 +265,10 @@ def _render_version(url):
     no request marks the poster as used any more: rendering it does instead,
     at most once a day, or the retention cleanup would drop posters in use.
     """
-    if url in _render_versions:
-        return _render_versions[url]
+    # One read: another request starting may clear the dict meanwhile.
+    version = _render_versions.get(url, _UNKNOWN)
+    if version is not _UNKNOWN:
+        return version
     data_path, metadata_path = _paths(url)
     version = None
     try:
