@@ -42,9 +42,27 @@ if ! grep -q '^BETA_DB_PASSWORD=' .env; then
     chmod 600 .env
 fi
 
+# An image without the copy step would start on the empty Postgres. Ask the
+# running beta: the command answers 0 (copy due) or 3 (not due), and is
+# missing from images that predate it.
+copy_check=0
+docker compose -f docker-compose.yml exec -T -u abc floppy-beta \
+    python manage.py copy_sqlite_to_postgres --needed >/dev/null 2>&1 || copy_check=$?
+if [ "$copy_check" -ne 0 ] && [ "$copy_check" -ne 3 ]; then
+    echo "Beta's image cannot copy SQLite to Postgres (or beta is not running)." >&2
+    echo "Let beta-update.sh bring it to a current build first; nothing changed." >&2
+    exit 1
+fi
+
+# Check the stack with the override before installing it, so a bad file
+# never reaches the cron beta-update.sh.
+if ! docker compose -f docker-compose.yml -f "$here/docker-compose.beta-postgres.yml" \
+    config >/dev/null; then
+    echo "The Postgres override does not combine with beta's stack; nothing changed." >&2
+    exit 1
+fi
 mkdir -p data/postgres
 cp "$here/docker-compose.beta-postgres.yml" "$override"
-docker compose config >/dev/null
 
 echo "Starting beta on Postgres; the first start copies db.sqlite3 into it..."
 docker compose up -d floppy-beta

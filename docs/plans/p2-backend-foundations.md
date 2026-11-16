@@ -30,7 +30,7 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 | Slice | Content | Status |
 |---|---|---|
 | P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture; nightly `pg_dump` snapshots for Postgres installs; installer and README stack use Postgres; beta trial ready (`beta-use-postgres.sh`), not yet run on real data |
-| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Built in two commits: the server switch (pushed) and the events endpoint (held until beta has run the switch alone) |
+| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Built and pushed: the server switch (`db0d6b636`) and the events endpoint (`8a0938ea5`); beta checks pending |
 | P2-C | Poster size variants with content-hashed names | Not started |
 
 Order: A before B, because ASGI needs a connection pool. Under ASGI every

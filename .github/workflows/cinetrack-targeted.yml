@@ -114,6 +114,19 @@ jobs:
       - name: Configure test secret
         run: echo "SECRET=$(uv run --no-sync python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> "$GITHUB_ENV"
 
+      - name: Beta Postgres override combines with the beta stack
+        run: |
+          dir=$(mktemp -d)
+          cp deploy/stable-beta/docker-compose.beta.yml "$dir/docker-compose.yml"
+          cp deploy/stable-beta/docker-compose.beta-postgres.yml "$dir/docker-compose.override.yml"
+          : >"$dir/floppy.env"
+          printf 'BETA_DB_PASSWORD=ci-only\n' >"$dir/.env"
+          docker compose --project-directory "$dir" -f "$dir/docker-compose.yml" \
+            -f "$dir/docker-compose.override.yml" config --format json >"$dir/merged.json"
+          jq -e '.services["floppy-beta"].depends_on | has("floppy-beta-db") and has("floppy-beta-redis")' "$dir/merged.json"
+          jq -e '.services["floppy-beta"].environment.DB_HOST == "floppy-beta-db"' "$dir/merged.json"
+          jq -e '.services["floppy-beta"].environment.FLOPPY_BETA_MODE == "true"' "$dir/merged.json"
+
       - name: SQLite to Postgres copy and pg_dump snapshot
         working-directory: src
         run: uv run --no-sync python manage.py test config.tests.test_sqlite_to_postgres config.tests.test_postgres_snapshot app.tests.test_tasks_db_backup --exclude-tag network -v 2

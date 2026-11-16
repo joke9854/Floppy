@@ -91,7 +91,10 @@ itself. Add a Postgres service and the `DB_*` settings as in the repo's
 - never changes or deletes `db.sqlite3` and writes
   `db.sqlite3.migrated-to-postgres` when done.
 
-Try it on beta first. To go back, remove `DB_HOST`: Floppy uses the SQLite
+Only add `DB_HOST` to a server whose image has the copy step (CineTrack-API
+builds from 2026-11-16 on, or a release that includes them). Stable's
+1.0.x images do not: on those, `DB_HOST` would start Floppy on the empty
+Postgres. Try it on beta first. To go back, remove `DB_HOST`: Floppy uses the SQLite
 file again, without anything written to Postgres since the copy.
 
 ### Trying Postgres on beta
