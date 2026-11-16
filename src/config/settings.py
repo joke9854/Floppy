@@ -463,6 +463,9 @@ MIDDLEWARE = [
     # Outermost by intent: the samples must bracket every other middleware's
     # allocations, not just the view's.
     "app.memory_envelope.MemoryHighWaterMiddleware",
+    # Under ASGI, keeps sync export and download bodies streaming instead of
+    # read into memory in full; nothing under WSGI.
+    "app.asgi_streaming.AsgiStreamingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     # Posters skip the session, user and language work below (no login needed).
     "app.middleware.ImageCacheMiddleware",
@@ -536,6 +539,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+# v2 P2-B: set by supervisord for the web process the container serves over
+# ASGI. Celery workers and management commands leave it unset.
+FLOPPY_ASGI = config("FLOPPY_ASGI", default=False, cast=bool)
 
 # Database
 # https://docs.djangoproject.com/en/stable/ref/settings/#databases
@@ -609,7 +616,14 @@ else:
             # Reuse a connection across requests: opening one costs a connect,
             # four PRAGMAs and a cold page cache. gunicorn's pre_fork and
             # Celery's Django fixup close connections before forking.
-            "CONN_MAX_AGE": config("SQLITE_CONN_MAX_AGE", default=600, cast=int),
+            # Under ASGI every request runs in a thread of its own, so a kept
+            # connection would outlive its thread; Django's ASGI guidance is
+            # to close them per request (SQLite has no pool to fall back on).
+            "CONN_MAX_AGE": (
+                0
+                if FLOPPY_ASGI
+                else config("SQLITE_CONN_MAX_AGE", default=600, cast=int)
+            ),
             "CONN_HEALTH_CHECKS": True,
             "OPTIONS": {
                 "timeout": SQLITE_BUSY_TIMEOUT_SECONDS,

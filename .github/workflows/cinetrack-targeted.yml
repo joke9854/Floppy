@@ -65,6 +65,9 @@ jobs:
       - name: OAuth app sign-in
         run: uv run --no-sync python src/manage.py test api.tests.test_oauth_app_signin --exclude-tag network
 
+      - name: ASGI web process and gunicorn config
+        run: uv run --no-sync python src/manage.py test config.tests.test_asgi config.tests.test_gunicorn config.tests.test_gunicorn_worker_memory --exclude-tag network
+
   sqlite-postgres-copy:
     # v2 P2-A: copy a real SQLite install into Postgres and check every row.
     runs-on: ubuntu-latest

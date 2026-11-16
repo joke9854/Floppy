@@ -26,6 +26,7 @@ dependencies = [
     "drf-spectacular==0.29.0",
     "floppy-mcp",
     "gunicorn==25.3.0",
+    "uvicorn==0.52.1",
     "icalendar==7.0.3",
     "Pillow==12.3.0",
     "psycopg[binary,pool]==3.3.3",

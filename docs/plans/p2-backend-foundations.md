@@ -29,8 +29,8 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 
 | Slice | Content | Status |
 |---|---|---|
-| P2-A | Postgres default and automatic SQLite copy | Built, waiting for the beta trial. The installer (`scripts/install/docker.sh`) and the README's hand-written stack still write SQLite |
-| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Not started |
+| P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture, not yet on real data (beta trial next). Open before stable moves: automatic backups (the nightly snapshot only copies SQLite and is skipped on Postgres, so a Postgres install has none), the installer (`scripts/install/docker.sh`) and the README's hand-written stack still write SQLite |
+| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Server switch built (commit 1 of 2, no behaviour change); events endpoint next |
 | P2-C | Poster size variants with content-hashed names | Not started |
 
 Order: A before B, because ASGI needs a connection pool. Under ASGI every
@@ -61,7 +61,9 @@ SQLite cost is measured on the minimal tier in P2-B.
   - leaves the SQLite file in place: only the pending migrations a normal
     start would run touch it, and nothing deletes it. After a successful copy it
     writes a marker next to it (`db.sqlite3.migrated-to-postgres`) with the
-    time and counts, and Floppy runs on Postgres from then on.
+    time and counts, and Floppy runs on Postgres from then on. The marker is
+    a record only: if the Postgres volume is recreated empty, the next start
+    copies again instead of serving an empty library.
 - **Beta first:** `beta-refresh-data.sh` keeps copying SQLite; switching
   beta to Postgres is the real test, then stable on a release.
 - **Tests:** the copy runs in CI against a Postgres service container
@@ -99,3 +101,30 @@ SQLite cost is measured on the minimal tier in P2-B.
   a content hash in the file name, served with `immutable` caching.
 - Existing image URLs keep working unchanged; variants are an extra choice
   for the web and the API.
+
+### P2-B commit 1: the server switch (2026-11-16)
+
+- `supervisord.conf` runs `config.asgi:application` with `FLOPPY_ASGI=true`;
+  `config/gunicorn.py` then picks `config.asgi_worker.FloppyUvicornWorker`.
+  Source installs and `scripts/bench.sh` keep `config.wsgi` on gthread.
+- `config/asgi.py` caps requests inside Django at `GUNICORN_THREADS` per
+  worker (the rest wait, as for a free gthread thread), so the Postgres pool
+  sized from the same number can't run out. `/api/v1/events` is not capped.
+- The worker retires itself above the memory ceiling on its heartbeat (the
+  same rule as the gthread `post_request` hook, `worker_should_retire`) and
+  waits at most `graceful_timeout` for requests in flight on shutdown.
+- SQLite connections close after each request under ASGI
+  (`CONN_MAX_AGE` 0); Celery keeps persistent ones.
+- `app.asgi_streaming.AsgiStreamingMiddleware`: Django reads a sync
+  streaming body into memory in full under ASGI; the middleware streams it
+  chunk by chunk instead (exports, list CSV, backups, FileResponse).
+- uvicorn is now a declared dependency at the locked 0.52.1 (the lock was
+  edited by hand: the local uv is not the pinned 0.12.3; CI's
+  `uv sync --locked` checks it).
+- Measured locally under uvicorn on SQLite: 110 API and health requests at
+  8 concurrent, threads stayed at 8-9, no SQLite handles left open; the
+  Letterboxd export streamed chunked with no buffering warning.
+- Not checkable here (gunicorn does not run on Windows): the gunicorn
+  worker itself, which the Docker Image workflow's smoke run starts. Check
+  on beta: CineTrack sync, image URLs (scheme and host behind the tunnel)
+  and memory per worker on the minimal tier.

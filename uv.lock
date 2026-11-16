@@ -798,6 +798,7 @@ dependencies = [
     { name = "sentry-sdk" },
     { name = "supervisor" },
     { name = "unidecode" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -868,6 +869,7 @@ requires-dist = [
     { name = "sentry-sdk", specifier = "==2.73.0" },
     { name = "supervisor", specifier = "==4.3.0" },
     { name = "unidecode", specifier = "==1.4.0" },
+    { name = "uvicorn", specifier = "==0.52.1" },
 ]
 
 [package.metadata.requires-dev]

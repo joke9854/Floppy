@@ -17,7 +17,13 @@ preload_app = True
 # Threaded workers so one slow request can't stall the whole UI.  The
 # container also runs nginx, up to three celery workers, and beat, so keep the
 # process count low and rely on threads for I/O-bound concurrency.
-worker_class = "gthread"
+#
+# v2 P2-B: the container serves config.asgi (FLOPPY_ASGI=true, set by
+# supervisord) with uvicorn inside gunicorn. Each request still gets a thread
+# of its own, and config.asgi caps them at `threads` per worker. Source
+# installs keep config.wsgi on gthread.
+ASGI = os.environ.get("FLOPPY_ASGI", "").lower() in {"1", "true", "yes"}
+worker_class = "config.asgi_worker.FloppyUvicornWorker" if ASGI else "gthread"
 
 # Sized from the host rather than fixed. One threaded, preloaded worker keeps
 # normal-host idle memory down; each extra worker duplicates private Django
@@ -109,22 +115,33 @@ def post_request(worker, req, environ, resp):  # gunicorn's hook signature
     Marking the worker not-alive lets it finish what it is holding and exit;
     the arbiter forks a replacement, which with preload_app is nearly free.
     """
+    if worker_should_retire(
+        getattr(worker, "nr", 0), getattr(worker, "floppy_started_at", None)
+    ):
+        worker.alive = False
+
+
+def worker_should_retire(requests_served, started_at):
+    """Return True when a worker is over its memory ceiling and old enough.
+
+    Shared by the gthread hook above and the ASGI worker's heartbeat
+    (config/asgi_worker.py), which gunicorn never calls post_request for.
+    """
     if not max_worker_memory_bytes:
-        return
-    if getattr(worker, "nr", 0) < MINIMUM_REQUESTS_BEFORE_RETIREMENT:
-        return
-    started_at = getattr(worker, "floppy_started_at", None)
+        return False
+    if requests_served < MINIMUM_REQUESTS_BEFORE_RETIREMENT:
+        return False
     if (
         started_at is not None
         and time.monotonic() - started_at < MINIMUM_SECONDS_BEFORE_RETIREMENT
     ):
-        return
+        return False
     resident = _worker_rss_bytes()
-    if resident is not None and resident > max_worker_memory_bytes:
-        worker.alive = False
+    return resident is not None and resident > max_worker_memory_bytes
 
 print(  # noqa: T201  # gunicorn has no logger configured this early
-    f"[gunicorn] {PROFILE.describe()} -> workers={workers} threads={threads} "
+    f"[gunicorn] {PROFILE.describe()} -> {'asgi' if ASGI else 'wsgi'} "
+    f"workers={workers} threads={threads} "
     f"max_requests={max_requests} timeout={timeout} "
     f"max_worker_memory={max_worker_memory_bytes // (1024 * 1024)}MiB",
 )
