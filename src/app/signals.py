@@ -4,7 +4,12 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from celery import states
-from celery.signals import before_task_publish, task_failure, task_success
+from celery.signals import (
+    before_task_publish,
+    task_failure,
+    task_postrun,
+    task_success,
+)
 from django.apps import apps
 from django.conf import settings
 from django.db import transaction
@@ -202,6 +207,22 @@ def create_task_result_on_publish(
     except Exception as e:  # pragma: no cover
         # Catch any other unexpected errors
         logger.warning("Unexpected error storing task result: %s", e)
+
+
+@task_postrun.connect
+def publish_task_finished_event(
+    task_id=None, task=None, kwargs=None, state=None, **_extra
+):
+    """Tell the task's owner over /api/v1/events/ that it finished (P2-B).
+
+    Eager runs (tests, ALWAYS_EAGER) finish inside the request that queued
+    them, so nobody is waiting for the event.
+    """
+    if getattr(getattr(task, "request", None), "is_eager", False):
+        return
+    from app import live_events
+
+    live_events.publish_task_finished(task_id, kwargs, state)
 
 
 @task_success.connect

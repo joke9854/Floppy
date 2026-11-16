@@ -47,6 +47,10 @@ SCOPE_DESCRIPTIONS = {
         "app's pull connection."
     ),
     "sync:write": "Resolve sync conflicts.",
+    "events:read": (
+        "Receive live events (task finished) over /api/v1/events/ instead of "
+        "polling."
+    ),
     "user:read": "Read preferences, sidebar, and notification settings.",
     "user:write": "Change preferences, sidebar, and notification settings.",
 }
@@ -102,6 +106,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views.MediaProgressView": {"POST": "progress:write"},
     "api.fork_views.MediaSeasonProgressView": {"POST": "progress:write"},
     "api.fork_views.TaskStatusView": {"GET": ANY_SCOPE},
+    # Live events cover tasks from every app of the user, so a token opts in.
+    "api.fork_views_events.EventsView": {"GET": "events:read"},
     "api.fork_views_discover.CollectionStatusView": {"GET": _R},
     "api.fork_views_discover.CollectionSeasonView": {"DELETE": _W},
     "api.fork_views_discover.DiscoverRowsView": {"GET": "catalog:read"},

@@ -1450,6 +1450,48 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:write
+  /api/v1/events/:
+    get:
+      operationId: streamEvents
+      description: 'A `text/event-stream` of the user''s events. Each event has a
+        `type` (the SSE event name) and JSON `data`. `task.finished` carries `task_id`
+        and `state` (SUCCESS, FAILURE, ...) when a task the user started ends; read
+        its result from `/api/v1/tasks/{task_id}/`. Comment lines (`: ping`) keep
+        the connection alive. The stream closes after 30 minutes; reconnect (EventSource
+        does this itself). Events are not stored: one sent while no stream was open
+        is gone.'
+      summary: Stream live events (server-sent events)
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            text/event-stream:
+              schema:
+                type: string
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: This server runs without live events (WSGI); poll instead.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: events:read
   /api/v1/export/csv/:
     get:
       operationId: api_v1_export_csv_retrieve

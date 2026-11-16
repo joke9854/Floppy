@@ -30,7 +30,7 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 | Slice | Content | Status |
 |---|---|---|
 | P2-A | Postgres default and automatic SQLite copy | Built and tested in CI on a small fixture, not yet on real data (beta trial next). Open before stable moves: automatic backups (the nightly snapshot only copies SQLite and is skipped on Postgres, so a Postgres install has none), the installer (`scripts/install/docker.sh`) and the README's hand-written stack still write SQLite |
-| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Server switch built (commit 1 of 2, no behaviour change); events endpoint next |
+| P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Built in two commits: the server switch (pushed) and the events endpoint (held until beta has run the switch alone) |
 | P2-C | Poster size variants with content-hashed names | Not started |
 
 Order: A before B, because ASGI needs a connection pool. Under ASGI every
@@ -128,3 +128,25 @@ SQLite cost is measured on the minimal tier in P2-B.
   worker itself, which the Docker Image workflow's smoke run starts. Check
   on beta: CineTrack sync, image URLs (scheme and host behind the tunnel)
   and memory per worker on the minimal tier.
+
+### P2-B commit 2: `/api/v1/events/`
+
+- `GET /api/v1/events/` streams the user's events as server-sent events:
+  `retry`, then `event: <type>` / `data: <json>`, a `: ping` comment every
+  20 s (under nginx's 60 s read timeout), and the stream ends after 30
+  minutes so workers recycle and revoked tokens stop; EventSource
+  reconnects.
+- Scope `events:read` (new, opt-in): events cover tasks from every app of
+  the user, so a narrow token does not see them. Session logins get them
+  once the P3 session bridge exists; until then only tokens reach it.
+- First event: `task.finished` (`task_id`, `state`) from Celery's
+  `task_postrun` for tasks with a `user_id`; eager runs are skipped.
+  Events are ids and states only, published over Redis pub/sub
+  (`app/live_events.py`), never stored.
+- The stream gives back the request's database connection before it
+  starts, sends `X-Accel-Buffering: no`, is not counted against the request
+  cap, and answers 503 under WSGI (source installs), where it would hold a
+  thread.
+- Contract: `openapi-full.yaml` gains the operation; `openapi.yaml` is
+  unchanged. Check on beta through the real tunnel that events arrive
+  promptly and the connection survives idle minutes.

@@ -11,6 +11,7 @@ from . import (
     fork_views_admin,
     fork_views_data,
     fork_views_discover,
+    fork_views_events,
     fork_views_integration_connections,
     fork_views_integrations,
     fork_views_library,
@@ -254,6 +255,11 @@ urlpatterns = [
         r"^collection/(?P<entry_id>\d+)/?$",
         fork_views.CollectionEntryView.as_view(),
         name="api_collection_entry",
+    ),
+    re_path(
+        r"^events/?$",
+        fork_views_events.EventsView.as_view(),
+        name="api_events",
     ),
     re_path(
         r"^tasks/(?P<task_id>[\w-]+)/?$",
