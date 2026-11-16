@@ -29,7 +29,7 @@ Part of `floppy-v2.md`. Started 2026-11-16.
 
 | Slice | Content | Status |
 |---|---|---|
-| P2-A | Postgres default and automatic SQLite copy | Not started |
+| P2-A | Postgres default and automatic SQLite copy | Built, waiting for the beta trial. The installer (`scripts/install/docker.sh`) and the README's hand-written stack still write SQLite |
 | P2-B | Whole app on ASGI, server-sent events at `/api/v1/events/` | Not started |
 | P2-C | Poster size variants with content-hashed names | Not started |
 
@@ -44,7 +44,8 @@ SQLite cost is measured on the minimal tier in P2-B.
 
 - **Compose:** `docker-compose.yml` gains a `db` service (postgres:16-alpine)
   and `DB_*` settings; the SQLite-only file stays as
-  `docker-compose.sqlite.yml` for minimal installs.
+  `docker-compose.sqlite.yml` for minimal installs (the old
+  `docker-compose.postgres.yml` is gone).
 - **Copy at start** (`manage.py migrate_sqlite_to_postgres`, called by the
   entrypoint before `migrate` when the conditions hold):
   - runs only when `DB_HOST` is set, the SQLite file exists and has

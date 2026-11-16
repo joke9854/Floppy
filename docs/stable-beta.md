@@ -76,3 +76,20 @@ install at beta.
 `beta-refresh-data.sh` copies SQLite databases. On Postgres, copy with
 `pg_dump` from stable into beta's own database instead, then start beta: its
 start step pauses the schedules the same way.
+
+### Moving a server from SQLite to Postgres
+
+From v2 (P2-A) the container copies a SQLite install into Postgres by
+itself. Add a Postgres service and the `DB_*` settings as in the repo's
+`docker-compose.yml`, keep the `./db` volume, and start. The entrypoint:
+
+- copies only when Postgres has no accounts and `db.sqlite3` has some;
+- migrates the SQLite file first, then copies every table in one
+  transaction and checks each table's row count;
+- stops the container if anything fails, leaving Postgres empty, so Floppy
+  never runs on an empty database in place of the real one;
+- never changes or deletes `db.sqlite3` and writes
+  `db.sqlite3.migrated-to-postgres` when done.
+
+Try it on beta first. To go back, remove `DB_HOST`: Floppy uses the SQLite
+file again, without anything written to Postgres since the copy.

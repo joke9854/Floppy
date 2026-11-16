@@ -65,6 +65,56 @@ jobs:
       - name: OAuth app sign-in
         run: uv run --no-sync python src/manage.py test api.tests.test_oauth_app_signin --exclude-tag network
 
+  sqlite-postgres-copy:
+    # v2 P2-A: copy a real SQLite install into Postgres and check every row.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: floppy
+          POSTGRES_USER: floppy
+          POSTGRES_PASSWORD: floppy-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U floppy" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: floppy
+      DB_USER: floppy
+      DB_PASSWORD: floppy-ci
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.3"
+
+      - name: Install test dependencies
+        run: uv sync --locked --no-default-groups --group test
+
+      - name: Configure test secret
+        run: echo "SECRET=$(uv run --no-sync python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> "$GITHUB_ENV"
+
+      - name: SQLite to Postgres copy
+        working-directory: src
+        run: uv run --no-sync python manage.py test config.tests.test_sqlite_to_postgres --exclude-tag network -v 2
+
   mcp:
     runs-on: ubuntu-latest
     steps:

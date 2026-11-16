@@ -1,3 +1,5 @@
+# SQLite instead of Postgres: one file in ./db, no database service. Suits
+# small single-user hosts. docker-compose.yml is the default (Postgres).
 services:
   floppy:
     container_name: floppy
@@ -6,20 +8,11 @@ services:
     image: ghcr.io/joke9854/floppy:cinetrack-api
     restart: unless-stopped
     depends_on:
-      - db
       - redis
     environment:
       - TZ=Europe/Berlin
       - SECRET=longstring
       - REDIS_URL=redis://redis:6379
-      - DB_HOST=db
-      # These stay "yamtrack" on purpose: renaming the database, role, or
-      # password against an existing postgres_data volume breaks the stack.
-      # New installs can use any values as long as both services agree.
-      - DB_NAME=yamtrack
-      - DB_USER=yamtrack
-      - DB_PASSWORD=yamtrack
-      - DB_PORT=5432
       - ADMIN_ENABLED=False
       # Off by default: otherwise a publicly known demo/demodemo
       # account is provisioned after migrations.
@@ -27,22 +20,24 @@ services:
       # Keep DEBUG off in production: the debug toolbar slows every request
       # and disables Django's cached template loader.
       - DEBUG=False
-      # Web concurrency is sized from the host automatically. Set
+      # Floppy listens on 8000 by default. To change the internal listener,
+      # set FLOPPY_PORT and change the published mapping to the same port.
+      # Example:
+      # - FLOPPY_PORT=9000
+      # then use "9000:9000" below. Do not set FLOPPY_PORT just to change the
+      # host-side port; "9000:8000" is enough for normal bridge networking.
+      # See docs/server-port.md for CLI, UI, shared-namespace, and package notes.
+      # Web concurrency is sized from the host automatically for a lean
+      # one-worker default. Set
       # WEB_CONCURRENCY/GUNICORN_THREADS only when you intentionally want to
       # override the detected resource tier.
+    volumes:
+      - ./db:/floppy/db
+      - ./backups:/floppy/backups
     ports:
       - "8000:8000"
-
-  db:
-    image: postgres:16-alpine
-    container_name: floppy-db
-    environment:
-      - POSTGRES_DB=yamtrack
-      - POSTGRES_USER=yamtrack
-      - POSTGRES_PASSWORD=yamtrack
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+    networks:
+      - floppy-net
 
   redis:
     container_name: floppy-redis
@@ -58,7 +53,13 @@ services:
     command: redis-server --appendonly yes --save "" --maxmemory 256mb --maxmemory-policy volatile-lru
     volumes:
       - redis_data:/data
+    networks:
+      - floppy-net
 
 volumes:
   redis_data:
-  postgres_data:
+
+
+networks:
+  floppy-net:
+    driver: bridge

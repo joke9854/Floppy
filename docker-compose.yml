@@ -6,11 +6,23 @@ services:
     image: ghcr.io/joke9854/floppy:cinetrack-api
     restart: unless-stopped
     depends_on:
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       - TZ=Europe/Berlin
       - SECRET=longstring
       - REDIS_URL=redis://redis:6379
+      # Postgres is the default database. An install that ran on SQLite
+      # (a db.sqlite3 in ./db) is copied into this empty database once, at
+      # start; the SQLite file is kept. Change the password before the first
+      # start, here and in the db service.
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=floppy
+      - DB_USER=floppy
+      - DB_PASSWORD=change_me
       - ADMIN_ENABLED=False
       # Off by default: otherwise a publicly known demo/demodemo
       # account is provisioned after migrations.
@@ -37,6 +49,24 @@ services:
     networks:
       - floppy-net
 
+  db:
+    container_name: floppy-db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=floppy
+      - POSTGRES_USER=floppy
+      - POSTGRES_PASSWORD=change_me
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floppy -d floppy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - floppy-net
+
   redis:
     container_name: floppy-redis
     image: redis:8-alpine
@@ -56,6 +86,7 @@ services:
 
 volumes:
   redis_data:
+  postgres_data:
 
 
 networks:

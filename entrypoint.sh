@@ -203,6 +203,39 @@ if [ -z "$DB_HOST" ]; then
     fi
 fi
 
+# v2 P2-A: an install moving from SQLite to Postgres (DB_HOST set, Postgres
+# without accounts, a db.sqlite3 with accounts) is copied over once. Bring the
+# SQLite file up to this version first, as a SQLite start would, so both sides
+# end up with the same tables after the migrate below.
+# --needed exits 0 (copy due) or 3 (not due); anything else, such as Postgres
+# not accepting connections yet, is retried and never read as "not due".
+sqlite_copy_due=false
+if [ -n "$DB_HOST" ]; then
+    copy_check_attempts=0
+    while :; do
+        copy_check_status=0
+        DB_POOL_ENABLED=false python manage.py copy_sqlite_to_postgres --needed >&2 || copy_check_status=$?
+        if [ "$copy_check_status" -eq 0 ] || [ "$copy_check_status" -eq 3 ]; then
+            break
+        fi
+        copy_check_attempts=$((copy_check_attempts + 1))
+        if [ "$copy_check_attempts" -ge 12 ]; then
+            echo "[entrypoint] Cannot tell whether SQLite needs copying to Postgres (exit ${copy_check_status}); not starting" >&2
+            exit 1
+        fi
+        echo "[entrypoint] SQLite copy check failed (exit ${copy_check_status}), retrying in 10s" >&2
+        sleep 10
+    done
+    if [ "$copy_check_status" -eq 0 ]; then
+        sqlite_copy_due=true
+        echo "[entrypoint] Migrating the SQLite database before copying it to Postgres" >&2
+        if ! DB_HOST= timeout 900 python manage.py migrate --noinput >&2; then
+            echo "[entrypoint] Migrating the SQLite database failed; not starting on an empty Postgres" >&2
+            exit 1
+        fi
+    fi
+fi
+
 # Bounded, retrying migrate: a blocked migration must fail loudly and retry
 # instead of wedging the container as "unhealthy" forever (issue #341).
 # lock_timeout is libpq-only (ignored on SQLite) and fires only while waiting
@@ -226,6 +259,16 @@ until echo "[entrypoint] Applying database migrations (attempt $((migrate_attemp
     echo "[entrypoint] Migrations blocked or failed (attempt ${migrate_attempts}), retrying in 15s" >&2
     sleep 15
 done
+
+if [ "$sqlite_copy_due" = true ]; then
+    # One transaction with per-table count checks: on any failure Postgres
+    # keeps nothing and the container stops instead of serving an empty
+    # library. The SQLite file is never changed or deleted by the copy.
+    if ! DB_POOL_ENABLED=false python manage.py copy_sqlite_to_postgres >&2; then
+        echo "[entrypoint] Copying SQLite to Postgres failed; the SQLite file is unchanged. Fix the reported problem or unset DB_HOST to keep using SQLite." >&2
+        exit 1
+    fi
+fi
 
 # Beta server (a copy of the real data): pause every per-user integration
 # schedule before beat or a worker can start, so the copy never pushes to,
