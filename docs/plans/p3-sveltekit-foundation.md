@@ -14,7 +14,7 @@ client, with the CineTrack look, a service worker and CI gates.
 | Slice | Content | Status |
 |---|---|---|
 | P3-A | Container shell: `web/` scaffold, the Node server in the image under supervisord, nginx `/next/`, CI (types, unit and component tests, build, e2e) | Built (`c13156f64`, `ac3d96e17`); CI green; live on beta since 2026-11-17 (`/next/` and `/next/health` answer through the tunnel, Node about 66 MB) |
-| P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Built: Django side `52bdbf259`, web side next; beta check pending |
+| P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Built: Django side `52bdbf259`, web side `a38bbf195`, smoke fix `3fdef0af1`; CI green (the smoke test signs in through nginx and renders `/next/` through the bridge); on beta since 2026-11-17 (signed-out redirect and sign-in page checked through the tunnel); signing in with a real account is the board Test item |
 | P3-C | Design tokens, base components, app shell | Not started |
 | P3-D | Service worker, new-version detection, bundle and response-time budgets | Not started |
 
