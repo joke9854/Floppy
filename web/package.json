@@ -16,7 +16,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"api:types": "npx --yes openapi-typescript@7.13.0 ../src/api/contracts/openapi-full.yaml --output src/lib/api/schema.d.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.60.0",
@@ -26,6 +27,7 @@
 		"@tailwindcss/vite": "^4.3.0",
 		"@types/node": "^24",
 		"@vitest/browser-playwright": "^4.1.8",
+		"openapi-fetch": "0.17.0",
 		"playwright": "^1.60.0",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.6.0",

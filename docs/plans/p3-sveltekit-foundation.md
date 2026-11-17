@@ -14,7 +14,7 @@ client, with the CineTrack look, a service worker and CI gates.
 | Slice | Content | Status |
 |---|---|---|
 | P3-A | Container shell: `web/` scaffold, the Node server in the image under supervisord, nginx `/next/`, CI (types, unit and component tests, build, e2e) | Built (`c13156f64`, `ac3d96e17`); CI green; live on beta since 2026-11-17 (`/next/` and `/next/health` answer through the tunnel, Node about 66 MB) |
-| P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Not started |
+| P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Built: Django side `52bdbf259`, web side next; beta check pending |
 | P3-C | Design tokens, base components, app shell | Not started |
 | P3-D | Service worker, new-version detection, bundle and response-time budgets | Not started |
 
@@ -77,6 +77,43 @@ client, with the CineTrack look, a service worker and CI gates.
 - The container smoke test signs in through nginx in production mode,
   reads and writes the API with the session (writes refused without the
   CSRF token) and signs out.
+
+### P3-B web side (2026-11-17)
+
+- **Bridge** (`web/src/hooks.server.ts`, `#lib/server/django.ts`): calls the
+  page makes with `event.fetch` to `/api/` and `/_allauth/` on its own origin
+  go to Django on 127.0.0.1:8001 with the visitor's Cookie header, the public
+  `Host`, `X-Forwarded-Proto` and `X-Real-IP`; any other URL is fetched as
+  is, without the cookie. Found while testing against a real Django:
+  - Node's fetch drops a custom `Host`, so the bridge uses `node:http`
+    (Django needs the public host for `ALLOWED_HOSTS` and absolute image
+    URLs). Redirects are not followed.
+  - SvelteKit adds the visitor's cookie only inside its own fetch, after
+    `handleFetch`, so the bridge passes it on itself.
+  - adapter-node's `getClientAddress()` throws without `X-Real-IP`; nginx
+    always sends it, and the bridge sends an empty address otherwise.
+- **Session:** every page but `/login` and `/health` asks allauth's session
+  endpoint first; signed out it redirects to `/next/login?next=...` (`next`
+  only a path inside the app), and Django not answering is a 503 page
+  (the sign-in page still opens). Signed-in pages are `private, no-store`.
+- **Sign-in and sign-out** happen in the browser, straight to Django's
+  allauth headless endpoints with the CSRF token, so Django sets and clears
+  its own cookies. The sign-in page links to the web's recovery-code page
+  for now.
+- **Typed client:** `npm run api:types` generates `src/lib/api/schema.d.ts`
+  from `openapi-full.yaml` with openapi-typescript 7.13.0 (run through npx:
+  it declares TypeScript 5 as a peer, the app uses 6); CI fails when the
+  committed types differ from a fresh generation. `#lib/api/client.ts`
+  wraps openapi-fetch (bundled into the build). The start page reads
+  `user/account/` (session-only) through it.
+- SvelteKit 3: `#lib/...` imports take the `.ts` extension, and the hook
+  types come from `@sveltejs/kit/hooks`. The base path reaches app code as
+  `__FLOPPY_BASE__` (a Vite define), since `$app/paths` no longer exports
+  `base`.
+- Checked locally against a real Django (runserver, in-memory cache): signed
+  out redirects, sign-in, the signed-in page with the username from the API,
+  `no-store`, and `next=//evil.example/` sent home. The container smoke test
+  repeats this through nginx in production mode.
 
 ### Notes for the next slices
 

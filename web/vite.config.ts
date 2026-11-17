@@ -4,7 +4,13 @@ import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// Served beside the Django pages until the cutover (v2 P5). Vitest's browser
+// runner cannot reach its page under a base path, and the tests don't depend
+// on it, so tests run at the root.
+const base = process.env.VITEST ? '' : '/next';
+
 export default defineConfig({
+	define: { __FLOPPY_BASE__: JSON.stringify(base) },
 	plugins: [
 		tailwindcss(),
 		sveltekit({
@@ -14,10 +20,7 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
-			// Served beside the Django pages until the cutover (v2 P5). Vitest's
-			// browser runner cannot reach its page under a base path, and component
-			// tests don't depend on it, so tests run at the root.
-			paths: { base: process.env.VITEST ? '' : '/next' }
+			paths: { base }
 		})
 	],
 	test: {

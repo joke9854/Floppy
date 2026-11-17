@@ -115,12 +115,16 @@ jobs:
             curl -fsS --max-time 10 http://127.0.0.1:8000/next/health |
               python3 -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ok"'
             test "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:8000/next)" = 308
-            curl -fsS --max-time 10 http://127.0.0.1:8000/next/ | grep -Fq '<h1'
+            # Signed out: the app sends visitors to its sign-in page (v2 P3-B).
+            test "$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 10 http://127.0.0.1:8000/next/)" = \
+              "http://127.0.0.1:8000/next/login?next=%2Fnext%2F"
+            curl -fsS --max-time 10 http://127.0.0.1:8000/next/login | grep -Fq '>Sign in</h1>'
             # No X-Forwarded-Proto (plain http): nginx sends the scheme, so a
-            # same-origin form post reaches the app (405 here), not 403.
+            # same-origin form post passes the app's origin check (it answers
+            # with the sign-in redirect), not 403.
             test "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
               -H 'Origin: http://127.0.0.1:8000' -H 'Content-Type: application/x-www-form-urlencoded' \
-              http://127.0.0.1:8000/next/)" = 405
+              http://127.0.0.1:8000/next/)" = 303
             docker exec "$SMOKE_APP" sh -c \
               'for pid in $(pgrep -f "node /floppy/web/build"); do echo "web rss: $(grep VmRSS /proc/$pid/status)"; done'
             # v2 P3-B session bridge, in production mode behind nginx (allauth
@@ -142,6 +146,12 @@ jobs:
             csrf=$(awk '$6 == "csrftoken" {print $7}' "$jar")
             curl -fsS -b "$jar" "$base/api/v1/user/account/" |
               python3 -c 'import json, sys; assert json.load(sys.stdin)["username"] == "smoke"'
+            # The web app's page, rendered by Node through the session bridge
+            # (loopback to Django with the visitor's cookie and public host).
+            next_page=$(curl -fsS -D "$RUNNER_TEMP/next-headers.txt" -b "$jar" "$base/next/")
+            grep -Fq 'data-testid="username">smoke<' <<<"$next_page"
+            grep -iq '^cache-control: private, no-store' "$RUNNER_TEMP/next-headers.txt"
+            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/login?next=//evil.example/")" = "$base/next/"
             test "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" -X PATCH -H 'Content-Type: application/json' \
               -d '{"username": "smoke"}' "$base/api/v1/user/account/")" = 403
             test "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" -X PATCH -H 'Content-Type: application/json' \

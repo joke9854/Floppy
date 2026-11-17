@@ -1,12 +1,15 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
+import type { SessionUser } from '#lib/server/session.ts';
+
 declare global {
+	/** The app's base path, from vite.config.ts (`/next`, empty in tests). */
+	const __FLOPPY_BASE__: string;
+
 	namespace App {
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+		interface Locals {
+			/** The signed-in user (allauth headless), or null. */
+			user: SessionUser | null;
+		}
 	}
 }
 
