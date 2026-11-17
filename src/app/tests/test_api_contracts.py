@@ -295,6 +295,12 @@ class OpenAPIArtifactTests(SimpleTestCase):
         self.assertEqual(
             settings.SPECTACULAR_SETTINGS,
             {
+                # The browser session (v2 P3-B) stays out of the contracts.
+                "AUTHENTICATION_WHITELIST": [
+                    "api.authentication.BearerAuthentication",
+                    "api.authentication.APIKeyAuthentication",
+                    "api.authentication.ListenBrainzTokenAuthentication",
+                ],
                 "TITLE": "Floppy",
                 "DESCRIPTION": "A self-hosted media tracker.",
                 "VERSION": "1.0.0",

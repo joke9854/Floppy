@@ -38,6 +38,26 @@ from users.views import CustomSignupView, CustomSocialSignupView
 
 handler400 = "app.error_views.bad_request"
 handler403 = "app.error_views.permission_denied"
+
+HEADLESS_ROUTES_OFF = (
+    "account/password/change",
+    "account/email",
+    "account/phone",
+    "auth/password/request",
+    "auth/password/reset",
+    "auth/email/verify",
+    "auth/email/verify/resend",
+    "auth/phone/verify",
+    "auth/phone/verify/resend",
+    "auth/code/request",
+    "auth/code/resend",
+    "auth/code/confirm",
+)
+
+
+def _headless_route_off(request):
+    return JsonResponse({"status": 404, "errors": [{"code": "not_found"}]}, status=404)
+
 handler404 = "app.error_views.page_not_found"
 handler500 = "app.error_views.server_error"
 
@@ -48,6 +68,16 @@ urlpatterns = [
         name="javascript-catalog",
     ),
     path("api/v1/", include("api.urls")),
+    # v2 P3-B: allauth headless for the SvelteKit web's sign-in (browser
+    # client: session, login, logout, signup, config, SSO providers). The
+    # routes below answer 404 first: Floppy accounts have no email, password
+    # changes go through /api/v1/user/password/ (which keeps the demo
+    # account's guard), and recovery through /api/v1/auth/password/recover/.
+    *[
+        path(f"_allauth/browser/v1/{route}", login_not_required(_headless_route_off))
+        for route in HEADLESS_ROUTES_OFF
+    ],
+    path("_allauth/", include("allauth.headless.urls")),
     # App sign-in (OAuth 2.0 / OpenID Connect provider, see api.oauth):
     # /o/authorize/, /o/token/, /o/revoke_token/, /o/device-authorization/,
     # /o/device/, /o/.well-known/openid-configuration, ...

@@ -532,6 +532,11 @@ urlpatterns = [
         name="api_user_account",
     ),
     re_path(
+        r"^auth/password/recover/?$",
+        fork_views_account.PasswordRecoverView.as_view(),
+        name="api_password_recover",
+    ),
+    re_path(
         r"^user/password/?$",
         fork_views_account.PasswordChangeView.as_view(),
         name="api_user_password",

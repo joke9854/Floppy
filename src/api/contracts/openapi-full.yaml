@@ -257,6 +257,36 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: Credentials are missing, invalid, or expired.
       x-required-scope: none (session or account token only)
+  /api/v1/auth/password/recover/:
+    post:
+      operationId: recoverPassword
+      description: Check the code, then set the new password.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRecoverRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordRecoverRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordRecoverRequest'
+        required: true
+      responses:
+        '204':
+          description: The password is set; sign in with it.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormError'
+          description: ''
+        '429':
+          description: Too many attempts; wait and try again.
+      x-required-scope: none (signed out, no credentials)
   /api/v1/calendar/:
     get:
       operationId: api_v1_calendar_retrieve
@@ -22187,6 +22217,25 @@ components:
       - new_password1
       - new_password2
       - old_password
+    PasswordRecoverRequest:
+      type: object
+      description: The username, a recovery or authenticator code, and the new password
+        twice.
+      properties:
+        username:
+          type: string
+        recovery_code:
+          type: string
+        authenticator_code:
+          type: string
+        new_password1:
+          type: string
+        new_password2:
+          type: string
+      required:
+      - new_password1
+      - new_password2
+      - username
     PatchedAccountUpdate:
       type: object
       description: New username.

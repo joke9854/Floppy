@@ -65,3 +65,35 @@ class AnonymousRateThrottle(_SettingsRateThrottle):
             "scope": self.scope,
             "ident": self.get_ident(request),
         }
+
+
+class PasswordRecoveryUsernameThrottle(_SettingsRateThrottle):
+    """Password recovery tries per username, whoever makes them."""
+
+    scope = "password_recovery_user"
+    rate_setting = "API_PASSWORD_RECOVERY_RATE_LIMIT"
+
+    def get_cache_key(self, request, view):
+        """Key on the lower-cased username in the request body."""
+        data = request.data if isinstance(request.data, dict) else {}
+        username = str(data.get("username") or "").strip().lower()
+        if not username:
+            return None
+        return self.cache_format % {"scope": self.scope, "ident": username[:150]}
+
+
+class PasswordRecoveryAddressThrottle(_SettingsRateThrottle):
+    """Password recovery tries per client address.
+
+    The address is the one nginx saw (X-Real-IP), not X-Forwarded-For, which
+    a client can fill in. Behind a tunnel that is the tunnel's address for
+    everyone, so this is a ceiling for the whole server there.
+    """
+
+    scope = "password_recovery_address"
+    rate_setting = "API_PASSWORD_RECOVERY_ADDRESS_RATE_LIMIT"
+
+    def get_cache_key(self, request, view):
+        """Key on X-Real-IP, else the socket address."""
+        address = request.META.get("HTTP_X_REAL_IP") or request.META.get("REMOTE_ADDR") or ""
+        return self.cache_format % {"scope": self.scope, "ident": address[:64]}

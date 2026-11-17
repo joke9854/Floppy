@@ -297,6 +297,8 @@ else:
         "allauth",
         "allauth.account",
         "allauth.socialaccount",
+        # v2 P3-B: sign-in for the SvelteKit web (browser client only).
+        "allauth.headless",
         "oauth2_provider",
         "django.contrib.humanize",
         "rest_framework",
@@ -317,6 +319,13 @@ def _api_rate(name, default):
 # it. Tests run without limits unless a test sets them.
 _TESTING = "test" in sys.argv or "pytest" in sys.argv[0]
 API_RATE_LIMIT = None if _TESTING else _api_rate("API_RATE_LIMIT", "1200/min")
+# Password recovery with a recovery or authenticator code (v2 P3-B): few
+# tries per username, and per client address on top.
+API_PASSWORD_RECOVERY_RATE_LIMIT = _api_rate("API_PASSWORD_RECOVERY_RATE_LIMIT", "5/hour")
+API_PASSWORD_RECOVERY_ADDRESS_RATE_LIMIT = _api_rate(
+    "API_PASSWORD_RECOVERY_ADDRESS_RATE_LIMIT",
+    "20/hour",
+)
 API_ANON_RATE_LIMIT = (
     None if _TESTING else _api_rate("API_ANON_RATE_LIMIT", "120/min")
 )
@@ -341,6 +350,12 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "api.authentication.BearerAuthentication",
         "api.authentication.APIKeyAuthentication",
+        # v2 P3-B session bridge: the signed-in browser (the SvelteKit web)
+        # reaches the API with its session cookie, and every write must carry
+        # the CSRF token. Last, so a request with a token is always judged by
+        # its token (no CSRF), and a request with neither still gets 401 with
+        # the Bearer challenge.
+        "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_RENDERER_CLASSES": ("api.renderers.ImageCacheJSONRenderer",),
     # ``format`` is a media-list filter, not a renderer override.
@@ -351,6 +366,14 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
+    # The contracts document the credentials apps use. The browser session
+    # (v2 P3-B) is for Floppy's own web only, and listing it would add a
+    # cookie scheme to every operation of the verified CineTrack contract.
+    "AUTHENTICATION_WHITELIST": [
+        "api.authentication.BearerAuthentication",
+        "api.authentication.APIKeyAuthentication",
+        "api.authentication.ListenBrainzTokenAuthentication",
+    ],
     "TITLE": "Floppy",
     "DESCRIPTION": "A self-hosted media tracker.",
     "VERSION": "1.0.0",
@@ -2117,6 +2140,12 @@ ACCOUNT_LOGOUT_REDIRECT_URL = config(
     default="/accounts/login/?loggedout=1",
 )
 ACCOUNT_SESSION_REMEMBER = True
+# v2 P3-B: allauth headless for the SvelteKit web's sign-in, next to the
+# Django pages (not headless-only), for the browser client only (session
+# cookie and CSRF; no app tokens). config/urls.py mounts it at /_allauth/
+# and leaves out the email and password-change routes.
+HEADLESS_ONLY = False
+HEADLESS_CLIENTS = ("browser",)
 ACCOUNT_USER_MODEL_EMAIL_FIELD = None
 ACCOUNT_FORMS = {
     "login": "users.forms.CustomLoginForm",

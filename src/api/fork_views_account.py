@@ -10,6 +10,7 @@ response, sent with `Cache-Control: no-store`. List responses never carry
 them.
 """
 
+import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.contrib.auth import update_session_auth_hash
@@ -26,10 +27,16 @@ from integrations.models import (
     IntegrationToken,
 )
 from users import credentials as user_credentials
-from users.forms import PasswordChangeForm, UserUpdateForm
+from users.forms import PasswordChangeForm, PasswordRecoveryForm, UserUpdateForm
 from users.views import app_sessions_for, connected_apps_for
 
 from .contract_serializers import DetailErrorSerializer
+from .throttling import (
+    PasswordRecoveryAddressThrottle,
+    PasswordRecoveryUsernameThrottle,
+)
+
+logger = logging.getLogger(__name__)
 
 _DEMO_403 = OpenApiResponse(
     DetailErrorSerializer,
@@ -475,4 +482,66 @@ class PasswordChangeView(drf_views.APIView):
             return _form_error_response(form)
         user = form.save()
         update_session_auth_hash(request._request, user)
+        return Response(status=HTTP.NO_CONTENT)
+
+
+# --- /api/v1/auth/password/recover/ -------------------------------------------
+
+
+class PasswordRecoverRequestSerializer(serializers.Serializer):
+    """The username, a recovery or authenticator code, and the new password twice."""
+
+    username = serializers.CharField()
+    recovery_code = serializers.CharField(required=False, allow_blank=True)
+    authenticator_code = serializers.CharField(required=False, allow_blank=True)
+    new_password1 = serializers.CharField()
+    new_password2 = serializers.CharField()
+
+
+class PasswordRecoverView(drf_views.APIView):
+    """Set a new password with a recovery code (signed out).
+
+    The web's "Forgot password" form as an API (v2 P3-B). With an
+    authenticator set up, its current code works too and no recovery code is
+    used up. A wrong username or code gets one answer, whichever it was.
+    No credentials: neither a token nor a session is read.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+    throttle_classes = [
+        PasswordRecoveryUsernameThrottle,
+        PasswordRecoveryAddressThrottle,
+    ]
+
+    @extend_schema(
+        operation_id="recoverPassword",
+        request=PasswordRecoverRequestSerializer,
+        responses={
+            204: OpenApiResponse(description="The password is set; sign in with it."),
+            400: FormErrorSerializer,
+            429: OpenApiResponse(description="Too many attempts; wait and try again."),
+        },
+        auth=[],
+    )
+    def post(self, request):
+        """Check the code, then set the new password."""
+        data = request.data if isinstance(request.data, dict) else {}
+        form = PasswordRecoveryForm(
+            data={
+                field: str(data.get(field) or "")
+                for field in (
+                    "username",
+                    "recovery_code",
+                    "authenticator_code",
+                    "new_password1",
+                    "new_password2",
+                )
+            },
+        )
+        if not form.is_valid():
+            logger.warning("Failed password recovery attempt through the API")
+            return _form_error_response(form)
+        user = form.save()
+        logger.info("Password recovered through the API for user id %s", user.pk)
         return Response(status=HTTP.NO_CONTENT)

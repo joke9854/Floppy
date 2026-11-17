@@ -50,6 +50,34 @@ client, with the CineTrack look, a service worker and CI gates.
   smoke test starts the web program and checks `/next/health`, the `/next`
   redirect, the page and that a plain-http form post is not refused.
 
+### P3-B Django side (2026-11-17)
+
+- `rest_framework.authentication.SessionAuthentication` is the last API
+  authenticator: a request with a token is judged by its token (no CSRF),
+  a signed-in browser reaches the API with its session and must send the
+  CSRF token on writes, and a request with neither is answered as before
+  (403; a rejected Authorization header stays 401). Sessions keep full
+  access in `HasScope`, so the session-only (`NEVER`) endpoints of P1-G and
+  P1-I are now reachable from the web.
+- The contracts leave the session out (`AUTHENTICATION_WHITELIST`), so the
+  CineTrack contract is unchanged.
+- allauth headless, browser client only, at `/_allauth/browser/v1/`
+  (session, login, logout, signup, config, SSO providers). Routes Floppy
+  does not use answer 404 before allauth sees them: email and phone
+  management and verification, email password reset, login by code, and
+  allauth's password change (the API's `user/password/` keeps the demo
+  account's guard). Signup follows the same adapter as the web (closed once
+  an account exists unless `REGISTRATION`). CSRF failures there answer JSON
+  403 instead of the web's redirect.
+- `POST /api/v1/auth/password/recover/` (`recoverPassword`): the web's
+  recovery form (recovery code, or the authenticator code) for signed-out
+  users. Reads no credentials, one answer for a wrong user or code, limited
+  to 5 tries an hour per username and 20 per client address (`X-Real-IP`;
+  behind the tunnel that is one address for everyone).
+- The container smoke test signs in through nginx in production mode,
+  reads and writes the API with the session (writes refused without the
+  CSRF token) and signs out.
+
 ### Notes for the next slices
 
 - **P3-B auth bridge:** `handleFetch` sends the user's cookie only to

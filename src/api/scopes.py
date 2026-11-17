@@ -341,6 +341,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     # credential can mint, widen or revoke credentials or change the password.
     "api.fork_views_account.AccountView": {"GET": NEVER, "PATCH": NEVER},
     "api.fork_views_account.PasswordChangeView": {"POST": NEVER},
+    # Signed out, no credentials read at all (v2 P3-B).
+    "api.fork_views_account.PasswordRecoverView": {"POST": NEVER},
     "api.fork_views_account.IntegrationTokensView": {"GET": NEVER, "POST": NEVER},
     "api.fork_views_account.IntegrationTokenDetailView": {"DELETE": NEVER},
     "api.fork_views_account.CatalogGrantsView": {"GET": NEVER, "POST": NEVER},

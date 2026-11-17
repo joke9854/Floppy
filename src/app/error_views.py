@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import redirect_to_login
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -271,7 +271,16 @@ def csrf_failure(
     token can happen while the user is still logged in. Only send the user to
     the login page when they're genuinely unauthenticated; otherwise bounce
     them back to where they were with a fresh CSRF token on reload.
+
+    allauth headless (/_allauth/, the SvelteKit web's sign-in) gets its own
+    JSON 403 instead: a script made the request and cannot follow a redirect
+    to a page.
     """
+    if request.path.startswith("/_allauth/"):
+        return JsonResponse(
+            {"status": 403, "errors": [{"code": "csrf_failed", "message": "CSRF check failed."}]},
+            status=403,
+        )
     user = getattr(request, "user", None)
     if user is not None:
         return_url = _safe_return_url(request)

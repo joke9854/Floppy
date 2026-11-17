@@ -1,5 +1,6 @@
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from django.test import Client
 from django.urls import reverse
 
 from app import home_sections
@@ -20,7 +21,9 @@ class ContinueWatchingApiTests(InProgressFixtures):
         return raw
 
     def test_requires_a_credential(self):
-        response = self.client.get(self.url)
+        # A fresh client: the fixtures' client is signed in, and since the v2
+        # P3-B session bridge a browser session is a credential too.
+        response = Client().get(self.url)
 
         self.assertEqual(response.status_code, HTTP.FORBIDDEN)
 

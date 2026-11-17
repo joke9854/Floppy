@@ -24,7 +24,11 @@ class ScopedAutoSchema(AutoSchema):
             return operation
 
         scope = resolve_required_scope(self.view, self.method)
-        if scope == ANY_SCOPE:
+        if scope == NEVER and not self.view.authentication_classes:
+            # No token may call it and it reads no session either: a
+            # signed-out action (password recovery, v2 P3-B).
+            operation["x-required-scope"] = "none (signed out, no credentials)"
+        elif scope == ANY_SCOPE:
             operation["x-required-scope"] = "any"
         elif scope == NEVER:
             operation["x-required-scope"] = "none (session or account token only)"

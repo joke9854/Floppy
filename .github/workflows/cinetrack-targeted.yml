@@ -68,6 +68,9 @@ jobs:
       - name: ASGI web process, gunicorn config and installer
         run: uv run --no-sync python src/manage.py test config.tests.test_asgi config.tests.test_gunicorn config.tests.test_gunicorn_worker_memory app.tests.test_installer --exclude-tag network
 
+      - name: Session bridge (v2 P3-B) and continue watching
+        run: uv run --no-sync python src/manage.py test api.tests.test_session_bridge api.tests.test_fork_continue_watching --exclude-tag network
+
       - name: Image cache card sizes and credit text
         run: uv run --no-sync python src/manage.py test app.tests.test_image_cache app.tests.test_templatetags app.tests.test_fanart app.tests.test_credits --exclude-tag network
 
