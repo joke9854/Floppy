@@ -89,7 +89,7 @@ class ServiceWorkerViewTests(TestCase):
         # Only the signed-in Home is stored; /accounts/ pages delete it.
         self.assertIn('url.pathname.startsWith("/accounts/")', body)
         self.assertIn("caches.delete(PAGES_CACHE)", body)
-        self.assertIn('const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/"];', body)
+        self.assertIn('const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/", "/next/"];', body)
 
 
 class StaticJavascriptViewTests(TestCase):

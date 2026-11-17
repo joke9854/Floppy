@@ -389,6 +389,17 @@ export FLOPPY_CELERY_QUEUES="${FLOPPY_CELERY_QUEUES:-celery}"
 export FLOPPY_CELERY_ROLE="${FLOPPY_CELERY_ROLE:-background}"
 export FLOPPY_START_INTERACTIVE_WORKER="${FLOPPY_START_INTERACTIVE_WORKER:-true}"
 export FLOPPY_START_DISCOVER_WORKER="${FLOPPY_START_DISCOVER_WORKER:-true}"
+# v2 P3: the SvelteKit server (supervisord program web, nginx /next/). On for
+# beta servers, off elsewhere until it has screens; FLOPPY_START_WEB wins.
+case "${FLOPPY_BETA_MODE:-false}" in
+    1|[Tt]rue|[Yy]es|[Oo]n) web_default=true ;;
+    *) web_default=false ;;
+esac
+case "${FLOPPY_START_WEB:-$web_default}" in
+    1|[Tt]rue|[Yy]es|[Oo]n) FLOPPY_START_WEB=true ;;
+    *) FLOPPY_START_WEB=false ;;
+esac
+export FLOPPY_START_WEB
 
 # Record what this boot decided. A later `docker exec ... floppy_preflight`
 # does not inherit the exports above, so without this it would re-probe the
@@ -407,6 +418,7 @@ else
     discover_topology="off(merged)"
 fi
 echo "[entrypoint] celery workers background=on(${FLOPPY_CELERY_QUEUES}) interactive=${interactive_topology} discover=${discover_topology}" >&2
+echo "[entrypoint] web (SvelteKit, /next/) start=${FLOPPY_START_WEB}" >&2
 
 # Docker 25+ and recent containerd give a container an effectively unlimited
 # RLIMIT_NOFILE, so SC_OPEN_MAX inside it reads as 2147483584. Celery's

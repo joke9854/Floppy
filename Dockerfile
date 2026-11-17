@@ -59,6 +59,19 @@ COPY ./mcp_server ./mcp_server
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-default-groups --no-editable
 
+# v2 P3: the SvelteKit app (web/). Built with Alpine's own Node, the same
+# one the runtime image installs. The adapter-node output is self-contained
+# (no node_modules at runtime); package.json only says it is ES modules.
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS web_builder
+
+RUN apk add --no-cache nodejs npm
+WORKDIR /web
+COPY ./web/package.json ./web/package-lock.json ./web/.npmrc ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+COPY ./web ./
+RUN npm run build
+
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}
 
 # https://stackoverflow.com/questions/58701233/docker-logs-erroneously-appears-empty-until-container-stops
@@ -105,8 +118,10 @@ RUN ln -s /floppy /yamtrack
 
 # postgresql-client: pg_dump/pg_restore for the nightly Postgres snapshot
 # (config/postgres_snapshot.py). A newer pg_dump reads older servers.
-RUN apk add --no-cache nginx shadow postgresql-client \
+# nodejs: the SvelteKit server (v2 P3, supervisord program web).
+RUN apk add --no-cache nginx shadow postgresql-client nodejs \
     && pg_dump --version \
+    && node --version \
     && chmod +x /runtime-entrypoint.sh /entrypoint.sh \
     # create user abc for later PUID/PGID mapping
     && useradd -U -M -s /bin/sh abc \
@@ -116,6 +131,8 @@ RUN apk add --no-cache nginx shadow postgresql-client \
 
 COPY --from=repo_meta /repo_owner /etc/floppy/fork_owner
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=web_builder /web/build /floppy/web/build
+COPY --from=web_builder /web/package.json /floppy/web/package.json
 RUN ln -s /opt/venv /floppy/.venv
 
 # Django app

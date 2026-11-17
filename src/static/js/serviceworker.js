@@ -6,8 +6,9 @@ const CACHE_NAME = "floppy-v3";
 // copy does not outlive the session on a shared device.
 const PAGES_CACHE = "floppy-pages-v1";
 const HOME_PATH = "/";
-// App routes the offline shell leaves alone (API, OAuth, admin, static).
-const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/"];
+// App routes the offline shell leaves alone (API, OAuth, admin, static, and
+// the v2 SvelteKit app under /next/, which will bring its own worker).
+const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/", "/next/"];
 // Pages load main.css with a ?<mtime> version, cached on first use, so an
 // unversioned copy here would only be a second 300 KB download.
 const urlsToCache = [

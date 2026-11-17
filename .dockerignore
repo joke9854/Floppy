@@ -1,4 +1,9 @@
 __pycache__
+# web/ is built inside the image (Dockerfile web_builder).
+web/node_modules
+web/build
+web/.svelte-kit
+web/test-results
 *.pyc
 .env
 .coverage*
