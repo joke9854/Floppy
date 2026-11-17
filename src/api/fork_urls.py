@@ -472,6 +472,11 @@ urlpatterns = [
         name="api_discover_hidden",
     ),
     re_path(
+        r"^home/sections/?$",
+        fork_views_discover.HomeSectionsView.as_view(),
+        name="api_home_sections",
+    ),
+    re_path(
         r"^home/?$",
         fork_views_discover.HomeView.as_view(),
         name="api_home",

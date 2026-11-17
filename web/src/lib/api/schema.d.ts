@@ -619,6 +619,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/home/sections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the header counts and the four Home sections with display values. */
+        get: operations["api_v1_home_sections_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/{service}/": {
         parameters: {
             query?: never;
@@ -5115,11 +5132,90 @@ export interface components {
         Home: {
             groups: components["schemas"]["HomeGroup"][];
         };
+        /** @description The progress line on a poster card. */
+        HomeCardProgress: {
+            percent: number;
+            paused: boolean;
+        };
+        /** @description What the card's check marks watched, in the episode ensure route's terms. */
+        HomeCheckTarget: {
+            source: string;
+            media_id: string;
+            season_number: number;
+            episode_number: number;
+            library_media_type: string | null;
+        };
+        /** @description The episode an In Progress card names. */
+        HomeEpisode: {
+            season_number: number;
+            episode_number: number;
+            title: string | null;
+        };
         /** @description Home rows for one section (one row each, see HomeView). */
         HomeGroup: {
             media_type: string;
             label: string;
             rows: components["schemas"]["HomeRow"][];
+        };
+        /** @description An In Progress card. */
+        HomeInProgressCard: {
+            /** @description The item id; stable per card. */
+            key: number;
+            kind: components["schemas"]["HomeInProgressCardKindEnum"];
+            media_type: string;
+            title: string;
+            /** @description The Django page the card opens. */
+            url: string;
+            poster: string;
+            poster_srcset: string;
+            /** @description Cached backdrop only; null shows the poster. */
+            backdrop: string | null;
+            progress_percent: number;
+            episode: components["schemas"]["HomeEpisode"] | null;
+            /** @description Null when there is no episode to mark. */
+            check: components["schemas"]["HomeCheckTarget"] | null;
+            time_left: string | null;
+            episodes_left: number | null;
+            remaining_seconds: number | null;
+            remaining_label: string | null;
+            is_rewatch: boolean;
+            year: number | null;
+        };
+        /**
+         * @description * `movie` - movie
+         *     * `show` - show
+         * @enum {string}
+         */
+        HomeInProgressCardKindEnum: "movie" | "show";
+        /** @description A Recently Watched poster card. */
+        HomeRecentCard: {
+            key: number;
+            media_type: string;
+            title: string;
+            url: string;
+            poster: string;
+            poster_srcset: string;
+            /** @description When it was watched ("Today", "2 Nov"), else the year. */
+            subtitle: string;
+            status: string | null;
+            progress: components["schemas"]["HomeCardProgress"] | null;
+        };
+        /** @description A release in Airing This Week or Coming Soon. */
+        HomeRelease: {
+            /** @description The event id. */
+            key: number;
+            title: string;
+            url: string;
+            poster: string;
+            poster_srcset: string;
+            /** Format: date */
+            day: string;
+            is_today: boolean;
+            /** @description In the user's time format; null when unknown. */
+            time: string | null;
+            /** @description "S2 E5", or the release kind. */
+            label: string;
+            tag: (components["schemas"]["TagEnum"] | components["schemas"]["NullEnum"]) | null;
         };
         /** @description One Home row with its serialized cards. */
         HomeRow: {
@@ -5130,6 +5226,22 @@ export interface components {
             items: {
                 [key: string]: unknown;
             }[];
+        };
+        /** @description The Home screen: header counts and its four sections, in order. */
+        HomeScreen: {
+            summary: components["schemas"]["HomeSummary"];
+            in_progress: components["schemas"]["HomeInProgressCard"][];
+            in_progress_kinds: string[];
+            airing: components["schemas"]["HomeRelease"][];
+            recent: components["schemas"]["HomeRecentCard"][];
+            coming_soon: components["schemas"]["HomeRelease"][];
+        };
+        /** @description The header counts. */
+        HomeSummary: {
+            /** @description Aired episodes not yet watched. */
+            catch_up: number;
+            catch_up_shows: number;
+            airing_count: number;
         };
         /** @description Full persisted IGDB game-length detail. */
         IgdbGameLength: {
@@ -7580,6 +7692,12 @@ export interface components {
             created_at: string;
             item_count?: number;
         };
+        /**
+         * @description * `premiere` - premiere
+         *     * `finale` - finale
+         * @enum {string}
+         */
+        TagEnum: "premiere" | "finale";
         /** @description Items to tag or untag. */
         TagItemsRequest: {
             action: components["schemas"]["ActionEnum"];
@@ -10179,6 +10297,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    api_v1_home_sections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeScreen"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */

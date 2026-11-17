@@ -2039,6 +2039,36 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:read
+  /api/v1/home/sections/:
+    get:
+      operationId: api_v1_home_sections_retrieve
+      description: Return the header counts and the four Home sections with display
+        values.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: catalog:read
   /api/v1/imports/{service}/:
     post:
       operationId: api_v1_imports_create
@@ -19689,6 +19719,54 @@ components:
             $ref: '#/components/schemas/HomeGroup'
       required:
       - groups
+    HomeCardProgress:
+      type: object
+      description: The progress line on a poster card.
+      properties:
+        percent:
+          type: integer
+        paused:
+          type: boolean
+      required:
+      - paused
+      - percent
+    HomeCheckTarget:
+      type: object
+      description: What the card's check marks watched, in the episode ensure route's
+        terms.
+      properties:
+        source:
+          type: string
+        media_id:
+          type: string
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        library_media_type:
+          type: string
+          nullable: true
+      required:
+      - episode_number
+      - library_media_type
+      - media_id
+      - season_number
+      - source
+    HomeEpisode:
+      type: object
+      description: The episode an In Progress card names.
+      properties:
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        title:
+          type: string
+          nullable: true
+      required:
+      - episode_number
+      - season_number
+      - title
     HomeGroup:
       type: object
       description: Home rows for one section (one row each, see HomeView).
@@ -19705,6 +19783,163 @@ components:
       - label
       - media_type
       - rows
+    HomeInProgressCard:
+      type: object
+      description: An In Progress card.
+      properties:
+        key:
+          type: integer
+          description: The item id; stable per card.
+        kind:
+          $ref: '#/components/schemas/HomeInProgressCardKindEnum'
+        media_type:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+          description: The Django page the card opens.
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        backdrop:
+          type: string
+          nullable: true
+          description: Cached backdrop only; null shows the poster.
+        progress_percent:
+          type: integer
+        episode:
+          allOf:
+          - $ref: '#/components/schemas/HomeEpisode'
+          nullable: true
+        check:
+          allOf:
+          - $ref: '#/components/schemas/HomeCheckTarget'
+          nullable: true
+          description: Null when there is no episode to mark.
+        time_left:
+          type: string
+          nullable: true
+        episodes_left:
+          type: integer
+          nullable: true
+        remaining_seconds:
+          type: integer
+          nullable: true
+        remaining_label:
+          type: string
+          nullable: true
+        is_rewatch:
+          type: boolean
+        year:
+          type: integer
+          nullable: true
+      required:
+      - backdrop
+      - check
+      - episode
+      - episodes_left
+      - is_rewatch
+      - key
+      - kind
+      - media_type
+      - poster
+      - poster_srcset
+      - progress_percent
+      - remaining_label
+      - remaining_seconds
+      - time_left
+      - title
+      - url
+      - year
+    HomeInProgressCardKindEnum:
+      enum:
+      - movie
+      - show
+      type: string
+      description: |-
+        * `movie` - movie
+        * `show` - show
+    HomeRecentCard:
+      type: object
+      description: A Recently Watched poster card.
+      properties:
+        key:
+          type: integer
+        media_type:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        subtitle:
+          type: string
+          description: When it was watched ("Today", "2 Nov"), else the year.
+        status:
+          type: string
+          nullable: true
+        progress:
+          allOf:
+          - $ref: '#/components/schemas/HomeCardProgress'
+          nullable: true
+      required:
+      - key
+      - media_type
+      - poster
+      - poster_srcset
+      - progress
+      - status
+      - subtitle
+      - title
+      - url
+    HomeRelease:
+      type: object
+      description: A release in Airing This Week or Coming Soon.
+      properties:
+        key:
+          type: integer
+          description: The event id.
+        title:
+          type: string
+        url:
+          type: string
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        day:
+          type: string
+          format: date
+        is_today:
+          type: boolean
+        time:
+          type: string
+          nullable: true
+          description: In the user's time format; null when unknown.
+        label:
+          type: string
+          description: '"S2 E5", or the release kind.'
+        tag:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/TagEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - day
+      - is_today
+      - key
+      - label
+      - poster
+      - poster_srcset
+      - tag
+      - time
+      - title
+      - url
     HomeRow:
       type: object
       description: One Home row with its serialized cards.
@@ -19732,6 +19967,54 @@ components:
       - summary
       - title
       - total
+    HomeScreen:
+      type: object
+      description: 'The Home screen: header counts and its four sections, in order.'
+      properties:
+        summary:
+          $ref: '#/components/schemas/HomeSummary'
+        in_progress:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeInProgressCard'
+        in_progress_kinds:
+          type: array
+          items:
+            type: string
+        airing:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeRelease'
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeRecentCard'
+        coming_soon:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeRelease'
+      required:
+      - airing
+      - coming_soon
+      - in_progress
+      - in_progress_kinds
+      - recent
+      - summary
+    HomeSummary:
+      type: object
+      description: The header counts.
+      properties:
+        catch_up:
+          type: integer
+          description: Aired episodes not yet watched.
+        catch_up_shows:
+          type: integer
+        airing_count:
+          type: integer
+      required:
+      - airing_count
+      - catch_up
+      - catch_up_shows
     IgdbGameLength:
       type: object
       description: Full persisted IGDB game-length detail.
@@ -25054,6 +25337,14 @@ components:
       - created_at
       - id
       - name
+    TagEnum:
+      enum:
+      - premiere
+      - finale
+      type: string
+      description: |-
+        * `premiere` - premiere
+        * `finale` - finale
     TagItemsRequest:
       type: object
       description: Items to tag or untag.

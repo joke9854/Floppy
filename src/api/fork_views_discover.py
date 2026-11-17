@@ -27,6 +27,7 @@ from app.models import (
 )
 
 from .contract_serializers import DetailErrorSerializer
+from .home_screen import HomeScreenSerializer, build_home_screen
 from .serializers import ContinueWatchingEntrySerializer, serialize_data
 
 logger = logging.getLogger(__name__)
@@ -415,6 +416,19 @@ def _home_api_entries(sections: dict, key: str) -> tuple[list, int]:
             len(releases),
         )
     return sections[key], len(sections[key])
+
+
+# /api/v1/home/sections/
+class HomeSectionsView(drf_views.APIView):
+    """The Home screen in its own shape, for the new web app (v2 P4-A)."""
+
+    @extend_schema(responses={200: HomeScreenSerializer})
+    def get(self, request):
+        """Return the header counts and the four Home sections with display values."""
+        return Response(
+            HomeScreenSerializer(build_home_screen(request.user)).data,
+            status=HTTP.OK,
+        )
 
 
 # /api/v1/home/

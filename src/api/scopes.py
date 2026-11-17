@@ -117,6 +117,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
         "POST": "catalog:write",
     },
     "api.fork_views_discover.HomeView": {"GET": "catalog:read"},
+    "api.fork_views_discover.HomeSectionsView": {"GET": "catalog:read"},
     "api.fork_views_integrations.ImportDispatchView": {"POST": "imports:write"},
     "api.fork_views_integrations.ImportActivityView": {"GET": "imports:read"},
     "api.fork_views_integrations.ExportCsvView": {"GET": "exports:read"},
