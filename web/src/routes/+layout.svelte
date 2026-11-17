@@ -1,6 +1,9 @@
 <script lang="ts">
 	import './layout.css';
+	import { updated } from '$app/state';
 	import logo from '#lib/assets/floppy-logo.png';
+	import UpdatePrompt from '#lib/ui/UpdatePrompt.svelte';
+	import { reloadToNewVersion } from '#lib/update.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -12,3 +15,5 @@
 </svelte:head>
 
 {@render children()}
+
+<UpdatePrompt visible={updated.current} onreload={reloadToNewVersion} />

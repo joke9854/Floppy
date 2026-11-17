@@ -6,6 +6,8 @@ const CACHE_NAME = "floppy-v3";
 // copy does not outlive the session on a shared device.
 const PAGES_CACHE = "floppy-pages-v1";
 const HOME_PATH = "/";
+// The v2 SvelteKit app's own worker caches (scope /next/).
+const WEB_APP_CACHE_PREFIX = "floppy-web-";
 // App routes the offline shell leaves alone (API, OAuth, admin, static, and
 // the v2 SvelteKit app under /next/, which will bring its own worker).
 const PASS_THROUGH_PREFIXES = ["/api/", "/o/", "/admin/", "/static/", "/next/"];
@@ -185,7 +187,13 @@ self.addEventListener("activate", (event) => {
       .then((cacheNames) =>
         Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME && cacheName !== PAGES_CACHE) {
+            // Cache Storage is shared by the whole origin: the v2 web app's
+            // worker (/next/) keeps its own floppy-web-* caches.
+            if (
+              cacheName !== CACHE_NAME &&
+              cacheName !== PAGES_CACHE &&
+              !cacheName.startsWith(WEB_APP_CACHE_PREFIX)
+            ) {
               return caches.delete(cacheName);
             }
 

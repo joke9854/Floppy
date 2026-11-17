@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { appVersion } from './scripts/app-version.js';
 
 // Served beside the Django pages until the cutover (v2 P5). Vitest's browser
 // runner cannot reach its page under a base path, and the tests don't depend
@@ -30,7 +31,11 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
-			paths: { base }
+			paths: { base },
+			// A hash of the web app's own files: a Django-only commit keeps the
+			// version, so open tabs are not asked to reload for nothing. Checked
+			// on focus, on server responses and every 15 minutes.
+			version: { name: appVersion(import.meta.dirname), pollInterval: 15 * 60 * 1000 }
 		})
 	],
 	test: {

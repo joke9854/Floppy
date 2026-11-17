@@ -82,7 +82,11 @@ class ServiceWorkerViewTests(TestCase):
         body = self.client.get(reverse("service_worker")).content.decode()
 
         self.assertIn('const PAGES_CACHE = "floppy-pages-v1";', body)
-        self.assertIn("cacheName !== CACHE_NAME && cacheName !== PAGES_CACHE", body)
+        self.assertIn("cacheName !== CACHE_NAME &&", body)
+        self.assertIn("cacheName !== PAGES_CACHE &&", body)
+        # The /next/ app's worker shares Cache Storage; its caches are left alone.
+        self.assertIn("!cacheName.startsWith(WEB_APP_CACHE_PREFIX)", body)
+        self.assertIn('const WEB_APP_CACHE_PREFIX = "floppy-web-";', body)
         # Preloaded, so a page load is requested once (#725).
         self.assertIn("navigationPreload.enable()", body)
         self.assertIn("await event.preloadResponse", body)
