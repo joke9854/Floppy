@@ -208,10 +208,26 @@ class UserPreferencesInvalidChoiceSerializer(serializers.Serializer):
     )
 
 
+class LibraryTypeSerializer(serializers.Serializer):
+    """One entry of the Library switch."""
+
+    media_type = serializers.CharField()
+    label = serializers.CharField()
+
+
 class UserSidebarSerializer(serializers.Serializer):
-    """Enabled state per sidebar media type."""
+    """Enabled state per sidebar media type, and the Library switch."""
 
     media_types = serializers.DictField(child=serializers.BooleanField())
+    library = LibraryTypeSerializer(
+        many=True,
+        read_only=True,
+        help_text=(
+            "The enabled types in the user's sidebar order, with their names, as "
+            "the web's Library switch shows them (TV Seasons folds into TV Shows "
+            "while both are on)."
+        ),
+    )
 
 
 class UserSidebarUpdateResponseSerializer(serializers.Serializer):
@@ -422,7 +438,9 @@ class UserSidebarView(drf_views.APIView):
 
     @extend_schema(responses={200: UserSidebarSerializer})
     def get(self, request):
-        """Return the enabled state per media type."""
+        """Return the enabled state per media type, and the Library switch."""
+        from app.templatetags.app_tags import ct_library_types
+
         return Response(
             {
                 "media_types": {
@@ -433,6 +451,10 @@ class UserSidebarView(drf_views.APIView):
                     )
                     for media_type in SIDEBAR_MEDIA_TYPES
                 },
+                "library": [
+                    {"media_type": entry["media_type"], "label": str(entry["display_name"])}
+                    for entry in ct_library_types(request.user)["types"]
+                ],
             },
             status=HTTP.OK,
         )

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { djangoWrite } from '#lib/csrf.ts';
+	import Button from '#lib/ui/Button.svelte';
+	import TextField from '#lib/ui/TextField.svelte';
+	import logo from '#lib/assets/floppy-logo.png';
+	import { t } from '#lib/strings.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -47,32 +51,35 @@
 	<title>Sign in · Floppy</title>
 </svelte:head>
 
-<main class="mx-auto max-w-sm p-8">
-	<h1 class="text-2xl font-semibold">Sign in</h1>
-	<!-- method="post": a submit before the script loads never puts the
-	     password in a URL; the no-script fallback is the Django sign-in. -->
-	<form class="mt-6 flex flex-col gap-4" method="post" onsubmit={signIn}>
-		<label class="flex flex-col gap-1">
-			Username
-			<input class="rounded-md border px-3 py-2" name="username" autocomplete="username" required bind:value={username} />
-		</label>
-		<label class="flex flex-col gap-1">
-			Password
-			<input
-				class="rounded-md border px-3 py-2"
+<main class="flex min-h-dvh items-center justify-center px-5 py-10">
+	<div class="ct-card w-full max-w-sm rounded-ct-lg p-7">
+		<div class="flex items-center gap-3">
+			<img src={logo} alt="" width="40" height="40" class="size-10 rounded-ct-sm" />
+			<span class="text-lg font-bold">{t.appName}</span>
+		</div>
+		<h1 class="mt-6 text-2xl font-bold tracking-tight">Sign in</h1>
+		<!-- method="post": a submit before the script loads never puts the
+		     password in a URL; the no-script fallback is the Django sign-in. -->
+		<form class="mt-6 flex flex-col gap-4" method="post" onsubmit={signIn}>
+			<TextField label="Username" name="username" autocomplete="username" required bind:value={username} />
+			<TextField
+				label="Password"
 				name="password"
 				type="password"
 				autocomplete="current-password"
 				required
 				bind:value={password}
 			/>
-		</label>
-		{#if message}
-			<p role="alert" class="text-red-500">{message}</p>
-		{/if}
-		<button class="rounded-md border px-3 py-2" type="submit" disabled={busy || !ready}>Sign in</button>
-	</form>
-	<p class="mt-6 text-sm opacity-70">
-		Forgot your password? <a class="underline" href="/accounts/password/recover/">Use a recovery code</a>.
-	</p>
+			{#if message}
+				<p role="alert" class="text-sm text-error">{message}</p>
+			{/if}
+			<Button variant="primary" type="submit" disabled={busy || !ready} class="mt-2 w-full">{t.signIn}</Button>
+		</form>
+		<p class="mt-6 text-sm text-muted">
+			Forgot your password?
+			<a class="text-link underline-offset-2 hover:text-link-hover hover:underline" href="/accounts/password/recover/"
+				>Use a recovery code</a
+			>.
+		</p>
+	</div>
 </main>

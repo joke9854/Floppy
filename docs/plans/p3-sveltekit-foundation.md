@@ -15,7 +15,7 @@ client, with the CineTrack look, a service worker and CI gates.
 |---|---|---|
 | P3-A | Container shell: `web/` scaffold, the Node server in the image under supervisord, nginx `/next/`, CI (types, unit and component tests, build, e2e) | Built (`c13156f64`, `ac3d96e17`); CI green; live on beta since 2026-11-17 (`/next/` and `/next/health` answer through the tunnel, Node about 66 MB) |
 | P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Built: Django side `52bdbf259`, web side `a38bbf195`, smoke fix `3fdef0af1`; CI green (the smoke test signs in through nginx and renders `/next/` through the bridge); on beta since 2026-11-17 (signed-out redirect and sign-in page checked through the tunnel); signing in with a real account is the board Test item |
-| P3-C | Design tokens, base components, app shell | Not started |
+| P3-C | Design tokens, base components, app shell | Built and approved from screenshots (2026-11-17); beta check pending |
 | P3-D | Service worker, new-version detection, bundle and response-time budgets | Not started |
 
 ### P3-A: container shell (2026-11-17)
@@ -114,6 +114,39 @@ client, with the CineTrack look, a service worker and CI gates.
   out redirects, sign-in, the signed-in page with the username from the API,
   `no-store`, and `next=//evil.example/` sent home. The container smoke test
   repeats this through nginx in production mode.
+
+### P3-C: tokens, components, shell (2026-11-17)
+
+- **Tokens** (`web/src/lib/styles/tokens.css`): the Django web's CineTrack
+  theme (`:root` merged with `html.cinetrack`, the only theme in use)
+  ported as is, as Tailwind 4 theme values (`bg-surface`, `text-muted`,
+  `rounded-ct-md`, `ease-standard`...). Manrope is bundled by Vite with its
+  OFL licence. Materials as utilities: `ct-card` (no blur), `ct-glass` and
+  `ct-glass-control` (navigation, menus, sheets only), `ct-menu`, `ct-focus`.
+  `--poster-accent` stays overridable at runtime.
+- **Components** (`#lib/ui/`): Button, TextField, Card, Dialog (bits-ui;
+  `sheet` makes it a bottom sheet on phones), Skeleton. Icons: Lucide, per
+  icon import. bits-ui and Lucide are devDependencies, so the build bundles
+  them. `/next/dev/components` shows them, on the dev server only.
+- **Shell** (`#lib/shell/`, the `(app)` route group): the current web's
+  CineTrack shell. From md a floating 64px icon rail, from lg the attached
+  248px labelled sidebar (the default `sidebar_style`; the floating variants
+  are not built); below md the glass bottom bar with Library and More sheets.
+  Links open the Django pages with a full load until each screen moves to
+  `/next/` in P4. Shell strings live in `#lib/strings.ts` for translation.
+- **Library** comes from `GET user/sidebar/`, which now also returns
+  `library`: the enabled types in the user's sidebar order with their names,
+  as the web's Library switch shows them (API gap found here; additive, not
+  in the CineTrack contract). A failed call leaves the Library empty.
+- **Errors:** `+error.svelte` for load errors; `src/error.html` (inline
+  token values) when the server cannot render at all.
+- **Sign-in** uses the components. Found while taking screenshots: a click
+  before the page script loaded submitted the form as GET with the password
+  in the URL (live on beta since P3-B, none in beta's logs). Fixed on its own
+  first (`38e1cabde`): the form posts, the button waits for the script, and
+  the no-script post goes to the Django sign-in without reading the password.
+- `npm run dev` proxies `/api`, `/_allauth`, `/accounts`, `/static` and
+  `/image-cache` to a local Django (`FLOPPY_DJANGO_ORIGIN`), as nginx does.
 
 ### Notes for the next slices
 

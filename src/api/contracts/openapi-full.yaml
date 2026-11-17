@@ -15966,7 +15966,7 @@ paths:
   /api/v1/user/sidebar/:
     get:
       operationId: api_v1_user_sidebar_retrieve
-      description: Return the enabled state per media type.
+      description: Return the enabled state per media type, and the Library switch.
       tags:
       - api
       security:
@@ -20797,6 +20797,17 @@ components:
         * `dropped` - dropped
         * `completed` - completed
         * `none` - none
+    LibraryType:
+      type: object
+      description: One entry of the Library switch.
+      properties:
+        media_type:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - media_type
     ListActivity:
       type: object
       description: One list activity entry.
@@ -25666,13 +25677,22 @@ components:
       - week_start_day
     UserSidebar:
       type: object
-      description: Enabled state per sidebar media type.
+      description: Enabled state per sidebar media type, and the Library switch.
       properties:
         media_types:
           type: object
           additionalProperties:
             type: boolean
+        library:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryType'
+          readOnly: true
+          description: The enabled types in the user's sidebar order, with their names,
+            as the web's Library switch shows them (TV Seasons folds into TV Shows
+            while both are on).
       required:
+      - library
       - media_types
     UserSidebarUpdateResponse:
       type: object

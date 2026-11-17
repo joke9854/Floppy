@@ -1,0 +1,43 @@
+import { page } from 'vitest/browser';
+import { describe, expect, it } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+import ShellHost from './ShellHost.test.svelte';
+
+const library = [
+	{ media_type: 'tv', label: 'TV Shows' },
+	{ media_type: 'movie', label: 'Movies' }
+];
+
+describe('Shell', () => {
+	it('wraps the page and links every Django screen with a full load', async () => {
+		render(ShellHost, { library });
+
+		await expect.element(page.getByTestId('content')).toBeVisible();
+		const links = document.querySelectorAll<HTMLAnchorElement>('nav a[href]');
+		const hrefs = [...links].map((link) => link.getAttribute('href'));
+		expect(hrefs).toContain('/medialist/tv');
+		expect(hrefs).toContain('/medialist/movie');
+		expect(hrefs).toContain('/history');
+		expect([...links].every((link) => link.hasAttribute('data-sveltekit-reload'))).toBe(true);
+	});
+
+	it('opens the Library sheet from the phone bar', async () => {
+		await page.viewport(390, 844);
+		render(ShellHost, { library });
+
+		await page.getByRole('button', { name: 'Library' }).click();
+
+		const sheet = page.getByRole('dialog');
+		await expect.element(sheet).toBeVisible();
+		await expect.element(sheet.getByRole('link', { name: 'Movies' })).toHaveAttribute('href', '/medialist/movie');
+	});
+
+	it('says so when no media type is on', async () => {
+		await page.viewport(390, 844);
+		render(ShellHost, { library: [] });
+
+		await page.getByRole('button', { name: 'Library' }).click();
+
+		await expect.element(page.getByText('No media types are turned on.')).toBeVisible();
+	});
+});

@@ -3533,7 +3533,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Return the enabled state per media type. */
+        /** @description Return the enabled state per media type, and the Library switch. */
         get: operations["api_v1_user_sidebar_retrieve"];
         /** @description Set the enabled state for the provided media types. */
         put: operations["api_v1_user_sidebar_update"];
@@ -5713,6 +5713,11 @@ export interface components {
          * @enum {string}
          */
         LibraryStatusWriteEnum: "planning" | "in_progress" | "paused" | "dropped" | "completed" | "none";
+        /** @description One entry of the Library switch. */
+        LibraryType: {
+            media_type: string;
+            label: string;
+        };
         /** @description One list activity entry. */
         ListActivity: {
             id: number;
@@ -7832,11 +7837,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description Enabled state per sidebar media type. */
+        /** @description Enabled state per sidebar media type, and the Library switch. */
         UserSidebar: {
             media_types: {
                 [key: string]: boolean;
             };
+            /** @description The enabled types in the user's sidebar order, with their names, as the web's Library switch shows them (TV Seasons folds into TV Shows while both are on). */
+            readonly library: components["schemas"]["LibraryType"][];
         };
         /** @description User fields changed by a sidebar update. */
         UserSidebarUpdateResponse: {

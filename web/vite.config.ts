@@ -11,6 +11,16 @@ const base = process.env.VITEST ? '' : '/next';
 
 export default defineConfig({
 	define: { __FLOPPY_BASE__: JSON.stringify(base) },
+	// `npm run dev` only: Django's own paths go to a local Django, as nginx
+	// does in the container, so signing in and the Django pages work in dev.
+	server: {
+		proxy: Object.fromEntries(
+			['/api', '/_allauth', '/accounts', '/static', '/image-cache'].map((path) => [
+				path,
+				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }
+			])
+		)
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({

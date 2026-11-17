@@ -90,6 +90,21 @@ class SidebarTests(FloppyApiTestCase):
         listed = self.call_api("get", "api_user_sidebar", headers=self.auth_headers)
         self.assertFalse(listed.json()["media_types"][MediaTypes.MOVIE.value])
 
+    def test_library_lists_enabled_types_in_sidebar_order(self):
+        """The Library switch follows the user's order and leaves disabled types out."""
+        self.user1.sidebar_media_type_order = [MediaTypes.MOVIE.value, MediaTypes.TV.value]
+        self.user1.anime_enabled = False
+        self.user1.save()
+
+        library = self.call_api("get", "api_user_sidebar", headers=self.auth_headers).json()[
+            "library"
+        ]
+
+        types = [entry["media_type"] for entry in library]
+        self.assertEqual(types[:2], [MediaTypes.MOVIE.value, MediaTypes.TV.value])
+        self.assertNotIn(MediaTypes.ANIME.value, types)
+        self.assertTrue(all(entry["label"] for entry in library))
+
     def test_unknown_media_type_rejected(self):
         """Unknown media types return 400."""
         response = self.call_api(

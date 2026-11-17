@@ -20,6 +20,7 @@
 		"api:types": "npx --yes openapi-typescript@7.13.0 ../src/api/contracts/openapi-full.yaml --output src/lib/api/schema.d.ts"
 	},
 	"devDependencies": {
+		"@lucide/svelte": "1.74.0",
 		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-node": "^6.0.0",
 		"@sveltejs/kit": "^3.0.0",
@@ -27,6 +28,7 @@
 		"@tailwindcss/vite": "^4.3.0",
 		"@types/node": "^24",
 		"@vitest/browser-playwright": "^4.1.8",
+		"bits-ui": "2.21.0",
 		"openapi-fetch": "0.17.0",
 		"playwright": "^1.60.0",
 		"svelte": "^5.57.2",
