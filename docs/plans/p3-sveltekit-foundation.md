@@ -16,7 +16,7 @@ client, with the CineTrack look, a service worker and CI gates.
 | P3-A | Container shell: `web/` scaffold, the Node server in the image under supervisord, nginx `/next/`, CI (types, unit and component tests, build, e2e) | Built (`c13156f64`, `ac3d96e17`); CI green; live on beta since 2026-11-17 (`/next/` and `/next/health` answer through the tunnel, Node about 66 MB) |
 | P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Built: Django side `52bdbf259`, web side `a38bbf195`, smoke fix `3fdef0af1`; CI green (the smoke test signs in through nginx and renders `/next/` through the bridge); on beta since 2026-11-17 (signed-out redirect and sign-in page checked through the tunnel); signing in with a real account is the board Test item |
 | P3-C | Design tokens, base components, app shell | Built (`6a24f3aff`), approved from screenshots, CI green, on beta since 2026-11-17; the on-device check is the board Test item |
-| P3-D | Service worker, new-version detection, bundle and response-time budgets | Built and approved from screenshots (2026-11-17); CI and beta pending |
+| P3-D | Service worker, new-version detection, bundle and response-time budgets | Built (`cd0705253`, YAML fix `320a624bc`), approved from screenshots, CI green, on beta since 2026-11-17; the on-device check is the board Test item |
 
 ### P3-A: container shell (2026-11-17)
 
@@ -164,15 +164,21 @@ client, with the CineTrack look, a service worker and CI gates.
 - **Version name:** a hash of the web app's own files (`web/src`, `static`,
   the lockfile, the build config), line endings normalised. A Django-only
   commit keeps the version, so tabs are not asked to reload for nothing.
-- nginx sends `/next/service-worker.js` and `/next/_app/version.json` with
-  `Cache-Control: no-cache`.
+- nginx sends `/next/_app/version.json` with `Cache-Control: no-cache` and
+  `/next/service-worker.js` with `no-cache, no-store, must-revalidate` (as
+  the Django worker): on beta, Cloudflare rewrote a plain `no-cache` on the
+  `.js` file into `max-age=14400` (it still revalidated at the edge), and
+  passes `no-store` through.
 - **Bundle budgets** (`npm run budgets`, in CI after the build): the gzip
   size of what one page downloads, from the build manifest and the route
   nodes. First figures: sign-in 49.1 kB (budget 60), start page with the
   shell 90.0 kB (budget 110).
 - **Response-time budgets** (container smoke test, through nginx, median of
   7 after 2 warm-ups): sign-in page under 800 ms, signed-in start page under
-  1500 ms; generous for a shared CI runner, printed every run.
+  1500 ms; generous for a shared CI runner, printed every run. First CI
+  run: 12 ms and 43 ms. On beta through the Cloudflare tunnel from home
+  (signed out): sign-in page 209 ms median, Django `/health/` 232 ms, so the
+  tunnel, not the app, sets the pace.
 - Tests: e2e on the built app (worker scope, a build file offline, the
   offline page, the worker script and version file not behind sign-in or
   long-lived caching); the prompt as a component; the version hash.

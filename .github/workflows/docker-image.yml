@@ -125,6 +125,9 @@ jobs:
               headers=$(curl -fsS -D - -o /dev/null --max-time 10 "http://127.0.0.1:8000/next/$asset")
               grep -iq '^cache-control: no-cache' <<<"$headers"
             done
+            # no-store for the worker: Cloudflare passes it through untouched.
+            curl -fsS -D - -o /dev/null --max-time 10 http://127.0.0.1:8000/next/service-worker.js |
+              grep -iq '^cache-control: no-cache, no-store, must-revalidate'
             # No X-Forwarded-Proto (plain http): nginx sends the scheme, so a
             # same-origin form post passes the app's origin check (403 is the
             # refusal; otherwise the answer is the sign-in redirect in the form
