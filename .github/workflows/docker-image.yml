@@ -166,8 +166,7 @@ jobs:
             # docs/plans/p3-sveltekit-foundation.md).
             median_ms() {
               for _ in 1 2; do curl -s -o /dev/null "$@"; done
-              for _ in 1 2 3 4 5 6 7; do curl -s -o /dev/null -w '%{time_total}
-' "$@"; done |
+              for _ in 1 2 3 4 5 6 7; do curl -s -o /dev/null -w '%{time_total}\n' "$@"; done |
                 sort -n | sed -n 4p | awk '{printf "%d", $1 * 1000}'
             }
             signin_ms=$(median_ms "$base/next/login")
