@@ -29,7 +29,7 @@ cutover.
 
 | Slice | Screen | Status |
 |---|---|---|
-| P4-A | Home | Started: API (`GET /api/v1/home/sections/`) built; screen next |
+| P4-A | Home | API built (`3a04e8483`); screen built, waiting for approval from screenshots |
 | P4-B | Library (movies, shows, anime and the other media lists) | Not started |
 | P4-C | Detail pages (title, season, episode, person, studio) | Not started |
 | P4-D | Track dialog | Not started |
@@ -46,25 +46,25 @@ cutover.
 Today's Home (`app/home.html`, `components/ct/home_sections.html`, data from
 `app/home_sections.build_home_sections`, cached per user and day):
 
-- [ ] Header: "Home", the catch-up count ("N episodes to catch up on across M
+- [x] Header: "Home", the catch-up count ("N episodes to catch up on across M
       shows") and the airing count, joined by a dot; each only when non-zero.
-- [ ] Now Playing pill beside the title when something is playing; it polls,
+- [ ] (follow-up) Now Playing pill beside the title when something is playing; it polls,
       and refreshes In Progress when the playing title changes.
-- [ ] Notifications bell linking to the notifications page.
-- [ ] In Progress: a row of 16:9 cards, latest activity first. Cached
+- [x] Notifications bell (phones: the account avatar instead, as A6) linking to the notifications page.
+- [x] In Progress: a row of 16:9 cards, latest activity first. Cached
       backdrop (cache only, never a provider call), else the poster cropped;
       progress line along the bottom edge; S/E label and episode title;
       time left or episodes left; Rewatch pill; the ✓ button that marks the
       named episode watched; Movie/Show filter pills when both kinds are
       present.
-- [ ] Airing This Week: grouped list in two columns of three (one on
+- [x] Airing This Week: grouped list in two columns of three (one on
       phones), day and time, Premiere/Finale tags, link to the episode, and a
       "Calendar" link.
-- [ ] Recently Watched: a row of poster cards, one per title, newest first,
+- [x] Recently Watched: a row of poster cards, one per title, newest first,
       with a "History" link.
-- [ ] Coming Soon: a row of release cards.
-- [ ] Empty state when no section has entries.
-- [ ] Rows scroll horizontally with touch, mouse drag and keyboard.
+- [x] Coming Soon: a row of release cards.
+- [x] Empty state when no section has entries.
+- [x] Rows scroll horizontally with touch, mouse drag and keyboard.
 
 API (P4-A1): `GET /api/v1/home/` drops what the screen needs (Airing comes
 back as bare items without day, time or tag; no catch-up counts; no In
@@ -78,3 +78,20 @@ The ✓ button writes through the existing episode ensure endpoint
 (`POST /api/v1/media/tv/{source}/{media_id}/episodes/ensure/`) with one
 event: the watch time from the browser and a client event id, so a retry
 answers `already_satisfied` and a rewatch stays a separate play.
+
+P4-A screen (2026-11-17): `web/src/lib/home/` (cards, rows, styles ported
+from `areas/home.css`), the start page `(app)/+page.svelte` with one load.
+Checked against the Django Home on a seeded throwaway database: same
+sections, order, counts, labels, tags and links; the check saves through the
+ensure route (`created`), turns green, and Home reloads with the next
+episode. Start page bundle 98.3 kB of 110.
+
+Not in this slice:
+- The Now Playing pill (polls `/api/v1/playback/now-playing/`): next.
+- Poster card width follows the user's grid density setting on Django;
+  the web uses the default 176 px.
+- The ✓ always sends the exact time; Django sends a date only when the
+  instance has `TRACK_TIME` off.
+
+Watch out: a horizontal row must not capture the pointer on press, or every
+click lands on the row instead of the card's link or check.

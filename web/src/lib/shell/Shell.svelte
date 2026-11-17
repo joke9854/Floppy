@@ -136,7 +136,7 @@
 						aria-hidden="true">{initials}</span
 					>
 					<span class="sr-only flex-col items-start lg:not-sr-only lg:flex">
-						<span class="text-[14px] font-semibold text-text">{username}</span>
+						<span class="text-[14px] font-semibold text-text" data-testid="username">{username}</span>
 						<span class="text-xs text-muted">{t.settings}</span>
 					</span>
 				{/snippet}

@@ -1,6 +1,8 @@
 import createClient from 'openapi-fetch';
 import type { paths } from './schema';
 
+export type { components } from './schema';
+
 /**
  * The typed client for Django's API, generated from the full OpenAPI contract
  * (`npm run api:types`). On the server pass `event.fetch` and the page's
