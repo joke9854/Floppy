@@ -14,7 +14,7 @@ client, with the CineTrack look, a service worker and CI gates.
 | Slice | Content | Status |
 |---|---|---|
 | P3-A | Container shell: `web/` scaffold, the Node server in the image under supervisord, nginx `/next/`, CI (types, unit and component tests, build, e2e) | Built; CI and beta check pending |
-| P3-B | Auth bridge and typed API client | Not started |
+| P3-B | Session bridge (board item "v2 P3 session bridge", decided 2026-11-15 in P1-G): DRF session auth with CSRF on `/api/`, allauth headless (browser client) for sign-in, the recovery-code password reset; typed API client | Not started |
 | P3-C | Design tokens, base components, app shell | Not started |
 | P3-D | Service worker, new-version detection, bundle and response-time budgets | Not started |
 
@@ -58,10 +58,11 @@ client, with the CineTrack look, a service worker and CI gates.
   client IP header in production, and Django builds absolute image URLs
   from the host). CSRF for writes. Server-side calls count against the ASGI
   request cap (`GUNICORN_THREADS` per worker).
-- **Login and signup:** the P1 inventory moved them to P3. Until a native
-  screen exists, `/next/` sends signed-out users to Django's login with
-  `next=` back. Whether the native login and signup screens belong to P3-B or
-  to P4 is the user's call.
+- **Login and signup:** decided in P1-G (2026-11-15): allauth headless with
+  the browser client only, keeping the Django pages; the authenticator code
+  is used only for recovery, not at sign-in. Session auth with CSRF on
+  `/api/` makes the P1-G session-only endpoints reachable from the browser.
+  See `docs/plans/p1-api-inventory.md` section G.
 - **Typed client:** openapi-typescript + openapi-fetch generated from
   `src/api/contracts/openapi-full.yaml`; CI fails when the generated types
   are stale.

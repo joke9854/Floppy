@@ -14,8 +14,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
-			// Served beside the Django pages until the cutover (v2 P5).
-			paths: { base: '/next' }
+			// Served beside the Django pages until the cutover (v2 P5). Vitest's
+			// browser runner cannot reach its page under a base path, and component
+			// tests don't depend on it, so tests run at the root.
+			paths: { base: process.env.VITEST ? '' : '/next' }
 		})
 	],
 	test: {
