@@ -17,6 +17,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.templatetags.app_tags import image_url
 
 from .base import FloppyApiTestCase
 
@@ -646,6 +647,10 @@ class NowPlayingTests(FloppyApiTestCase):
         self.assertEqual(body["media_type"], MediaTypes.MOVIE.value)
         self.assertEqual(body["title"], movie_item.title)
         self.assertEqual(body["image"], "https://example.com/now-playing.jpg")
+        # The web pill shows it as the Django pages do, through the image cache.
+        self.assertEqual(
+            body["display_image"], image_url("https://example.com/now-playing.jpg")
+        )
         self.assertEqual(body["status"], live_playback.PLAYBACK_STATUS_PLAYING)
         self.assertIsNotNone(body["url"])
         self.assertIn("ids", body)

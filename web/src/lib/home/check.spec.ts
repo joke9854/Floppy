@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const djangoWrite = vi.fn();
 vi.mock('#lib/csrf.ts', () => ({ djangoWrite }));
 
-const { markWatched } = await import('./check.ts');
+const { markWatched, watchTime } = await import('./check.ts');
 
 const target = {
 	source: 'tmdb',
@@ -23,7 +23,9 @@ describe('markWatched', () => {
 		djangoWrite.mockResolvedValue(answer(200, { results: [{ status: 'created' }] }));
 		const at = new Date('2026-11-17T21:04:05.123Z');
 
-		expect(await markWatched(target, 'b1e7f0a2-0000-4000-8000-000000000001', at)).toBe('saved');
+		expect(await markWatched(target, { id: 'b1e7f0a2-0000-4000-8000-000000000001', at })).toBe(
+			'saved'
+		);
 
 		expect(djangoWrite).toHaveBeenCalledWith(
 			'/api/v1/media/tv/tmdb/1668/episodes/ensure/',
@@ -45,7 +47,7 @@ describe('markWatched', () => {
 	it('counts a retry the server already has as saved', async () => {
 		djangoWrite.mockResolvedValue(answer(200, { results: [{ status: 'already_satisfied' }] }));
 
-		expect(await markWatched(target, 'id')).toBe('saved');
+		expect(await markWatched(target, { id: 'id', at: new Date() })).toBe('saved');
 	});
 
 	it('tells a provider outage from other failures', async () => {
@@ -58,8 +60,18 @@ describe('markWatched', () => {
 		djangoWrite.mockRejectedValueOnce(new TypeError('offline'));
 
 		const outcomes = [];
-		for (let i = 0; i < 5; i++) outcomes.push(await markWatched(target, `id-${i}`));
+		for (let i = 0; i < 5; i++)
+			outcomes.push(await markWatched(target, { id: `id-${i}`, at: new Date() }));
 
 		expect(outcomes).toEqual(['unavailable', 'unavailable', 'failed', 'failed', 'failed']);
+	});
+});
+
+describe('watchTime', () => {
+	it('sends the exact instant, or the local date when the instance records dates only', () => {
+		const at = new Date(2026, 10, 17, 23, 30, 5);
+
+		expect(watchTime(at, true)).toBe(at.toISOString());
+		expect(watchTime(at, false)).toBe('2026-11-17');
 	});
 });

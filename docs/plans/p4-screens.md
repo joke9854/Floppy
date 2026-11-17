@@ -29,7 +29,7 @@ cutover.
 
 | Slice | Screen | Status |
 |---|---|---|
-| P4-A | Home | API built (`3a04e8483`); screen built, waiting for approval from screenshots |
+| P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (movies, shows, anime and the other media lists) | Not started |
 | P4-C | Detail pages (title, season, episode, person, studio) | Not started |
 | P4-D | Track dialog | Not started |
@@ -48,7 +48,7 @@ Today's Home (`app/home.html`, `components/ct/home_sections.html`, data from
 
 - [x] Header: "Home", the catch-up count ("N episodes to catch up on across M
       shows") and the airing count, joined by a dot; each only when non-zero.
-- [ ] (follow-up) Now Playing pill beside the title when something is playing; it polls,
+- [x] Now Playing pill beside the title when something is playing; it polls,
       and refreshes In Progress when the playing title changes.
 - [x] Notifications bell (phones: the account avatar instead, as A6) linking to the notifications page.
 - [x] In Progress: a row of 16:9 cards, latest activity first. Cached
@@ -86,12 +86,14 @@ sections, order, counts, labels, tags and links; the check saves through the
 ensure route (`created`), turns green, and Home reloads with the next
 episode. Start page bundle 98.3 kB of 110.
 
-Not in this slice:
-- The Now Playing pill (polls `/api/v1/playback/now-playing/`): next.
-- Poster card width follows the user's grid density setting on Django;
-  the web uses the default 176 px.
-- The ✓ always sends the exact time; Django sends a date only when the
-  instance has `TRACK_TIME` off.
+Follow-up (same day): the Now Playing pill (polls
+`/api/v1/playback/now-playing/` every 10 s while visible, ticks each second,
+reloads Home when the playing title stops or changes; the endpoint gained
+`display_image`, the image through the image cache as the Django pill shows
+it); poster cards 136 px on wide screens and the user's phone grid setting
+(`mobile_grid_layout`) below 768 px; with `TRACK_TIME` off the check sends the
+local date, which Floppy reads as that day's midnight exactly as the Django
+form. Start page bundle 100.1 kB of 110.
 
 Watch out: a horizontal row must not capture the pointer on press, or every
 click lands on the row instead of the card's link or check.

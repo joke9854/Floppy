@@ -175,6 +175,8 @@ def build_home_screen(user) -> dict:
     app_tags.ct_prefetch_posters(sections["in_progress"], "item")
     airing = [entry for column in sections["airing"] for entry in column]
     return {
+        "track_time": settings.TRACK_TIME,
+        "mobile_grid_layout": user.mobile_grid_layout,
         "summary": {
             "catch_up": sections["catch_up"],
             "catch_up_shows": sections["catch_up_shows"],
@@ -283,6 +285,15 @@ class HomeSummarySerializer(serializers.Serializer):
 class HomeScreenSerializer(serializers.Serializer):
     """The Home screen: header counts and its four sections, in order."""
 
+    track_time = serializers.BooleanField(
+        help_text=(
+            "The instance records watch times. When false a check sends the "
+            "local date only, as the Django forms do."
+        )
+    )
+    mobile_grid_layout = serializers.CharField(
+        help_text='Poster cards per row on phones: "compact" (3) or "comfortable" (2).'
+    )
     summary = HomeSummarySerializer()
     in_progress = HomeInProgressCardSerializer(many=True)
     in_progress_kinds = serializers.ListField(child=serializers.CharField())

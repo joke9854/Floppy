@@ -6,6 +6,8 @@ import Page from './+page.svelte';
 const POSTER = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 
 const emptyHome = {
+	track_time: true,
+	mobile_grid_layout: 'compact',
 	summary: { catch_up: 0, catch_up_shows: 0, airing_count: 0 },
 	in_progress: [],
 	in_progress_kinds: [],
@@ -56,8 +58,10 @@ const release = (key: number, day: string, tag: 'premiere' | 'finale' | null) =>
 	tag
 });
 
-const renderHome = (home: object) =>
-	render(Page, { props: { data: { home, username: 'reader', library: [] } } as never });
+const renderHome = (home: object, nowPlaying: object = { active: false }) =>
+	render(Page, {
+		props: { data: { home, nowPlaying, username: 'reader', library: [] } } as never
+	});
 
 describe('/next Home', () => {
 	it('shows the empty state when no section has entries', async () => {
@@ -114,5 +118,25 @@ describe('/next Home', () => {
 
 		await expect.element(page.getByRole('link', { name: 'Heat' })).toBeVisible();
 		await expect.element(page.getByRole('link', { name: 'Friends' })).not.toBeInTheDocument();
+	});
+
+	it('shows Now Playing in the header with time left', async () => {
+		renderHome(emptyHome, {
+			active: true,
+			title: 'Severance',
+			episode_code: 'S2 E3',
+			episode_title: 'Who Is Alive?',
+			display_image: POSTER,
+			status: 'paused',
+			url: '/details/95396',
+			offset_seconds: 1200,
+			duration_seconds: 3000
+		});
+
+		const pill = page.getByRole('link', { name: 'Now Playing: Severance S2 E3' });
+		await expect.element(pill).toBeVisible();
+		await expect.element(page.getByText('Paused')).toBeVisible();
+		await expect.element(page.getByText('30 min left')).toBeVisible();
+		await expect.element(page.getByText('20:00 / 50:00')).toBeVisible();
 	});
 });

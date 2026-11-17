@@ -2,7 +2,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
-	import { markWatched, type CheckOutcome } from './check.ts';
+	import { markWatched, type CheckOutcome, type Click } from './check.ts';
 	import { fadeIn } from './fade.ts';
 
 	type Card = components['schemas']['HomeInProgressCard'];
@@ -12,23 +12,28 @@
 	 * when no backdrop is cached), the progress line along its bottom edge and
 	 * the glass check, then the title and "S2 E5 · 3 left".
 	 */
-	let { card, onsaved }: { card: Card; onsaved?: () => void } = $props();
+	let {
+		card,
+		trackTime = true,
+		onsaved
+	}: { card: Card; trackTime?: boolean; onsaved?: () => void } = $props();
 
 	let busy = $state(false);
 	let done = $state(false);
 	let problem = $state<Exclude<CheckOutcome, 'saved'> | null>(null);
-	// One id per click: a retry of the same click reuses it, a new click is a new play.
-	let pendingId: string | null = null;
+	// One id and time per click: a retry of the same click reuses them, a new
+	// click is a new play.
+	let pending: Click | null = null;
 
 	async function check() {
 		if (!card.check || busy || done) return;
 		busy = true;
 		problem = null;
-		pendingId ??= crypto.randomUUID();
-		const outcome = await markWatched(card.check, pendingId);
+		pending ??= { id: crypto.randomUUID(), at: new Date() };
+		const outcome = await markWatched(card.check, pending, trackTime);
 		busy = false;
 		if (outcome === 'saved') {
-			pendingId = null;
+			pending = null;
 			done = true;
 			onsaved?.();
 		} else {

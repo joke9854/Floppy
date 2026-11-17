@@ -5229,6 +5229,10 @@ export interface components {
         };
         /** @description The Home screen: header counts and its four sections, in order. */
         HomeScreen: {
+            /** @description The instance records watch times. When false a check sends the local date only, as the Django forms do. */
+            track_time: boolean;
+            /** @description Poster cards per row on phones: "compact" (3) or "comfortable" (2). */
+            mobile_grid_layout: string;
             summary: components["schemas"]["HomeSummary"];
             in_progress: components["schemas"]["HomeInProgressCard"][];
             in_progress_kinds: string[];
@@ -20124,6 +20128,8 @@ export interface operations {
                         episode_code?: string | null;
                         episode_title?: string | null;
                         image?: string | null;
+                        /** @description The image as Floppy's web pages show it: through the image cache when it is on. Null when there is no image. */
+                        display_image?: string | null;
                         status?: string | null;
                         url?: string | null;
                         progress_percent?: number | null;

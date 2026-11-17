@@ -1,7 +1,7 @@
 from datetime import timedelta
 from http import HTTPStatus as HTTP  # noqa: N814
 
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import reverse
 
 from app.models import Status
@@ -30,6 +30,8 @@ class HomeScreenAccessTests(InProgressFixtures):
         self.assertEqual(
             response.json(),
             {
+                "track_time": True,
+                "mobile_grid_layout": "compact",
                 "summary": {"catch_up": 0, "catch_up_shows": 0, "airing_count": 0},
                 "in_progress": [],
                 "in_progress_kinds": [],
@@ -38,6 +40,16 @@ class HomeScreenAccessTests(InProgressFixtures):
                 "coming_soon": [],
             },
         )
+
+    @override_settings(TRACK_TIME=False)
+    def test_it_says_when_the_instance_records_dates_only(self):
+        self.user.mobile_grid_layout = "comfortable"
+        self.user.save(update_fields=["mobile_grid_layout"])
+
+        body = self.client.get(URL).json()
+
+        self.assertFalse(body["track_time"])
+        self.assertEqual(body["mobile_grid_layout"], "comfortable")
 
     def test_catalog_read_reads_it_and_progress_read_does_not(self):
         allowed = self.client.get(URL, HTTP_X_API_KEY=_token(self.user, ["catalog:read"]))

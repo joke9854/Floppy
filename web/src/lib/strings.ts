@@ -39,6 +39,8 @@ export const t = {
 	premiere: 'Premiere',
 	finale: 'Finale',
 	rewatch: 'Rewatch',
+	nowPlaying: 'Now Playing',
+	paused: 'Paused',
 	homeEmptyTitle: 'Nothing to show yet',
 	homeEmptyBody: 'Track a show, anime or movie to see it here.',
 	checkFailed: 'Not saved. Try again.',

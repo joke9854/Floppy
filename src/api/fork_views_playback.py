@@ -9,6 +9,7 @@ import logging
 from datetime import UTC, datetime
 from http import HTTPStatus as HTTP  # noqa: N814
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -31,7 +32,7 @@ from app.services.progress_changes import (
     record_progress_deletion,
 )
 from app.services.tracking_hydration import ensure_item_metadata
-from app.templatetags.app_tags import media_url
+from app.templatetags.app_tags import image_url, media_url
 from integrations.delivery import get_or_record_receipt
 from integrations.models import IntegrationToken
 
@@ -787,6 +788,14 @@ _NOW_PLAYING_SCHEMA = {
         "episode_code": {"type": "string", "nullable": True},
         "episode_title": {"type": "string", "nullable": True},
         "image": {"type": "string", "nullable": True},
+        "display_image": {
+            "type": "string",
+            "nullable": True,
+            "description": (
+                "The image as Floppy's web pages show it: through the image "
+                "cache when it is on. Null when there is no image."
+            ),
+        },
         "status": {"type": "string", "nullable": True},
         "url": {"type": "string", "nullable": True},
         "progress_percent": {"type": "integer", "nullable": True},
@@ -829,6 +838,11 @@ class NowPlayingView(drf_views.APIView):
             "episode_code": card["episode_code"],
             "episode_title": card["episode_title"],
             "image": card["image"],
+            "display_image": (
+                image_url(card["image"])
+                if card["image"] and card["image"] != settings.IMG_NONE
+                else None
+            ),
             "status": card["status"],
             "url": card["details_url"],
             "progress_percent": card["progress_percent"],

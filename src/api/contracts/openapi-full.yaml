@@ -12779,6 +12779,11 @@ paths:
                   image:
                     type: string
                     nullable: true
+                  display_image:
+                    type: string
+                    nullable: true
+                    description: 'The image as Floppy''s web pages show it: through
+                      the image cache when it is on. Null when there is no image.'
                   status:
                     type: string
                     nullable: true
@@ -19971,6 +19976,14 @@ components:
       type: object
       description: 'The Home screen: header counts and its four sections, in order.'
       properties:
+        track_time:
+          type: boolean
+          description: The instance records watch times. When false a check sends
+            the local date only, as the Django forms do.
+        mobile_grid_layout:
+          type: string
+          description: 'Poster cards per row on phones: "compact" (3) or "comfortable"
+            (2).'
         summary:
           $ref: '#/components/schemas/HomeSummary'
         in_progress:
@@ -19998,8 +20011,10 @@ components:
       - coming_soon
       - in_progress
       - in_progress_kinds
+      - mobile_grid_layout
       - recent
       - summary
+      - track_time
     HomeSummary:
       type: object
       description: The header counts.

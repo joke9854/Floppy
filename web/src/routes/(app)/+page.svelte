@@ -5,6 +5,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { invalidate } from '$app/navigation';
 	import AiringRow from '#lib/home/AiringRow.svelte';
+	import NowPlayingPill from '#lib/home/NowPlayingPill.svelte';
 	import ComingCard from '#lib/home/ComingCard.svelte';
 	import PosterCard from '#lib/home/PosterCard.svelte';
 	import ProgressCard from '#lib/home/ProgressCard.svelte';
@@ -39,9 +40,14 @@
 	<title>{t.home} · Floppy</title>
 </svelte:head>
 
-<main class="mx-auto max-w-[1400px] px-5 pt-6 md:px-8 md:pt-8">
+<main
+	class="ct-home mx-auto max-w-[1400px] px-5 pt-6 md:px-8 md:pt-8"
+	data-mobile-grid={home.mobile_grid_layout}
+>
 	<header class="ct-page-head mb-6 sm:mb-8">
-		<div class="min-w-0">
+		<!-- Basis 0: on phones the head wraps for the Now Playing pill, and the
+		     title must keep the avatar beside it rather than push it down. -->
+		<div class="min-w-0 max-sm:flex-[1_1_0%]">
 			<h1 class="ct-page-title">{t.home}</h1>
 			{#if catch_up || airing_count}
 				<p class="ct-page-sub">
@@ -51,6 +57,7 @@
 				</p>
 			{/if}
 		</div>
+		<NowPlayingPill initial={data.nowPlaying} onchange={() => invalidate('floppy:home')} />
 		<a href="/settings/notifications" class="ct-page-bell" aria-label={t.notifications} title={t.notifications}>
 			<Bell class="size-6" aria-hidden="true" />
 		</a>
@@ -83,7 +90,7 @@
 				<!-- Keyed by the episode too: once a watch is saved the card names
 				     the next episode, a new card with a fresh check. -->
 				{#each inProgress as card (`${card.key}:${card.episode?.season_number}:${card.episode?.episode_number}`)}
-					<ProgressCard {card} onsaved={refreshSoon} />
+					<ProgressCard {card} trackTime={home.track_time} onsaved={refreshSoon} />
 				{/each}
 			</Row>
 		</section>
