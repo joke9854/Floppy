@@ -8,6 +8,12 @@
 	let password = $state('');
 	let message = $state('');
 	let busy = $state(false);
+	// The form signs in with a script. Until it has loaded, the button stays
+	// off: a native submit would only reach the no-script fallback.
+	let ready = $state(false);
+	$effect(() => {
+		ready = true;
+	});
 
 	/** allauth headless sign-in, from the browser, so Django sets the session cookie itself. */
 	async function signIn(event: SubmitEvent) {
@@ -43,7 +49,9 @@
 
 <main class="mx-auto max-w-sm p-8">
 	<h1 class="text-2xl font-semibold">Sign in</h1>
-	<form class="mt-6 flex flex-col gap-4" onsubmit={signIn}>
+	<!-- method="post": a submit before the script loads never puts the
+	     password in a URL; the no-script fallback is the Django sign-in. -->
+	<form class="mt-6 flex flex-col gap-4" method="post" onsubmit={signIn}>
 		<label class="flex flex-col gap-1">
 			Username
 			<input class="rounded-md border px-3 py-2" name="username" autocomplete="username" required bind:value={username} />
@@ -62,7 +70,7 @@
 		{#if message}
 			<p role="alert" class="text-red-500">{message}</p>
 		{/if}
-		<button class="rounded-md border px-3 py-2" type="submit" disabled={busy}>Sign in</button>
+		<button class="rounded-md border px-3 py-2" type="submit" disabled={busy || !ready}>Sign in</button>
 	</form>
 	<p class="mt-6 text-sm opacity-70">
 		Forgot your password? <a class="underline" href="/accounts/password/recover/">Use a recovery code</a>.
