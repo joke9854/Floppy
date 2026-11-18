@@ -4829,6 +4829,13 @@ export interface components {
             poster: string;
             poster_srcset: string;
             subtitle: string;
+            /** @description The user's status, for the chip. */
+            status: string | null;
+        };
+        /** @description One episode's dash in a season's progress strip. */
+        DetailDash: {
+            label: string;
+            percent: number;
         };
         /** @description The detail page's episode. */
         DetailEpisode: {
@@ -4897,6 +4904,7 @@ export interface components {
             watched: number;
             total: number | null;
             percent: number;
+            dashes: components["schemas"]["DetailDash"][];
         };
         /** @description The detail page's related. */
         DetailRelated: {
@@ -4908,6 +4916,8 @@ export interface components {
             /** @description provider, trakt, imdb or mal. */
             key: string;
             label: string;
+            /** @description The chip's badge: TMDB, Trakt, IMDb, MAL. */
+            short: string;
             rating: string;
             count: number | null;
         };

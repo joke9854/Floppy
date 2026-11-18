@@ -102,6 +102,7 @@ def _scores(context) -> list[dict]:
                 "label": _text(
                     app_tags.source_readable(context.get("display_provider"))
                 ),
+                "short": _text(context.get("display_provider")).upper()[:4],
                 "rating": _text(media.get("score")),
                 "count": media.get("score_count"),
             }
@@ -117,6 +118,7 @@ def _scores(context) -> list[dict]:
                 {
                     "key": key.removesuffix("_score"),
                     "label": label,
+                    "short": label,
                     "rating": _text(score.get("rating")),
                     "count": score.get("rating_count"),
                 }
@@ -219,14 +221,16 @@ def _card(entry, user) -> dict:
     media = entry.get("media") if isinstance(entry, dict) else None
     image = getattr(media, "card_image_override", None) or app_tags.ct_poster(item)
     image = image or settings.IMG_NONE
-    year = app_tags._ct_value(item, "year") or app_tags.release_year(item) or None
+    released = app_tags._ct_value(item, "release_datetime")
+    status = getattr(media, "aggregated_status", None) or getattr(media, "status", None)
     return {
         "media_type": app_tags._ct_value(item, "media_type"),
         "title": _text(app_tags.display_title(item, user)),
         "url": app_tags.media_url(item),
         "poster": _image(image, "w342"),
         "poster_srcset": app_tags.tmdb_srcset(image) or "",
-        "subtitle": _text(year),
+        "subtitle": released.strftime("%Y") if released else "",
+        "status": status or None,
     }
 
 
@@ -425,6 +429,10 @@ def build_detail_season(request, show_context, season_number) -> dict | None:
                 "watched": numbers["watched"],
                 "total": numbers["total"],
                 "percent": numbers["percent"],
+                "dashes": [
+                    {"label": _text(dash["label"]), "percent": dash["percent"]}
+                    for dash in numbers["dashes"]
+                ],
             }
     load_more = context.get("episode_load_more")
     return {
@@ -561,6 +569,7 @@ class DetailScoreSerializer(serializers.Serializer):
 
     key = serializers.CharField(help_text="provider, trakt, imdb or mal.")
     label = serializers.CharField()
+    short = serializers.CharField(help_text="The chip's badge: TMDB, Trakt, IMDb, MAL.")
     rating = serializers.CharField()
     count = serializers.IntegerField(allow_null=True)
 
@@ -639,12 +648,20 @@ class DetailSeasonCoverSerializer(serializers.Serializer):
     current = serializers.BooleanField()
 
 
+class DetailDashSerializer(serializers.Serializer):
+    """One episode's dash in a season's progress strip."""
+
+    label = serializers.CharField()
+    percent = serializers.IntegerField()
+
+
 class DetailProgressSerializer(serializers.Serializer):
     """The detail page's progress."""
 
     watched = serializers.IntegerField()
     total = serializers.IntegerField(allow_null=True)
     percent = serializers.IntegerField()
+    dashes = DetailDashSerializer(many=True)
 
 
 class DetailEpisodeSerializer(serializers.Serializer):
@@ -702,6 +719,9 @@ class DetailCardSerializer(serializers.Serializer):
     poster = serializers.CharField()
     poster_srcset = serializers.CharField(allow_blank=True)
     subtitle = serializers.CharField(allow_blank=True)
+    status = serializers.CharField(
+        allow_null=True, help_text="The user's status, for the chip."
+    )
 
 
 class DetailRelatedSerializer(serializers.Serializer):

@@ -19100,13 +19100,29 @@ components:
           type: string
         subtitle:
           type: string
+        status:
+          type: string
+          nullable: true
+          description: The user's status, for the chip.
       required:
       - media_type
       - poster
       - poster_srcset
+      - status
       - subtitle
       - title
       - url
+    DetailDash:
+      type: object
+      description: One episode's dash in a season's progress strip.
+      properties:
+        label:
+          type: string
+        percent:
+          type: integer
+      required:
+      - label
+      - percent
     DetailEpisode:
       type: object
       description: The detail page's episode.
@@ -19286,7 +19302,12 @@ components:
           nullable: true
         percent:
           type: integer
+        dashes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailDash'
       required:
+      - dashes
       - percent
       - total
       - watched
@@ -19312,6 +19333,9 @@ components:
           description: provider, trakt, imdb or mal.
         label:
           type: string
+        short:
+          type: string
+          description: 'The chip''s badge: TMDB, Trakt, IMDb, MAL.'
         rating:
           type: string
         count:
@@ -19322,6 +19346,7 @@ components:
       - key
       - label
       - rating
+      - short
     DetailSeason:
       type: object
       description: The detail page's season.
