@@ -82,6 +82,7 @@
 	>
 		<a
 			href="{BASE}/"
+			data-sveltekit-reload={reloadFor(`${BASE}/`)}
 			class="ct-focus flex items-center gap-3 rounded-ct-sm lg:px-1 lg:pb-1"
 			title={t.appName}
 		>
