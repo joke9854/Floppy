@@ -5,18 +5,21 @@ import ShellHost from './ShellHost.test.svelte';
 
 const library = [
 	{ media_type: 'tv', label: 'TV Shows' },
-	{ media_type: 'movie', label: 'Movies' }
+	{ media_type: 'movie', label: 'Movies' },
+	{ media_type: 'music', label: 'Music' }
 ];
 
 describe('Shell', () => {
-	it('wraps the page and links every Django screen with a full load', async () => {
+	it('wraps the page and links the web Library, and Django for the rest', async () => {
 		render(ShellHost, { library });
 
 		await expect.element(page.getByTestId('content')).toBeVisible();
 		const links = document.querySelectorAll<HTMLAnchorElement>('nav a[href]');
 		const hrefs = [...links].map((link) => link.getAttribute('href'));
-		expect(hrefs).toContain('/medialist/tv');
-		expect(hrefs).toContain('/medialist/movie');
+		// The base path is empty under Vitest: /next/library/tv on a server.
+		expect(hrefs).toContain('/library/tv');
+		expect(hrefs).toContain('/library/movie');
+		expect(hrefs).toContain('/medialist/music');
 		expect(hrefs).toContain('/history');
 		expect([...links].every((link) => link.hasAttribute('data-sveltekit-reload'))).toBe(true);
 	});
@@ -29,7 +32,9 @@ describe('Shell', () => {
 
 		const sheet = page.getByRole('dialog');
 		await expect.element(sheet).toBeVisible();
-		await expect.element(sheet.getByRole('link', { name: 'Movies' })).toHaveAttribute('href', '/medialist/movie');
+		await expect
+			.element(sheet.getByRole('link', { name: 'Movies' }))
+			.toHaveAttribute('href', '/library/movie');
 	});
 
 	it('says so when no media type is on', async () => {

@@ -74,9 +74,8 @@ describe('/next Library', () => {
 		await expect
 			.element(page.getByRole('link', { name: 'Shows', exact: true }))
 			.toHaveAttribute('aria-current', 'page');
-		await expect
-			.element(page.getByRole('button', { name: 'All', exact: true }))
-			.toHaveAttribute('aria-pressed', 'true');
+		// The test browser is phone-sized: the status segment is the Status menu there.
+		await expect.element(page.getByRole('button', { name: 'Status' })).toHaveTextContent('All');
 		await expect.element(page.getByRole('button', { name: 'Sort' })).toHaveTextContent('Rating');
 		await expect.element(page.getByText('Severance')).toBeVisible();
 		await expect.element(page.getByText('S2 E3 next')).toBeVisible();
