@@ -20,6 +20,7 @@ import Mic from '@lucide/svelte/icons/mic';
 import Sparkles from '@lucide/svelte/icons/sparkles';
 import Tag from '@lucide/svelte/icons/tag';
 import Tv from '@lucide/svelte/icons/tv';
+import { BASE } from '#lib/paths.ts';
 import { t } from '#lib/strings.ts';
 
 export interface NavItem {
@@ -33,7 +34,7 @@ export interface NavItem {
  * not SvelteKit routes). Each moves to `/next/...` when its screen ships (P4).
  */
 export const PRIMARY: NavItem[] = [
-	{ label: t.home, href: '/', icon: House },
+	{ label: t.home, href: `${BASE}/`, icon: House },
 	{ label: t.discover, href: '/discover', icon: Compass },
 	{ label: t.calendar, href: '/calendar', icon: Calendar }
 ];
@@ -71,11 +72,53 @@ export interface LibraryType {
 	label: string;
 }
 
+/**
+ * Library types with a web screen (P4-B1, the standard poster grid). The
+ * others (music, podcasts, comics) open the Django Library until theirs ship.
+ */
+export const WEB_LIBRARY_TYPES = new Set([
+	'tv',
+	'season',
+	'movie',
+	'anime',
+	'manga',
+	'game',
+	'book',
+	'boardgame'
+]);
+
+/** Where a Library type opens: the web screen when it has one, else Django's. */
+export function libraryHref(mediaType: string, base: string = BASE): string {
+	const type = encodeURIComponent(mediaType);
+	return WEB_LIBRARY_TYPES.has(mediaType) ? `${base}/library/${type}` : `/medialist/${type}`;
+}
+
 /** The user's Library switch (GET user/sidebar/ `library`) as nav items. */
 export function libraryItems(types: LibraryType[]): NavItem[] {
 	return types.map((type) => ({
 		label: type.label,
-		href: `/medialist/${encodeURIComponent(type.media_type)}`,
+		href: libraryHref(type.media_type),
 		icon: MEDIA_ICONS[type.media_type] ?? LayoutGrid
 	}));
+}
+
+/** A link to a screen of this app (client navigation), not a Django page. */
+export function isAppHref(href: string, base: string = BASE): boolean {
+	return href === `${base}/` || href.startsWith(`${base}/`);
+}
+
+/**
+ * `data-sveltekit-reload` for a link: Django pages load in full; this app's
+ * own screens navigate in place ("off").
+ */
+export function reloadFor(href: string, base: string = BASE): '' | 'off' {
+	return isAppHref(href, base) ? 'off' : '';
+}
+
+/** Whether a link names the page at `pathname` (Home only at its root). */
+export function isCurrentHref(href: string, pathname: string, base: string = BASE): boolean {
+	if (!isAppHref(href, base)) return false;
+	const path = pathname.endsWith('/') ? pathname : `${pathname}/`;
+	if (href === `${base}/`) return path === `${base}/`;
+	return path.startsWith(href.endsWith('/') ? href : `${href}/`);
 }

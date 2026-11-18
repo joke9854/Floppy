@@ -174,9 +174,16 @@ jobs:
             }
             signin_ms=$(median_ms "$base/next/login")
             start_ms=$(median_ms -b "$jar" "$base/next/")
-            echo "Response times (median of 7): sign-in page ${signin_ms} ms, signed-in start page ${start_ms} ms"
+            # v2 P4-B: the Library renders through its API, and a type without
+            # a web Library yet goes to the Django page.
+            library_page=$(curl -fsS -b "$jar" "$base/next/library/movie")
+            grep -Fq 'class="ct-library-bar"' <<<"$library_page"
+            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/library/music")" = "$base/medialist/music"
+            library_ms=$(median_ms -b "$jar" "$base/next/library/movie")
+            echo "Response times (median of 7): sign-in page ${signin_ms} ms, signed-in start page ${start_ms} ms, Library ${library_ms} ms"
             test "$signin_ms" -lt 800
             test "$start_ms" -lt 1500
+            test "$library_ms" -lt 1500
             test "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" -X PATCH -H 'Content-Type: application/json' \
               -d '{"username": "smoke"}' "$base/api/v1/user/account/")" = 403
             test "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" -X PATCH -H 'Content-Type: application/json' \

@@ -1,0 +1,87 @@
+/*
+ * Shared by the rebuilt screens (P4): the page head (Django `.ct-page-*`),
+ * the status tabs (discover.css `.ct-status-tab`) and the poster fade (M7).
+ */
+
+.ct-page-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding-top: 8px;
+}
+
+.ct-page-title {
+	font-size: 34px;
+	font-weight: 800;
+	letter-spacing: -0.6px;
+	line-height: 1.15;
+}
+
+.ct-page-sub {
+	margin-top: 4px;
+	color: var(--color-muted);
+	font-size: 15px;
+}
+
+@media (max-width: 639.98px) {
+	.ct-page-title {
+		font-size: 30px;
+	}
+}
+
+.ct-status-tabs {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
+	overflow-x: auto;
+	padding-block: 2px;
+	scrollbar-width: none;
+}
+
+.ct-status-tab {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	height: 32px;
+	padding-inline: 12px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 999px;
+	background-color: transparent;
+	color: var(--color-muted);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	transition:
+		background-color var(--motion-short) var(--ease-standard),
+		color var(--motion-short) var(--ease-standard);
+}
+
+.ct-status-tab:hover {
+	background-color: rgb(180 195 210 / 13%);
+	color: var(--color-text);
+}
+
+.ct-status-tab[aria-pressed='true'] {
+	border-color: rgb(255 255 255 / 18%);
+	background-color: rgb(255 255 255 / 10%);
+	color: var(--color-text);
+}
+
+.ct-status-tab:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Posters fade in once decoded (M7); without scripting they show at once. */
+@media (scripting: enabled) {
+	.ct-fade-img {
+		opacity: 0;
+		transition: opacity var(--motion-medium) var(--ease-standard);
+	}
+
+	.ct-fade-img.is-loaded {
+		opacity: 1;
+	}
+}

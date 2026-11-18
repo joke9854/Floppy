@@ -52,5 +52,18 @@ export const t = {
 	episodesLeft: (count: number) => `${count} left`,
 	timeLeft: (time: string) => `${time} left`,
 	markWatched: (title: string, season: number, episode: number) =>
-		`Mark ${title} S${season} E${episode} watched`
+		`Mark ${title} S${season} E${episode} watched`,
+
+	// Library (P4-B), worded as the Django Library.
+	status: 'Status',
+	sort: 'Sort',
+	ascending: 'Ascending',
+	descending: 'Descending',
+	searchLibrary: 'Search',
+	libraryViews: 'TV view',
+	loadingMore: 'Loading more…',
+	loadMoreFailed: 'More could not load. Scroll to try again.',
+	libraryNoMatch: (title: string) => `No ${title.toLowerCase()} match.`,
+	libraryCount: (count: number, title: string, inProgress: number) =>
+		`${count} ${title.toLowerCase()}` + (inProgress ? ` · ${inProgress} in progress` : '')
 } as const;

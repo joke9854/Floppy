@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import type { Snippet } from 'svelte';
-	import type { NavItem } from './nav.ts';
+	import { reloadFor, type NavItem } from './nav.ts';
 
 	/** A menu of links (bits-ui: keyboard, focus, Escape, outside click). */
 	let {
@@ -46,7 +46,7 @@
 						<a
 							{...props}
 							href={item.href}
-							data-sveltekit-reload
+							data-sveltekit-reload={reloadFor(item.href)}
 							class="flex h-10 items-center gap-3 rounded-ct-xs px-3 text-[14px] font-semibold text-text-secondary outline-none data-highlighted:bg-white/8 data-highlighted:text-text"
 						>
 							<Icon class="size-5 text-muted" aria-hidden="true" />

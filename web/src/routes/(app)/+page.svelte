@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '#lib/styles/screen.css';
 	import '#lib/home/home.css';
 	import Activity from '@lucide/svelte/icons/activity';
 	import Bell from '@lucide/svelte/icons/bell';

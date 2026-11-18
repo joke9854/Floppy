@@ -19,10 +19,27 @@ const NODES = '.svelte-kit/generated/build/client-optimized/nodes/';
 
 /** Page name, its route files (layouts first), and its gzip budget in kB. */
 const PAGES = [
-	{ name: 'Sign-in', routes: ['src/routes/+layout.svelte', 'src/routes/login/+page.svelte'], budgetKb: 60 },
+	{
+		name: 'Sign-in',
+		routes: ['src/routes/+layout.svelte', 'src/routes/login/+page.svelte'],
+		budgetKb: 60
+	},
 	{
 		name: 'Start page with the shell',
-		routes: ['src/routes/+layout.svelte', 'src/routes/(app)/+layout.svelte', 'src/routes/(app)/+page.svelte'],
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/+page.svelte'
+		],
+		budgetKb: 110
+	},
+	{
+		name: 'Library with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/library/[type]/+page.svelte'
+		],
 		budgetKb: 110
 	}
 ];
@@ -56,14 +73,20 @@ function closure(keys) {
 	return files;
 }
 
-const entries = Object.keys(manifest).filter((key) => manifest[key].isEntry && !key.startsWith(NODES));
+const entries = Object.keys(manifest).filter(
+	(key) => manifest[key].isEntry && !key.startsWith(NODES)
+);
 const gzipKb = (file) => gzipSync(readFileSync(join(CLIENT, file))).length / 1024;
 
 let failed = false;
 for (const page of PAGES) {
 	const files = closure([...entries, ...page.routes.map(nodeFor)]);
-	const js = [...files].filter((file) => file.endsWith('.js')).reduce((sum, file) => sum + gzipKb(file), 0);
-	const css = [...files].filter((file) => file.endsWith('.css')).reduce((sum, file) => sum + gzipKb(file), 0);
+	const js = [...files]
+		.filter((file) => file.endsWith('.js'))
+		.reduce((sum, file) => sum + gzipKb(file), 0);
+	const css = [...files]
+		.filter((file) => file.endsWith('.css'))
+		.reduce((sum, file) => sum + gzipKb(file), 0);
 	const total = js + css;
 	const ok = total <= page.budgetKb;
 	failed ||= !ok;
@@ -72,6 +95,8 @@ for (const page of PAGES) {
 	);
 }
 if (failed) {
-	console.error('A page is over its bundle budget. Trim it, or raise the budget in scripts/check-budgets.js on purpose.');
+	console.error(
+		'A page is over its bundle budget. Trim it, or raise the budget in scripts/check-budgets.js on purpose.'
+	);
 	process.exit(1);
 }

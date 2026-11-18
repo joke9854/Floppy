@@ -30,7 +30,7 @@ cutover.
 | Slice | Screen | Status |
 |---|---|---|
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
-| P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games; waiting for approval from screenshots. Later sub-slices below |
+| P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games (API `8eb00953a`, screen approved from screenshots). Later sub-slices below |
 | P4-C | Detail pages (title, season, episode, person, studio) | Not started |
 | P4-D | Track dialog | Not started |
 | P4-E | History | Not started |
