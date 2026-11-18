@@ -112,6 +112,26 @@ def season_details(
         )
         return redirect(f"{url}?{query.urlencode()}")
 
+    context = build_season_details_context(
+        request, source, media_id, title, season_number, parent_media_type
+    )
+    return render(request, "app/components/detail_secondary_content.html", context)
+
+
+def build_season_details_context(
+    request,
+    source,
+    media_id,
+    title,
+    season_number,
+    parent_media_type=None,
+):
+    """Build a season's episode fragment context (the secondary phase).
+
+    There is no season page: the show page loads the season on screen from
+    this fragment. The ``season_details`` view and the detail screen API both
+    call it, so they list the same episodes.
+    """
     detail_view_started_at = time.perf_counter()
     carousel_supported = carousel_media.carousel_supported(
         MediaTypes.SEASON.value, source
@@ -121,7 +141,7 @@ def season_details(
         media_id,
         season_number=season_number,
     )
-    render_secondary_only = request.GET.get("fragment") == DETAIL_SECONDARY_FRAGMENT
+    render_secondary_only = True
     defer_detail_secondary = not render_secondary_only
     detail_return_url = _detail_request_url(request)
     detail_carousel_fragment_url = (
@@ -229,11 +249,7 @@ def season_details(
     notes_entry = None
     if render_secondary_only and not public_view and user_medias:
         notes_entry = next(
-            (
-                entry
-                for entry in user_medias
-                if entry.notes and entry.notes.strip()
-            ),
+            (entry for entry in user_medias if entry.notes and entry.notes.strip()),
             None,
         )
     elif render_secondary_only and public_notes_view and list_owner:
@@ -524,8 +540,7 @@ def season_details(
         created_any_episode = False
         if missing_numbers:
             air_date_by_number = {
-                number: air_date_dt
-                for _episode, number, air_date_dt in parsed_episodes
+                number: air_date_dt for _episode, number, air_date_dt in parsed_episodes
             }
             Item.objects.bulk_create(
                 [
@@ -1116,12 +1131,4 @@ def season_details(
         source,
         (time.perf_counter() - detail_view_started_at) * 1000,
     )
-    return render(
-        request,
-        (
-            "app/components/detail_secondary_content.html"
-            if render_secondary_only
-            else "app/media_details.html"
-        ),
-        context,
-    )
+    return context
