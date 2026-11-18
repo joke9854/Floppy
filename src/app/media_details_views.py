@@ -273,15 +273,43 @@ def media_details(
         ).strip()
         return HttpResponse(html)
 
+    built = build_media_details_context(
+        request,
+        source,
+        media_type,
+        media_id,
+        title,
+        secondary=request.GET.get("fragment") == DETAIL_SECONDARY_FRAGMENT,
+    )
+    if isinstance(built, HttpResponse):
+        return built
+    context, template = built
+    return render(request, template, context)
+
+
+def build_media_details_context(
+    request,
+    source,
+    media_type,
+    media_id,
+    title,
+    *,
+    secondary,
+):
+    """Build the details page's context, or the response it returns early.
+
+    Returns ``(context, template)``, or an ``HttpResponse`` (a redirect) when
+    the page sends the browser elsewhere. ``secondary`` picks the phase: the
+    shell reads only caches; the secondary phase fetches what is missing and
+    renders the sections below the hero. The ``media_details`` view and the
+    detail screen API both call it, so they show the same data.
+    """
     detail_view_started_at = time.perf_counter()
     carousel_supported = carousel_media.carousel_supported(
         media_type,
         source,
     ) and not carousel_media.confirmed_empty(media_type, source, media_id)
-    render_secondary_only = (
-        request.GET.get("fragment") == DETAIL_SECONDARY_FRAGMENT
-        and media_type != MediaTypes.PODCAST.value
-    )
+    render_secondary_only = secondary and media_type != MediaTypes.PODCAST.value
     defer_detail_secondary = (
         not render_secondary_only and media_type != MediaTypes.PODCAST.value
     )
@@ -840,7 +868,7 @@ def media_details(
                     source,
                 ),
             }
-            return render(request, "app/media_details.html", context)
+            return context, "app/media_details.html"
 
     tracking_media_type = metadata_resolution.get_tracking_media_type(
         media_type,
@@ -2101,8 +2129,4 @@ def media_details(
         template = "app/components/detail_secondary_content.html"
     else:
         template = "app/media_details.html"
-    return render(
-        request,
-        template,
-        context,
-    )
+    return context, template

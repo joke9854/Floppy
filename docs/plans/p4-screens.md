@@ -31,7 +31,7 @@ cutover.
 |---|---|---|
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games (API `8eb00953a`, screen approved from screenshots). Later sub-slices below |
-| P4-C | Detail pages (title, season, episode, person, studio) | Not started |
+| P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1 started 2026-11-18: the movie and show page |
 | P4-D | Track dialog | Not started |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
@@ -152,3 +152,48 @@ about 320 ms warm, TV in 0.6 to 1.1 s; the Episode Air Date sort was 2.3 s
 cold. The query-count pins in `app.tests.test_query_counts` had drifted above
 their budgets before this work (the suite runs on pull requests only and this
 branch is pushed directly); see the board item.
+
+### P4-C: Detail pages
+
+Today's title page (`app/media_details.html`, view
+`app.media_details_views.media_details`, about 1,870 lines) renders in two
+phases. The shell reads only caches, so first paint never waits on a provider.
+`?fragment=secondary` then fetches what is missing and renders the sections
+below the hero. There is no season page: `season_details` redirects to the show
+with `?season=N`, and the season's episodes are the show page's secondary
+fragment.
+
+C1 is the movie and show page in the CineTrack v2 layout (`ct/detail_hero.html`
+and `ct/detail_secondary.html`). Other types (anime, games, books, music,
+podcasts, comics) redirect 307 to their Django page, as the Library does.
+
+- [ ] Back control, backdrop (cache only; the poster until the secondary
+      phase finds one), poster, title.
+- [ ] Meta line: type, two genres, year; runtime and certification for
+      movies; "N Seasons" and "X% watched" for shows.
+- [ ] Score chips (the values; the ratings graphs come later).
+- [ ] The main action: an untracked or planned movie gets Mark as watched;
+      a watched movie shows Watched; a show gets "Mark S2 E5 as watched" for
+      its next episode. Until the track dialog (P4-D), a Track link opens the
+      Django page, which keeps every other action reachable.
+- [ ] Overview, and Watch on for the user's region.
+- [ ] Shows: season pills (`?season=N`, else the next episode's season), the
+      season's "X of Y episodes watched", episode rows with a watched check.
+- [ ] Movies: Your Plays.
+- [ ] Cast, the franchise collection and related lists, More Like This,
+      Information.
+- [ ] Sections follow the user's detail layout (order and hidden sections).
+- [ ] Inside `/next`, Home and Library cards for movies and shows open this
+      page.
+- [ ] Later in P4-C: trailers, characters and crew tabs, notes, the physical
+      collection section, history editing, ratings graphs, the link and tag
+      popovers, the metadata provider switch, fanart logos, the season info
+      dialog, the W shortcut, the episode, person and studio pages.
+
+API (C1): `GET /api/v1/details/{media_type}/{source}/{media_id}/?part=shell`
+or `part=secondary` returns the page's own data. `build_media_details_context`
+is split from the view, and the phase is a parameter rather than
+`?fragment=secondary`. The GET can write (metadata it resolves, queued
+refreshes), so the endpoint takes the session or the account token only. The
+web load awaits the shell and streams the secondary, which can take 0.5 to
+1.9 s on a title's first TVDB read.
