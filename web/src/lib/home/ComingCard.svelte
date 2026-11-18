@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { detailLink } from '#lib/details/link.ts';
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
@@ -14,7 +15,7 @@
 </script>
 
 <article class="ct-poster-card">
-	<a href={release.url} class="ct-poster-link">
+	<a {...detailLink(release.url)} class="ct-poster-link">
 		<span class="ct-poster-frame">
 			<img
 				alt={release.title}

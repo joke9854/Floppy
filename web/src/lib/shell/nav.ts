@@ -122,3 +122,14 @@ export function isCurrentHref(href: string, pathname: string, base: string = BAS
 	if (href === `${base}/`) return path === `${base}/`;
 	return path.startsWith(href.endsWith('/') ? href : `${href}/`);
 }
+
+/** A Django movie or show page: /details/<source>/<movie|tv>/<id>/<title>[?season=N]. */
+const WEB_DETAIL = /^\/details\/[^/?#]+\/(?:movie|tv)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/;
+
+/**
+ * Where a title's link opens (P4-C1): movie and show pages open the web
+ * detail page; seasons, episodes and other types keep their Django page.
+ */
+export function detailHref(href: string, base: string = BASE): string {
+	return WEB_DETAIL.test(href) ? `${base}${href}` : href;
+}

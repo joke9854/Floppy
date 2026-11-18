@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { detailLink } from '#lib/details/link.ts';
 	import Check from '@lucide/svelte/icons/check';
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
@@ -53,7 +54,7 @@
 	aria-busy={busy}
 >
 	<div class="ct-progress-frame">
-		<a href={card.url} class="ct-progress-media" tabindex="-1" aria-hidden="true">
+		<a {...detailLink(card.url)} class="ct-progress-media" tabindex="-1" aria-hidden="true">
 			{#if card.backdrop}
 				<img
 					alt=""
@@ -94,7 +95,7 @@
 		{/if}
 		<span class="ct-progress-line" aria-hidden="true"><span style:width="var(--ct-progress)"></span></span>
 	</div>
-	<a href={card.url} class="ct-progress-title">{card.title}</a>
+	<a {...detailLink(card.url)} class="ct-progress-title">{card.title}</a>
 	<span class="ct-progress-episode">
 		{#if card.is_rewatch}<span class="ct-count-pill">{t.rewatch}</span>{/if}
 		{#if card.episode}

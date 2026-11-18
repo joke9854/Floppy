@@ -65,5 +65,37 @@ export const t = {
 	loadMoreFailed: 'More could not load. Scroll to try again.',
 	libraryNoMatch: (title: string) => `No ${title.toLowerCase()} match.`,
 	libraryCount: (count: number, title: string, inProgress: number) =>
-		`${count} ${title.toLowerCase()}` + (inProgress ? ` · ${inProgress} in progress` : '')
+		`${count} ${title.toLowerCase()}` + (inProgress ? ` · ${inProgress} in progress` : ''),
+
+	// Detail page (P4-C1), worded as the Django movie and show page.
+	back: 'Back',
+	markAsWatched: 'Mark as watched',
+	watched: 'Watched',
+	markEpisode: (season: number, episode: number) => `Mark S${season} E${episode} as watched`,
+	track: 'Track',
+	trackTitle: 'Status, rating, dates and lists, on the classic page',
+	readMore: 'Read more',
+	showLess: 'Show less',
+	watchOn: 'Watch on',
+	viaJustWatch: 'via JustWatch',
+	seasonsCount: (count: number) => `${count} ${count === 1 ? 'Season' : 'Seasons'}`,
+	percentWatched: (percent: number) => `${percent}% watched`,
+	votes: (count: number) => `${count.toLocaleString('en-US')} ${count === 1 ? 'vote' : 'votes'}`,
+	episodes: 'Episodes',
+	seasons: 'Seasons',
+	episodesWatched: (watched: number, total: number | null) =>
+		total ? `${watched} of ${total} episodes watched` : `${watched} episodes watched`,
+	upNext: 'Up next',
+	episodeOverview: 'Episode overview',
+	revealThumbnail: 'Reveal thumbnail',
+	markEpisodeWatched: (episode: number, title: string) => `Mark E${episode} ${title} as watched`,
+	yourPlays: 'Your Plays',
+	rated: (score: string) => `Rated ${score}`,
+	cast: 'Cast',
+	seeAll: 'See All',
+	moreLikeThis: 'More Like This',
+	information: 'Information',
+	sectionsFailed: 'This part of the page could not load.',
+	seasonFailed: 'This season could not load.',
+	unknown: 'Unknown'
 } as const;

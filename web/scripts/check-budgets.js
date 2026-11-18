@@ -41,6 +41,15 @@ const PAGES = [
 			'src/routes/(app)/library/[type]/+page.svelte'
 		],
 		budgetKb: 110
+	},
+	{
+		name: 'Detail page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/[source]/[type]/[id]/[[title]]/+page.svelte'
+		],
+		budgetKb: 110
 	}
 ];
 

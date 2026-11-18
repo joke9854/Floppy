@@ -31,7 +31,7 @@ cutover.
 |---|---|---|
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games (API `8eb00953a`, screen approved from screenshots). Later sub-slices below |
-| P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1 started 2026-11-18: the movie and show page |
+| P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1 built: the movie and show page (API `ef4be8e18`), screen awaiting approval from screenshots |
 | P4-D | Track dialog | Not started |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
@@ -167,24 +167,27 @@ C1 is the movie and show page in the CineTrack v2 layout (`ct/detail_hero.html`
 and `ct/detail_secondary.html`). Other types (anime, games, books, music,
 podcasts, comics) redirect 307 to their Django page, as the Library does.
 
-- [ ] Back control, backdrop (cache only; the poster until the secondary
+- [x] Back control, backdrop (cache only; the poster until the secondary
       phase finds one), poster, title.
-- [ ] Meta line: type, two genres, year; runtime and certification for
+- [x] Meta line: type, two genres, year; runtime and certification for
       movies; "N Seasons" and "X% watched" for shows.
-- [ ] Score chips (the values; the ratings graphs come later).
-- [ ] The main action: an untracked or planned movie gets Mark as watched;
+- [x] Score chips (the values; the ratings graphs come later).
+- [x] The main action: an untracked or planned movie gets Mark as watched;
       a watched movie shows Watched; a show gets "Mark S2 E5 as watched" for
       its next episode. Until the track dialog (P4-D), a Track link opens the
       Django page, which keeps every other action reachable.
-- [ ] Overview, and Watch on for the user's region.
-- [ ] Shows: season pills (`?season=N`, else the next episode's season), the
+- [x] Overview, and Watch on for the user's region.
+- [x] Shows: season pills (`?season=N`, else the next episode's season), the
       season's "X of Y episodes watched", episode rows with a watched check.
-- [ ] Movies: Your Plays.
-- [ ] Cast, the franchise collection and related lists, More Like This,
+- [x] Movies: Your Plays.
+- [x] Cast, the franchise collection and related lists, More Like This,
       Information.
-- [ ] Sections follow the user's detail layout (order and hidden sections).
-- [ ] Inside `/next`, Home and Library cards for movies and shows open this
-      page.
+- [x] Sections follow the user's detail layout: a hidden section is left out.
+      The v2 sections are a block, so the layout's order does not move them
+      on the page either.
+- [x] Inside `/next`, Home and Library cards for movies and shows open this
+      page (preloaded on tap, never on hover: the load can read the provider).
+      Season, episode and other links keep their Django page.
 - [ ] Later in P4-C: trailers, characters and crew tabs, notes, the physical
       collection section, history editing, ratings graphs, the link and tag
       popovers, the metadata provider switch, fanart logos, the season info
@@ -196,4 +199,24 @@ is split from the view, and the phase is a parameter rather than
 `?fragment=secondary`. The GET can write (metadata it resolves, queued
 refreshes), so the endpoint takes the session or the account token only. The
 web load awaits the shell and streams the secondary, which can take 0.5 to
-1.9 s on a title's first TVDB read.
+1.9 s on a title's first TVDB read. Built as three reads:
+`GET /api/v1/details/{type}/{source}/{id}/` (the hero), `.../sections/` and
+`GET /api/v1/details/tv/{source}/{id}/season/?season=N` (a pill or Show more).
+
+How C1 acts:
+- A show's check and the hero's "Mark S1 E3" use the episode ensure route
+  with a click's own event id, as Home does; the hero then re-reads the hero
+  and the season. With no named next episode the hero takes the first
+  unwatched aired episode of the season on screen, as ctShell.js does.
+- An untracked or planned movie's Mark as watched posts the Django form
+  (`media_save`, `save_as_new_entry`, the local wall time as `ctWatchNow`
+  sends it), so a plan is replaced exactly as on the page. The button waits
+  for hydration: an earlier click would post the form without its CSRF token
+  and time.
+- A watched movie's green Watched and the Track pill open the Django page,
+  which keeps every other action (status, rating, dates, lists, rewatches).
+- Shown as the Django Cast tab (person, then role); the Characters tab with
+  TVDB pictures and the Crew tab come later in P4-C.
+
+Measured locally: the detail page with the shell is 108.4 kB gzip (budget
+110 kB).

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { detailLink } from '#lib/details/link.ts';
 	import type { components } from '#lib/api/client.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import StatusChip from './StatusChip.svelte';
@@ -10,7 +11,7 @@
 </script>
 
 <article class="ct-poster-card" data-media-type={card.media_type}>
-	<a href={card.url} class="ct-poster-link">
+	<a {...detailLink(card.url)} class="ct-poster-link">
 		<span class="ct-poster-frame">
 			<img
 				alt={card.title}

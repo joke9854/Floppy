@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { detailLink } from '#lib/details/link.ts';
 	import type { components } from '#lib/api/client.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { STATUS_LOOKS } from '#lib/media/status.ts';
@@ -16,7 +17,7 @@
 </script>
 
 <article class="ct-library-card" data-media-type={card.media_type}>
-	<a href={card.url} data-sveltekit-reload>
+	<a {...detailLink(card.url)}>
 		<span class="ct-library-poster">
 			<img
 				alt={card.title}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { detailLink } from '#lib/details/link.ts';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
@@ -11,7 +12,7 @@
 </script>
 
 <li>
-	<a href={release.url} class="ct-airing-row">
+	<a {...detailLink(release.url)} class="ct-airing-row">
 		<span class={['ct-airing-day', release.is_today && 'is-today']}>
 			<span>{weekday(release.day)}</span>
 			<strong>{dayOfMonth(release.day)}</strong>
