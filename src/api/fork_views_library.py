@@ -9,7 +9,7 @@ schema. The changes themselves live in `app.library_actions` (and
 import logging
 from http import HTTPStatus as HTTP  # noqa: N814
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework import views as drf_views
 from rest_framework.response import Response
@@ -34,6 +34,11 @@ from app.providers import credentials, hardcover, musicbrainz, tmdb
 from app.services.music import resync_album, sync_album_release_tracks
 
 from .contract_serializers import DetailErrorSerializer
+from .library_screen import (
+    LIBRARY_SCREEN_TYPES,
+    LibraryScreenSerializer,
+    build_library_screen,
+)
 from .provider_errors import (
     PROVIDER_UNAVAILABLE_DETAIL,
     is_provider_failure,
@@ -628,5 +633,41 @@ class CollectionFieldsView(drf_views.APIView):
             return Response({"detail": str(error)}, status=HTTP.NOT_FOUND)
         return Response(
             {"groups": serialize_collection_field_schema(request.user)},
+            status=HTTP.OK,
+        )
+
+
+# /api/v1/library/{media_type}/
+class LibraryScreenView(drf_views.APIView):
+    """The Library page for one media type, for the new web app (v2 P4-B)."""
+
+    @extend_schema(
+        description=(
+            "One page of the Library exactly as /medialist/<type> lists it: the "
+            "page's own filters, sorts, saved preferences and page size. Takes the "
+            "page's query parameters (sort, direction, status, search, page and the "
+            "filter menu's). Like the page it saves the sort, direction and status "
+            "as the user's preferences, so integration tokens cannot call it."
+        ),
+        parameters=[
+            OpenApiParameter("sort", str, description="A value from `sorts`."),
+            OpenApiParameter("direction", str, enum=["asc", "desc"]),
+            OpenApiParameter(
+                "status", str, many=True, description="A value from `status_choices`, repeatable."
+            ),
+            OpenApiParameter("search", str),
+            OpenApiParameter("page", int),
+        ],
+        responses={200: LibraryScreenSerializer, 400: DetailErrorSerializer},
+    )
+    def get(self, request, media_type):
+        """Return one page of the user's Library for ``media_type``."""
+        if media_type not in LIBRARY_SCREEN_TYPES:
+            return Response(
+                {"detail": "This media type has no web Library yet."},
+                status=HTTP.BAD_REQUEST,
+            )
+        return Response(
+            LibraryScreenSerializer(build_library_screen(request._request, media_type)).data,
             status=HTTP.OK,
         )

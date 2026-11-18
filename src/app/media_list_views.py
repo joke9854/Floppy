@@ -963,8 +963,13 @@ def _resolve_media_list_preferences(request, route_media_type, comic_subview):
     return layout, sort_filter, direction, media_type, sorted_media_sort_choices
 
 
-def media_list(request, media_type):
-    """Return the media list page."""
+def build_media_list_context(request, media_type):
+    """Return the media list page's context, layout and resolved media type.
+
+    Split from media_list so the web Library API (v2 P4-B) lists exactly what
+    the page lists: same filters, sorts, saved preferences and pagination. Like
+    the page it saves the sort, direction, layout and status preferences.
+    """
     route_media_type = media_type
     comic_subview = None
     if route_media_type == MediaTypes.COMIC.value:
@@ -3130,6 +3135,8 @@ def media_list(request, media_type):
             list_url=reverse("bulk_list_add"),
             collection_url=reverse("bulk_collection_quick_add"),
             tag_url=reverse("tag_bulk_toggle"),
+            # Every path above read all the user's tags for the filter menu.
+            tag_names=(context.get("filter_data") or {}).get("tags"),
         )
 
     if context.get("is_artist_list", False):
@@ -3178,6 +3185,13 @@ def media_list(request, media_type):
                 pref_hidden,
                 resolved_keys,
             )
+
+    return context, layout, media_type
+
+
+def media_list(request, media_type):
+    """Return the media list page."""
+    context, layout, media_type = build_media_list_context(request, media_type)
 
     # Handle HTMX requests for partial updates (boosted navigation still
     # sends HX-Request but needs the full page)

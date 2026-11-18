@@ -41,8 +41,13 @@ def build_bulk_action_data(
     list_url: str,
     collection_url: str,
     tag_url: str,
+    tag_names: list[str] | None = None,
 ) -> dict:
-    """Return JSON-serializable configuration for the bulk-action controller."""
+    """Return JSON-serializable configuration for the bulk-action controller.
+
+    ``tag_names``: the user's tag names when the caller has already read them
+    (the Library page has, for its filter menu), to save the query.
+    """
     from lists.models import CustomList
 
     return {
@@ -55,7 +60,11 @@ def build_bulk_action_data(
             {"value": value, "label": str(label)}
             for value, label in Status.choices
         ],
-        "tags": list(Tag.objects.filter(user=user).order_by("name").values_list("name", flat=True)),
+        "tags": (
+            sorted(tag_names, key=str.casefold)
+            if tag_names is not None
+            else list(Tag.objects.filter(user=user).order_by("name").values_list("name", flat=True))
+        ),
         # Names and ids only. get_user_lists prefetches every Item in every
         # list so the list pages can render their contents; this dropdown
         # renders neither, and on a large library that prefetch was 4,683

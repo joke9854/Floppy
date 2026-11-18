@@ -12,6 +12,7 @@ from django.utils import timezone
 from app import helpers
 from app.media_list_pagination import can_paginate_in_sql
 from app.models import (
+    TV,
     BasicMedia,
     CollectionEntry,
     Episode,
@@ -869,9 +870,17 @@ def _sort_value(entry, sort, next_episode):
     if sort in {"date_added", "added", "created_at"}:
         return getattr(media, "created_at", None)
     if sort in {"start_date", "started"}:
-        return getattr(media, "aggregated_start_date", None) or getattr(
-            media, "start_date", None
-        )
+        aggregated = getattr(media, "aggregated_start_date", None)
+        if aggregated is not None:
+            return aggregated
+        if isinstance(media, TV):
+            # As the Library page: the first watched date, without TV.start_date's
+            # fallback to when an In Progress show was added.
+            dates = media._season_activity_dates("start_date") or media._season_activity_dates(
+                "start_date", include_specials=True
+            )
+            return min(dates) if dates else None
+        return getattr(media, "start_date", None)
     if sort in {"end_date", "ended"}:
         return getattr(media, "aggregated_end_date", None) or getattr(
             media, "end_date", None
@@ -894,9 +903,27 @@ def _sort_value(entry, sort, next_episode):
     return getattr(item, "title", "").lower()
 
 
+def _sort_tv_by_time_left(entries, direction):
+    """Order shows as the Library page does for Time Left (app.tv_sort)."""
+    from app.models.episode_runtimes import prefill_episode_runtime_index
+    from app.tv_sort import _sort_tv_media_by_time_left
+
+    tracked = [entry for entry in entries if entry.media is not None]
+    media_list = [entry.media for entry in tracked]
+    BasicMedia.objects.annotate_max_progress(media_list, MediaTypes.TV.value, cached_only=True)
+    prefill_episode_runtime_index(media_list)
+    entry_by_media = {id(entry.media): entry for entry in tracked}
+    ordered = _sort_tv_media_by_time_left(media_list, direction or "asc")
+    return [entry_by_media[id(media)] for media in ordered] + [
+        entry for entry in entries if entry.media is None
+    ]
+
+
 def _sort_entries(entries, filters, media_type):
     if not filters.sort:
         return entries
+    if filters.sort == "time_left" and media_type == MediaTypes.TV.value:
+        return _sort_tv_by_time_left(entries, filters.direction)
     if media_type in {MediaTypes.TV.value, MediaTypes.ANIME.value} or filters.sort in {
         "next_episode_air_date",
         "time_left",
@@ -918,11 +945,11 @@ def _sort_entries(entries, filters, media_type):
             without_values.append(entry)
         else:
             with_values.append((value, entry))
-    with_values.sort(key=lambda pair: (pair[0], getattr(pair[1].item, "title", "").lower()), reverse=reverse)
-    without_values.sort(
-        key=lambda entry: getattr(entry.item, "title", "").lower(),
-        reverse=reverse,
-    )
+    # As the Library page: ties and entries without a value stay A to Z in
+    # both directions (title first, then a stable sort on the value).
+    with_values.sort(key=lambda pair: getattr(pair[1].item, "title", "").lower())
+    with_values.sort(key=lambda pair: pair[0], reverse=reverse)
+    without_values.sort(key=lambda entry: getattr(entry.item, "title", "").lower())
     return [entry for _, entry in with_values] + without_values
 
 

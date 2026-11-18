@@ -1221,17 +1221,26 @@ class MediaManager(models.Manager):
                     for season in seasons
                     if getattr(season, "item", None) is not None
                 }
-                untracked_events = (
-                    events.models.Event.objects.filter(
-                        item__media_id=item.media_id,
-                        item__source=item.source,
-                        item__media_type=MediaTypes.SEASON.value,
-                        item__season_number__gt=0,
-                        content_number__isnull=False,
+                preloaded = getattr(media, "_show_season_events", None)
+                if preloaded is not None:
+                    # The sort preloads every show's season events in one query.
+                    untracked_events = [
+                        event
+                        for event in preloaded
+                        if event.item.season_number not in tracked_season_numbers
+                    ]
+                else:
+                    untracked_events = (
+                        events.models.Event.objects.filter(
+                            item__media_id=item.media_id,
+                            item__source=item.source,
+                            item__media_type=MediaTypes.SEASON.value,
+                            item__season_number__gt=0,
+                            content_number__isnull=False,
+                        )
+                        .exclude(item__season_number__in=tracked_season_numbers)
+                        .order_by("item__season_number", "content_number")
                     )
-                    .exclude(item__season_number__in=tracked_season_numbers)
-                    .order_by("item__season_number", "content_number")
-                )
                 candidates.extend(untracked_events)
 
             if progress_index >= len(candidates):
@@ -1279,10 +1288,46 @@ class MediaManager(models.Manager):
 
         return None
 
+    def _preload_show_season_events(self, media_items):
+        """Load the season events of every show in ``media_items`` in one query.
+
+        A caught-up show's next episode can open a season the user has not
+        started, whose events _next_episode_air_date_value would otherwise
+        read with a query per show (193 on a 267-show library).
+        """
+        shows = [
+            media
+            for media in media_items
+            if getattr(getattr(media, "item", None), "media_type", None)
+            == MediaTypes.TV.value
+        ]
+        if not shows:
+            return
+        keys = {(media.item.media_id, media.item.source) for media in shows}
+        by_show = {key: [] for key in keys}
+        season_events = (
+            events.models.Event.objects.filter(
+                item__media_id__in={media_id for media_id, _ in keys},
+                item__source__in={source for _, source in keys},
+                item__media_type=MediaTypes.SEASON.value,
+                item__season_number__gt=0,
+                content_number__isnull=False,
+            )
+            .select_related("item")
+            .order_by("item__season_number", "content_number")
+        )
+        for event in season_events:
+            key = (event.item.media_id, event.item.source)
+            if key in by_show:
+                by_show[key].append(event)
+        for media in shows:
+            media._show_season_events = by_show[(media.item.media_id, media.item.source)]
+
     def _sort_media_items_by_next_episode_air_date(self, media_items, direction):
         """Sort media items by next episode air date with missing dates last."""
         with_dates = []
         without_dates = []
+        self._preload_show_season_events(media_items)
 
         for media in media_items:
             next_episode_air_date = self._next_episode_air_date_value(media)

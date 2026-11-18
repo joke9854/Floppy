@@ -1037,6 +1037,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/library/{media_type}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One page of the Library exactly as /medialist/<type> lists it: the page's own filters, sorts, saved preferences and page size. Takes the page's query parameters (sort, direction, status, search, page and the filter menu's). Like the page it saves the sort, direction and status as the user's preferences, so integration tokens cannot call it. */
+        get: operations["api_v1_library_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/library/bulk-delete/": {
         parameters: {
             query?: never;
@@ -5810,6 +5827,53 @@ export interface components {
          * @enum {string}
          */
         KindEnum: "crash" | "anr";
+        /** @description A Library poster card. */
+        LibraryCard: {
+            /** @description The item id. */
+            key: number;
+            media_type: string;
+            title: string;
+            /** @description The Django page the card opens. */
+            url: string;
+            poster: string;
+            poster_srcset: string;
+            status: string | null;
+            progress: components["schemas"]["LibraryCardProgress"] | null;
+            /** @description "S2 E5 next" for shows in progress, else the status. */
+            subtitle: string;
+            /** @description The value the list is sorted by, as the page shows it. */
+            detail: string;
+        };
+        /** @description The inset progress line. */
+        LibraryCardProgress: {
+            percent: number;
+            paused: boolean;
+        };
+        /** @description A sort or status the page offers. */
+        LibraryChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description One page of the Library for a media type, with its menus' state. */
+        LibraryScreen: {
+            media_type: string;
+            title: string;
+            /** @description Titles matching the filters, all pages. */
+            count: number;
+            in_progress: number;
+            views: components["schemas"]["LibraryView"][];
+            sort: string;
+            /** @description "asc" or "desc". */
+            direction: string;
+            sorts: components["schemas"]["LibraryChoice"][];
+            /** @description Selected statuses; empty for all. */
+            statuses: string[];
+            status_choices: components["schemas"]["LibraryChoice"][];
+            search: string;
+            page: number;
+            has_next: boolean;
+            results: components["schemas"]["LibraryCard"][];
+        };
         /**
          * @description * `planning` - planning
          *     * `in_progress` - in_progress
@@ -5831,6 +5895,11 @@ export interface components {
         LibraryStatusWriteEnum: "planning" | "in_progress" | "paused" | "dropped" | "completed" | "none";
         /** @description One entry of the Library switch. */
         LibraryType: {
+            media_type: string;
+            label: string;
+        };
+        /** @description Shows or Seasons, when both TV views are on. */
+        LibraryView: {
             media_type: string;
             label: string;
         };
@@ -11851,6 +11920,61 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    api_v1_library_retrieve: {
+        parameters: {
+            query?: {
+                direction?: "asc" | "desc";
+                page?: number;
+                search?: string;
+                /** @description A value from `sorts`. */
+                sort?: string;
+                /** @description A value from `status_choices`, repeatable. */
+                status?: string[];
+            };
+            header?: never;
+            path: {
+                media_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryScreen"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -307,6 +307,8 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_admin.DefaultProviderView": {"PUT": NEVER},
     "api.fork_views_admin.ImageCacheView": {"GET": NEVER, "PATCH": NEVER},
     "api.fork_views_admin.ImageCacheClearView": {"POST": NEVER},
+    # Saves the Library sort/status preferences like the page (v2 P4-B).
+    "api.fork_views_library.LibraryScreenView": {"GET": NEVER},
     "api.fork_views_admin.ServerPortView": {"GET": NEVER, "PUT": NEVER, "DELETE": NEVER},
     "api.fork_views_admin.LogsView": {"GET": NEVER},
     "api.fork_views_admin.TmdbProxyView": {"GET": NEVER, "PUT": NEVER, "DELETE": NEVER},

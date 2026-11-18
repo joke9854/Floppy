@@ -3412,6 +3412,79 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/library/{media_type}/:
+    get:
+      operationId: api_v1_library_retrieve
+      description: 'One page of the Library exactly as /medialist/<type> lists it:
+        the page''s own filters, sorts, saved preferences and page size. Takes the
+        page''s query parameters (sort, direction, status, search, page and the filter
+        menu''s). Like the page it saves the sort, direction and status as the user''s
+        preferences, so integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: direction
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: query
+        name: page
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: sort
+        schema:
+          type: string
+        description: A value from `sorts`.
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            type: string
+        description: A value from `status_choices`, repeatable.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/library/bulk-delete/:
     get:
       operationId: getBulkDeleteSummary
@@ -21065,6 +21138,130 @@ components:
       description: |-
         * `crash` - crash
         * `anr` - anr
+    LibraryCard:
+      type: object
+      description: A Library poster card.
+      properties:
+        key:
+          type: integer
+          description: The item id.
+        media_type:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+          description: The Django page the card opens.
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        status:
+          type: string
+          nullable: true
+        progress:
+          allOf:
+          - $ref: '#/components/schemas/LibraryCardProgress'
+          nullable: true
+        subtitle:
+          type: string
+          description: '"S2 E5 next" for shows in progress, else the status.'
+        detail:
+          type: string
+          description: The value the list is sorted by, as the page shows it.
+      required:
+      - detail
+      - key
+      - media_type
+      - poster
+      - poster_srcset
+      - progress
+      - status
+      - subtitle
+      - title
+      - url
+    LibraryCardProgress:
+      type: object
+      description: The inset progress line.
+      properties:
+        percent:
+          type: integer
+        paused:
+          type: boolean
+      required:
+      - paused
+      - percent
+    LibraryChoice:
+      type: object
+      description: A sort or status the page offers.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    LibraryScreen:
+      type: object
+      description: One page of the Library for a media type, with its menus' state.
+      properties:
+        media_type:
+          type: string
+        title:
+          type: string
+        count:
+          type: integer
+          description: Titles matching the filters, all pages.
+        in_progress:
+          type: integer
+        views:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryView'
+        sort:
+          type: string
+        direction:
+          type: string
+          description: '"asc" or "desc".'
+        sorts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        statuses:
+          type: array
+          items:
+            type: string
+          description: Selected statuses; empty for all.
+        status_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        search:
+          type: string
+        page:
+          type: integer
+        has_next:
+          type: boolean
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryCard'
+      required:
+      - count
+      - direction
+      - has_next
+      - in_progress
+      - media_type
+      - page
+      - results
+      - search
+      - sort
+      - sorts
+      - status_choices
+      - statuses
+      - title
+      - views
     LibraryStatusEnum:
       enum:
       - planning
@@ -21098,6 +21295,17 @@ components:
     LibraryType:
       type: object
       description: One entry of the Library switch.
+      properties:
+        media_type:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - media_type
+    LibraryView:
+      type: object
+      description: Shows or Seasons, when both TV views are on.
       properties:
         media_type:
           type: string

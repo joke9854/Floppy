@@ -30,7 +30,7 @@ cutover.
 | Slice | Screen | Status |
 |---|---|---|
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
-| P4-B | Library (movies, shows, anime and the other media lists) | Not started |
+| P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games; waiting for approval from screenshots. Later sub-slices below |
 | P4-C | Detail pages (title, season, episode, person, studio) | Not started |
 | P4-D | Track dialog | Not started |
 | P4-E | History | Not started |
@@ -97,3 +97,58 @@ form. Start page bundle 100.1 kB of 110.
 
 Watch out: a horizontal row must not capture the pointer on press, or every
 click lands on the row instead of the card's link or check.
+
+### P4-B: Library
+
+Today's Library (`app/media_list.html`, view `app.media_list_views.media_list`,
+2,270 lines): header, type switch, status segment, toolbar (Status, Filter,
+Sort, layout, settings), grid or table, infinite pages, bulk select, card
+hover actions.
+
+- [x] Header: "Library" on phones, the type's plural from md; "N titles · M in
+      progress"; Shows/Seasons when both TV views are on.
+- [x] Type switch on phones (the shell's sidebar lists the types from md).
+- [x] Status segment from md, Status menu on phones; All sends `status=all`
+      as the Django tabs do.
+- [x] Sort menu with the page's sorts for the type, and the direction.
+- [x] Search (in the URL, 300 ms after typing).
+- [x] Grid: crisp poster, status badge, inset progress line, title,
+      subtitle ("S2 E5 next" or the status), the sorted-by value.
+- [x] Pages load as the grid scrolls.
+- [x] The URL holds the state; sort and status are saved as the user's
+      preferences, as the page saves them.
+- [ ] B2: the filter menu (rating, collection, progress, genre, year, dates,
+      release, source, language, country, platform, origin, format, author,
+      provider, tags) and its option data.
+- [ ] B3: the table layout and its columns (the web never sends `layout`
+      until then, so the Django choice is kept).
+- [ ] B4: bulk select (status, lists, collection, tags).
+- [ ] B5: card actions (hover menu, progress +1, next episode).
+- [ ] B6: music (artists, albums, tracks), podcasts and comics, which have
+      their own grids; until then their Library links open Django.
+- [ ] Share view.
+
+API (P4-B1): `GET /api/v1/library/{media_type}/` returns the page's own list:
+`build_media_list_context` was split from the `media_list` view (a pure
+extraction), so filters, sorts, saved preferences and page size are the
+page's. Because it saves preferences it takes the session or the account
+token only. Cards come from the template helpers; the sorted-by line is the
+grid's own template (`ct/library_sort_detail.html`), sent as text.
+
+Backend fixes found on the way:
+- `GET /api/v1/media/{type}/` (CineTrack's list, which sends no sort) now
+  orders like the page: ties stay A to Z when sorting descending, TV Time
+  Left uses the page's grouping (`app.tv_sort`), TV Start Date ignores the
+  "added" fallback. A parity test compares it with the page for every offered
+  sort, status and search.
+- Sorting TV by Episode Air Date read each caught-up show's unstarted season
+  with its own query (193 queries cold on beta's 267 shows); they are loaded
+  in one query now.
+- The Library page read the user's tag names twice (filter menu and bulk
+  menu); once now. Library pages issue one query fewer.
+
+Measured on beta (551 movies, 267 shows, rolled back): a movie page renders in
+about 320 ms warm, TV in 0.6 to 1.1 s; the Episode Air Date sort was 2.3 s
+cold. The query-count pins in `app.tests.test_query_counts` had drifted above
+their budgets before this work (the suite runs on pull requests only and this
+branch is pushed directly); see the board item.

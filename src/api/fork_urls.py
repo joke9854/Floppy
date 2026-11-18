@@ -788,6 +788,11 @@ urlpatterns = [
         name="api_library_bulk_delete",
     ),
     re_path(
+        r"^library/(?P<media_type>[a-z_]+)/?$",
+        fork_views_library.LibraryScreenView.as_view(),
+        name="api_library_screen",
+    ),
+    re_path(
         r"^integrations/?$",
         fork_views_integration_connections.IntegrationsView.as_view(),
         name="api_integrations",
