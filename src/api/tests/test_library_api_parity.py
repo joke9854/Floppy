@@ -16,7 +16,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-import events.tasks  # noqa: F401  - signal handlers reach events.tasks lazily
+import events.tasks  # signal handlers reach events.tasks lazily
 from app.models import TV, Item, MediaTypes, Movie, Sources, Status
 
 POSTER = "https://image.tmdb.org/t/p/w500/abc.jpg"
