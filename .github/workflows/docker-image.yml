@@ -118,7 +118,10 @@ jobs:
             # Signed out: the app sends visitors to its sign-in page (v2 P3-B).
             test "$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 10 http://127.0.0.1:8000/next/)" = \
               "http://127.0.0.1:8000/next/login?next=%2Fnext%2F"
-            curl -fsS --max-time 10 http://127.0.0.1:8000/next/login | grep -Fq '>Sign in</h1>'
+            # Captured first: grep -q closing the pipe early fails curl
+            # ("Failed writing body", exit 23) under pipefail.
+            login_page=$(curl -fsS --max-time 10 http://127.0.0.1:8000/next/login)
+            grep -Fq '>Sign in</h1>' <<<"$login_page"
             # v2 P3-D: the service worker and version file reach a signed-out
             # visitor and are always revalidated.
             for asset in service-worker.js _app/version.json; do

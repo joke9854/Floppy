@@ -121,7 +121,7 @@ describe('/next detail page', () => {
 
 		await expect.element(page.getByText('1 of 2 episodes watched')).toBeVisible();
 		await expect.element(page.getByText('Episode 2')).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Watched' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Watched', exact: true })).toBeVisible();
 		await expect.element(page.getByText('Ned Stark')).toBeVisible();
 		await expect.element(page.getByText('Ended')).toBeVisible();
 	});
