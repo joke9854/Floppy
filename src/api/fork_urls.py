@@ -10,6 +10,7 @@ from . import (
     fork_views_account,
     fork_views_admin,
     fork_views_data,
+    fork_views_details,
     fork_views_discover,
     fork_views_events,
     fork_views_integration_connections,
@@ -786,6 +787,21 @@ urlpatterns = [
         r"^library/bulk-delete/?$",
         fork_views_admin.LibraryBulkDeleteView.as_view(),
         name="api_library_bulk_delete",
+    ),
+    re_path(
+        r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/?$",
+        fork_views_details.DetailShellView.as_view(),
+        name="api_detail_shell",
+    ),
+    re_path(
+        r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/sections/?$",
+        fork_views_details.DetailSectionsView.as_view(),
+        name="api_detail_sections",
+    ),
+    re_path(
+        r"^details/tv/(?P<source>[^/]+)/(?P<media_id>[^/]+)/season/?$",
+        fork_views_details.DetailSeasonView.as_view(),
+        name="api_detail_season",
     ),
     re_path(
         r"^library/(?P<media_type>[a-z_]+)/?$",

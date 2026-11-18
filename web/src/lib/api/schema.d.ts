@@ -370,6 +370,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/{media_type}/{source}/{media_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hero, read from caches only, so it never waits on a provider. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailShell"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/{media_type}/{source}/{media_id}/sections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Episodes (a show's season on screen), Your Plays, related lists, cast, More Like This and Information, with a backdrop and Watch on the hero lacked. It may fetch from the provider. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailSections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/tv/{source}/{media_id}/season/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One season's episodes, as a season pill or Show more loads them. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailSeason"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/discover/": {
         parameters: {
             query?: never;
@@ -4764,14 +4815,165 @@ export interface components {
              */
             anime_library_mode?: components["schemas"]["AnimeLibraryModeEnum"];
         };
+        /** @description The detail page's action. */
+        DetailAction: {
+            /** @description mark: log a movie play; watched: the movie is watched; episode: mark `episode` watched (null: the first unwatched aired episode of the season on screen); completed: a completed show. */
+            kind: string;
+            episode: components["schemas"]["HomeCheckTarget"] | null;
+        };
+        /** @description The detail page's card. */
+        DetailCard: {
+            media_type: string | null;
+            title: string;
+            url: string;
+            poster: string;
+            poster_srcset: string;
+            subtitle: string;
+        };
+        /** @description The detail page's episode. */
+        DetailEpisode: {
+            episode_number: number | null;
+            display_number: string | null;
+            title: string;
+            still: string;
+            still_srcset: string;
+            placeholder: boolean;
+            air_date: string;
+            aired: boolean;
+            runtime: string | null;
+            overview: string;
+            blurred: boolean;
+            watched: boolean;
+            history: string;
+            is_next: boolean;
+            url: string | null;
+            check: components["schemas"]["HomeCheckTarget"] | null;
+        };
         /** @description Shared API error body. */
         DetailError: {
             detail: string;
             errors?: unknown;
         };
+        /** @description The detail page's info. */
+        DetailInfo: {
+            label: string;
+            value: string;
+        };
+        /** @description The detail page's load more. */
+        DetailLoadMore: {
+            querystring: string;
+            label: string;
+        };
         /** @description Informational body carrying only a human-readable `detail`. */
         DetailMessage: {
             detail: string;
+        };
+        /** @description The detail page's meta. */
+        DetailMeta: {
+            type_label: string;
+            genres: string[];
+            year: string | null;
+            runtime: string | null;
+            certification: string | null;
+            seasons: number | null;
+            percent: number | null;
+        };
+        /** @description The detail page's person. */
+        DetailPerson: {
+            name: string;
+            role: string;
+            image: string | null;
+            url: string | null;
+        };
+        /** @description The detail page's play. */
+        DetailPlay: {
+            status: string;
+            label: string;
+            when: string;
+            score: string | null;
+        };
+        /** @description The detail page's progress. */
+        DetailProgress: {
+            watched: number;
+            total: number | null;
+            percent: number;
+        };
+        /** @description The detail page's related. */
+        DetailRelated: {
+            name: string;
+            cards: components["schemas"]["DetailCard"][];
+        };
+        /** @description The detail page's score. */
+        DetailScore: {
+            /** @description provider, trakt, imdb or mal. */
+            key: string;
+            label: string;
+            rating: string;
+            count: number | null;
+        };
+        /** @description The detail page's season. */
+        DetailSeason: {
+            number: number;
+            progress: components["schemas"]["DetailProgress"] | null;
+            episodes: components["schemas"]["DetailEpisode"][];
+            load_more: components["schemas"]["DetailLoadMore"] | null;
+        };
+        /** @description The detail page's season cover. */
+        DetailSeasonCover: {
+            number: number;
+            label: string;
+            short: string;
+            image: string | null;
+            current: boolean;
+        };
+        /** @description The detail page's sections. */
+        DetailSections: {
+            backdrop: string | null;
+            watch_on: components["schemas"]["DetailWatchOn"] | null;
+            /** @description The visible sections, in the user's detail layout order. */
+            sections: string[];
+            seasons: components["schemas"]["DetailSeasonCover"][];
+            season: components["schemas"]["DetailSeason"] | null;
+            plays: components["schemas"]["DetailPlay"][];
+            history_url: string;
+            related: components["schemas"]["DetailRelated"][];
+            cast: components["schemas"]["DetailPerson"][];
+            cast_view_all_url: string | null;
+            recommendations: components["schemas"]["DetailCard"][];
+            info: components["schemas"]["DetailInfo"][];
+        };
+        /** @description The detail page's shell. */
+        DetailShell: {
+            media_type: string;
+            source: string;
+            media_id: string;
+            title: string;
+            /** @description The Django page, for every action not here yet. */
+            page_url: string;
+            poster: string;
+            poster_srcset: string;
+            backdrop: string | null;
+            meta: components["schemas"]["DetailMeta"];
+            scores: components["schemas"]["DetailScore"][];
+            /** Format: double */
+            my_score: number | null;
+            status: string | null;
+            action: components["schemas"]["DetailAction"] | null;
+            synopsis: string;
+            watch_on: components["schemas"]["DetailWatchOn"] | null;
+            track_time: boolean;
+        };
+        /** @description The detail page's watch chip. */
+        DetailWatchChip: {
+            name: string;
+            image: string;
+            offer: string;
+        };
+        /** @description The detail page's watch on. */
+        DetailWatchOn: {
+            subscription: components["schemas"]["DetailWatchChip"][];
+            rent_buy: components["schemas"]["DetailWatchChip"][];
+            link: string | null;
         };
         /**
          * @description * `off` - off
@@ -9654,6 +9856,167 @@ export interface operations {
             };
             /** @description The token does not hold the scope this operation requires. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getDetailShell: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailShell"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getDetailSections: {
+        parameters: {
+            query?: {
+                /** @description The season on screen; else the next episode's, else the first. */
+                season?: number;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailSections"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getDetailSeason: {
+        parameters: {
+            query: {
+                /** @description From `load_more.querystring`. */
+                episode_page?: number;
+                season: number;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailSeason"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

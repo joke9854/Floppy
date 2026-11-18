@@ -1330,6 +1330,193 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: progress:read
+  /api/v1/details/{media_type}/{source}/{media_id}/:
+    get:
+      operationId: getDetailShell
+      description: The hero, read from caches only, so it never waits on a provider.
+        Built by the Django page's own builder, so it shows what the page shows. Like
+        the page, the read can store metadata it resolves, so integration tokens cannot
+        call it.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailShell'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/{media_type}/{source}/{media_id}/sections/:
+    get:
+      operationId: getDetailSections
+      description: Episodes (a show's season on screen), Your Plays, related lists,
+        cast, More Like This and Information, with a backdrop and Watch on the hero
+        lacked. It may fetch from the provider. Built by the Django page's own builder,
+        so it shows what the page shows. Like the page, the read can store metadata
+        it resolves, so integration tokens cannot call it.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: query
+        name: season
+        schema:
+          type: integer
+        description: The season on screen; else the next episode's, else the first.
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailSections'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/tv/{source}/{media_id}/season/:
+    get:
+      operationId: getDetailSeason
+      description: One season's episodes, as a season pill or Show more loads them.
+        Built by the Django page's own builder, so it shows what the page shows. Like
+        the page, the read can store metadata it resolves, so integration tokens cannot
+        call it.
+      parameters:
+      - in: query
+        name: episode_page
+        schema:
+          type: integer
+        description: From `load_more.querystring`.
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: query
+        name: season
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailSeason'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/discover/:
     get:
       operationId: api_v1_discover_retrieve
@@ -18880,6 +19067,105 @@ components:
             * `both` - both
       required:
       - source
+    DetailAction:
+      type: object
+      description: The detail page's action.
+      properties:
+        kind:
+          type: string
+          description: 'mark: log a movie play; watched: the movie is watched; episode:
+            mark `episode` watched (null: the first unwatched aired episode of the
+            season on screen); completed: a completed show.'
+        episode:
+          allOf:
+          - $ref: '#/components/schemas/HomeCheckTarget'
+          nullable: true
+      required:
+      - episode
+      - kind
+    DetailCard:
+      type: object
+      description: The detail page's card.
+      properties:
+        media_type:
+          type: string
+          nullable: true
+        title:
+          type: string
+        url:
+          type: string
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        subtitle:
+          type: string
+      required:
+      - media_type
+      - poster
+      - poster_srcset
+      - subtitle
+      - title
+      - url
+    DetailEpisode:
+      type: object
+      description: The detail page's episode.
+      properties:
+        episode_number:
+          type: integer
+          nullable: true
+        display_number:
+          type: string
+          nullable: true
+        title:
+          type: string
+        still:
+          type: string
+        still_srcset:
+          type: string
+        placeholder:
+          type: boolean
+        air_date:
+          type: string
+        aired:
+          type: boolean
+        runtime:
+          type: string
+          nullable: true
+        overview:
+          type: string
+        blurred:
+          type: boolean
+        watched:
+          type: boolean
+        history:
+          type: string
+        is_next:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+        check:
+          allOf:
+          - $ref: '#/components/schemas/HomeCheckTarget'
+          nullable: true
+      required:
+      - air_date
+      - aired
+      - blurred
+      - check
+      - display_number
+      - episode_number
+      - history
+      - is_next
+      - overview
+      - placeholder
+      - runtime
+      - still
+      - still_srcset
+      - title
+      - url
+      - watched
     DetailError:
       type: object
       description: Shared API error body.
@@ -18889,6 +19175,28 @@ components:
         errors: {}
       required:
       - detail
+    DetailInfo:
+      type: object
+      description: The detail page's info.
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+      required:
+      - label
+      - value
+    DetailLoadMore:
+      type: object
+      description: The detail page's load more.
+      properties:
+        querystring:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - querystring
     DetailMessage:
       type: object
       description: Informational body carrying only a human-readable `detail`.
@@ -18897,6 +19205,326 @@ components:
           type: string
       required:
       - detail
+    DetailMeta:
+      type: object
+      description: The detail page's meta.
+      properties:
+        type_label:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        year:
+          type: string
+          nullable: true
+        runtime:
+          type: string
+          nullable: true
+        certification:
+          type: string
+          nullable: true
+        seasons:
+          type: integer
+          nullable: true
+        percent:
+          type: integer
+          nullable: true
+      required:
+      - certification
+      - genres
+      - percent
+      - runtime
+      - seasons
+      - type_label
+      - year
+    DetailPerson:
+      type: object
+      description: The detail page's person.
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        image:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+      required:
+      - image
+      - name
+      - role
+      - url
+    DetailPlay:
+      type: object
+      description: The detail page's play.
+      properties:
+        status:
+          type: string
+        label:
+          type: string
+        when:
+          type: string
+        score:
+          type: string
+          nullable: true
+      required:
+      - label
+      - score
+      - status
+      - when
+    DetailProgress:
+      type: object
+      description: The detail page's progress.
+      properties:
+        watched:
+          type: integer
+        total:
+          type: integer
+          nullable: true
+        percent:
+          type: integer
+      required:
+      - percent
+      - total
+      - watched
+    DetailRelated:
+      type: object
+      description: The detail page's related.
+      properties:
+        name:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailCard'
+      required:
+      - cards
+      - name
+    DetailScore:
+      type: object
+      description: The detail page's score.
+      properties:
+        key:
+          type: string
+          description: provider, trakt, imdb or mal.
+        label:
+          type: string
+        rating:
+          type: string
+        count:
+          type: integer
+          nullable: true
+      required:
+      - count
+      - key
+      - label
+      - rating
+    DetailSeason:
+      type: object
+      description: The detail page's season.
+      properties:
+        number:
+          type: integer
+        progress:
+          allOf:
+          - $ref: '#/components/schemas/DetailProgress'
+          nullable: true
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailEpisode'
+        load_more:
+          allOf:
+          - $ref: '#/components/schemas/DetailLoadMore'
+          nullable: true
+      required:
+      - episodes
+      - load_more
+      - number
+      - progress
+    DetailSeasonCover:
+      type: object
+      description: The detail page's season cover.
+      properties:
+        number:
+          type: integer
+        label:
+          type: string
+        short:
+          type: string
+        image:
+          type: string
+          nullable: true
+        current:
+          type: boolean
+      required:
+      - current
+      - image
+      - label
+      - number
+      - short
+    DetailSections:
+      type: object
+      description: The detail page's sections.
+      properties:
+        backdrop:
+          type: string
+          nullable: true
+        watch_on:
+          allOf:
+          - $ref: '#/components/schemas/DetailWatchOn'
+          nullable: true
+        sections:
+          type: array
+          items:
+            type: string
+          description: The visible sections, in the user's detail layout order.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailSeasonCover'
+        season:
+          allOf:
+          - $ref: '#/components/schemas/DetailSeason'
+          nullable: true
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPlay'
+        history_url:
+          type: string
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailRelated'
+        cast:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPerson'
+        cast_view_all_url:
+          type: string
+          nullable: true
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailCard'
+        info:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailInfo'
+      required:
+      - backdrop
+      - cast
+      - cast_view_all_url
+      - history_url
+      - info
+      - plays
+      - recommendations
+      - related
+      - season
+      - seasons
+      - sections
+      - watch_on
+    DetailShell:
+      type: object
+      description: The detail page's shell.
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        title:
+          type: string
+        page_url:
+          type: string
+          description: The Django page, for every action not here yet.
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        backdrop:
+          type: string
+          nullable: true
+        meta:
+          $ref: '#/components/schemas/DetailMeta'
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailScore'
+        my_score:
+          type: number
+          format: double
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/DetailAction'
+          nullable: true
+        synopsis:
+          type: string
+        watch_on:
+          allOf:
+          - $ref: '#/components/schemas/DetailWatchOn'
+          nullable: true
+        track_time:
+          type: boolean
+      required:
+      - action
+      - backdrop
+      - media_id
+      - media_type
+      - meta
+      - my_score
+      - page_url
+      - poster
+      - poster_srcset
+      - scores
+      - source
+      - status
+      - synopsis
+      - title
+      - track_time
+      - watch_on
+    DetailWatchChip:
+      type: object
+      description: The detail page's watch chip.
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+        offer:
+          type: string
+      required:
+      - image
+      - name
+      - offer
+    DetailWatchOn:
+      type: object
+      description: The detail page's watch on.
+      properties:
+        subscription:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailWatchChip'
+        rent_buy:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailWatchChip'
+        link:
+          type: string
+          nullable: true
+      required:
+      - link
+      - rent_buy
+      - subscription
     DirectionEnum:
       enum:
       - 'off'
