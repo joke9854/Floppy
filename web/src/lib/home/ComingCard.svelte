@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
-	import { fadeIn } from './fade.ts';
+	import { fadeIn } from '#lib/media/fade.ts';
 	import { comingDay } from './dates.ts';
 
 	type Release = components['schemas']['HomeRelease'];

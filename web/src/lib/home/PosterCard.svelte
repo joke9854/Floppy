@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { components } from '#lib/api/client.ts';
-	import { fadeIn } from './fade.ts';
+	import { fadeIn } from '#lib/media/fade.ts';
 	import StatusChip from './StatusChip.svelte';
 
 	type Card = components['schemas']['HomeRecentCard'];

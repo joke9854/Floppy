@@ -3,7 +3,7 @@
 	import type { components } from '#lib/api/client.ts';
 	import { t } from '#lib/strings.ts';
 	import { markWatched, type CheckOutcome, type Click } from './check.ts';
-	import { fadeIn } from './fade.ts';
+	import { fadeIn } from '#lib/media/fade.ts';
 
 	type Card = components['schemas']['HomeInProgressCard'];
 
