@@ -287,3 +287,19 @@ class EpisodeAirDateSortTests(TestCase):
         self.assertEqual(many, few)
         # Ordered by when each show's unstarted season 2 begins.
         self.assertEqual(titles[:2], ["Show 01", "Show 00"])
+
+    def test_the_api_orders_like_the_page(self):
+        """GET /api/v1/media/tv/ uses the page's Episode Air Date order, ties included."""
+        for index, days in ((0, 9), (1, 3), (2, 9), (3, 30)):
+            self._caught_up_show(index, days)
+        for direction in ("asc", "desc"):
+            params = {"sort": "next_episode_air_date", "direction": direction, "status": "all"}
+            page = self.client.get(reverse("medialist", args=["tv"]), params)
+            api = self.client.get(
+                reverse("api_media_type_list", args=["tv"]), {**params, "limit": 100}
+            )
+            self.assertEqual(
+                [entry["id"] for entry in api.json()["results"]],
+                [entry.item.id for entry in page.context["media_list"]],
+                direction,
+            )

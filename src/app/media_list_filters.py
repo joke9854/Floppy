@@ -919,11 +919,30 @@ def _sort_tv_by_time_left(entries, direction):
     ]
 
 
+def _sort_by_next_episode_air_date(entries, direction):
+    """Order as the Library page does for Episode Air Date (the media manager).
+
+    The entries come from the page's own get_media_list queryset, so the
+    prefetched seasons, episodes and calendar rows the page's sort reads are
+    there; untracked entries have no next episode and go last.
+    """
+    tracked = [entry for entry in entries if entry.media is not None]
+    entry_by_media = {id(entry.media): entry for entry in tracked}
+    ordered = BasicMedia.objects._sort_media_items_by_next_episode_air_date(
+        [entry.media for entry in tracked], direction or "asc"
+    )
+    return [entry_by_media[id(media)] for media in ordered] + [
+        entry for entry in entries if entry.media is None
+    ]
+
+
 def _sort_entries(entries, filters, media_type):
     if not filters.sort:
         return entries
     if filters.sort == "time_left" and media_type == MediaTypes.TV.value:
         return _sort_tv_by_time_left(entries, filters.direction)
+    if filters.sort == "next_episode_air_date":
+        return _sort_by_next_episode_air_date(entries, filters.direction)
     if media_type in {MediaTypes.TV.value, MediaTypes.ANIME.value} or filters.sort in {
         "next_episode_air_date",
         "time_left",
