@@ -294,7 +294,12 @@ class QueryCountTests(TestCase):
         from app import image_cache
         from app.providers import credentials, services
 
+        # is_enabled() returns its in-process copy while that is fresh (left
+        # by an earlier test) and then skips the shared cache cleared above;
+        # forget it so the shared cache is filled before the request.
+        image_cache.invalidate_setting_cache()
         image_cache.is_enabled()
+        image_cache.retention_days()
         # Credentials are cached per member as well as instance-wide, and a
         # request runs as the logged-in user, so both maps have to be warm.
         credentials.is_configured("tmdb")

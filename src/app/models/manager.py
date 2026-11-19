@@ -244,48 +244,40 @@ def released_episode_breakdowns(media_keys, current_datetime, tracked_seasons=No
             max_episode,
         )
 
-    released_events = (
+    # One grouped read of the seasons' calendar rows: the last released
+    # episode (aired by now) and the first episode (aired or not, so an
+    # untracked season counts from where it starts, e.g. a split season).
+    released_filter = Q(datetime__lte=current_datetime) & ~Q(datetime__year__lt=1900)
+    season_events = (
         events.models.Event.objects.filter(
             item__media_id__in=media_ids,
             item__source__in=media_sources,
             item__media_type=MediaTypes.SEASON.value,
             item__season_number__gt=0,
-            datetime__lte=current_datetime,
             content_number__isnull=False,
         )
-        .exclude(datetime__year__lt=1900)
         .values(
             "item__media_id",
             "item__source",
             "item__season_number",
         )
-        .annotate(max_episode=models.Max("content_number"))
-    )
-
-    for row in released_events:
-        key = (row["item__media_id"], row["item__source"])
-        season_number = row["item__season_number"]
-        max_episode = row["max_episode"] or 0
-        released_by_show[key][season_number] = max(
-            released_by_show[key].get(season_number, 0),
-            max_episode,
+        .annotate(
+            max_episode=Max("content_number", filter=released_filter),
+            first_episode=Min("content_number", filter=Q(content_number__gt=0)),
         )
+    )
 
     first_by_show: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
-    first_events = (
-        events.models.Event.objects.filter(
-            item__media_id__in=media_ids,
-            item__source__in=media_sources,
-            item__media_type=MediaTypes.SEASON.value,
-            item__season_number__gt=0,
-            content_number__gt=0,
-        )
-        .values("item__media_id", "item__source", "item__season_number")
-        .annotate(first_episode=models.Min("content_number"))
-    )
-    for row in first_events:
+    for row in season_events:
         key = (row["item__media_id"], row["item__source"])
-        first_by_show[key][row["item__season_number"]] = row["first_episode"]
+        season_number = row["item__season_number"]
+        if row["max_episode"] is not None:
+            released_by_show[key][season_number] = max(
+                released_by_show[key].get(season_number, 0),
+                row["max_episode"],
+            )
+        if row["first_episode"] is not None:
+            first_by_show[key][season_number] = row["first_episode"]
 
     breakdowns = {}
     for key in media_keys:
