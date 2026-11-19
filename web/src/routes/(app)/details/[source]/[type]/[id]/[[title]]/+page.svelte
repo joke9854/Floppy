@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '#lib/styles/screen.css';
-	import '#lib/home/home.css';
+	import '#lib/styles/cards.css';
 	import '#lib/details/details.css';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
