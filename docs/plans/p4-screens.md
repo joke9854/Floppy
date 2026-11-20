@@ -222,7 +222,19 @@ podcasts, comics) redirect 307 to their Django page, as the Library does.
       load is the hero alone (106.2 kB of 110).
 - [ ] With the track dialog (P4-D): notes, the physical collection section,
       history editing, the metadata provider switch, the tag popover.
-- [ ] Later: the ratings graphs; C3, the episode, person and studio pages.
+- [x] C3 (2026-11-20): the person page (ct/person_page.html: hero, your
+      numbers, View in History, the source page, the biography, You've
+      Watched, Known For, the filmography with All / Movies / Shows, newest or
+      oldest first, the first 20 until "All N credits") and the TV episode
+      page (crumbs, the still blurred until watched when spoilers are hidden,
+      scores, one-click Mark as watched, previous / next, the overview's
+      spoiler cover, the season strip, Guest Stars, the crew grid). Both
+      read their page's builder (`build_person_context`,
+      `build_episode_context`): `GET /api/v1/details/person/...` and
+      `/api/v1/details/episode/...`. Person and episode links across the web
+      open them; Watched and Track on an episode open the Django page.
+- [ ] Later: the ratings graphs; the studio page (classic design, mostly
+      games, which have no web detail page yet); anime episodes.
 
 API (C1): `GET /api/v1/details/{media_type}/{source}/{media_id}/?part=shell`
 or `part=secondary` returns the page's own data. `build_media_details_context`

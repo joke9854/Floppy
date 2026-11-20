@@ -4,6 +4,7 @@
 	import Info from '@lucide/svelte/icons/info';
 	import { markWatched, type CheckOutcome, type Click } from '#lib/home/check.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
+	import { detailLink } from './link.ts';
 	import { t } from '#lib/strings.ts';
 	import type { DetailEpisode } from './api.ts';
 
@@ -76,7 +77,7 @@
 		<div class="ct-ep-heading">
 			{#if episode.display_number}<span class="ct-ep-number">{episode.display_number}</span>{/if}
 			{#if episode.url}
-				<a href={episode.url} class="ct-ep-title" data-sveltekit-reload>{episode.title}</a>
+				<a {...detailLink(episode.url)} class="ct-ep-title">{episode.title}</a>
 			{:else}
 				<span class="ct-ep-title">{episode.title}</span>
 			{/if}

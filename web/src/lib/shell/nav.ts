@@ -123,13 +123,22 @@ export function isCurrentHref(href: string, pathname: string, base: string = BAS
 	return path.startsWith(href.endsWith('/') ? href : `${href}/`);
 }
 
-/** A Django movie or show page: /details/<source>/<movie|tv>/<id>/<title>[?season=N]. */
-const WEB_DETAIL = /^\/details\/[^/?#]+\/(?:movie|tv)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/;
+/**
+ * Django pages with a web screen: a movie or show
+ * (/details/<source>/<movie|tv>/<id>/<title>[?season=N]), a TV episode
+ * (.../tv/<id>/<title>/season/<n>/episode/<n>) and a person
+ * (/person/<source>/<id>/<name>).
+ */
+const WEB_DETAIL = [
+	/^\/details\/[^/?#]+\/(?:movie|tv)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
+	/^\/details\/[^/?#]+\/tv\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
+	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/
+];
 
 /**
- * Where a title's link opens (P4-C1): movie and show pages open the web
- * detail page; seasons, episodes and other types keep their Django page.
+ * Where a title's or person's link opens (P4-C): movie, show, episode and
+ * person pages open the web screen; other types keep their Django page.
  */
 export function detailHref(href: string, base: string = BASE): string {
-	return WEB_DETAIL.test(href) ? `${base}${href}` : href;
+	return WEB_DETAIL.some((pattern) => pattern.test(href)) ? `${base}${href}` : href;
 }

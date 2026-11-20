@@ -50,6 +50,24 @@ const PAGES = [
 			'src/routes/(app)/details/[source]/[type]/[id]/[[title]]/+page.svelte'
 		],
 		budgetKb: 110
+	},
+	{
+		name: 'Episode page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/[source]/tv/[id]/[title]/season/[season]/episode/[episode]/+page.svelte'
+		],
+		budgetKb: 110
+	},
+	{
+		name: 'Person page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/person/[source]/[id]/[[name]]/+page.svelte'
+		],
+		budgetKb: 110
 	}
 ];
 

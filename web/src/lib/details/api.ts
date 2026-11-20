@@ -23,6 +23,27 @@ export function detailApiPath(
 	return season ? `${base}sections/?season=${encodeURIComponent(season)}` : `${base}sections/`;
 }
 
+export type PersonScreen = components['schemas']['PersonScreen'];
+export type EpisodeScreen = components['schemas']['EpisodeScreen'];
+
+/** A person page's read (GET details/person/...). */
+export function personApiPath(source: string, id: string): string {
+	return `/api/v1/details/person/${encodeURIComponent(source)}/${encodeURIComponent(id)}/`;
+}
+
+/** An episode page's read (GET details/episode/...). */
+export function episodeApiPath(
+	source: string,
+	id: string,
+	season: string | number,
+	episode: string | number
+): string {
+	return (
+		`/api/v1/details/episode/${encodeURIComponent(source)}/${encodeURIComponent(id)}/` +
+		`${encodeURIComponent(String(season))}/${encodeURIComponent(String(episode))}/`
+	);
+}
+
 /** One season of a show's episode list, or its next batch (`load_more`). */
 export function seasonApiPath(source: string, id: string, query: string): string {
 	return (

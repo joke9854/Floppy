@@ -68,7 +68,7 @@ describe('app links', () => {
 });
 
 describe('detail links', () => {
-	it('opens movie and show pages on the web, everything else on Django', () => {
+	it('opens movie, show, episode and person pages on the web, everything else on Django', () => {
 		expect(detailHref('/details/tmdb/movie/238/the-godfather', '/next')).toBe(
 			'/next/details/tmdb/movie/238/the-godfather'
 		);
@@ -76,7 +76,13 @@ describe('detail links', () => {
 			'/next/details/tmdb/tv/1399/got?season=2'
 		);
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1/episode/2', '/next')).toBe(
-			'/details/tmdb/tv/1399/got/season/1/episode/2'
+			'/next/details/tmdb/tv/1399/got/season/1/episode/2'
+		);
+		expect(detailHref('/person/tmdb/9273/amy-adams', '/next')).toBe(
+			'/next/person/tmdb/9273/amy-adams'
+		);
+		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
+			'/details/tmdb/tv/1399/got/season/1'
 		);
 		expect(detailHref('/details/mal/anime/1/cowboy-bebop', '/next')).toBe(
 			'/details/mal/anime/1/cowboy-bebop'

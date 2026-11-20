@@ -3,6 +3,7 @@
 	import type { components } from '#lib/api/client.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { t } from '#lib/strings.ts';
+	import { detailLink } from './link.ts';
 
 	type Person = components['schemas']['DetailPerson'];
 
@@ -58,8 +59,7 @@
 				<svelte:element
 					this={person.url ? 'a' : 'div'}
 					class="ct-person-link"
-					href={person.url ?? undefined}
-					data-sveltekit-reload={person.url ? '' : undefined}
+					{...person.url ? detailLink(person.url) : {}}
 				>
 					<span class="ct-person-frame">
 						{#if picture}
