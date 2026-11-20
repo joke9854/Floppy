@@ -2,6 +2,8 @@ import { page } from 'vitest/browser';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
+// The sections load with import() on the page; load them before the tests run.
+await import('#lib/details/Sections.svelte');
 
 const POSTER = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 

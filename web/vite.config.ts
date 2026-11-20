@@ -43,12 +43,32 @@ export default defineConfig({
 		projects: [
 			{
 				extends: './vite.config.ts',
+				// Components loaded with import() (the Library filter menu, the
+				// detail sections, the trailer player) pull these in mid-run; a
+				// dependency Vite finds then reloads the browser test run.
+				optimizeDeps: {
+					include: [
+						'bits-ui',
+						'@lucide/svelte/icons/check',
+						'@lucide/svelte/icons/chevron-left',
+						'@lucide/svelte/icons/chevron-right',
+						'@lucide/svelte/icons/eye-off',
+						'@lucide/svelte/icons/funnel',
+						'@lucide/svelte/icons/info',
+						'@lucide/svelte/icons/play',
+						'@lucide/svelte/icons/x'
+					]
+				},
 				test: {
 					name: 'client',
 					browser: {
 						enabled: true,
 						provider: playwright(),
-						instances: [{ browser: 'chromium', headless: true }]
+						instances: [{ browser: 'chromium', headless: true }],
+						// Windows reserves the default port (63315) on some machines.
+						...(process.env.VITEST_BROWSER_PORT
+							? { api: Number(process.env.VITEST_BROWSER_PORT) }
+							: {})
 					},
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
 					exclude: ['src/lib/server/**']
