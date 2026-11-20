@@ -25,6 +25,25 @@ cutover.
 5. Show screenshots and get approval before pushing (a push deploys beta).
 6. Add a board Test item for trying it on beta.
 
+## Browser flows to cover again
+
+The Django browser tests below drove the retired classic theme and are
+skipped (`CLASSIC_UI_SKIP`, 2026-11-20). Each slice that rebuilds the screen
+adds a web test for its flow:
+
+- Search, then track a show manually, as completed, a season as completed,
+  a season's progress (`test_tv_manual`, `test_tv_completed`,
+  `test_season_completed`, `test_season_progress_edit`): P4-D and search.
+- The movie track window's close button and release date, a game's progress
+  updating its start date (`test_movie_split_track_modal_...`,
+  `test_game_progress_live_updates_start_date`): P4-D.
+- Session history calendar and the shared date picker
+  (`test_session_history_calendar_...`): P4-D / P4-E.
+- Touch card actions (`test_touch_media_card_reveals_...`): P4-B5.
+- Discover's match signal wrapping (`test_discover_match_signal_...`): P4-G.
+- Lists: the blank list modal and the add/remove flow (`test_blank_modal`,
+  `test_flow`): P4-I.
+
 ## Slices
 
 | Slice | Screen | Status |

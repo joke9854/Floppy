@@ -1,5 +1,6 @@
 import copy
 import os
+import unittest
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
@@ -15,6 +16,11 @@ from app.discover.schemas import RowResult
 from app.models import Game, Item, MediaTypes, Movie, Sources, Status
 from app.tests.views.test_track_modal import _tv_with_seasons_payload
 from users.models import DateFormatChoices
+
+# These flows drive the classic theme (search results page, track window,
+# card overlay menus), retired when CineTrack v2 became the only theme. The
+# web app replaces them screen by screen in v2 P4, with its own tests.
+CLASSIC_UI_SKIP = "Classic-theme flow; v2 P4 web tests replace it (docs/plans/p4-screens.md)."
 
 
 @tag("slow", "playwright")
@@ -99,7 +105,9 @@ class IntegrationTest(StaticLiveServerTestCase):
             provider_patch.start()
             self.addCleanup(provider_patch.stop)
 
-        self.context = self.browser.new_context()
+        # Below lg: from lg up the v2 shell trades the top-bar search these
+        # flows use for the command palette.
+        self.context = self.browser.new_context(viewport={"width": 1000, "height": 800})
         self.page = self.context.new_page()
         self.page.goto(f"{self.live_server_url}/")
         self.page.get_by_placeholder("Enter your username").fill(
@@ -123,6 +131,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         self.page.locator("#global-search").fill(query)
         self.page.locator('form:has(#global-search) button[type="submit"]').click()
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_touch_media_card_reveals_and_executes_wrapped_actions(self):
         """A coarse-pointer card reveals, dismisses, and accepts an action tap."""
         touch_context = self.browser.new_context(
@@ -208,6 +217,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         self.context.close()
         super().tearDown()
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_season_progress_edit(self):
         """Test the progress edit of a season."""
         self.search_and_submit("breaking bad")
@@ -262,6 +272,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         save_request.value.response()
         expect(self.page.get_by_role("main")).to_contain_text(f"Ended: {today}")
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_tv_completed(self):
         """Test the completed status of a TV show."""
         self.search_and_submit("breaking bad")
@@ -281,6 +292,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         expect(self.page.get_by_role("main")).to_contain_text("Breaking Bad")
         expect(self.page.get_by_role("main")).to_contain_text("Completed")
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_season_completed(self):
         """Test the completed status of a season."""
         self.search_and_submit("breaking bad")
@@ -303,6 +315,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         self.page.goto(f"{self.live_server_url}/medialist/season")
         expect(self.page.get_by_role("main")).to_contain_text("Completed")
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_tv_manual(self):
         """Test the manual creation of a TV show."""
         # Create TV show
@@ -373,6 +386,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         expect(self.page.get_by_role("main")).to_contain_text("Episode 1")
 
     @patch("app.providers.services.get_media_metadata")
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_movie_split_track_modal_close_button_and_release_date(
         self,
         mock_get_metadata,
@@ -658,6 +672,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         expect(self.page.locator("[data-track-modal-root]:visible")).to_have_count(0)
 
     @patch("app.providers.services.get_media_metadata")
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_session_history_calendar_and_shared_date_picker_navigation(
         self,
         mock_get_metadata,
@@ -781,6 +796,7 @@ class IntegrationTest(StaticLiveServerTestCase):
     @patch("app.models.Item.fetch_releases")
     @patch("app.views._should_queue_game_lengths_refresh", return_value=False)
     @patch("app.providers.services.get_media_metadata")
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_game_progress_live_updates_start_date(
         self,
         mock_get_metadata,
@@ -950,6 +966,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         self.assertEqual(desktop_layout["chartWidth"], 150)
 
     @patch("app.discover_views.discover.get_discover_rows")
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_discover_match_signal_wraps_without_page_overflow(self, mock_get_discover_rows):
         """Long Discover row metadata stays inside the viewport on mobile."""
         match_signal = (

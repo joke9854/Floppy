@@ -1,6 +1,7 @@
 import copy
 import os
 import re
+import unittest
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -11,6 +12,11 @@ from playwright.sync_api import expect, sync_playwright
 
 from app.models import Item, MediaTypes
 from lists.models import CustomList, CustomListItem
+
+# These flows drive the classic theme (search results page, track window,
+# card overlay menus), retired when CineTrack v2 became the only theme. The
+# web app replaces them screen by screen in v2 P4, with its own tests.
+CLASSIC_UI_SKIP = "Classic-theme flow; v2 P4 web tests replace it (docs/plans/p4-screens.md)."
 
 PERFECT_BLUE_MEDIA_ID = "437"
 
@@ -105,7 +111,9 @@ class IntegrationTest(StaticLiveServerTestCase):
             provider_patch.start()
             self.addCleanup(provider_patch.stop)
 
-        self.context = self.browser.new_context()
+        # Below lg: from lg up the v2 shell trades the top-bar search these
+        # flows use for the command palette.
+        self.context = self.browser.new_context(viewport={"width": 1000, "height": 800})
         self.page = self.context.new_page()
         self.page.goto(f"{self.live_server_url}/")
         self.page.get_by_placeholder("Enter your username").fill(
@@ -160,6 +168,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         self.context.close()
         super().tearDown()
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_blank_modal(self):
         """Test the blank modal for creating a list."""
         self.page.get_by_role("button", name="TV Shows").click()
@@ -170,6 +179,7 @@ class IntegrationTest(StaticLiveServerTestCase):
             "You haven't created any lists yet.",
         )
 
+    @unittest.skip(CLASSIC_UI_SKIP)
     def test_flow(self):
         """Test the flow of adding an item to a list and editing the list."""
         # Create list
