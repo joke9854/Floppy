@@ -40,6 +40,56 @@ const screen = {
 		{ value: 'Completed', label: 'Completed' }
 	],
 	search: '',
+	filters: {
+		rating: 'rated',
+		collection: 'all',
+		progress: 'all',
+		genre: '',
+		implied_genre: '',
+		year: '',
+		completed_date_from: '',
+		completed_date_to: '',
+		completed_date_within: '',
+		completed_date_within_unit: 'days',
+		release: 'all',
+		source: '',
+		media_status: '',
+		language: '',
+		country: '',
+		platforms: [],
+		platform_mode: 'or',
+		origin: '',
+		format: '',
+		author: '',
+		provider: '',
+		tags: [],
+		tag_mode: 'or'
+	},
+	filter_options: {
+		genres: [{ value: 'Drama', label: 'Drama' }],
+		implied_genres: [],
+		years: [{ value: '2024', label: '2024' }],
+		sources: [],
+		media_statuses: [],
+		languages: [],
+		countries: [],
+		platforms: [],
+		origins: [],
+		formats: [],
+		authors: [],
+		providers: [],
+		all_providers: [],
+		relative_date_units: [{ value: 'days', label: 'Days' }],
+		tags: [{ value: 'cozy', label: 'cozy', count: 2 }],
+		show_progress: true,
+		show_languages: false,
+		show_countries: false,
+		show_platforms: false,
+		show_origins: false,
+		show_formats: false,
+		show_authors: false,
+		show_providers: false
+	},
 	page: 1,
 	has_next: false,
 	results: [
@@ -81,6 +131,20 @@ describe('/next Library', () => {
 		await expect.element(page.getByText('S2 E3 next')).toBeVisible();
 		await expect.element(page.getByText('8.5/10')).toBeVisible();
 		await expect.element(page.getByTitle('Completed')).toBeVisible();
+	});
+
+	it('opens the filter menu on its root list, with the active filter', async () => {
+		renderLibrary();
+
+		const trigger = page.getByRole('button', { name: 'Filter', exact: true });
+		await expect.element(trigger).toHaveAttribute('data-active', 'true');
+		await trigger.click();
+
+		await expect.element(page.getByRole('button', { name: /^Rating/ })).toHaveTextContent('Rated');
+		await expect.element(page.getByRole('button', { name: /^Genre/ })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: /^Tag/ })).toBeVisible();
+		await page.getByRole('button', { name: /^Genre/ }).click();
+		await expect.element(page.getByRole('button', { name: 'Drama' })).toBeVisible();
 	});
 
 	it('links types without a web Library to the Django page', async () => {

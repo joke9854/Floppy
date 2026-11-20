@@ -363,3 +363,177 @@
 	color: var(--color-muted);
 	font-size: 14px;
 }
+
+/* Filter menu (P4-B2): the Django menu's root list and panes. */
+.ct-toolbar-button[data-active='true'] {
+	border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+	color: var(--color-text);
+}
+
+.ct-filter-row {
+	display: flex;
+	width: 100%;
+	min-height: 40px;
+	align-items: center;
+	gap: 10px;
+	padding: 0 12px;
+	border-radius: var(--radius-ct-xs);
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+
+.ct-filter-row:hover,
+.ct-filter-row:focus-visible {
+	outline: none;
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-filter-row > :first-child {
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
+.ct-filter-value {
+	min-width: 0;
+	margin-left: auto;
+	overflow: hidden;
+	color: var(--color-muted);
+	font-size: 12px;
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-filter-row > svg:last-child {
+	margin-left: auto;
+}
+
+.ct-filter-value + svg {
+	margin-left: 0 !important;
+}
+
+.ct-filter-count {
+	margin-left: auto;
+	padding: 1px 7px;
+	border: 0.9px solid rgb(255 255 255 / 12%);
+	border-radius: 999px;
+	color: var(--color-muted);
+	font-size: 11px;
+}
+
+.ct-filter-count + svg {
+	margin-left: 0 !important;
+}
+
+.ct-filter-divider {
+	height: 1px;
+	margin: 4px 6px;
+	background-color: rgb(255 255 255 / 8%);
+}
+
+.ct-filter-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 4px 6px;
+}
+
+.ct-filter-back {
+	display: grid;
+	width: 30px;
+	height: 30px;
+	place-items: center;
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+
+.ct-filter-back:hover {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-filter-title,
+.ct-filter-section {
+	color: var(--color-text-secondary);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.ct-filter-section {
+	padding: 8px 12px 4px;
+	color: var(--color-muted);
+}
+
+.ct-filter-mode {
+	margin-left: auto;
+	padding: 2px 8px;
+	border: 0.9px solid rgb(255 255 255 / 14%);
+	border-radius: 999px;
+	color: var(--color-link);
+	font-size: 11px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.ct-filter-mode:hover {
+	color: var(--color-text);
+}
+
+.ct-filter-search,
+.ct-filter-form input,
+.ct-filter-form select {
+	width: 100%;
+	height: 36px;
+	padding: 0 12px;
+	border: 0.9px solid rgb(255 255 255 / 10%);
+	border-radius: var(--radius-ct-xs);
+	background-color: var(--color-surface);
+	color: var(--color-text);
+	font-size: 14px;
+}
+
+.ct-filter-search {
+	margin: 2px 0 6px;
+}
+
+.ct-filter-form {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	align-items: end;
+	gap: 8px;
+	padding: 8px 6px 4px;
+}
+
+.ct-filter-form label {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 4px;
+	color: var(--color-muted);
+	font-size: 11px;
+}
+
+.ct-filter-form input,
+.ct-filter-form select {
+	padding: 0 8px;
+	font-size: 13px;
+}
+
+.ct-filter-apply {
+	grid-column: 1 / -1;
+	height: 36px;
+	padding: 0 12px;
+	border-radius: 999px;
+	background-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+	font-size: 13px;
+	font-weight: 700;
+	cursor: pointer;
+}

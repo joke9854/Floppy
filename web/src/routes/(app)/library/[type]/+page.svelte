@@ -9,6 +9,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import ChoiceMenu from '#lib/library/ChoiceMenu.svelte';
+	import FilterMenu from '#lib/library/LazyFilterMenu.svelte';
+	import type { ParamChanges } from '#lib/library/filters.ts';
 	import LibraryCard from '#lib/library/LibraryCard.svelte';
 	import {
 		libraryApiPath,
@@ -79,7 +81,7 @@
 
 	// Sort and status are buttons, not links: the load saves them as the
 	// user's preferences, which a hover preload must never do.
-	function change(changes: Record<string, string | null>, replace = false) {
+	function change(changes: ParamChanges, replace = false) {
 		goto(withParams(page.url.href, changes), { reset: false, replace });
 	}
 
@@ -184,6 +186,11 @@
 					oninput={typed}
 				/>
 			</label>
+			<FilterMenu
+				filters={screen.filters}
+				options={screen.filter_options}
+				onapply={(changes) => change(changes)}
+			/>
 			<ChoiceMenu
 				label={t.sort}
 				options={screen.sorts}

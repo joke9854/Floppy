@@ -32,15 +32,23 @@ export function libraryApiPath(
 }
 
 /**
- * The URL after one change: `null` removes the parameter. A new sort or
- * status starts the list again, so the page number never carries over.
+ * The URL after one change: `null` removes the parameter, a list repeats it
+ * (`tag=a&tag=b`, as the Django filter form sends). A new sort, status or
+ * filter starts the list again, so the page number never carries over.
  */
-export function withParams(href: string, changes: Record<string, string | null>): string {
+export function withParams(
+	href: string,
+	changes: Record<string, string | string[] | null>
+): string {
 	const next = new URL(href);
 	next.searchParams.delete('page');
 	for (const [key, value] of Object.entries(changes)) {
 		if (value === null) next.searchParams.delete(key);
-		else next.searchParams.set(key, value);
+		else if (!Array.isArray(value)) next.searchParams.set(key, value);
+		else {
+			next.searchParams.delete(key);
+			for (const item of value) next.searchParams.append(key, item);
+		}
 	}
 	return `${next.pathname}${next.search}`;
 }

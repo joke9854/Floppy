@@ -6066,6 +6066,65 @@ export interface components {
             value: string;
             label: string;
         };
+        /** @description The filter menu's options; a pane shows when it has options or its flag is on. */
+        LibraryFilterOptions: {
+            genres: components["schemas"]["LibraryChoice"][];
+            implied_genres: components["schemas"]["LibraryChoice"][];
+            years: components["schemas"]["LibraryChoice"][];
+            sources: components["schemas"]["LibraryChoice"][];
+            media_statuses: components["schemas"]["LibraryChoice"][];
+            languages: components["schemas"]["LibraryChoice"][];
+            countries: components["schemas"]["LibraryChoice"][];
+            platforms: components["schemas"]["LibraryChoice"][];
+            origins: components["schemas"]["LibraryChoice"][];
+            formats: components["schemas"]["LibraryChoice"][];
+            authors: components["schemas"]["LibraryChoice"][];
+            providers: components["schemas"]["LibraryChoice"][];
+            all_providers: components["schemas"]["LibraryChoice"][];
+            relative_date_units: components["schemas"]["LibraryChoice"][];
+            tags: components["schemas"]["LibraryTagOption"][];
+            show_progress: boolean;
+            show_languages: boolean;
+            show_countries: boolean;
+            show_platforms: boolean;
+            show_origins: boolean;
+            show_formats: boolean;
+            show_authors: boolean;
+            show_providers: boolean;
+        };
+        /** @description The filter menu's current values, named as the page's query parameters. */
+        LibraryFilters: {
+            /** @description all, rated or not_rated. */
+            rating: string;
+            /** @description all, collected or not_collected. */
+            collection: string;
+            /** @description all, not_caught_up or caught_up. */
+            progress: string;
+            genre: string;
+            implied_genre: string;
+            /** @description A release year, or unknown. */
+            year: string;
+            completed_date_from: string;
+            completed_date_to: string;
+            completed_date_within: string;
+            completed_date_within_unit: string;
+            /** @description all, released or not_released. */
+            release: string;
+            source: string;
+            media_status: string;
+            language: string;
+            country: string;
+            platforms: string[];
+            /** @description or, and or not. */
+            platform_mode: string;
+            origin: string;
+            format: string;
+            author: string;
+            provider: string;
+            tags: string[];
+            /** @description or, and or not. */
+            tag_mode: string;
+        };
         /** @description One page of the Library for a media type, with its menus' state. */
         LibraryScreen: {
             media_type: string;
@@ -6082,6 +6141,8 @@ export interface components {
             statuses: string[];
             status_choices: components["schemas"]["LibraryChoice"][];
             search: string;
+            filters: components["schemas"]["LibraryFilters"];
+            filter_options: components["schemas"]["LibraryFilterOptions"];
             page: number;
             has_next: boolean;
             results: components["schemas"]["LibraryCard"][];
@@ -6105,6 +6166,12 @@ export interface components {
          * @enum {string}
          */
         LibraryStatusWriteEnum: "planning" | "in_progress" | "paused" | "dropped" | "completed" | "none";
+        /** @description A tag, with how many titles in this list carry it. */
+        LibraryTagOption: {
+            value: string;
+            label: string;
+            count: number;
+        };
         /** @description One entry of the Library switch. */
         LibraryType: {
             media_type: string;

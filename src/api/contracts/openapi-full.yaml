@@ -21855,6 +21855,196 @@ components:
       required:
       - label
       - value
+    LibraryFilterOptions:
+      type: object
+      description: The filter menu's options; a pane shows when it has options or
+        its flag is on.
+      properties:
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        implied_genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        years:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        media_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        origins:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        formats:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        all_providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        relative_date_units:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryTagOption'
+        show_progress:
+          type: boolean
+        show_languages:
+          type: boolean
+        show_countries:
+          type: boolean
+        show_platforms:
+          type: boolean
+        show_origins:
+          type: boolean
+        show_formats:
+          type: boolean
+        show_authors:
+          type: boolean
+        show_providers:
+          type: boolean
+      required:
+      - all_providers
+      - authors
+      - countries
+      - formats
+      - genres
+      - implied_genres
+      - languages
+      - media_statuses
+      - origins
+      - platforms
+      - providers
+      - relative_date_units
+      - show_authors
+      - show_countries
+      - show_formats
+      - show_languages
+      - show_origins
+      - show_platforms
+      - show_progress
+      - show_providers
+      - sources
+      - tags
+      - years
+    LibraryFilters:
+      type: object
+      description: The filter menu's current values, named as the page's query parameters.
+      properties:
+        rating:
+          type: string
+          description: all, rated or not_rated.
+        collection:
+          type: string
+          description: all, collected or not_collected.
+        progress:
+          type: string
+          description: all, not_caught_up or caught_up.
+        genre:
+          type: string
+        implied_genre:
+          type: string
+        year:
+          type: string
+          description: A release year, or unknown.
+        completed_date_from:
+          type: string
+        completed_date_to:
+          type: string
+        completed_date_within:
+          type: string
+        completed_date_within_unit:
+          type: string
+        release:
+          type: string
+          description: all, released or not_released.
+        source:
+          type: string
+        media_status:
+          type: string
+        language:
+          type: string
+        country:
+          type: string
+        platforms:
+          type: array
+          items:
+            type: string
+        platform_mode:
+          type: string
+          description: or, and or not.
+        origin:
+          type: string
+        format:
+          type: string
+        author:
+          type: string
+        provider:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        tag_mode:
+          type: string
+          description: or, and or not.
+      required:
+      - author
+      - collection
+      - completed_date_from
+      - completed_date_to
+      - completed_date_within
+      - completed_date_within_unit
+      - country
+      - format
+      - genre
+      - implied_genre
+      - language
+      - media_status
+      - origin
+      - platform_mode
+      - platforms
+      - progress
+      - provider
+      - rating
+      - release
+      - source
+      - tag_mode
+      - tags
+      - year
     LibraryScreen:
       type: object
       description: One page of the Library for a media type, with its menus' state.
@@ -21892,6 +22082,10 @@ components:
             $ref: '#/components/schemas/LibraryChoice'
         search:
           type: string
+        filters:
+          $ref: '#/components/schemas/LibraryFilters'
+        filter_options:
+          $ref: '#/components/schemas/LibraryFilterOptions'
         page:
           type: integer
         has_next:
@@ -21903,6 +22097,8 @@ components:
       required:
       - count
       - direction
+      - filter_options
+      - filters
       - has_next
       - in_progress
       - media_type
@@ -21945,6 +22141,20 @@ components:
         * `dropped` - dropped
         * `completed` - completed
         * `none` - none
+    LibraryTagOption:
+      type: object
+      description: A tag, with how many titles in this list carry it.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+      required:
+      - count
+      - label
+      - value
     LibraryType:
       type: object
       description: One entry of the Library switch.

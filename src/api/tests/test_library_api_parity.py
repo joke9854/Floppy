@@ -170,6 +170,38 @@ class LibraryScreenTests(LibraryFixtures):
         self.assertTrue(card["detail"], "the Last Watched date, as the page shows it")
         self.assertTrue(card["subtitle"], "the status, as the page's card says it")
 
+    def test_filters_list_the_page_exactly(self):
+        year = str((timezone.now() - timedelta(days=90)).year)
+        for filters in (
+            {"rating": "rated"},
+            {"rating": "not_rated"},
+            {"collection": "not_collected"},
+            {"release": "released"},
+            {"year": year},
+            {"rating": "rated", "year": year},
+        ):
+            params = {**filters, "status": "all", "sort": "title", "direction": "asc"}
+            with self.subTest(params=params):
+                page = self._page_ids(MediaTypes.MOVIE.value, params)
+                body = self._screen(MediaTypes.MOVIE.value, params)
+                self.assertEqual([card["key"] for card in body["results"]], page)
+                self.assertEqual(body["count"], len(page))
+
+    def test_filter_menu_state_and_options(self):
+        year = str((timezone.now() - timedelta(days=90)).year)
+        body = self._screen(MediaTypes.MOVIE.value, {"rating": "rated", "year": year})
+
+        self.assertEqual(body["filters"]["rating"], "rated")
+        self.assertEqual(body["filters"]["year"], year)
+        self.assertEqual(body["filters"]["collection"], "all")
+        self.assertEqual(body["filters"]["tags"], [])
+        options = body["filter_options"]
+        self.assertIn(year, [option["value"] for option in options["years"]])
+        self.assertTrue(options["show_languages"])
+        self.assertFalse(options["show_platforms"])
+        self.assertFalse(options["show_progress"])
+        self.assertTrue(self._screen(MediaTypes.TV.value)["filter_options"]["show_progress"])
+
     def test_saves_the_sort_like_the_page(self):
         self._screen(MediaTypes.MOVIE.value, {"sort": "score", "direction": "asc"})
 

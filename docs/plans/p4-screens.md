@@ -136,9 +136,14 @@ hover actions.
 - [x] Pages load as the grid scrolls.
 - [x] The URL holds the state; sort and status are saved as the user's
       preferences, as the page saves them.
-- [ ] B2: the filter menu (rating, collection, progress, genre, year, dates,
-      release, source, language, country, platform, origin, format, author,
-      provider, tags) and its option data.
+- [x] B2: the filter menu (rating, collection, progress, genre, implied
+      genre, the Date pane's release year and completed date as a year, a
+      range or "within the last N", release, source, availability,
+      language, country, platform, origin, format, author, streaming
+      service, tags with OR/AND/NOT). The API sends the page's `current_*`
+      values as `filters` and its `filter_data` as `filter_options`; panes
+      show as filter_menu.html shows them. The menu loads on first use, to
+      keep the Library inside its bundle budget (104.2 kB of 110).
 - [ ] B3: the table layout and its columns (the web never sends `layout`
       until then, so the Django choice is kept).
 - [ ] B4: bulk select (status, lists, collection, tags).

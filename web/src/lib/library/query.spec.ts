@@ -23,5 +23,8 @@ describe('Library query', () => {
 			'/next/library/tv?sort=score&search=bear&direction=desc'
 		);
 		expect(withParams(url, { search: null })).toBe('/next/library/tv?sort=title');
+		expect(withParams(url, { tag: ['a', 'b'] })).toBe(
+			'/next/library/tv?sort=title&search=bear&tag=a&tag=b'
+		);
 	});
 });

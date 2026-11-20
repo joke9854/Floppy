@@ -104,6 +104,87 @@ def _sort_choices(context) -> list[dict]:
     return choices
 
 
+# The filter menu's single-value filters: (query parameter, context key).
+_FILTER_VALUES = (
+    ("rating", "current_rating"),
+    ("collection", "current_collection"),
+    ("progress", "current_progress"),
+    ("genre", "current_genre"),
+    ("implied_genre", "current_implied_genre"),
+    ("year", "current_year"),
+    ("completed_date_from", "current_completed_date_from"),
+    ("completed_date_to", "current_completed_date_to"),
+    ("completed_date_within", "current_completed_date_within"),
+    ("completed_date_within_unit", "current_completed_date_within_unit"),
+    ("release", "current_release"),
+    ("source", "current_source"),
+    ("media_status", "current_media_status"),
+    ("language", "current_language"),
+    ("country", "current_country"),
+    ("platform_mode", "current_platform_mode"),
+    ("origin", "current_origin"),
+    ("format", "current_format"),
+    ("author", "current_author"),
+    ("provider", "current_provider"),
+    ("tag_mode", "current_tag_mode"),
+)
+# Option lists the menu shows; a pane shows when it has options or its
+# show_ flag is on, as filter_menu.html decides.
+_OPTION_LISTS = (
+    "genres",
+    "implied_genres",
+    "years",
+    "sources",
+    "media_statuses",
+    "languages",
+    "countries",
+    "platforms",
+    "origins",
+    "formats",
+    "authors",
+    "providers",
+    "all_providers",
+    "relative_date_units",
+)
+_SHOW_FLAGS = (
+    "show_progress",
+    "show_languages",
+    "show_countries",
+    "show_platforms",
+    "show_origins",
+    "show_formats",
+    "show_authors",
+    "show_providers",
+)
+
+
+def _option(value) -> dict:
+    if isinstance(value, dict):
+        return {"value": str(value.get("value", "")), "label": str(value.get("label", ""))}
+    return {"value": str(value), "label": str(value)}
+
+
+def _filters(context) -> dict:
+    """Return the filter menu's current values (the page's ``current_*``)."""
+    values = {key: str(context.get(name) or "") for key, name in _FILTER_VALUES}
+    values["platforms"] = [str(value) for value in context.get("current_platform_values") or []]
+    values["tags"] = [str(value) for value in context.get("current_tag") or []]
+    return values
+
+
+def _filter_options(context) -> dict:
+    """Return the filter menu's options (the page's ``filter_data``)."""
+    data = context.get("filter_data") or {}
+    options = {name: [_option(value) for value in data.get(name) or []] for name in _OPTION_LISTS}
+    counts = data.get("tag_counts") or {}
+    options["tags"] = [
+        {"value": str(name), "label": str(name), "count": int(counts.get(name, 0))}
+        for name in data.get("tags") or []
+    ]
+    options.update({flag: bool(data.get(flag)) for flag in _SHOW_FLAGS})
+    return options
+
+
 def build_library_screen(request, media_type) -> dict:
     """Return the Library page for ``media_type`` as the web screen reads it."""
     from app.media_list_views import build_media_list_context
@@ -136,6 +217,8 @@ def build_library_screen(request, media_type) -> dict:
             if value not in ("all", "All")
         ],
         "search": request.GET.get("search", ""),
+        "filters": _filters(context),
+        "filter_options": _filter_options(context),
         "page": page.number if hasattr(page, "number") else 1,
         "has_next": bool(getattr(page, "has_next", lambda: False)()),
         "results": [_card(request, entry, current_sort) for entry in page],
@@ -182,6 +265,68 @@ class LibraryViewSerializer(serializers.Serializer):
     label = serializers.CharField()
 
 
+class LibraryFiltersSerializer(serializers.Serializer):
+    """The filter menu's current values, named as the page's query parameters."""
+
+    rating = serializers.CharField(help_text="all, rated or not_rated.")
+    collection = serializers.CharField(help_text="all, collected or not_collected.")
+    progress = serializers.CharField(help_text="all, not_caught_up or caught_up.")
+    genre = serializers.CharField(allow_blank=True)
+    implied_genre = serializers.CharField(allow_blank=True)
+    year = serializers.CharField(allow_blank=True, help_text="A release year, or unknown.")
+    completed_date_from = serializers.CharField(allow_blank=True)
+    completed_date_to = serializers.CharField(allow_blank=True)
+    completed_date_within = serializers.CharField(allow_blank=True)
+    completed_date_within_unit = serializers.CharField(allow_blank=True)
+    release = serializers.CharField(help_text="all, released or not_released.")
+    source = serializers.CharField(allow_blank=True)
+    media_status = serializers.CharField(allow_blank=True)
+    language = serializers.CharField(allow_blank=True)
+    country = serializers.CharField(allow_blank=True)
+    platforms = serializers.ListField(child=serializers.CharField())
+    platform_mode = serializers.CharField(help_text="or, and or not.")
+    origin = serializers.CharField(allow_blank=True)
+    format = serializers.CharField(allow_blank=True)
+    author = serializers.CharField(allow_blank=True)
+    provider = serializers.CharField(allow_blank=True)
+    tags = serializers.ListField(child=serializers.CharField())
+    tag_mode = serializers.CharField(help_text="or, and or not.")
+
+
+class LibraryTagOptionSerializer(LibraryChoiceSerializer):
+    """A tag, with how many titles in this list carry it."""
+
+    count = serializers.IntegerField()
+
+
+class LibraryFilterOptionsSerializer(serializers.Serializer):
+    """The filter menu's options; a pane shows when it has options or its flag is on."""
+
+    genres = LibraryChoiceSerializer(many=True)
+    implied_genres = LibraryChoiceSerializer(many=True)
+    years = LibraryChoiceSerializer(many=True)
+    sources = LibraryChoiceSerializer(many=True)
+    media_statuses = LibraryChoiceSerializer(many=True)
+    languages = LibraryChoiceSerializer(many=True)
+    countries = LibraryChoiceSerializer(many=True)
+    platforms = LibraryChoiceSerializer(many=True)
+    origins = LibraryChoiceSerializer(many=True)
+    formats = LibraryChoiceSerializer(many=True)
+    authors = LibraryChoiceSerializer(many=True)
+    providers = LibraryChoiceSerializer(many=True)
+    all_providers = LibraryChoiceSerializer(many=True)
+    relative_date_units = LibraryChoiceSerializer(many=True)
+    tags = LibraryTagOptionSerializer(many=True)
+    show_progress = serializers.BooleanField()
+    show_languages = serializers.BooleanField()
+    show_countries = serializers.BooleanField()
+    show_platforms = serializers.BooleanField()
+    show_origins = serializers.BooleanField()
+    show_formats = serializers.BooleanField()
+    show_authors = serializers.BooleanField()
+    show_providers = serializers.BooleanField()
+
+
 class LibraryScreenSerializer(serializers.Serializer):
     """One page of the Library for a media type, with its menus' state."""
 
@@ -198,6 +343,8 @@ class LibraryScreenSerializer(serializers.Serializer):
     )
     status_choices = LibraryChoiceSerializer(many=True)
     search = serializers.CharField(allow_blank=True)
+    filters = LibraryFiltersSerializer()
+    filter_options = LibraryFilterOptionsSerializer()
     page = serializers.IntegerField()
     has_next = serializers.BooleanField()
     results = LibraryCardSerializer(many=True)
