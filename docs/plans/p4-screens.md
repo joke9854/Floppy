@@ -49,8 +49,8 @@ adds a web test for its flow:
 | Slice | Screen | Status |
 |---|---|---|
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
-| P4-B | Library (movies, shows, anime and the other media lists) | B1 built: the poster grid for TV, seasons, movies, anime, manga, games, books and board games (API `8eb00953a`, screen approved from screenshots). Later sub-slices below |
-| P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1 built: the movie and show page (API `ef4be8e18`), screen awaiting approval from screenshots |
+| P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
+| P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
 | P4-D | Track dialog | Not started |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
@@ -144,13 +144,40 @@ hover actions.
       values as `filters` and its `filter_data` as `filter_options`; panes
       show as filter_menu.html shows them. The menu loads on first use, to
       keep the Library inside its bundle budget (104.2 kB of 110).
-- [ ] B3: the table layout and its columns (the web never sends `layout`
-      until then, so the Django choice is kept).
-- [ ] B4: bulk select (status, lists, collection, tags).
-- [ ] B5: card actions (hover menu, progress +1, next episode).
-- [ ] B6: music (artists, albums, tracks), podcasts and comics, which have
-      their own grids; until then their Library links open Django.
-- [ ] Share view.
+- [x] B3 (2026-11-20): the table layout. The grid / table switch saves the
+      type's layout as the page does (`layout=`); the table shows the user's
+      columns in their order, a small poster, the title with its repeat
+      count, and each cell with its note (Latest, Total, Earliest,
+      Remaining); genres filter the list. The Columns menu (loaded on first
+      use) shows, hides and moves columns and resets to defaults through
+      `PUT /api/v1/user/table-columns/`. The API sends each cell from the
+      page's own cell template (a parity test compares every cell with the
+      Django table) and reads the tags column in one query.
+- [x] B4 (2026-11-20): bulk select. View settings > Select Items turns a tap
+      into a selection (grid and table); the bar posts the page's own
+      endpoints: Update Status (`/bulk/status`), Add to List
+      (`/list/bulk-add`), Add to Collection (`/bulk/collection`), Apply Tag
+      Add / Remove (`/tag_bulk_toggle`). The API sends the menus as `bulk`
+      (null where the page has none: artists, albums).
+- [x] B5 (2026-11-20): the card's menu, as the page's hover buttons: Edit
+      tracking (the Django page until the track dialog, P4-D), Add to List,
+      View your activity history; and the Next ep pill with the user's quick
+      update preference on (`next_episode_url`). The Django Library card has
+      no progress +1 (that is Home's card), so neither has the web one. The
+      Next ep link costs one query per show without a tracked next episode,
+      as media_card.html does (pinned at one per card).
+- [x] B6 (2026-11-20): music (Artists, Albums, Tracks), podcasts and comics
+      (Comics, Issues) on the web Library: the views switch with
+      `subview=`, music and podcasts draw square art, artist and album rows
+      use their own table columns. Every Library type now opens the web.
+- [x] Share View and "Show matching entries separately" in View settings
+      (`/list/share-view`, `/medialist/<type>/entry-grouping/`). The API now
+      runs the list inside the user's entry grouping, as the page's view
+      does; before, a user who shows each play saw them grouped on the web.
+- Bundle: the table, the Columns, card and View settings menus, the bulk
+  bar and the write helpers load on first use. Library 109.8 kB of 110.
+- Dev: Vite proxies `/bulk`, `/list/`, `/tag_bulk_toggle` and `/medialist`
+  to Django, as nginx does in the container.
 
 API (P4-B1): `GET /api/v1/library/{media_type}/` returns the page's own list:
 `build_media_list_context` was split from the `media_list` view (a pure

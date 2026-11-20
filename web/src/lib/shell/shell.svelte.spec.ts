@@ -10,7 +10,7 @@ const library = [
 ];
 
 describe('Shell', () => {
-	it('wraps the page and links the web Library, and Django for the rest', async () => {
+	it('wraps the page and links the web Library and the Django pages', async () => {
 		render(ShellHost, { library });
 
 		await expect.element(page.getByTestId('content')).toBeVisible();
@@ -19,7 +19,7 @@ describe('Shell', () => {
 		// The base path is empty under Vitest: /next/library/tv on a server.
 		expect(hrefs).toContain('/library/tv');
 		expect(hrefs).toContain('/library/movie');
-		expect(hrefs).toContain('/medialist/music');
+		expect(hrefs).toContain('/library/music');
 		expect(hrefs).toContain('/history');
 		expect([...links].every((link) => link.hasAttribute('data-sveltekit-reload'))).toBe(true);
 	});

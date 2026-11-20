@@ -16,7 +16,18 @@ export default defineConfig({
 	// does in the container, so signing in and the Django pages work in dev.
 	server: {
 		proxy: Object.fromEntries(
-			['/api', '/_allauth', '/accounts', '/static', '/image-cache'].map((path) => [
+			// The Django endpoints the web posts to (same origin behind nginx in production).
+			[
+				'/api',
+				'/_allauth',
+				'/accounts',
+				'/static',
+				'/image-cache',
+				'/bulk',
+				'/list/',
+				'/tag_bulk_toggle',
+				'/medialist'
+			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }
 			])
@@ -49,13 +60,22 @@ export default defineConfig({
 				optimizeDeps: {
 					include: [
 						'bits-ui',
+						'@lucide/svelte/icons/arrow-down',
+						'@lucide/svelte/icons/arrow-up',
 						'@lucide/svelte/icons/check',
 						'@lucide/svelte/icons/chevron-left',
 						'@lucide/svelte/icons/chevron-right',
+						'@lucide/svelte/icons/columns-3',
 						'@lucide/svelte/icons/eye-off',
 						'@lucide/svelte/icons/funnel',
 						'@lucide/svelte/icons/info',
 						'@lucide/svelte/icons/play',
+						'@lucide/svelte/icons/repeat',
+						'@lucide/svelte/icons/star',
+						'@lucide/svelte/icons/ellipsis',
+						'@lucide/svelte/icons/settings-2',
+						'@lucide/svelte/icons/layout-grid',
+						'@lucide/svelte/icons/table-2',
 						'@lucide/svelte/icons/x'
 					]
 				},

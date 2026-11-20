@@ -73,8 +73,8 @@ export interface LibraryType {
 }
 
 /**
- * Library types with a web screen (P4-B1, the standard poster grid). The
- * others (music, podcasts, comics) open the Django Library until theirs ship.
+ * Library types with a web screen: every Library type since P4-B6 (music,
+ * podcasts and comics joined the poster grid's types).
  */
 export const WEB_LIBRARY_TYPES = new Set([
 	'tv',
@@ -84,7 +84,10 @@ export const WEB_LIBRARY_TYPES = new Set([
 	'manga',
 	'game',
 	'book',
-	'boardgame'
+	'boardgame',
+	'music',
+	'podcast',
+	'comic'
 ]);
 
 /** Where a Library type opens: the web screen when it has one, else Django's. */

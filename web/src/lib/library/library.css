@@ -54,7 +54,8 @@
 	background-color: var(--color-surface);
 }
 
-.ct-segment a {
+.ct-segment a,
+.ct-segment button {
 	display: inline-flex;
 	align-items: center;
 	height: 30px;
@@ -65,7 +66,8 @@
 	font-weight: 700;
 }
 
-.ct-segment a[aria-current='page'] {
+.ct-segment a[aria-current='page'],
+.ct-segment button[aria-pressed='true'] {
 	background-color: var(--color-surface-hover);
 	color: var(--color-text);
 }
@@ -135,7 +137,8 @@
 .ct-toolbar-button:focus-visible,
 .ct-search input:focus-visible,
 .ct-type-pill:focus-visible,
-.ct-segment a:focus-visible {
+.ct-segment a:focus-visible,
+.ct-segment button:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
@@ -536,4 +539,136 @@
 	font-size: 13px;
 	font-weight: 700;
 	cursor: pointer;
+}
+
+/* Grid or table (B3): saved as the user's layout for the type. */
+.ct-layout-switch {
+	display: inline-flex;
+	flex: none;
+	padding: 3px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 999px;
+	background-color: var(--color-surface);
+}
+
+.ct-layout-switch button {
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 32px;
+	border-radius: 999px;
+	color: var(--color-muted);
+	cursor: pointer;
+	transition: background-color var(--motion-short) var(--ease-standard);
+}
+
+.ct-layout-switch button:hover {
+	color: var(--color-text);
+}
+
+.ct-layout-switch button[aria-pressed='true'] {
+	background-color: var(--color-surface-hover);
+	color: var(--color-text);
+}
+
+.ct-layout-switch button:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Music and podcasts: square art (B6). */
+.ct-library-card[data-shape='square'] .ct-library-poster {
+	aspect-ratio: 1 / 1;
+}
+
+/* The card's menu and Next ep pill (B5): on hover or focus; always on touch. */
+.ct-card-menu,
+.ct-next-ep {
+	position: absolute;
+	top: 8px;
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	height: 26px;
+	border-radius: 999px;
+	background-color: rgb(16 16 20 / 82%);
+	color: var(--color-text);
+	box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
+	opacity: 0;
+	transition: opacity var(--motion-short) var(--ease-standard);
+}
+
+.ct-card-menu {
+	left: 8px;
+	width: 26px;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.ct-next-ep {
+	left: 40px;
+	gap: 2px;
+	padding: 0 9px 0 6px;
+	font-size: 11px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* The chevron, drawn in CSS to keep an icon out of the Library's bundle. */
+.ct-next-ep::before {
+	content: '';
+	width: 5px;
+	height: 5px;
+	margin-right: 4px;
+	border-top: 1.5px solid currentColor;
+	border-right: 1.5px solid currentColor;
+	transform: rotate(45deg);
+}
+
+.ct-next-ep:hover {
+	background-color: var(--color-accent);
+}
+
+.ct-library-card:hover .ct-card-menu,
+.ct-library-card:hover .ct-next-ep,
+.ct-library-card:focus-within .ct-card-menu,
+.ct-library-card:focus-within .ct-next-ep,
+.ct-card-menu[data-state='open'] {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.ct-card-menu,
+	.ct-next-ep {
+		opacity: 1;
+	}
+}
+
+.ct-card-menu:focus-visible,
+.ct-next-ep:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Music and comics views (B6), as Shows / Seasons. */
+.ct-segment button {
+	cursor: pointer;
+}
+
+.ct-library-notice {
+	margin: -6px 0 16px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-toolbar-button.ct-icon-button {
+	width: 40px;
+	justify-content: center;
+	padding-inline: 0;
+}
+
+.ct-library-table-pending {
+	height: 60vh;
+	border-radius: var(--radius-ct-md);
+	background-color: var(--color-surface);
 }

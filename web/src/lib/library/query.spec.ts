@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { apiQuery, libraryApiPath, withParams } from './query.ts';
 
 describe('Library query', () => {
-	it('passes the page filters through, without layout or page', () => {
+	it('passes the page filters and layout through, without page', () => {
 		const search = new URLSearchParams(
 			'sort=score&direction=desc&status=In+progress&status=Paused&layout=table&page=3&genre=Drama'
 		);
 
 		expect(apiQuery(search)).toBe(
-			'?sort=score&direction=desc&status=In+progress&status=Paused&genre=Drama'
+			'?sort=score&direction=desc&status=In+progress&status=Paused&layout=table&genre=Drama'
 		);
 		expect(libraryApiPath('tv', search, 2)).toBe(
-			'/api/v1/library/tv/?sort=score&direction=desc&status=In+progress&status=Paused&genre=Drama&page=2'
+			'/api/v1/library/tv/?sort=score&direction=desc&status=In+progress&status=Paused&layout=table&genre=Drama&page=2'
 		);
 		expect(apiQuery(new URLSearchParams())).toBe('');
 	});

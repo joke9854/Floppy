@@ -4,10 +4,16 @@
 	import ArrowDownWideNarrow from '@lucide/svelte/icons/arrow-down-wide-narrow';
 	import ArrowUpNarrowWide from '@lucide/svelte/icons/arrow-up-narrow-wide';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import Settings2 from '@lucide/svelte/icons/settings-2';
+	import TableIcon from '@lucide/svelte/icons/table-2';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import { DropdownMenu } from 'bits-ui';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import type { Component } from 'svelte';
+	import { lazyComponent } from '#lib/library/lazy.ts';
+	import type { ViewMenuProps } from '#lib/library/view-menu.ts';
 	import ChoiceMenu from '#lib/library/ChoiceMenu.svelte';
 	import FilterMenu from '#lib/library/LazyFilterMenu.svelte';
 	import type { ParamChanges } from '#lib/library/filters.ts';
@@ -92,6 +98,82 @@
 	);
 	const sortLabel = $derived(screen.sorts.find((sort) => sort.value === screen.sort)?.label ?? '');
 
+	// Select mode (B4) and the selection, for this type and view only.
+	const listKey = $derived(`${screen.media_type}:${screen.subview}`);
+	let selectingFor = $state('');
+	let selection = $state.raw<{ for: string; ids: number[] }>({ for: '', ids: [] });
+	const selecting = $derived(selectingFor === listKey && screen.bulk !== null);
+	const selected = $derived(selection.for === listKey ? selection.ids : []);
+	let notice = $state('');
+
+	function toggleSelected(key: number) {
+		selection = {
+			for: listKey,
+			ids: selected.includes(key) ? selected.filter((id) => id !== key) : [...selected, key]
+		};
+	}
+
+	function endSelect() {
+		selectingFor = '';
+		selection = { for: '', ids: [] };
+	}
+
+	async function bulkDone(message: string) {
+		endSelect();
+		notice = message;
+		await invalidateAll();
+	}
+
+	async function cardToList(key: number, list: { value: string; label: string }) {
+		try {
+			const { addToList } = await import('#lib/library/actions.ts');
+			notice = (await addToList([key], list.value)).message;
+		} catch {
+			notice = t.bulkFailed;
+		}
+	}
+
+	let sharing = $state(false);
+	async function share() {
+		// Opened inside the click, so the browser does not block it as a pop-up.
+		const tab = window.open('', '_blank');
+		sharing = true;
+		try {
+			const { shareView } = await import('#lib/library/actions.ts');
+			const url = await shareView(screen.media_type, page.url.searchParams);
+			if (tab) tab.location.href = url;
+			else window.open(url, '_blank');
+		} catch {
+			tab?.close();
+			notice = t.shareFailed;
+		} finally {
+			sharing = false;
+		}
+	}
+
+	async function toggleGrouping() {
+		if (!screen.entry_grouping) return;
+		try {
+			const { setEntryGrouping } = await import('#lib/library/actions.ts');
+			await setEntryGrouping(screen.media_type, !screen.entry_grouping.enabled);
+			await invalidateAll();
+		} catch {
+			notice = t.bulkFailed;
+		}
+	}
+
+	// The View settings menu loads on first use (bundle budget).
+	let ViewMenu = $state<Component<ViewMenuProps> | null>(null);
+	let viewMenuOpen = $state(false);
+	function loadViewMenu(open = false) {
+		if (open) viewMenuOpen = true;
+		lazyComponent<ViewMenuProps>('view-menu', () => import('#lib/library/ViewMenu.svelte')).then(
+			(menu) => {
+				ViewMenu = menu;
+			}
+		);
+	}
+
 	let search = $state('');
 	let searchFor: LibraryScreen | null = null;
 	$effect.pre(() => {
@@ -131,6 +213,17 @@
 					>
 				{/each}
 			</nav>
+		{/if}
+		{#if screen.subviews.length}
+			<div class="ct-segment" role="group" aria-label={t.libraryViews}>
+				{#each screen.subviews as view (view.value)}
+					<button
+						type="button"
+						aria-pressed={view.value === screen.subview}
+						onclick={() => change({ subview: view.value })}>{view.label}</button
+					>
+				{/each}
+			</div>
 		{/if}
 	</div>
 
@@ -221,19 +314,105 @@
 					</DropdownMenu.Item>
 				{/snippet}
 			</ChoiceMenu>
+			{#if screen.layout === 'table'}
+				<!-- Loads with the table layout only (bundle budget). -->
+				{#await import('#lib/library/LazyColumnMenu.svelte') then { default: ColumnMenu }}
+					<ColumnMenu
+						mediaType={screen.media_type}
+						sort={screen.sort}
+						config={screen.column_config}
+						defaults={screen.column_defaults}
+					/>
+				{/await}
+			{/if}
+			<div class="ct-layout-switch" role="group" aria-label={t.layout}>
+				<button
+					type="button"
+					aria-label={t.grid}
+					title={t.grid}
+					aria-pressed={screen.layout === 'grid'}
+					onclick={() => change({ layout: 'grid' }, true)}
+				>
+					<LayoutGrid class="size-4" aria-hidden="true" />
+				</button>
+				<button
+					type="button"
+					aria-label={t.table}
+					title={t.table}
+					aria-pressed={screen.layout === 'table'}
+					onclick={() => change({ layout: 'table' }, true)}
+				>
+					<TableIcon class="size-4" aria-hidden="true" />
+				</button>
+			</div>
+			{#if ViewMenu}
+				<ViewMenu
+					grouping={screen.entry_grouping}
+					canSelect={screen.bulk !== null}
+					{selecting}
+					{sharing}
+					ongrouping={toggleGrouping}
+					onshare={share}
+					onselect={() => (selecting ? endSelect() : (selectingFor = listKey))}
+					initialOpen={viewMenuOpen}
+				/>
+			{:else}
+				<button
+					type="button"
+					class="ct-toolbar-button ct-icon-button"
+					aria-label={t.viewSettings}
+					title={t.viewSettings}
+					aria-haspopup="menu"
+					onpointerenter={() => loadViewMenu()}
+					onfocus={() => loadViewMenu()}
+					onclick={() => loadViewMenu(true)}
+				>
+					<Settings2 class="size-4" aria-hidden="true" />
+				</button>
+			{/if}
 		</div>
 	</div>
 
+	{#if notice}<p class="ct-library-notice" role="status">{notice}</p>{/if}
+
 	{#if cards.length}
-		<div class="ct-library-grid">
-			{#each cards as card (card.key)}
-				<LibraryCard {card} />
-			{/each}
-		</div>
+		{#if screen.layout === 'table'}
+			<!-- The table loads with the table layout only (bundle budget). -->
+			{#await import('#lib/library/LibraryTable.svelte')}
+				<div class="ct-library-table-pending" aria-busy="true"></div>
+			{:then { default: LibraryTable }}
+				<LibraryTable
+					columns={screen.columns}
+					{cards}
+					{selecting}
+					{selected}
+					ontoggle={toggleSelected}
+					ongenre={(genre) => change({ genre })}
+				/>
+			{/await}
+		{:else}
+			<div class="ct-library-grid">
+				{#each cards as card (card.key)}
+					<LibraryCard
+						{card}
+						lists={screen.bulk?.lists ?? []}
+						{selecting}
+						selected={selected.includes(card.key)}
+						ontoggle={toggleSelected}
+						onaddtolist={cardToList}
+					/>
+				{/each}
+			</div>
+		{/if}
 		{#if current.hasNext}
 			<div class="ct-library-more" use:revealed role="status">
 				{loadFailed ? t.loadMoreFailed : t.loadingMore}
 			</div>
+		{/if}
+		{#if selecting && screen.bulk}
+			{#await import('#lib/library/BulkBar.svelte') then { default: BulkBar }}
+				<BulkBar bulk={screen.bulk} {selected} onclear={() => (selection = { for: listKey, ids: [] })} ondone={bulkDone} />
+			{/await}
 		{/if}
 	{:else}
 		<p class="rounded-ct-md bg-surface px-4 py-16 text-center text-muted">

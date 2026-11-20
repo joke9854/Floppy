@@ -34,3 +34,25 @@ export async function djangoWrite(path: string, method: string, body?: unknown):
 		body: body === undefined ? undefined : JSON.stringify(body)
 	});
 }
+
+/**
+ * A same-origin form POST to a Django view (its views read `request.POST`),
+ * with the CSRF token. `redirect: 'manual'` keeps a view that answers with a
+ * redirect from loading the Django page behind it.
+ */
+export async function djangoForm(
+	path: string,
+	fields: Record<string, string | string[]>
+): Promise<Response> {
+	const body = new URLSearchParams();
+	for (const [key, value] of Object.entries(fields)) {
+		for (const item of Array.isArray(value) ? value : [value]) body.append(key, item);
+	}
+	return fetch(path, {
+		method: 'POST',
+		credentials: 'same-origin',
+		redirect: 'manual',
+		headers: { 'x-csrftoken': await csrfToken() },
+		body
+	});
+}

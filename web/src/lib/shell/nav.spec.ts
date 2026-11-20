@@ -46,9 +46,10 @@ describe('shell links', () => {
 });
 
 describe('app links', () => {
-	it('open the web Library for the types it has, Django for the rest', () => {
+	it('open the web Library for every Library type, Django for anything else', () => {
 		expect(libraryHref('tv', '/next')).toBe('/next/library/tv');
-		expect(libraryHref('music', '/next')).toBe('/medialist/music');
+		expect(libraryHref('music', '/next')).toBe('/next/library/music');
+		expect(libraryHref('episode', '/next')).toBe('/medialist/episode');
 	});
 
 	it('navigate in place inside the app and reload into Django pages', () => {

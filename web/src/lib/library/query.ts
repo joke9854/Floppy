@@ -7,14 +7,13 @@ export type LibraryCard = components['schemas']['LibraryCard'];
  * The Library's state lives in the URL, as on the Django page (sort,
  * direction, status, search and the filter menu's parameters), so reload,
  * back and shared links show the same list. Everything is passed to the API
- * unchanged except `layout`, which would overwrite the user's Django grid or
- * table choice (the web has the grid only so far), and `page`, which the
- * screen asks for itself as it scrolls.
+ * unchanged except `page`, which the screen asks for itself as it scrolls.
+ * `layout` (grid or table) is saved as the user's choice, as on the page.
  */
 export function apiQuery(search: Iterable<[string, string]>, page?: number): string {
 	const query = new URLSearchParams();
 	for (const [key, value] of search) {
-		if (key === 'layout' || key === 'page') continue;
+		if (key === 'page') continue;
 		query.append(key, value);
 	}
 	if (page && page > 1) query.set('page', String(page));
