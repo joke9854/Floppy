@@ -5,19 +5,21 @@ export type DetailSections = components['schemas']['DetailSections'];
 export type DetailSeason = components['schemas']['DetailSeason'];
 export type DetailEpisode = components['schemas']['DetailEpisode'];
 export type DetailCard = components['schemas']['DetailCard'];
+export type DetailTrailer = components['schemas']['DetailTrailer'];
 
 /** A movie or show page's three reads (GET details/...). */
 export function detailApiPath(
 	type: string,
 	source: string,
 	id: string,
-	part: 'shell' | 'sections' = 'shell',
+	part: 'shell' | 'sections' | 'trailers' = 'shell',
 	season?: string | null
 ): string {
 	const base =
 		`/api/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(source)}/` +
 		`${encodeURIComponent(id)}/`;
 	if (part === 'shell') return base;
+	if (part === 'trailers') return `${base}trailers/`;
 	return season ? `${base}sections/?season=${encodeURIComponent(season)}` : `${base}sections/`;
 }
 

@@ -129,5 +129,16 @@ export const t = {
 	to: 'To',
 	apply: 'Apply',
 	withinLast: 'Within the last',
-	unit: 'Unit'
+	unit: 'Unit',
+
+	// Detail page, P4-C2.
+	characters: 'Characters',
+	crew: 'Crew',
+	trailer: 'Trailer',
+	trailers: 'Trailers',
+	close: 'Close',
+	links: 'Links',
+	aboutSeason: (season: string) => `About ${season}`,
+	seasonNumber: (number: number) => `Season ${number}`,
+	episodeCount: (count: number) => `${count} ${count === 1 ? 'Episode' : 'Episodes'}`
 } as const;

@@ -1450,6 +1450,64 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/details/{media_type}/{source}/{media_id}/trailers/:
+    get:
+      operationId: getDetailTrailers
+      description: Every trailer and teaser, a show's own first, then its newest seasons'.
+        TMDB titles only; an empty list otherwise or while TMDB is unreachable. Built
+        by the Django page's own builder, so it shows what the page shows. Like the
+        page, the read can store metadata it resolves, so integration tokens cannot
+        call it.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailTrailers'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/details/tv/{source}/{media_id}/season/:
     get:
       operationId: getDetailSeason
@@ -19202,6 +19260,38 @@ components:
       required:
       - label
       - value
+    DetailLink:
+      type: object
+      description: 'A link chip: a provider page or an external database.'
+      properties:
+        label:
+          type: string
+        url:
+          type: string
+        logo:
+          type: string
+          nullable: true
+        fallback:
+          type: string
+          description: Badge text without a logo.
+      required:
+      - fallback
+      - label
+      - logo
+      - url
+    DetailLinkSection:
+      type: object
+      description: A group of links in the links popover.
+      properties:
+        title:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailLink'
+      required:
+      - links
+      - title
     DetailLoadMore:
       type: object
       description: The detail page's load more.
@@ -19256,7 +19346,7 @@ components:
       - year
     DetailPerson:
       type: object
-      description: The detail page's person.
+      description: A cast or crew card; crew cards carry the job as `role`.
       properties:
         name:
           type: string
@@ -19265,10 +19355,15 @@ components:
         image:
           type: string
           nullable: true
+        character_image:
+          type: string
+          nullable: true
+          description: TVDB's picture of the character, for the Characters tab.
         url:
           type: string
           nullable: true
       required:
+      - character_image
       - image
       - name
       - role
@@ -19353,6 +19448,8 @@ components:
       properties:
         number:
           type: integer
+        info:
+          $ref: '#/components/schemas/DetailSeasonInfo'
         progress:
           allOf:
           - $ref: '#/components/schemas/DetailProgress'
@@ -19367,6 +19464,7 @@ components:
           nullable: true
       required:
       - episodes
+      - info
       - load_more
       - number
       - progress
@@ -19391,6 +19489,43 @@ components:
       - label
       - number
       - short
+    DetailSeasonInfo:
+      type: object
+      description: 'A season''s info dialog (the season fragment''s #ct-season-info).'
+      properties:
+        title:
+          type: string
+        poster:
+          type: string
+          nullable: true
+        year:
+          type: string
+          nullable: true
+        episodes:
+          type: integer
+          nullable: true
+        runtime:
+          type: string
+          nullable: true
+        score:
+          type: string
+          nullable: true
+          description: TMDB's season score.
+        synopsis:
+          type: string
+        cast:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPerson'
+      required:
+      - cast
+      - episodes
+      - poster
+      - runtime
+      - score
+      - synopsis
+      - title
+      - year
     DetailSections:
       type: object
       description: The detail page's sections.
@@ -19429,6 +19564,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DetailPerson'
+        crew:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPerson'
         cast_view_all_url:
           type: string
           nullable: true
@@ -19440,12 +19579,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DetailInfo'
+        fanart_poster:
+          type: string
+          nullable: true
+        logo:
+          type: string
+          nullable: true
       required:
       - backdrop
       - cast
       - cast_view_all_url
+      - crew
+      - fanart_poster
       - history_url
       - info
+      - logo
       - plays
       - recommendations
       - related
@@ -19475,6 +19623,18 @@ components:
         backdrop:
           type: string
           nullable: true
+        fanart_poster:
+          type: string
+          nullable: true
+          description: fanart.tv's poster, shown in place of `poster`.
+        logo:
+          type: string
+          nullable: true
+          description: fanart.tv's title logo.
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailLinkSection'
         meta:
           $ref: '#/components/schemas/DetailMeta'
         scores:
@@ -19503,6 +19663,9 @@ components:
       required:
       - action
       - backdrop
+      - fanart_poster
+      - links
+      - logo
       - media_id
       - media_type
       - meta
@@ -19517,6 +19680,35 @@ components:
       - title
       - track_time
       - watch_on
+    DetailTrailer:
+      type: object
+      description: A YouTube trailer or teaser (ct/trailers.html).
+      properties:
+        key:
+          type: string
+          description: The YouTube video id.
+        name:
+          type: string
+        type:
+          type: string
+        season:
+          type: integer
+          nullable: true
+      required:
+      - key
+      - name
+      - season
+      - type
+    DetailTrailers:
+      type: object
+      description: 'A movie''s or show''s trailers: its own first, then each season''s.'
+      properties:
+        trailers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailTrailer'
+      required:
+      - trailers
     DetailWatchChip:
       type: object
       description: The detail page's watch chip.

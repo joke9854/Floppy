@@ -35,6 +35,7 @@ MOVIE = {
         "status": "Released",
     },
     "cast": [{"person_id": "1", "name": "Al Pacino", "role": "Michael Corleone"}],
+    "crew": [{"person_id": "2", "name": "Francis Ford Coppola", "role": "Director"}],
     "related": {
         "recommendations": [
             {
@@ -275,6 +276,8 @@ class DetailScreenApiTests(TestCase):
         shell = self._api("api_detail_shell", "tv", "tmdb", "1399")
         sections = self._api("api_detail_sections", "tv", "tmdb", "1399")
         season_two = self._api("api_detail_season", "tmdb", "1399", season=2)
+        self.assertEqual(season_two["info"]["title"], "Season 2")
+        self.assertEqual(season_two["info"]["episodes"], 2)
 
         page = self.client.get(
             reverse(
@@ -322,6 +325,33 @@ class DetailScreenApiTests(TestCase):
         for row in rows:
             self.assertIn(row["title"], fragment)
 
+    def test_crew_links_and_fanart(self, _metadata_mock):
+        shell = self._api("api_detail_shell", "movie", "tmdb", "238")
+        sections = self._api("api_detail_sections", "movie", "tmdb", "238")
+
+        self.assertIsNone(shell["logo"])
+        self.assertIsNone(shell["fanart_poster"])
+        self.assertIsInstance(shell["links"], list)
+        self.assertEqual(sections["crew"][0]["role"], "Director")
+        self.assertIn("Francis Ford Coppola", self._movie_page("?fragment=secondary"))
+        self.assertIsNone(sections["cast"][0]["character_image"])
+
+    def test_trailers_are_the_pages(self, _metadata_mock):
+        videos = [
+            {"key": "abc123", "name": "Official Trailer", "type": "Trailer"},
+            {"key": "def456", "name": "", "type": "Teaser"},
+        ]
+        with patch("app.providers.tmdb.carousel_media", return_value={"videos": videos}):
+            body = self._api("api_detail_trailers", "movie", "tmdb", "238")
+
+        self.assertEqual(
+            body["trailers"],
+            [
+                {"key": "abc123", "name": "Official Trailer", "type": "Trailer", "season": None},
+                {"key": "def456", "name": "Teaser", "type": "Teaser", "season": None},
+            ],
+        )
+
     def test_types_without_a_web_page_yet(self, _metadata_mock):
         response = self.client.get(
             reverse("api_detail_shell", args=["anime", "mal", "1"])
@@ -339,6 +369,7 @@ class DetailScreenApiTests(TestCase):
             ("api_detail_shell", ["movie", "tmdb", "238"]),
             ("api_detail_sections", ["movie", "tmdb", "238"]),
             ("api_detail_season", ["tmdb", "1399"]),
+            ("api_detail_trailers", ["movie", "tmdb", "238"]),
         ):
             response = Client().get(reverse(name, args=args), HTTP_X_API_KEY=raw)
             self.assertEqual(response.status_code, 403, name)

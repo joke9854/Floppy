@@ -61,6 +61,35 @@ def _backdrop(media, *, allow_network: bool) -> str | None:
     )
 
 
+def _fanart(media, *, allow_network: bool) -> dict:
+    """Return fanart.tv's poster and title logo (ct/detail_fanart.html), or None each."""
+    fanart = app_tags.ct_fanart(media, allow_network=allow_network) or {}
+    return {
+        "fanart_poster": app_tags.image_url(fanart["poster"]) if fanart.get("poster") else None,
+        "logo": app_tags.image_url(fanart["logo"]) if fanart.get("logo") else None,
+    }
+
+
+def _links(context) -> list[dict]:
+    """Return the links popover's sections (detail_action_buttons.html)."""
+    return [
+        {
+            "title": _text(section.get("title")),
+            "links": [
+                {
+                    "label": _text(entry.get("label")),
+                    "url": _text(entry.get("url")),
+                    "logo": app_tags.image_url(entry["logo_src"]) if entry.get("logo_src") else None,
+                    "fallback": _text(entry.get("fallback_text"))[:4],
+                }
+                for entry in section.get("entries") or []
+                if entry.get("url")
+            ],
+        }
+        for section in context.get("detail_link_sections") or []
+    ]
+
+
 def _watch_on(watch_on) -> dict | None:
     """Return the "Watch on" chips: four subscriptions, two rent or buy, the link."""
     if not watch_on:
@@ -204,6 +233,8 @@ def build_detail_shell(request, context) -> dict:
         "poster_srcset": app_tags.tmdb_srcset(media.get("image"), "w342,w500,w780")
         or "",
         "backdrop": _backdrop(media, allow_network=False),
+        **_fanart(media, allow_network=False),
+        "links": _links(context),
         "meta": _meta(context),
         "scores": _scores(context),
         "my_score": getattr(current, "score", None) if current is not None else None,
@@ -234,7 +265,8 @@ def _card(entry, user) -> dict:
     }
 
 
-def _person(person, media) -> dict:
+def _person(person, media, character_images=None) -> dict:
+    """Return a person card (ct/person_card.html); crew cards show the job as role."""
     url = None
     if person.get("person_id") and person.get("name"):
         try:
@@ -249,12 +281,14 @@ def _person(person, media) -> dict:
         except NoReverseMatch:
             url = None
     image = person.get("image")
+    character = app_tags.ct_character_image(character_images, person)
     return {
         "name": _text(person.get("name")) or "Unknown",
         "role": _text(person.get("role")),
         "image": app_tags.image_url(image)
         if image and image != settings.IMG_NONE
         else None,
+        "character_image": app_tags.image_url(character) if character else None,
         "url": url,
     }
 
@@ -435,8 +469,32 @@ def build_detail_season(request, show_context, season_number) -> dict | None:
                 ],
             }
     load_more = context.get("episode_load_more")
+    details = season.get("details") or {}
+    year = app_tags.release_year(details)
+    cast_row = context.get("cast_row") or {}
+    character_images = (
+        app_tags.ct_character_images({"request": request}, season) if cast_row.get("total") else {}
+    )
+    info = {
+        "title": _text(season.get("season_title")) or "Season",
+        "poster": _image(season.get("image"), "w185")
+        if season.get("image") and season.get("image") != settings.IMG_NONE
+        else None,
+        "year": _text(year) or None,
+        "episodes": details.get("episodes") or None,
+        "runtime": _text(details.get("runtime")) or None,
+        "score": _text(season.get("score")) if season.get("score") else None,
+        "synopsis": strip_tags(_text(season.get("synopsis"))).strip(),
+        "cast": [
+            _person(person, show, character_images)
+            for person in cast_row.get("items") or []
+        ]
+        if cast_row.get("total")
+        else [],
+    }
     return {
         "number": season_number,
+        "info": info,
         "progress": progress,
         "episodes": [
             _episode(episode, show, season_number, user, next_number)
@@ -503,10 +561,17 @@ def build_detail_sections(request, context) -> dict:
             }
         )
     cast_row = context.get("cast_row") or {}
+    crew_row = context.get("crew_row") or {}
+    # TVDB's character pictures for the Characters tab (a title's first read
+    # takes 0.5 to 1.9 s, then a week's cache), as the page reads them.
+    character_images = (
+        app_tags.ct_character_images({"request": request}, media) if cast_row.get("total") else {}
+    )
     recommendations = (context.get("recommendations_row") or {}).get("items") or []
     public = bool(context.get("public_view"))
     return {
         "backdrop": _backdrop(media, allow_network=True),
+        **_fanart(media, allow_network=True),
         "watch_on": _watch_on(context.get("watch_on")),
         "sections": _sections(user, media_type),
         "seasons": seasons,
@@ -517,8 +582,13 @@ def build_detail_sections(request, context) -> dict:
         "history_url": f"{reverse('history')}?media_type={media_type}"
         f"&media_id={media.get('media_id')}&source={media.get('source')}",
         "related": related,
-        "cast": [_person(person, media) for person in cast_row.get("items") or []]
+        "cast": [
+            _person(person, media, character_images) for person in cast_row.get("items") or []
+        ]
         if cast_row.get("total")
+        else [],
+        "crew": [_person(person, media) for person in crew_row.get("items") or []]
+        if crew_row.get("total")
         else [],
         "cast_view_all_url": cast_row.get("view_all_url") or None,
         "recommendations": [_card(entry, user) for entry in recommendations]
@@ -533,6 +603,28 @@ def build_detail_screen(request, media_type, source, media_id, part) -> dict | o
     from django.http import HttpResponse
 
     from app.media_details_views import build_media_details_context
+
+    if part == "trailers":
+        # The page's ?fragment=trailers: no page context, only TMDB's videos.
+        from app import carousel as carousel_media
+        from app.providers import services
+
+        try:
+            trailers = carousel_media.resolve_trailers(media_type, source, media_id)
+        except services.ProviderAPIError:
+            trailers = []
+        return {
+            "trailers": [
+                {
+                    "key": _text(trailer.get("key")),
+                    "name": _text(trailer.get("name") or trailer.get("type")),
+                    "type": _text(trailer.get("type")),
+                    "season": trailer.get("season"),
+                }
+                for trailer in trailers
+                if trailer.get("key")
+            ]
+        }
 
     built = build_media_details_context(
         request,
@@ -615,6 +707,22 @@ class DetailActionSerializer(serializers.Serializer):
     episode = HomeCheckTargetSerializer(allow_null=True)
 
 
+class DetailLinkSerializer(serializers.Serializer):
+    """A link chip: a provider page or an external database."""
+
+    label = serializers.CharField()
+    url = serializers.CharField()
+    logo = serializers.CharField(allow_null=True)
+    fallback = serializers.CharField(allow_blank=True, help_text="Badge text without a logo.")
+
+
+class DetailLinkSectionSerializer(serializers.Serializer):
+    """A group of links in the links popover."""
+
+    title = serializers.CharField()
+    links = DetailLinkSerializer(many=True)
+
+
 class DetailShellSerializer(serializers.Serializer):
     """The detail page's shell."""
 
@@ -628,6 +736,11 @@ class DetailShellSerializer(serializers.Serializer):
     poster = serializers.CharField()
     poster_srcset = serializers.CharField(allow_blank=True)
     backdrop = serializers.CharField(allow_null=True)
+    fanart_poster = serializers.CharField(
+        allow_null=True, help_text="fanart.tv's poster, shown in place of `poster`."
+    )
+    logo = serializers.CharField(allow_null=True, help_text="fanart.tv's title logo.")
+    links = DetailLinkSectionSerializer(many=True)
     meta = DetailMetaSerializer()
     scores = DetailScoreSerializer(many=True)
     my_score = serializers.FloatField(allow_null=True)
@@ -692,10 +805,36 @@ class DetailLoadMoreSerializer(serializers.Serializer):
     label = serializers.CharField()
 
 
+class DetailPersonSerializer(serializers.Serializer):
+    """A cast or crew card; crew cards carry the job as `role`."""
+
+    name = serializers.CharField()
+    role = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_null=True)
+    character_image = serializers.CharField(
+        allow_null=True, help_text="TVDB's picture of the character, for the Characters tab."
+    )
+    url = serializers.CharField(allow_null=True)
+
+
+class DetailSeasonInfoSerializer(serializers.Serializer):
+    """A season's info dialog (the season fragment's #ct-season-info)."""
+
+    title = serializers.CharField()
+    poster = serializers.CharField(allow_null=True)
+    year = serializers.CharField(allow_null=True)
+    episodes = serializers.IntegerField(allow_null=True)
+    runtime = serializers.CharField(allow_null=True)
+    score = serializers.CharField(allow_null=True, help_text="TMDB's season score.")
+    synopsis = serializers.CharField(allow_blank=True)
+    cast = DetailPersonSerializer(many=True)
+
+
 class DetailSeasonSerializer(serializers.Serializer):
     """The detail page's season."""
 
     number = serializers.IntegerField()
+    info = DetailSeasonInfoSerializer()
     progress = DetailProgressSerializer(allow_null=True)
     episodes = DetailEpisodeSerializer(many=True)
     load_more = DetailLoadMoreSerializer(allow_null=True)
@@ -731,15 +870,6 @@ class DetailRelatedSerializer(serializers.Serializer):
     cards = DetailCardSerializer(many=True)
 
 
-class DetailPersonSerializer(serializers.Serializer):
-    """The detail page's person."""
-
-    name = serializers.CharField()
-    role = serializers.CharField(allow_blank=True)
-    image = serializers.CharField(allow_null=True)
-    url = serializers.CharField(allow_null=True)
-
-
 class DetailInfoSerializer(serializers.Serializer):
     """The detail page's info."""
 
@@ -762,6 +892,24 @@ class DetailSectionsSerializer(serializers.Serializer):
     history_url = serializers.CharField()
     related = DetailRelatedSerializer(many=True)
     cast = DetailPersonSerializer(many=True)
+    crew = DetailPersonSerializer(many=True)
     cast_view_all_url = serializers.CharField(allow_null=True)
     recommendations = DetailCardSerializer(many=True)
     info = DetailInfoSerializer(many=True)
+    fanart_poster = serializers.CharField(allow_null=True)
+    logo = serializers.CharField(allow_null=True)
+
+
+class DetailTrailerSerializer(serializers.Serializer):
+    """A YouTube trailer or teaser (ct/trailers.html)."""
+
+    key = serializers.CharField(help_text="The YouTube video id.")
+    name = serializers.CharField()
+    type = serializers.CharField()
+    season = serializers.IntegerField(allow_null=True)
+
+
+class DetailTrailersSerializer(serializers.Serializer):
+    """A movie's or show's trailers: its own first, then each season's."""
+
+    trailers = DetailTrailerSerializer(many=True)

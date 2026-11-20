@@ -404,6 +404,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/{media_type}/{source}/{media_id}/trailers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every trailer and teaser, a show's own first, then its newest seasons'. TMDB titles only; an empty list otherwise or while TMDB is unreachable. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailTrailers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/details/tv/{source}/{media_id}/season/": {
         parameters: {
             query?: never;
@@ -4866,6 +4883,19 @@ export interface components {
             label: string;
             value: string;
         };
+        /** @description A link chip: a provider page or an external database. */
+        DetailLink: {
+            label: string;
+            url: string;
+            logo: string | null;
+            /** @description Badge text without a logo. */
+            fallback: string;
+        };
+        /** @description A group of links in the links popover. */
+        DetailLinkSection: {
+            title: string;
+            links: components["schemas"]["DetailLink"][];
+        };
         /** @description The detail page's load more. */
         DetailLoadMore: {
             querystring: string;
@@ -4885,11 +4915,13 @@ export interface components {
             seasons: number | null;
             percent: number | null;
         };
-        /** @description The detail page's person. */
+        /** @description A cast or crew card; crew cards carry the job as `role`. */
         DetailPerson: {
             name: string;
             role: string;
             image: string | null;
+            /** @description TVDB's picture of the character, for the Characters tab. */
+            character_image: string | null;
             url: string | null;
         };
         /** @description The detail page's play. */
@@ -4924,6 +4956,7 @@ export interface components {
         /** @description The detail page's season. */
         DetailSeason: {
             number: number;
+            info: components["schemas"]["DetailSeasonInfo"];
             progress: components["schemas"]["DetailProgress"] | null;
             episodes: components["schemas"]["DetailEpisode"][];
             load_more: components["schemas"]["DetailLoadMore"] | null;
@@ -4935,6 +4968,18 @@ export interface components {
             short: string;
             image: string | null;
             current: boolean;
+        };
+        /** @description A season's info dialog (the season fragment's #ct-season-info). */
+        DetailSeasonInfo: {
+            title: string;
+            poster: string | null;
+            year: string | null;
+            episodes: number | null;
+            runtime: string | null;
+            /** @description TMDB's season score. */
+            score: string | null;
+            synopsis: string;
+            cast: components["schemas"]["DetailPerson"][];
         };
         /** @description The detail page's sections. */
         DetailSections: {
@@ -4948,9 +4993,12 @@ export interface components {
             history_url: string;
             related: components["schemas"]["DetailRelated"][];
             cast: components["schemas"]["DetailPerson"][];
+            crew: components["schemas"]["DetailPerson"][];
             cast_view_all_url: string | null;
             recommendations: components["schemas"]["DetailCard"][];
             info: components["schemas"]["DetailInfo"][];
+            fanart_poster: string | null;
+            logo: string | null;
         };
         /** @description The detail page's shell. */
         DetailShell: {
@@ -4963,6 +5011,11 @@ export interface components {
             poster: string;
             poster_srcset: string;
             backdrop: string | null;
+            /** @description fanart.tv's poster, shown in place of `poster`. */
+            fanart_poster: string | null;
+            /** @description fanart.tv's title logo. */
+            logo: string | null;
+            links: components["schemas"]["DetailLinkSection"][];
             meta: components["schemas"]["DetailMeta"];
             scores: components["schemas"]["DetailScore"][];
             /** Format: double */
@@ -4972,6 +5025,18 @@ export interface components {
             synopsis: string;
             watch_on: components["schemas"]["DetailWatchOn"] | null;
             track_time: boolean;
+        };
+        /** @description A YouTube trailer or teaser (ct/trailers.html). */
+        DetailTrailer: {
+            /** @description The YouTube video id. */
+            key: string;
+            name: string;
+            type: string;
+            season: number | null;
+        };
+        /** @description A movie's or show's trailers: its own first, then each season's. */
+        DetailTrailers: {
+            trailers: components["schemas"]["DetailTrailer"][];
         };
         /** @description The detail page's watch chip. */
         DetailWatchChip: {
@@ -10013,6 +10078,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetailSections"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getDetailTrailers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailTrailers"];
                 };
             };
             400: {

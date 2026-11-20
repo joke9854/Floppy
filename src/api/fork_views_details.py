@@ -22,6 +22,7 @@ from .details_screen import (
     DetailSeasonSerializer,
     DetailSectionsSerializer,
     DetailShellSerializer,
+    DetailTrailersSerializer,
     build_detail_screen,
 )
 
@@ -118,4 +119,24 @@ class DetailSeasonView(drf_views.APIView):
             return Response({"detail": "season is required."}, status=HTTP.BAD_REQUEST)
         return _screen(
             request, "tv", source, media_id, "season", DetailSeasonSerializer
+        )
+
+
+# /api/v1/details/{media_type}/{source}/{media_id}/trailers/
+class DetailTrailersView(drf_views.APIView):
+    """A movie's or show's trailers and teasers (the page's ?fragment=trailers)."""
+
+    @extend_schema(
+        operation_id="getDetailTrailers",
+        description=(
+            "Every trailer and teaser, a show's own first, then its newest seasons'. "
+            "TMDB titles only; an empty list otherwise or while TMDB is unreachable."
+            + _NOTE
+        ),
+        responses={200: DetailTrailersSerializer, 400: DetailErrorSerializer},
+    )
+    def get(self, request, media_type, source, media_id):
+        """Return the trailers."""
+        return _screen(
+            request, media_type, source, media_id, "trailers", DetailTrailersSerializer
         )

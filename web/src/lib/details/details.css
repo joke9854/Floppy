@@ -852,3 +852,258 @@ a.ct-person-link:hover .ct-person-primary {
 		animation: none;
 	}
 }
+
+/* P4-C2: title logo, Characters/Cast/Crew tabs, trailers and their player,
+   the season info dialog and the links sheet (Django detail.css). */
+.ct-detail-title__logo {
+	display: block;
+	width: auto;
+	max-width: min(420px, 100%);
+	max-height: 140px;
+	object-fit: contain;
+	object-position: left center;
+}
+
+.ct-title-toggle {
+	gap: 24px;
+}
+
+.ct-title-toggle button.ct-row-title {
+	cursor: pointer;
+}
+
+.ct-title-toggle button.ct-row-title.is-off {
+	color: var(--color-muted);
+	font-weight: 600;
+}
+
+.ct-title-toggle button.ct-row-title.is-off:hover {
+	color: var(--color-text-secondary);
+}
+
+.ct-trailer-card {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: 2px;
+	width: 260px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.ct-trailer-card__still {
+	position: relative;
+	display: grid;
+	margin-bottom: 8px;
+	overflow: hidden;
+	place-items: center;
+	border-radius: 12px;
+	aspect-ratio: 16 / 9;
+	background-color: var(--color-surface);
+}
+
+.ct-trailer-card__still img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.ct-trailer-card__play {
+	position: relative;
+	display: grid;
+	width: 48px;
+	height: 48px;
+	place-items: center;
+	border-radius: 999px;
+	background-color: rgb(0 0 0 / 55%);
+	color: #fff;
+}
+
+.ct-trailer-card:hover .ct-trailer-card__play {
+	background-color: rgb(0 0 0 / 75%);
+}
+
+.ct-trailer-card__title {
+	overflow: hidden;
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-trailer-card__sub {
+	color: var(--color-muted);
+	font-size: 12px;
+}
+
+.ct-trailer-player {
+	position: fixed;
+	z-index: 50;
+	top: 50%;
+	left: 50%;
+	width: min(calc(100vw - 32px), 1100px);
+	aspect-ratio: 16 / 9;
+	transform: translate(-50%, -50%);
+}
+
+.ct-trailer-player iframe {
+	width: 100%;
+	height: 100%;
+	border: 0;
+	border-radius: 12px;
+}
+
+.ct-trailer-player__close {
+	position: absolute;
+	top: -44px;
+	right: 0;
+	display: grid;
+	width: 36px;
+	height: 36px;
+	place-items: center;
+	border-radius: 999px;
+	color: var(--color-text);
+}
+
+.ct-season-item {
+	position: relative;
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 2px;
+}
+
+.ct-season-info-btn {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: grid;
+	width: 28px;
+	height: 28px;
+	place-items: center;
+	border-radius: 999px;
+	background-color: rgb(0 0 0 / 55%);
+	color: #fff;
+	cursor: pointer;
+}
+
+.ct-season-info-btn:hover {
+	color: var(--color-link);
+}
+
+@media (max-width: 767.98px) {
+	.ct-season-info-btn {
+		position: static;
+		background: none;
+		color: var(--color-muted);
+	}
+}
+
+.ct-season-info__head {
+	display: flex;
+	align-items: flex-end;
+	gap: 16px;
+}
+
+.ct-season-info__poster {
+	width: 92px;
+	border-radius: 12px;
+	aspect-ratio: 2 / 3;
+	object-fit: cover;
+}
+
+.ct-season-info .ct-detail-meta {
+	margin-top: 4px;
+	font-size: 14px;
+}
+
+.ct-season-info__score {
+	margin-top: 8px;
+	color: var(--color-ct-gold, var(--color-text));
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.ct-season-info__source {
+	margin-left: 4px;
+	color: var(--color-muted);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.ct-season-info__synopsis {
+	margin: 16px 0 20px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.ct-season-info .ct-person-card {
+	width: 112px;
+}
+
+.ct-links-section + .ct-links-section {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 0.9px solid rgb(255 255 255 / 10%);
+}
+
+.ct-links-title {
+	margin-bottom: 8px;
+	color: var(--color-muted);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.ct-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.ct-link-chip {
+	display: inline-flex;
+	height: 32px;
+	align-items: center;
+	gap: 8px;
+	padding-right: 12px;
+	border: 0.9px solid rgb(255 255 255 / 12%);
+	border-radius: 999px;
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.ct-link-chip:hover {
+	background-color: rgb(255 255 255 / 8%);
+}
+
+.ct-link-chip__badge {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	margin: -0.9px 0 -0.9px -0.9px;
+	place-items: center;
+	border: 0.9px solid rgb(255 255 255 / 12%);
+	border-radius: 999px;
+	font-size: 9px;
+	font-weight: 900;
+	letter-spacing: 0.12em;
+}
+
+.ct-link-chip__badge img {
+	width: 16px;
+	height: 16px;
+	object-fit: contain;
+}
+
+.ct-btn-icon {
+	width: 46px;
+	justify-content: center;
+	padding: 0;
+}

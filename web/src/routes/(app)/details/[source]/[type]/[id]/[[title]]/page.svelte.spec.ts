@@ -14,6 +14,9 @@ const shell = (overrides: object = {}) => ({
 	poster: POSTER,
 	poster_srcset: '',
 	backdrop: null,
+	fanart_poster: null,
+	logo: null,
+	links: [{ title: 'Links', links: [{ label: 'IMDb', url: 'https://imdb.test/tt1', logo: null, fallback: 'IMDB' }] }],
 	meta: {
 		type_label: 'TV Show',
 		genres: ['Drama'],
@@ -77,6 +80,16 @@ const sections = {
 	],
 	season: {
 		number: 1,
+		info: {
+			title: 'Season 1',
+			poster: null,
+			year: '2011',
+			episodes: 2,
+			runtime: null,
+			score: null,
+			synopsis: '',
+			cast: []
+		},
 		progress: { watched: 1, total: 2, percent: 50, dashes: [] },
 		episodes: [episode(1, true), episode(2, false)],
 		load_more: null
@@ -84,7 +97,20 @@ const sections = {
 	plays: [],
 	history_url: '/history',
 	related: [],
-	cast: [{ name: 'Sean Bean', role: 'Ned Stark', image: null, url: '/person/tmdb/1/sean-bean' }],
+	cast: [
+		{
+			name: 'Sean Bean',
+			role: 'Ned Stark',
+			image: null,
+			character_image: null,
+			url: '/person/tmdb/1/sean-bean'
+		}
+	],
+	crew: [
+		{ name: 'David Benioff', role: 'Creator', image: null, character_image: null, url: null }
+	],
+	fanart_poster: null,
+	logo: null,
 	cast_view_all_url: null,
 	recommendations: [],
 	info: [{ label: 'Status', value: 'Ended' }]
@@ -123,6 +149,8 @@ describe('/next detail page', () => {
 		await expect.element(page.getByText('Episode 2')).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Watched', exact: true })).toBeVisible();
 		await expect.element(page.getByText('Ned Stark')).toBeVisible();
+		await page.getByRole('tab', { name: 'Crew' }).click();
+		await expect.element(page.getByText('David Benioff')).toBeVisible();
 		await expect.element(page.getByText('Ended')).toBeVisible();
 	});
 

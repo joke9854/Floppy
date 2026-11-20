@@ -212,10 +212,17 @@ podcasts, comics) redirect 307 to their Django page, as the Library does.
 - [x] Inside `/next`, Home and Library cards for movies and shows open this
       page (preloaded on tap, never on hover: the load can read the provider).
       Season, episode and other links keep their Django page.
-- [ ] Later in P4-C: trailers, characters and crew tabs, notes, the physical
-      collection section, history editing, ratings graphs, the link and tag
-      popovers, the metadata provider switch, fanart logos, the season info
-      dialog, the W shortcut, the episode, person and studio pages.
+- [x] C2 (2026-11-20): Characters / Cast / Crew tabs (Characters lead
+      with the role and show TVDB's character picture where there is one),
+      the Trailers row and player (`GET /api/v1/details/.../trailers/`,
+      loaded on its own as the page's ?fragment=trailers), the hero's Trailer
+      button, fanart.tv's poster and title logo, the Links sheet, the season
+      info dialog (each cover's ⓘ; the season read's `info`), the W shortcut.
+      Everything below the hero loads with the sections, so the page's first
+      load is the hero alone (106.2 kB of 110).
+- [ ] With the track dialog (P4-D): notes, the physical collection section,
+      history editing, the metadata provider switch, the tag popover.
+- [ ] Later: the ratings graphs; C3, the episode, person and studio pages.
 
 API (C1): `GET /api/v1/details/{media_type}/{source}/{media_id}/?part=shell`
 or `part=secondary` returns the page's own data. `build_media_details_context`

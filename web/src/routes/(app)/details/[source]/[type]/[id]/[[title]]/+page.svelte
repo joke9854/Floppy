@@ -4,7 +4,8 @@
 	import '#lib/details/details.css';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Link from '@lucide/svelte/icons/link';
+	import Play from '@lucide/svelte/icons/play';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import { onMount } from 'svelte';
 	import { replaceState } from '$app/navigation';
@@ -13,17 +14,15 @@
 		detailApiPath,
 		formWatchNow,
 		seasonApiPath,
-		type DetailCard,
+		type DetailTrailer,
 		type DetailSeason,
 		type DetailSections,
 		type DetailShell
 	} from '#lib/details/api.ts';
-	import EpisodeRow from '#lib/details/EpisodeRow.svelte';
-	import { detailLink } from '#lib/details/link.ts';
+	import Dialog from '#lib/ui/Dialog.svelte';
 	import { csrfToken } from '#lib/csrf.ts';
 	import { markWatched, type CheckOutcome, type Click } from '#lib/home/check.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
-	import StatusChip from '#lib/home/StatusChip.svelte';
 	import { libraryHref } from '#lib/shell/nav.ts';
 	import { t } from '#lib/strings.ts';
 	import type { PageProps } from './$types';
@@ -31,11 +30,11 @@
 	let { data }: PageProps = $props();
 
 	// The hero, refreshed after a watch is saved (the next episode moves on).
-	let fresh = $state<{ for: DetailShell; shell: DetailShell } | null>(null);
+	let fresh = $state.raw<{ for: DetailShell; shell: DetailShell } | null>(null);
 	const shell = $derived(fresh?.for === data.shell ? fresh.shell : data.shell);
 
 	// The sections stream in after first paint (undefined while they load).
-	let resolved = $state<{ for: Promise<DetailSections | null>; value: DetailSections | null } | null>(
+	let resolved = $state.raw<{ for: Promise<DetailSections | null>; value: DetailSections | null } | null>(
 		null
 	);
 	$effect(() => {
@@ -48,7 +47,7 @@
 
 	// The season on screen: the sections' own, until a pill or "Show more"
 	// loads another batch.
-	let seasonState = $state<{
+	let seasonState = $state.raw<{
 		for: DetailSections | null | undefined;
 		season: DetailSeason | null;
 		selected: number | null;
@@ -137,7 +136,7 @@
 	});
 
 	let heroBusy = $state(false);
-	let heroDone = $state<{ for: DetailShell } | null>(null);
+	let heroDone = $state.raw<{ for: DetailShell } | null>(null);
 	let heroProblem = $state<Exclude<CheckOutcome, 'saved'> | null>(null);
 	let heroClick: Click | null = null;
 
@@ -188,6 +187,54 @@
 	const longSynopsis = $derived(shell.synopsis.length > 260);
 	const watchOn = $derived(shell.watch_on ?? sections?.watch_on ?? null);
 	const backdrop = $derived(shell.backdrop ?? sections?.backdrop ?? null);
+	// fanart.tv's poster and title logo, from the cache or once the sections fetched them.
+	const fanartPoster = $derived(shell.fanart_poster ?? sections?.fanart_poster ?? null);
+	const logo = $derived(shell.logo ?? sections?.logo ?? null);
+	let logoLoaded = $state(false);
+
+	// Trailers load on their own (the page's ?fragment=trailers), TMDB titles only.
+	let trailers = $state.raw<{ for: DetailShell; list: DetailTrailer[] } | null>(null);
+	const trailerList = $derived(trailers?.for === data.shell ? trailers.list : []);
+	let playing = $state<string | null>(null);
+	$effect(() => {
+		const forShell = data.shell;
+		if (forShell.source !== 'tmdb') return;
+		fetch(detailApiPath(forShell.media_type, forShell.source, forShell.media_id, 'trailers'), {
+			credentials: 'same-origin'
+		})
+			.then((response) => (response.ok ? response.json() : { trailers: [] }))
+			.then((body: { trailers: DetailTrailer[] }) => {
+				if (data.shell === forShell) trailers = { for: forShell, list: body.trailers };
+			})
+			.catch(() => {});
+	});
+
+	// The season info dialog: a season's own read, opened from its cover.
+	let seasonInfo = $state<{ number: number; info: DetailSeason['info'] | null } | null>(null);
+	let seasonInfoOpen = $state(false);
+	async function openSeasonInfo(number: number) {
+		seasonInfo = { number, info: null };
+		seasonInfoOpen = true;
+		try {
+			const season = await readSeason(`season=${number}`);
+			if (seasonInfo?.number === number) seasonInfo = { number, info: season?.info ?? null };
+		} catch {
+			seasonInfoOpen = false;
+		}
+	}
+	let linksOpen = $state(false);
+
+	// W marks the hero's episode (ct/detail_hero.html's <kbd>W</kbd>), unless
+	// typing, with a modifier, or while a dialog is open.
+	function shortcut(event: KeyboardEvent) {
+		if (event.key.toLowerCase() !== 'w' || event.ctrlKey || event.metaKey || event.altKey) return;
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		if (document.querySelector('[role="dialog"]')) return;
+		if (shell.action?.kind !== 'episode' || !heroEpisode || heroBusy) return;
+		event.preventDefault();
+		markHero();
+	}
 	const backHref = $derived(libraryHref(shell.media_type));
 
 	function back(event: MouseEvent) {
@@ -202,6 +249,48 @@
 	<title>{shell.title} · Floppy</title>
 </svelte:head>
 
+<svelte:window onkeydown={shortcut} />
+
+{#if playing}
+	<!-- Loaded on first play: kept out of the page's first load (bundle budget). -->
+	{#await import('#lib/details/TrailerPlayer.svelte') then player}
+		<player.default bind:key={playing} />
+	{/await}
+{/if}
+
+<Dialog bind:open={linksOpen} title={t.links} sheet>
+	{#each shell.links.filter((section) => section.links.length) as section (section.title)}
+		<div class="ct-links-section">
+			<div class="ct-links-title">{section.title}</div>
+			<div class="ct-links">
+				{#each section.links as link (link.url)}
+					<a class="ct-link-chip" href={link.url} target="_blank" rel="noreferrer">
+						<span class="ct-link-chip__badge">
+							{#if link.logo}<img src={link.logo} alt="" />{:else}{link.fallback}{/if}
+						</span>
+						{link.label}
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/each}
+</Dialog>
+
+<Dialog
+	bind:open={seasonInfoOpen}
+	title={sections?.seasons.find((cover) => cover.number === seasonInfo?.number)?.label ?? t.seasons}
+	sheet
+>
+	{#if seasonInfo?.info}
+		{@const info = seasonInfo.info}
+		{#await import('#lib/details/SeasonInfo.svelte') then view}
+			<view.default {info} />
+		{/await}
+	{:else}
+		<div class="ct-sections-skeleton"></div>
+	{/if}
+</Dialog>
+
 <main class="ct-detail">
 	{#if backdrop}
 		<div class="ct-detail-backdrop" aria-hidden="true">
@@ -215,21 +304,50 @@
 
 		<div class="ct-detail-hero">
 			<div class="ct-detail-poster">
-				<img
-					alt={shell.title}
-					class="ct-fade-img"
-					src={shell.poster}
-					srcset={shell.poster_srcset || undefined}
-					sizes={shell.poster_srcset ? '(min-width: 768px) 260px, 200px' : undefined}
-					width="500"
-					height="750"
-					decoding="async"
-					fetchpriority="high"
-					use:fadeIn
-				/>
+				{#if fanartPoster}
+					<img
+						alt={shell.title}
+						class="ct-fade-img"
+						src={fanartPoster}
+						width="1000"
+						height="1426"
+						decoding="async"
+						fetchpriority="high"
+						use:fadeIn
+					/>
+				{:else}
+					<img
+						alt={shell.title}
+						class="ct-fade-img"
+						src={shell.poster}
+						srcset={shell.poster_srcset || undefined}
+						sizes={shell.poster_srcset ? '(min-width: 768px) 260px, 200px' : undefined}
+						width="500"
+						height="750"
+						decoding="async"
+						fetchpriority="high"
+						use:fadeIn
+					/>
+				{/if}
 			</div>
 			<div class="ct-detail-identity">
-				<h1 class="ct-detail-title">{shell.title}</h1>
+				<h1 class="ct-detail-title">
+					{#if logo}
+						<!-- The text holds the place until fanart.tv's logo has loaded. -->
+						<span class:sr-only={logoLoaded}>{shell.title}</span>
+						<img
+							alt=""
+							aria-hidden="true"
+							class="ct-detail-title__logo"
+							class:hidden={!logoLoaded}
+							src={logo}
+							decoding="async"
+							onload={() => (logoLoaded = true)}
+						/>
+					{:else}
+						{shell.title}
+					{/if}
+				</h1>
 				<p class="ct-detail-meta">
 					<span>{shell.meta.type_label}</span>
 					{#if shell.meta.genres.length}<span>{shell.meta.genres.join(', ')}</span>{/if}
@@ -298,6 +416,23 @@
 						<SlidersHorizontal class="size-4" aria-hidden="true" />
 						<span>{t.track}</span>
 					</a>
+					{#if trailerList.length}
+						<button type="button" class="ct-btn-quiet" onclick={() => (playing = trailerList[0].key)}>
+							<Play class="size-4" aria-hidden="true" />
+							<span>{t.trailer}</span>
+						</button>
+					{/if}
+					{#if shell.links.some((section) => section.links.length)}
+						<button
+							type="button"
+							class="ct-btn-quiet ct-btn-icon"
+							aria-label={t.links}
+							title={t.links}
+							onclick={() => (linksOpen = true)}
+						>
+							<Link class="size-4" aria-hidden="true" />
+						</button>
+					{/if}
 					{#if heroProblem}
 						<p class="ct-detail-problem" role="alert">
 							{heroProblem === 'unavailable' ? t.checkUnavailable : t.checkFailed}
@@ -345,219 +480,25 @@
 				{t.sectionsFailed}
 			</p>
 		{:else}
-			<div class="ct-detail-sections">
-				{#each sections.sections as key (key)}
-					{#if key === 'episodes' && sections.seasons.length}
-						<section aria-labelledby="ct-episodes-title">
-							<div class="ct-row-head">
-								<h2 class="ct-row-title" id="ct-episodes-title">{t.episodes}</h2>
-							</div>
-							{#if sections.seasons.length > 1}
-								<div class="ct-season-picker" role="tablist" aria-label={t.seasons}>
-									{#each sections.seasons as cover (cover.number)}
-										<button
-											type="button"
-											class="ct-season-cover"
-											role="tab"
-											aria-selected={cover.number === current.selected}
-											onclick={() => pickSeason(cover.number)}
-										>
-											<span class="ct-season-cover__art">
-												{#if cover.image}
-													<img
-														alt=""
-														class="ct-fade-img"
-														src={cover.image}
-														width="185"
-														height="278"
-														loading="lazy"
-														decoding="async"
-														use:fadeIn
-													/>
-												{/if}
-											</span>
-											<span class="ct-season-cover__label">{cover.label}</span>
-											<span class="ct-season-cover__short">{cover.short}</span>
-										</button>
-									{/each}
-								</div>
-							{/if}
-							<div class={['ct-episode-list', current.loading && 'is-loading']} aria-busy={current.loading}>
-								{#if current.season}
-									{#if current.season.progress}
-										{@const progress = current.season.progress}
-										<div class="ct-season-progress">
-											<p class="ct-season-progress__count">
-												{t.episodesWatched(progress.watched, progress.total)}
-												<span>{progress.percent}%</span>
-											</p>
-											{#if progress.dashes.length}
-												<ol class="ct-season-dashes" aria-hidden="true">
-													{#each progress.dashes as dash, index (index)}
-														<li
-															class={['ct-season-dash', dash.percent >= 100 && 'is-done']}
-															title="{dash.label} · {dash.percent}%"
-														>
-															<span style:width="{dash.percent}%"></span>
-														</li>
-													{/each}
-												</ol>
-											{/if}
-										</div>
-									{/if}
-									{#each current.season.episodes as episode (episode.episode_number)}
-										<EpisodeRow {episode} trackTime={shell.track_time} onsaved={refresh} />
-									{/each}
-									{#if current.season.load_more}
-										<div class="ct-ep-more">
-											<button type="button" class="ct-row-link" onclick={showMore} disabled={current.loading}>
-												{current.season.load_more.label}
-											</button>
-										</div>
-									{/if}
-								{:else if !current.failed}
-									<div class="ct-ep-skeleton"></div>
-									<div class="ct-ep-skeleton"></div>
-									<div class="ct-ep-skeleton"></div>
-								{/if}
-								{#if current.failed}
-									<p class="px-4 py-6 text-center text-muted" role="alert">{t.seasonFailed}</p>
-								{/if}
-							</div>
-						</section>
-					{:else if key === 'history' && sections.plays.length}
-						<section aria-labelledby="ct-plays-title">
-							<div class="ct-row-head">
-								<h2 class="ct-row-title" id="ct-plays-title">{t.yourPlays}</h2>
-								<a class="ct-row-link" href={sections.history_url} data-sveltekit-reload
-									>{t.history} <ChevronRight class="size-4" aria-hidden="true" /></a
-								>
-							</div>
-							<ul class="ct-plays">
-								{#each sections.plays as play, index (index)}
-									<li class="ct-play">
-										<span class={['ct-play__icon', play.status === 'Completed' && 'is-done']} aria-hidden="true">
-											{#if play.status === 'Completed'}
-												<Check class="size-4" />
-											{:else}
-												<ChevronRight class="size-4" />
-											{/if}
-										</span>
-										<span class="ct-play__text">
-											<span class="ct-play__title">{play.label}</span>
-											<span class="ct-play__sub"
-												>{play.when}{play.score !== null ? ` · ${t.rated(play.score)}` : ''}</span
-											>
-										</span>
-									</li>
-								{/each}
-							</ul>
-						</section>
-					{:else if key === 'related'}
-						{#each sections.related as list (list.name)}
-							<section aria-label={list.name}>
-								<div class="ct-row-head"><h2 class="ct-row-title">{list.name}</h2></div>
-								<div class="ct-detail-rail">
-									{#each list.cards as card (card.url)}
-										{@render poster(card)}
-									{/each}
-								</div>
-							</section>
-						{/each}
-					{:else if key === 'cast' && sections.cast.length}
-						<section aria-labelledby="ct-cast-title">
-							<div class="ct-row-head">
-								<h2 class="ct-row-title" id="ct-cast-title">{t.cast}</h2>
-								{#if sections.cast_view_all_url}
-									<a class="ct-row-link" href={sections.cast_view_all_url} target="_blank" rel="noopener noreferrer"
-										>{t.seeAll} <ChevronRight class="size-4" aria-hidden="true" /></a
-									>
-								{/if}
-							</div>
-							<div class="ct-detail-rail">
-								{#each sections.cast as person, index (index)}
-									<article class="ct-person-card">
-										<svelte:element
-											this={person.url ? 'a' : 'div'}
-											class="ct-person-link"
-											href={person.url ?? undefined}
-											data-sveltekit-reload={person.url ? '' : undefined}
-										>
-											<span class="ct-person-frame">
-												{#if person.image}
-													<img
-														alt={person.name}
-														class="ct-fade-img"
-														src={person.image}
-														width="185"
-														height="278"
-														loading="lazy"
-														decoding="async"
-														use:fadeIn
-													/>
-												{/if}
-											</span>
-											<span class="ct-person-primary">{person.name}</span>
-											{#if person.role}<span class="ct-person-secondary">{person.role}</span>{/if}
-										</svelte:element>
-									</article>
-								{/each}
-							</div>
-						</section>
-					{:else if key === 'recommendations' && sections.recommendations.length}
-						<section aria-labelledby="ct-more-title">
-							<div class="ct-row-head">
-								<h2 class="ct-row-title" id="ct-more-title">{t.moreLikeThis}</h2>
-							</div>
-							<div class="ct-detail-rail">
-								{#each sections.recommendations as card (card.url)}
-									{@render poster(card)}
-								{/each}
-							</div>
-						</section>
-					{:else if key === 'details' && sections.info.length}
-						<section aria-labelledby="ct-info-title">
-							<div class="ct-row-head">
-								<h2 class="ct-row-title" id="ct-info-title">{t.information}</h2>
-							</div>
-							<dl class="ct-info-grid">
-								{#each sections.info as row (row.label)}
-									<div>
-										<dt>{row.label}</dt>
-										<dd>{row.value}</dd>
-									</div>
-								{/each}
-							</dl>
-						</section>
-					{/if}
-				{/each}
-			</div>
+			<!-- Loaded with the sections: the page's first load is the hero alone (bundle budget). -->
+			{#await import('#lib/details/Sections.svelte')}
+				<div class="ct-detail-sections" aria-busy="true">
+					<div class="ct-sections-skeleton"></div>
+				</div>
+			{:then view}
+				<view.default
+					{sections}
+					{current}
+					trailers={trailerList}
+					trackTime={shell.track_time}
+					onpick={pickSeason}
+					onmore={showMore}
+					onsaved={refresh}
+					oninfo={openSeasonInfo}
+					onplay={(key: string) => (playing = key)}
+				/>
+			{/await}
 		{/if}
 	</div>
 </main>
 
-{#snippet poster(card: DetailCard)}
-	<article class="ct-poster-card" data-media-type={card.media_type}>
-		<a {...detailLink(card.url)} class="ct-poster-link">
-			<span class="ct-poster-frame">
-				<img
-					alt={card.title}
-					class="ct-poster-img ct-fade-img"
-					src={card.poster}
-					srcset={card.poster_srcset || undefined}
-					sizes={card.poster_srcset ? '140px' : undefined}
-					width="342"
-					height="513"
-					loading="lazy"
-					decoding="async"
-					use:fadeIn
-				/>
-			</span>
-			<span class="ct-poster-title">{card.title}</span>
-			<span class="ct-poster-sub">{card.subtitle}</span>
-		</a>
-		{#if card.status}
-			<StatusChip status={card.status} />
-		{/if}
-	</article>
-{/snippet}

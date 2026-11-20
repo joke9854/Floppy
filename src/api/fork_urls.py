@@ -799,6 +799,11 @@ urlpatterns = [
         name="api_detail_sections",
     ),
     re_path(
+        r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/trailers/?$",
+        fork_views_details.DetailTrailersView.as_view(),
+        name="api_detail_trailers",
+    ),
+    re_path(
         r"^details/tv/(?P<source>[^/]+)/(?P<media_id>[^/]+)/season/?$",
         fork_views_details.DetailSeasonView.as_view(),
         name="api_detail_season",
