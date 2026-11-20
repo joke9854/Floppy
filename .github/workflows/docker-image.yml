@@ -177,11 +177,14 @@ jobs:
             }
             signin_ms=$(median_ms "$base/next/login")
             start_ms=$(median_ms -b "$jar" "$base/next/")
-            # v2 P4-B: the Library renders through its API, and a type without
-            # a web Library yet goes to the Django page.
+            # v2 P4-B: the Library renders through its API (every Library type
+            # since B6, music included), and a type the API has no Library for
+            # goes to the Django page.
             library_page=$(curl -fsS -b "$jar" "$base/next/library/movie")
             grep -Fq 'class="ct-library-bar"' <<<"$library_page"
-            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/library/music")" = "$base/medialist/music"
+            music_page=$(curl -fsS -b "$jar" "$base/next/library/music")
+            grep -Fq 'class="ct-library-bar"' <<<"$music_page"
+            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/library/episode")" = "$base/medialist/episode"
             library_ms=$(median_ms -b "$jar" "$base/next/library/movie")
             # v2 P4-C1: types without a web detail page yet keep their Django page.
             test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/details/mal/anime/1/x")" = "$base/details/mal/anime/1/x"

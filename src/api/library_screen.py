@@ -79,7 +79,7 @@ def _sort_detail(request, entry, current_sort) -> str:
 
 
 def _history_url(entry) -> str:
-    """The card's history link, as media_card.html builds it."""
+    """Return the card's history link, as media_card.html builds it."""
     from urllib.parse import urlencode
 
     from django.urls import reverse
@@ -103,7 +103,7 @@ def _history_url(entry) -> str:
 
 
 def _next_episode_url(request, entry) -> str:
-    """The card's Next ep link, with the user's quick update preference on."""
+    """Return the card's Next ep link, with the user's quick update preference on."""
     if request.user.quick_season_update_mobile not in ("next_episode", "both"):
         return ""
     if entry.item.media_type not in _NEXT_EPISODE_TYPES:
@@ -127,7 +127,7 @@ def _card(request, entry, current_sort, table=None, kind="item") -> dict:
 
 
 def _tracker_card(request, tracker, target, current_sort) -> dict:
-    """An artist or album card (artist_grid_items.html, album_list_grid_items.html)."""
+    """Return an artist or album card (artist_grid_items.html, album_list_grid_items.html)."""
     from django.urls import reverse
 
     from users.templatetags.user_tags import user_date_format
@@ -228,7 +228,7 @@ def _role(key) -> str:
 
 
 def _shows_repeats(entry, user) -> bool:
-    """The cell templates' rule for the repeat count and the Latest/Total notes."""
+    """Return whether the cells show the repeat count and the Latest/Total notes."""
     if (getattr(entry, "repeats", 0) or 0) <= 1:
         return False
     sessions = getattr(user, "game_logging_style", None) == "sessions"

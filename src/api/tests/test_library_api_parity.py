@@ -355,7 +355,14 @@ class LibraryScreenTests(LibraryFixtures):
         self.assertEqual(body["entry_grouping"], {"enabled": True})
 
     def test_music_artists_albums_and_podcasts(self):
-        from app.models import Album, AlbumTracker, Artist, ArtistTracker, PodcastShow, PodcastShowTracker
+        from app.models import (
+            Album,
+            AlbumTracker,
+            Artist,
+            ArtistTracker,
+            PodcastShow,
+            PodcastShowTracker,
+        )
 
         artist = Artist.objects.create(name="Björk")
         album = Album.objects.create(title="Homogenic", artist=artist)
