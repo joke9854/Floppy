@@ -1508,6 +1508,127 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/:
+    get:
+      operationId: getEpisodeScreen
+      description: 'The episode page: the episode, the season strip, guest stars and
+        key crew, built by the Django page''s own builder. Built by the Django page''s
+        own builder, so it shows what the page shows. Like the page, the read can
+        store metadata it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: episode_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeScreen'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/person/{source}/{person_id}/:
+    get:
+      operationId: getPersonScreen
+      description: 'The person page: the person, your numbers with them, the titles
+        you have watched, Known For and the filmography, built by the Django page''s
+        own builder. 400 for a source without person pages. Built by the Django page''s
+        own builder, so it shows what the page shows. Like the page, the read can
+        store metadata it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/details/tv/{source}/{media_id}/season/:
     get:
       operationId: getDetailSeason
@@ -20063,6 +20184,21 @@ components:
       - last_episode_number
       - last_season_number
       - start_date
+    EpisodeCrew:
+      type: object
+      description: A key crew credit, for the Information grid.
+      properties:
+        label:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          nullable: true
+      required:
+      - label
+      - name
+      - url
     EpisodeDetails:
       type: object
       description: Stable episode detail fields plus provider-owned nested records.
@@ -20271,6 +20407,145 @@ components:
           nullable: true
       required:
       - score
+    EpisodeScreen:
+      type: object
+      description: The episode page.
+      properties:
+        show_title:
+          type: string
+        show_url:
+          type: string
+          nullable: true
+        season_title:
+          type: string
+        season_url:
+          type: string
+          nullable: true
+        page_url:
+          type: string
+          nullable: true
+          description: The Django episode page.
+        title:
+          type: string
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        display_number:
+          type: string
+        still:
+          type: string
+        blurred:
+          type: boolean
+          description: Hide the still until watched (user setting).
+        backdrop:
+          type: string
+          nullable: true
+        runtime:
+          type: string
+          nullable: true
+        aired:
+          type: string
+          nullable: true
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailScore'
+        watched:
+          type: boolean
+        check:
+          allOf:
+          - $ref: '#/components/schemas/HomeCheckTarget'
+          nullable: true
+        overview:
+          type: string
+        overview_hidden:
+          type: boolean
+          description: Hide the overview until watched (user setting).
+        previous_url:
+          type: string
+          nullable: true
+        next_url:
+          type: string
+          nullable: true
+        season_watched:
+          type: integer
+          nullable: true
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EpisodeStrip'
+        guest_stars:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPerson'
+        crew:
+          type: array
+          items:
+            $ref: '#/components/schemas/EpisodeCrew'
+        track_time:
+          type: boolean
+      required:
+      - aired
+      - backdrop
+      - blurred
+      - check
+      - crew
+      - display_number
+      - episode_number
+      - episodes
+      - guest_stars
+      - next_url
+      - overview
+      - overview_hidden
+      - page_url
+      - previous_url
+      - runtime
+      - scores
+      - season_number
+      - season_title
+      - season_url
+      - season_watched
+      - show_title
+      - show_url
+      - still
+      - title
+      - track_time
+      - watched
+    EpisodeStrip:
+      type: object
+      description: An episode in the season strip.
+      properties:
+        episode_number:
+          type: integer
+          nullable: true
+        display_number:
+          type: string
+        title:
+          type: string
+        still:
+          type: string
+        watched:
+          type: boolean
+        blurred:
+          type: boolean
+        air_date:
+          type: string
+        current:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+      required:
+      - air_date
+      - blurred
+      - current
+      - display_number
+      - episode_number
+      - still
+      - title
+      - url
+      - watched
     EpisodeWatchRequest:
       type: object
       description: Optional details for an episode play.
@@ -24324,6 +24599,146 @@ components:
       - place_of_birth
       - source
       - source_url
+    PersonScreen:
+      type: object
+      description: The person page.
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+        department:
+          type: string
+          nullable: true
+        born:
+          type: string
+          nullable: true
+          description: '"Born <date> (<age>)" or a range.'
+        place_of_birth:
+          type: string
+          nullable: true
+        is_author:
+          type: boolean
+        stats:
+          $ref: '#/components/schemas/PersonScreenStats'
+        history_url:
+          type: string
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+        source_label:
+          type: string
+        biography:
+          type: string
+        watched:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonScreenCard'
+        known_for:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonScreenCard'
+        filmography:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonScreenCredit'
+          description: Newest first, as the page.
+      required:
+      - biography
+      - born
+      - department
+      - filmography
+      - history_url
+      - image
+      - is_author
+      - known_for
+      - name
+      - place_of_birth
+      - source_label
+      - source_url
+      - stats
+      - watched
+    PersonScreenCard:
+      type: object
+      description: A credit's poster card.
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+        poster:
+          type: string
+        year:
+          type: string
+        media_type:
+          type: string
+        watched:
+          type: boolean
+      required:
+      - media_type
+      - poster
+      - title
+      - url
+      - watched
+      - year
+    PersonScreenCredit:
+      type: object
+      description: A filmography row.
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+        thumb:
+          type: string
+        year:
+          type: string
+        role:
+          type: string
+        media_type:
+          type: string
+        type_label:
+          type: string
+        departments:
+          type: array
+          items:
+            type: string
+          description: Every department, when more than one.
+        watched:
+          type: boolean
+      required:
+      - departments
+      - media_type
+      - role
+      - thumb
+      - title
+      - type_label
+      - url
+      - watched
+      - year
+    PersonScreenStats:
+      type: object
+      description: Your numbers with this person.
+      properties:
+        titles:
+          type: integer
+        movies:
+          type: integer
+        shows:
+          type: integer
+        books:
+          type: integer
+        together:
+          type: string
+          nullable: true
+          description: Time watched together.
+      required:
+      - books
+      - movies
+      - shows
+      - titles
+      - together
     PersonWatched:
       type: object
       description: What this user watched or read of the person's work.

@@ -581,6 +581,32 @@ def episode_details(
     parent_media_type=None,
 ):
     """Return the details page for a single episode."""
+    context = build_episode_context(
+        request,
+        source,
+        media_id,
+        title,
+        season_number,
+        episode_number,
+        parent_media_type,
+    )
+    return render(request, "app/episode_details.html", context)
+
+
+def build_episode_context(
+    request,
+    source,
+    media_id,
+    title,
+    season_number,
+    episode_number,
+    parent_media_type=None,
+):
+    """Build an episode page's context.
+
+    The ``episode_details`` view and the web episode screen API both call it,
+    so they show the same episode, season strip, guest stars and crew.
+    """
     is_anonymous = not request.user.is_authenticated
     public_list_view = request.GET.get("public_view") == "1"
     public_view = is_anonymous or public_list_view
@@ -733,7 +759,7 @@ def episode_details(
         ]
         notes_entry = notes_entries[0] if notes_entries else None
 
-    context = {
+    return {
         "user": request.user,
         "episode": episode_data,
         "notes_entry": notes_entry,
@@ -774,7 +800,6 @@ def episode_details(
         or f"Episode {episode_number}",
         "detail_return_url": request.build_absolute_uri(),
     }
-    return render(request, "app/episode_details.html", context)
 
 
 @never_cache

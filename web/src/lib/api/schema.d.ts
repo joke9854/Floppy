@@ -421,6 +421,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The episode page: the episode, the season strip, guest stars and key crew, built by the Django page's own builder. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getEpisodeScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/person/{source}/{person_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The person page: the person, your numbers with them, the titles you have watched, Known For and the filmography, built by the Django page's own builder. 400 for a source without person pages. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getPersonScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/details/tv/{source}/{media_id}/season/": {
         parameters: {
             query?: never;
@@ -5176,6 +5210,12 @@ export interface components {
             identity_media_type?: string;
             library_media_type?: string;
         };
+        /** @description A key crew credit, for the Information grid. */
+        EpisodeCrew: {
+            label: string;
+            name: string;
+            url: string | null;
+        };
         /** @description Stable episode detail fields plus provider-owned nested records. */
         EpisodeDetails: {
             air_date: string | null;
@@ -5258,6 +5298,50 @@ export interface components {
         /** @description The episode's score after the change. */
         EpisodeScore: {
             score: string | null;
+        };
+        /** @description The episode page. */
+        EpisodeScreen: {
+            show_title: string;
+            show_url: string | null;
+            season_title: string;
+            season_url: string | null;
+            /** @description The Django episode page. */
+            page_url: string | null;
+            title: string;
+            season_number: number;
+            episode_number: number;
+            display_number: string;
+            still: string;
+            /** @description Hide the still until watched (user setting). */
+            blurred: boolean;
+            backdrop: string | null;
+            runtime: string | null;
+            aired: string | null;
+            scores: components["schemas"]["DetailScore"][];
+            watched: boolean;
+            check: components["schemas"]["HomeCheckTarget"] | null;
+            overview: string;
+            /** @description Hide the overview until watched (user setting). */
+            overview_hidden: boolean;
+            previous_url: string | null;
+            next_url: string | null;
+            season_watched: number | null;
+            episodes: components["schemas"]["EpisodeStrip"][];
+            guest_stars: components["schemas"]["DetailPerson"][];
+            crew: components["schemas"]["EpisodeCrew"][];
+            track_time: boolean;
+        };
+        /** @description An episode in the season strip. */
+        EpisodeStrip: {
+            episode_number: number | null;
+            display_number: string;
+            title: string;
+            still: string;
+            watched: boolean;
+            blurred: boolean;
+            air_date: string;
+            current: boolean;
+            url: string | null;
         };
         /** @description Optional details for an episode play. */
         EpisodeWatchRequest: {
@@ -7115,6 +7199,56 @@ export interface components {
             place_of_birth: string;
             is_author: boolean;
             source_url: string;
+        };
+        /** @description The person page. */
+        PersonScreen: {
+            name: string;
+            image: string;
+            department: string | null;
+            /** @description "Born <date> (<age>)" or a range. */
+            born: string | null;
+            place_of_birth: string | null;
+            is_author: boolean;
+            stats: components["schemas"]["PersonScreenStats"];
+            history_url: string | null;
+            source_url: string | null;
+            source_label: string;
+            biography: string;
+            watched: components["schemas"]["PersonScreenCard"][];
+            known_for: components["schemas"]["PersonScreenCard"][];
+            /** @description Newest first, as the page. */
+            filmography: components["schemas"]["PersonScreenCredit"][];
+        };
+        /** @description A credit's poster card. */
+        PersonScreenCard: {
+            title: string;
+            url: string;
+            poster: string;
+            year: string;
+            media_type: string;
+            watched: boolean;
+        };
+        /** @description A filmography row. */
+        PersonScreenCredit: {
+            title: string;
+            url: string;
+            thumb: string;
+            year: string;
+            role: string;
+            media_type: string;
+            type_label: string;
+            /** @description Every department, when more than one. */
+            departments: string[];
+            watched: boolean;
+        };
+        /** @description Your numbers with this person. */
+        PersonScreenStats: {
+            titles: number;
+            movies: number;
+            shows: number;
+            books: number;
+            /** @description Time watched together. */
+            together: string | null;
         };
         /** @description What this user watched or read of the person's work. */
         PersonWatched: {
@@ -10127,6 +10261,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetailTrailers"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getEpisodeScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                episode_number: string;
+                media_id: string;
+                season_number: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getPersonScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonScreen"];
                 };
             };
             400: {

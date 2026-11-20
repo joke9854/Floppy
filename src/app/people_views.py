@@ -1,7 +1,7 @@
 from datetime import date
 
 from django.conf import settings
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
@@ -35,6 +35,22 @@ def _person_age(person_data):
 def person_detail(request, source, person_id, name):
     """Render a provider-backed person or author profile page."""
     del name  # URL slug is cosmetic; person_id is canonical.
+    context = build_person_context(request, source, person_id)
+    if isinstance(context, HttpResponse):
+        return context
+    if request.headers.get("HX-Request"):
+        return render(
+            request, "app/components/person_filmography_fragment.html", context
+        )
+    return render(request, "app/person_detail.html", context)
+
+
+def build_person_context(request, source, person_id):
+    """Build the person page's context, or the 400 for a source without pages.
+
+    The ``person_detail`` view and the web person screen API both call it, so
+    they show the same person, numbers and filmography.
+    """
     page = people_data.build_person_page(request.user, source, person_id)
     if page is None:
         return HttpResponseBadRequest("Person pages are not available for this source.")
@@ -215,7 +231,7 @@ def person_detail(request, source, person_id, name):
     combined_years = sorted(watched_years | set(all_filmography_years), reverse=True)
     filter_data["years"] = [{"value": str(y), "label": str(y)} for y in combined_years]
 
-    context = {
+    return {
         "user": request.user,
         "person": person_data,
         "is_author": is_author,
@@ -247,11 +263,6 @@ def person_detail(request, source, person_id, name):
         "supports_critic_rating_sort": not is_author,
         "person_detail_url": request.path,
     }
-    if request.headers.get("HX-Request"):
-        return render(
-            request, "app/components/person_filmography_fragment.html", context
-        )
-    return render(request, "app/person_detail.html", context)
 
 
 def studio_detail(request, source, studio_id, name):

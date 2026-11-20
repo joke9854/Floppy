@@ -25,6 +25,8 @@ from .details_screen import (
     DetailTrailersSerializer,
     build_detail_screen,
 )
+from .episode_screen import EpisodeScreenSerializer, build_episode_screen
+from .person_screen import PersonScreenSerializer, build_person_screen
 
 _NOTE = (
     " Built by the Django page's own builder, so it shows what the page shows. "
@@ -140,3 +142,63 @@ class DetailTrailersView(drf_views.APIView):
         return _screen(
             request, media_type, source, media_id, "trailers", DetailTrailersSerializer
         )
+
+
+# /api/v1/details/person/{source}/{person_id}/
+class PersonScreenView(drf_views.APIView):
+    """A person or author page for the new web app (v2 P4-C3)."""
+
+    @extend_schema(
+        operation_id="getPersonScreen",
+        description=(
+            "The person page: the person, your numbers with them, the titles you "
+            "have watched, Known For and the filmography, built by the Django "
+            "page's own builder. 400 for a source without person pages." + _NOTE
+        ),
+        responses={200: PersonScreenSerializer, 400: DetailErrorSerializer},
+    )
+    def get(self, request, source, person_id):
+        """Return the person page."""
+        with credentials.current_user_scope(request.user):
+            data = build_person_screen(request._request, source, person_id)
+        if isinstance(data, HttpResponse):
+            return Response(
+                {"detail": "Person pages are not available for this source."},
+                status=HTTP.BAD_REQUEST,
+            )
+        return Response(PersonScreenSerializer(data).data, status=HTTP.OK)
+
+
+# /api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/
+class EpisodeScreenView(drf_views.APIView):
+    """An episode page for the new web app (v2 P4-C3)."""
+
+    @extend_schema(
+        operation_id="getEpisodeScreen",
+        description=(
+            "The episode page: the episode, the season strip, guest stars and key "
+            "crew, built by the Django page's own builder." + _NOTE
+        ),
+        responses={
+            200: EpisodeScreenSerializer,
+            404: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, source, media_id, season_number, episode_number):
+        """Return the episode page."""
+        from app.providers import services
+
+        try:
+            with credentials.current_user_scope(request.user):
+                data = build_episode_screen(
+                    request._request, source, media_id, int(season_number), int(episode_number)
+                )
+        except services.ProviderAPIError:
+            return Response(
+                {"detail": "The provider is not answering. Try again later."},
+                status=HTTP.SERVICE_UNAVAILABLE,
+            )
+        if data is None:
+            return Response({"detail": "No such episode."}, status=HTTP.NOT_FOUND)
+        return Response(EpisodeScreenSerializer(data).data, status=HTTP.OK)
