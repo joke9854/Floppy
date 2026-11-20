@@ -1,5 +1,5 @@
 import { page } from 'vitest/browser';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 
@@ -117,6 +117,10 @@ const renderLibrary = (overrides: object = {}) =>
 	});
 
 describe('/next Library', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
 	it('shows the header, the menus and the cards', async () => {
 		renderLibrary();
 
@@ -145,6 +149,26 @@ describe('/next Library', () => {
 		await expect.element(page.getByRole('button', { name: /^Tag/ })).toBeVisible();
 		await page.getByRole('button', { name: /^Genre/ }).click();
 		await expect.element(page.getByRole('button', { name: 'Drama' })).toBeVisible();
+	});
+
+	it('adds the next page as the grid scrolls', async () => {
+		const next = {
+			...screen,
+			page: 2,
+			has_next: false,
+			results: [card(3, 'Shogun', 'Planning')]
+		};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify(next), { status: 200 }))
+		);
+		renderLibrary({ has_next: true });
+
+		document.querySelector('.ct-library-more')?.scrollIntoView();
+
+		// The second page is shown, not only fetched (a proxied state once lost it).
+		await expect.element(page.getByText('Shogun')).toBeVisible();
+		await expect.element(page.getByText('Severance')).toBeVisible();
 	});
 
 	it('links types without a web Library to the Django page', async () => {

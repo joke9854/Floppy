@@ -29,7 +29,7 @@
 
 	// Later pages, read as the list scrolls. A new list (another type, sort,
 	// status or search) starts again from the page the load returned.
-	let more = $state<{ for: LibraryScreen | null; cards: Card[]; page: number; hasNext: boolean }>({
+	let more = $state.raw<{ for: LibraryScreen | null; cards: Card[]; page: number; hasNext: boolean }>({
 		for: null,
 		cards: [],
 		page: 1,
