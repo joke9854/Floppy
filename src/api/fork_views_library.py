@@ -658,6 +658,11 @@ class LibraryScreenView(drf_views.APIView):
             OpenApiParameter("search", str),
             OpenApiParameter("page", int),
             OpenApiParameter(
+                "subview",
+                str,
+                description="Music: artists, albums or tracks. Comics: comics or issues.",
+            ),
+            OpenApiParameter(
                 "layout",
                 str,
                 enum=["grid", "table"],

@@ -6200,6 +6200,13 @@ export interface components {
          * @enum {string}
          */
         LayoutEnum: "grid" | "table";
+        /** @description Bulk select's menus: statuses, the user's editable lists, their tags. */
+        LibraryBulk: {
+            statuses: components["schemas"]["LibraryChoice"][];
+            /** @description Value is the list id. */
+            lists: components["schemas"]["LibraryChoice"][];
+            tags: string[];
+        };
         /** @description A Library poster card, or a table row. */
         LibraryCard: {
             /** @description The item id. */
@@ -6218,6 +6225,17 @@ export interface components {
             detail: string;
             /** @description Times repeated, when the table's title shows it. */
             repeats: number | null;
+            /**
+             * @description Music and podcasts draw square art.
+             *
+             *     * `poster` - poster
+             *     * `square` - square
+             */
+            shape: components["schemas"]["ShapeEnum"];
+            /** @description The card menu's History link (Django). */
+            history_url: string;
+            /** @description The Next ep link, with the user's quick update preference on. */
+            next_episode_url: string;
             /** @description The row's cells after image and title; empty in the grid. */
             cells: components["schemas"]["LibraryCell"][];
         };
@@ -6247,12 +6265,26 @@ export interface components {
             key: string;
             label: string;
             align: components["schemas"]["AlignEnum"];
+            /**
+             * @description How the web draws it: the card's poster or title, a score, a list or text.
+             *
+             *     * `image` - image
+             *     * `title` - title
+             *     * `score` - score
+             *     * `list` - list
+             *     * `text` - text
+             */
+            role: components["schemas"]["RoleEnum"];
         };
         /** @description A column the user can show or hide (the page's column menu). */
         LibraryColumnConfig: {
             key: string;
             label: string;
             visible: boolean;
+        };
+        /** @description The View settings' "Show matching entries separately". */
+        LibraryEntryGrouping: {
+            enabled: boolean;
         };
         /** @description The filter menu's options; a pane shows when it has options or its flag is on. */
         LibraryFilterOptions: {
@@ -6321,6 +6353,10 @@ export interface components {
             count: number;
             in_progress: number;
             views: components["schemas"]["LibraryView"][];
+            /** @description Music: artists, albums, tracks. Comics: comics, issues. */
+            subviews: components["schemas"]["LibraryChoice"][];
+            /** @description Send as `subview`. */
+            subview: string;
             sort: string;
             /** @description "asc" or "desc". */
             direction: string;
@@ -6346,6 +6382,10 @@ export interface components {
             column_config: components["schemas"]["LibraryColumnConfig"][];
             /** @description Table only: the menu's Reset to defaults. */
             column_defaults: components["schemas"]["LibraryColumnConfig"][];
+            /** @description Null where the page has no bulk select (artists, albums). */
+            bulk: components["schemas"]["LibraryBulk"] | null;
+            /** @description Null for types without the setting. */
+            entry_grouping: components["schemas"]["LibraryEntryGrouping"] | null;
             results: components["schemas"]["LibraryCard"][];
         };
         /**
@@ -7685,6 +7725,15 @@ export interface components {
             /** @description Shows only: every season (specials excluded) and its pass. */
             seasons: components["schemas"]["RewatchSeason"][];
         };
+        /**
+         * @description * `image` - image
+         *     * `title` - title
+         *     * `score` - score
+         *     * `list` - list
+         *     * `text` - text
+         * @enum {string}
+         */
+        RoleEnum: "image" | "title" | "score" | "list" | "text";
         /** @description A permission a token can hold. */
         ScopeChoice: {
             scope: string;
@@ -7762,6 +7811,12 @@ export interface components {
         ServerPortUpdate: {
             port: number;
         };
+        /**
+         * @description * `poster` - poster
+         *     * `square` - square
+         * @enum {string}
+         */
+        ShapeEnum: "poster" | "square";
         /** @description The parent show/podcast for an episode-like tracked media entry. */
         Show: {
             id: number | null;
@@ -12787,6 +12842,8 @@ export interface operations {
                 sort?: string;
                 /** @description A value from `status_choices`, repeatable. */
                 status?: string[];
+                /** @description Music: artists, albums or tracks. Comics: comics or issues. */
+                subview?: string;
             };
             header?: never;
             path: {

@@ -6,8 +6,9 @@ saved preferences and pages. Like the page it saves the sort, direction and
 status preferences, which is why the route takes the session or the account
 token only. Cards use the template helpers the grid uses.
 
-B1 covers the types drawn with the standard poster card; music, podcasts and
-comics have their own grids on the page and come later.
+Music lists artists or albums (their own trackers, no Item) unless the
+Tracks view is on; podcasts list shows through the page's adapter, which
+carries an Item. Both draw square cards.
 """
 
 from __future__ import annotations
@@ -32,7 +33,16 @@ LIBRARY_SCREEN_TYPES = (
     MediaTypes.GAME.value,
     MediaTypes.BOOK.value,
     MediaTypes.BOARDGAME.value,
+    MediaTypes.MUSIC.value,
+    MediaTypes.PODCAST.value,
+    MediaTypes.COMIC.value,
 )
+_SQUARE_TYPES = (MediaTypes.MUSIC.value, MediaTypes.PODCAST.value)
+_SUBVIEWS = {
+    MediaTypes.MUSIC.value: (("artists", "Artists"), ("albums", "Albums"), ("tracks", "Tracks")),
+    MediaTypes.COMIC.value: (("comics", "Comics"), ("issues", "Issues")),
+}
+_NEXT_EPISODE_TYPES = (MediaTypes.TV.value, MediaTypes.SEASON.value, MediaTypes.ANIME.value)
 
 _SPACES = re.compile(r"\s+")
 
@@ -68,11 +78,103 @@ def _sort_detail(request, entry, current_sort) -> str:
     return _SPACES.sub(" ", strip_tags(html)).strip()
 
 
-def _card(request, entry, current_sort, table=None) -> dict:
-    card = _grid_card(request, entry, current_sort)
+def _history_url(entry) -> str:
+    """The card's history link, as media_card.html builds it."""
+    from urllib.parse import urlencode
+
+    from django.urls import reverse
+
+    item = entry.item
+    tracker = getattr(entry, "tracker", None)
+    show = getattr(entry, "show", None) or getattr(tracker, "show", None)
+    if item.media_type in (MediaTypes.SEASON.value, MediaTypes.EPISODE.value):
+        query = {"media_type": MediaTypes.TV.value, "media_id": item.media_id, "source": item.source}
+        if item.season_number:
+            query["season_number"] = item.season_number
+    elif item.media_type == MediaTypes.TV.value:
+        query = {"media_type": MediaTypes.TV.value, "media_id": item.media_id, "source": item.source}
+    elif item.media_type == MediaTypes.PODCAST.value and show is not None:
+        query = {"media_type": MediaTypes.PODCAST.value, "podcast_show": show.id}
+    else:
+        query = {"media_type": item.media_type, "media_id": item.media_id, "source": item.source}
+    if item.media_type in (MediaTypes.GAME.value, MediaTypes.BOARDGAME.value):
+        query["logging_style"] = "sessions"
+    return f"{reverse('history')}?{urlencode(query)}"
+
+
+def _next_episode_url(request, entry) -> str:
+    """The card's Next ep link, with the user's quick update preference on."""
+    if request.user.quick_season_update_mobile not in ("next_episode", "both"):
+        return ""
+    if entry.item.media_type not in _NEXT_EPISODE_TYPES:
+        return ""
+    return str(app_tags.next_episode_url(entry.item, entry) or "")
+
+
+def _card(request, entry, current_sort, table=None, kind="item") -> dict:
+    if kind == "artist":
+        card = _tracker_card(request, entry, entry.artist, current_sort)
+    elif kind == "album":
+        card = _tracker_card(request, entry, entry.album, current_sort)
+    else:
+        card = _grid_card(request, entry, current_sort)
+        card["history_url"] = _history_url(entry)
+        card["next_episode_url"] = _next_episode_url(request, entry)
+    card["shape"] = "square" if card["media_type"] in _SQUARE_TYPES else "poster"
     card["repeats"] = entry.repeats if _shows_repeats(entry, request.user) else None
     card["cells"] = table.cells(entry) if table else []
     return card
+
+
+def _tracker_card(request, tracker, target, current_sort) -> dict:
+    """An artist or album card (artist_grid_items.html, album_list_grid_items.html)."""
+    from django.urls import reverse
+
+    from users.templatetags.user_tags import user_date_format
+
+    user = request.user
+    is_artist = target is getattr(tracker, "artist", None)
+    image = target.image or settings.IMG_NONE
+    status = tracker.status or None
+    if is_artist:
+        title = target.name
+        url = app_tags.music_artist_url(target)
+        subtitle = str(app_tags.media_status_readable(status)) if status else ""
+        history = f"{reverse('history')}?artist={target.id}"
+        release = getattr(tracker, "first_release_date", None)
+    else:
+        title = target.title
+        url = app_tags.music_album_url(target)
+        artist = getattr(target, "artist", None)
+        subtitle = artist.name if artist else ""
+        history = ""
+        release = target.release_date
+    dates = {
+        "release_date": release,
+        "date_added": tracker.created_at,
+        "end_date": getattr(tracker, "end_date", None),
+        "start_date": getattr(tracker, "start_date", None),
+    }
+    if current_sort in dates:
+        detail = user_date_format(dates[current_sort], user) or ""
+    elif current_sort == "score" and tracker.score:
+        detail = app_tags.score_display(tracker.score, user)
+    else:
+        detail = ""
+    return {
+        "key": target.id,
+        "media_type": MediaTypes.MUSIC.value,
+        "title": title,
+        "url": url,
+        "poster": app_tags.image_url(image),
+        "poster_srcset": "",
+        "status": status,
+        "progress": None,
+        "subtitle": subtitle,
+        "detail": str(detail),
+        "history_url": history,
+        "next_episode_url": "",
+    }
 
 
 def _grid_card(request, entry, current_sort) -> dict:
@@ -102,7 +204,8 @@ def _grid_card(request, entry, current_sort) -> dict:
 
 # Table cells the web draws from the card (image, title) or as lists (genres,
 # tags); every other column is the page's own cell template, as text.
-_CARD_COLUMNS = frozenset({"image", "title"})
+_CARD_COLUMNS = frozenset({"image", "title", "artist_name", "album_title"})
+_SCORE_COLUMNS = frozenset({"score", "album_score"})
 _LIST_COLUMNS = frozenset({"genres", "tags"})
 _CELL_NOTE = re.compile(r'<div class="text-xs[^"]*"[^>]*>(.*?)</div>', re.DOTALL)
 _EMPTY_CELL = frozenset({"", "-", "--"})
@@ -110,6 +213,18 @@ _EMPTY_CELL = frozenset({"", "-", "--"})
 
 def _align(column) -> str:
     return "center" if "text-center" in column.th_classes else "start"
+
+
+def _role(key) -> str:
+    if key == "image":
+        return "image"
+    if key in _CARD_COLUMNS:
+        return "title"
+    if key in _SCORE_COLUMNS:
+        return "score"
+    if key in _LIST_COLUMNS:
+        return "list"
+    return "text"
 
 
 def _shows_repeats(entry, user) -> bool:
@@ -163,7 +278,7 @@ class _Table:
         self.user = request.user
         self.media_type = media_type
         self.columns = resolve_columns(
-            media_type, context["current_sort"], self.user, "media"
+            media_type, context["current_sort"], self.user, context.get("table_type", "media")
         )
         self._templates = {
             column.key: get_template(column.cell_template).template
@@ -174,14 +289,18 @@ class _Table:
         keys = {column.key for column in self.columns}
         self._tags = (
             _tag_names(self.user, [entry.item for entry in entries])
-            if "tags" in keys
+            if "tags" in keys and context.get("table_type", "media") == "media"
             else {}
         )
 
     def header(self) -> list[dict]:
         return [
-            {"key": column.key, "label": str(_(column.label)) if column.label else "",
-             "align": _align(column)}
+            {
+                "key": column.key,
+                "label": str(_(column.label)) if column.label else "",
+                "align": _align(column),
+                "role": _role(column.key),
+            }
             for column in self.columns
         ]
 
@@ -310,13 +429,57 @@ def _filter_options(context) -> dict:
     return options
 
 
+def _bulk(context) -> dict | None:
+    """Bulk select's menus (bulk_selection_toolbar.html), where the page offers it."""
+    data = context.get("bulk_action_data") if context.get("enable_bulk_select") else None
+    if not data:
+        return None
+    return {
+        "statuses": [{"value": str(s["value"]), "label": str(s["label"])} for s in data["statuses"]],
+        "lists": [{"value": str(row["id"]), "label": str(row["label"])} for row in data["lists"]],
+        "tags": [str(tag) for tag in data["tags"]],
+    }
+
+
+def _entry_grouping(user, media_type) -> dict | None:
+    from app.media_list_entry_grouping import preference_field, show_separate_entries
+
+    if preference_field(media_type) is None:
+        return None
+    return {"enabled": show_separate_entries(user, media_type)}
+
+
 def build_library_screen(request, media_type) -> dict:
-    """Return the Library page for ``media_type`` as the web screen reads it."""
+    """Return the Library page for ``media_type`` as the web screen reads it.
+
+    The page's view runs the list inside the user's entry grouping ("Show
+    matching entries separately"), so this does too.
+    """
+    from app.media_list_entry_grouping import (
+        entry_grouping_mode,
+        preference_field,
+        show_separate_entries,
+    )
+
+    mode = (
+        show_separate_entries(request.user, media_type) if preference_field(media_type) else None
+    )
+    with entry_grouping_mode(mode):
+        return _build_library_screen(request, media_type)
+
+
+def _build_library_screen(request, media_type) -> dict:
     from app.media_list_views import build_media_list_context
 
     context, layout, _resolved = build_media_list_context(request, media_type)
     page = context["media_list"]
     entries = list(page)
+    if context.get("is_artist_list"):
+        kind = "artist"
+    elif context.get("is_album_list"):
+        kind = "album"
+    else:
+        kind = "item"
     table = _Table(request, context, entries, media_type) if layout == "table" else None
     user = request.user
     library = app_tags.ct_library_types(user)
@@ -327,13 +490,17 @@ def build_library_screen(request, media_type) -> dict:
             {"media_type": MediaTypes.SEASON.value, "label": "Seasons"},
         ]
     current_sort = context["current_sort"]
-    app_tags.ct_prefetch_posters(entries, "item")
+    if kind == "item":
+        app_tags.ct_prefetch_posters(entries, "item")
+    subviews = _SUBVIEWS.get(media_type, ())
     return {
         "media_type": media_type,
         "title": str(app_tags.media_type_readable_plural(media_type)),
         "count": page.paginator.count if getattr(page, "paginator", None) else len(page),
         "in_progress": app_tags.ct_library_in_progress(user, media_type) or 0,
         "views": views,
+        "subviews": [{"value": value, "label": label} for value, label in subviews],
+        "subview": str(context.get("current_subview") or (subviews[0][0] if subviews else "")),
         "sort": current_sort,
         "direction": context["current_direction"],
         "sorts": _sort_choices(context),
@@ -354,7 +521,9 @@ def build_library_screen(request, media_type) -> dict:
         "column_defaults": _column_config(context.get("default_column_config"))
         if table
         else [],
-        "results": [_card(request, entry, current_sort, table) for entry in entries],
+        "bulk": _bulk(context),
+        "entry_grouping": _entry_grouping(user, media_type),
+        "results": [_card(request, entry, current_sort, table, kind) for entry in entries],
     }
 
 
@@ -384,6 +553,10 @@ class LibraryColumnSerializer(serializers.Serializer):
     key = serializers.CharField()
     label = serializers.CharField(allow_blank=True)
     align = serializers.ChoiceField(choices=["start", "center"])
+    role = serializers.ChoiceField(
+        choices=["image", "title", "score", "list", "text"],
+        help_text="How the web draws it: the card's poster or title, a score, a list or text.",
+    )
 
 
 class LibraryColumnConfigSerializer(serializers.Serializer):
@@ -413,6 +586,16 @@ class LibraryCardSerializer(serializers.Serializer):
     )
     repeats = serializers.IntegerField(
         allow_null=True, help_text="Times repeated, when the table's title shows it."
+    )
+    shape = serializers.ChoiceField(
+        choices=["poster", "square"], help_text="Music and podcasts draw square art."
+    )
+    history_url = serializers.CharField(
+        allow_blank=True, help_text="The card menu's History link (Django)."
+    )
+    next_episode_url = serializers.CharField(
+        allow_blank=True,
+        help_text="The Next ep link, with the user's quick update preference on.",
     )
     cells = LibraryCellSerializer(
         many=True, help_text="The row's cells after image and title; empty in the grid."
@@ -495,6 +678,20 @@ class LibraryFilterOptionsSerializer(serializers.Serializer):
     show_providers = serializers.BooleanField()
 
 
+class LibraryBulkSerializer(serializers.Serializer):
+    """Bulk select's menus: statuses, the user's editable lists, their tags."""
+
+    statuses = LibraryChoiceSerializer(many=True)
+    lists = LibraryChoiceSerializer(many=True, help_text="Value is the list id.")
+    tags = serializers.ListField(child=serializers.CharField())
+
+
+class LibraryEntryGroupingSerializer(serializers.Serializer):
+    """The View settings' "Show matching entries separately"."""
+
+    enabled = serializers.BooleanField()
+
+
 class LibraryScreenSerializer(serializers.Serializer):
     """One page of the Library for a media type, with its menus' state."""
 
@@ -503,6 +700,10 @@ class LibraryScreenSerializer(serializers.Serializer):
     count = serializers.IntegerField(help_text="Titles matching the filters, all pages.")
     in_progress = serializers.IntegerField()
     views = LibraryViewSerializer(many=True)
+    subviews = LibraryChoiceSerializer(
+        many=True, help_text="Music: artists, albums, tracks. Comics: comics, issues."
+    )
+    subview = serializers.CharField(allow_blank=True, help_text="Send as `subview`.")
     sort = serializers.CharField()
     direction = serializers.CharField(help_text='"asc" or "desc".')
     sorts = LibraryChoiceSerializer(many=True)
@@ -524,5 +725,11 @@ class LibraryScreenSerializer(serializers.Serializer):
     )
     column_defaults = LibraryColumnConfigSerializer(
         many=True, help_text="Table only: the menu's Reset to defaults."
+    )
+    bulk = LibraryBulkSerializer(
+        allow_null=True, help_text="Null where the page has no bulk select (artists, albums)."
+    )
+    entry_grouping = LibraryEntryGroupingSerializer(
+        allow_null=True, help_text="Null for types without the setting."
     )
     results = LibraryCardSerializer(many=True)

@@ -3829,6 +3829,11 @@ paths:
           items:
             type: string
         description: A value from `status_choices`, repeatable.
+      - in: query
+        name: subview
+        schema:
+          type: string
+        description: 'Music: artists, albums or tracks. Comics: comics or issues.'
       tags:
       - api
       security:
@@ -22283,6 +22288,28 @@ components:
       description: |-
         * `grid` - grid
         * `table` - table
+    LibraryBulk:
+      type: object
+      description: 'Bulk select''s menus: statuses, the user''s editable lists, their
+        tags.'
+      properties:
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+          description: Value is the list id.
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+      - lists
+      - statuses
+      - tags
     LibraryCard:
       type: object
       description: A Library poster card, or a table row.
@@ -22318,6 +22345,20 @@ components:
           type: integer
           nullable: true
           description: Times repeated, when the table's title shows it.
+        shape:
+          allOf:
+          - $ref: '#/components/schemas/ShapeEnum'
+          description: |-
+            Music and podcasts draw square art.
+
+            * `poster` - poster
+            * `square` - square
+        history_url:
+          type: string
+          description: The card menu's History link (Django).
+        next_episode_url:
+          type: string
+          description: The Next ep link, with the user's quick update preference on.
         cells:
           type: array
           items:
@@ -22326,12 +22367,15 @@ components:
       required:
       - cells
       - detail
+      - history_url
       - key
       - media_type
+      - next_episode_url
       - poster
       - poster_srcset
       - progress
       - repeats
+      - shape
       - status
       - subtitle
       - title
@@ -22393,10 +22437,22 @@ components:
           type: string
         align:
           $ref: '#/components/schemas/AlignEnum'
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            How the web draws it: the card's poster or title, a score, a list or text.
+
+            * `image` - image
+            * `title` - title
+            * `score` - score
+            * `list` - list
+            * `text` - text
       required:
       - align
       - key
       - label
+      - role
     LibraryColumnConfig:
       type: object
       description: A column the user can show or hide (the page's column menu).
@@ -22411,6 +22467,14 @@ components:
       - key
       - label
       - visible
+    LibraryEntryGrouping:
+      type: object
+      description: The View settings' "Show matching entries separately".
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
     LibraryFilterOptions:
       type: object
       description: The filter menu's options; a pane shows when it has options or
@@ -22618,6 +22682,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LibraryView'
+        subviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryChoice'
+          description: 'Music: artists, albums, tracks. Comics: comics, issues.'
+        subview:
+          type: string
+          description: Send as `subview`.
         sort:
           type: string
         direction:
@@ -22669,16 +22741,28 @@ components:
           items:
             $ref: '#/components/schemas/LibraryColumnConfig'
           description: 'Table only: the menu''s Reset to defaults.'
+        bulk:
+          allOf:
+          - $ref: '#/components/schemas/LibraryBulk'
+          nullable: true
+          description: Null where the page has no bulk select (artists, albums).
+        entry_grouping:
+          allOf:
+          - $ref: '#/components/schemas/LibraryEntryGrouping'
+          nullable: true
+          description: Null for types without the setting.
         results:
           type: array
           items:
             $ref: '#/components/schemas/LibraryCard'
       required:
+      - bulk
       - column_config
       - column_defaults
       - columns
       - count
       - direction
+      - entry_grouping
       - filter_options
       - filters
       - has_next
@@ -22692,6 +22776,8 @@ components:
       - sorts
       - status_choices
       - statuses
+      - subview
+      - subviews
       - title
       - views
     LibraryStatusEnum:
@@ -25743,6 +25829,20 @@ components:
       - rewatching
       - seasons
       - started_at
+    RoleEnum:
+      enum:
+      - image
+      - title
+      - score
+      - list
+      - text
+      type: string
+      description: |-
+        * `image` - image
+        * `title` - title
+        * `score` - score
+        * `list` - list
+        * `text` - text
     ScopeChoice:
       type: object
       description: A permission a token can hold.
@@ -25948,6 +26048,14 @@ components:
           minimum: 1
       required:
       - port
+    ShapeEnum:
+      enum:
+      - poster
+      - square
+      type: string
+      description: |-
+        * `poster` - poster
+        * `square` - square
     Show:
       type: object
       description: The parent show/podcast for an episode-like tracked media entry.

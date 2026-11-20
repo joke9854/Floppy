@@ -300,10 +300,97 @@ class LibraryScreenTests(LibraryFixtures):
         # The tags column reads every row's tags in one query.
         self.assertLessEqual(queries("table") - queries("grid"), 2)
 
-    def test_types_without_a_web_library_yet(self):
-        response = self.client.get(reverse("api_library_screen", args=["music"]))
+    def test_types_without_a_library(self):
+        response = self.client.get(reverse("api_library_screen", args=["episode"]))
 
         self.assertEqual(response.status_code, 400)
+
+    def test_card_menu_links_and_bulk_menus(self):
+        from lists.models import CustomList
+
+        CustomList.objects.create(owner=self.user, name="Weekend")
+        self.user.quick_season_update_mobile = "both"
+        self.user.save(update_fields=["quick_season_update_mobile"])
+
+        movies = self._screen(MediaTypes.MOVIE.value, {"status": "all"})
+        card = movies["results"][0]
+        self.assertTrue(card["history_url"].startswith("/history?media_type=movie&media_id="))
+        self.assertEqual(card["shape"], "poster")
+        self.assertEqual(movies["bulk"]["lists"][0]["label"], "Weekend")
+        self.assertIn(Status.COMPLETED.value, [s["value"] for s in movies["bulk"]["statuses"]])
+        self.assertEqual(movies["entry_grouping"], {"enabled": False})
+        shows = self._screen(MediaTypes.TV.value, {"status": "all"})
+        self.assertIsNone(shows["entry_grouping"])
+        self.assertTrue(
+            all(c["history_url"].startswith("/history?media_type=tv") for c in shows["results"])
+        )
+
+    def test_next_episode_links_cost_at_most_one_query_per_card(self):
+        def queries(preference):
+            self.user.quick_season_update_mobile = preference
+            self.user.save(update_fields=["quick_season_update_mobile"])
+            self._screen(MediaTypes.TV.value, {"status": "all"})
+            with CaptureQueriesContext(connection) as captured:
+                body = self._screen(MediaTypes.TV.value, {"status": "all"})
+            return len(captured), len(body["results"])
+
+        with_links, cards = queries("next_episode")
+        without, _ = queries("none")
+        # media_card.html's own fallback reads a show's untracked next season
+        # from its events, one query per show without a tracked next episode.
+        self.assertLessEqual(with_links - without, cards)
+
+    def test_separate_entries_list_the_page_exactly(self):
+        movie = Movie.objects.filter(user=self.user).select_related("item").first()
+        Movie.objects.create(item=movie.item, user=self.user, status=Status.COMPLETED.value)
+        self.user.movie_show_each_play = True
+        self.user.save(update_fields=["movie_show_each_play"])
+        params = {"status": "all", "sort": "title", "direction": "asc"}
+
+        page = self._page_ids(MediaTypes.MOVIE.value, params)
+        body = self._screen(MediaTypes.MOVIE.value, params)
+
+        self.assertEqual([card["key"] for card in body["results"]], page)
+        self.assertEqual(page.count(movie.item.id), 2)
+        self.assertEqual(body["entry_grouping"], {"enabled": True})
+
+    def test_music_artists_albums_and_podcasts(self):
+        from app.models import Album, AlbumTracker, Artist, ArtistTracker, PodcastShow, PodcastShowTracker
+
+        artist = Artist.objects.create(name="Björk")
+        album = Album.objects.create(title="Homogenic", artist=artist)
+        ArtistTracker.objects.create(user=self.user, artist=artist, status=Status.COMPLETED.value)
+        AlbumTracker.objects.create(user=self.user, album=album, status=Status.IN_PROGRESS.value)
+        show = PodcastShow.objects.create(podcast_uuid="pod-1", source="pocketcasts", title="Talk")
+        PodcastShowTracker.objects.create(user=self.user, show=show, status=Status.IN_PROGRESS.value)
+
+        artists = self._screen(MediaTypes.MUSIC.value, {"status": "all"})
+        self.assertEqual(artists["subview"], "artists")
+        self.assertEqual([v["value"] for v in artists["subviews"]], ["artists", "albums", "tracks"])
+        self.assertIsNone(artists["bulk"])
+        card = artists["results"][0]
+        self.assertEqual((card["title"], card["shape"], card["key"]), ("Björk", "square", artist.id))
+        self.assertEqual(card["history_url"], f"/history?artist={artist.id}")
+
+        albums = self._screen(MediaTypes.MUSIC.value, {"status": "all", "subview": "albums"})
+        self.assertEqual(albums["subview"], "albums")
+        self.assertEqual(albums["results"][0]["title"], "Homogenic")
+        self.assertEqual(albums["results"][0]["subtitle"], "Björk")
+        table = self._screen(
+            MediaTypes.MUSIC.value, {"status": "all", "subview": "albums", "layout": "table"}
+        )
+        self.assertIn("title", {column["role"] for column in table["columns"]})
+
+        tracks = self._screen(MediaTypes.MUSIC.value, {"status": "all", "subview": "tracks"})
+        self.assertIsNotNone(tracks["bulk"])
+
+        podcasts = self._screen(MediaTypes.PODCAST.value, {"status": "all"})
+        self.assertEqual(podcasts["results"][0]["title"], "Talk")
+        self.assertEqual(podcasts["results"][0]["shape"], "square")
+        self.assertIn(f"podcast_show={show.id}", podcasts["results"][0]["history_url"])
+
+        comics = self._screen(MediaTypes.COMIC.value, {"subview": "issues"})
+        self.assertEqual(comics["subview"], "issues")
 
     def test_integration_tokens_cannot_call_it(self):
         from django.test import Client
