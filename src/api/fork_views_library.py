@@ -657,6 +657,12 @@ class LibraryScreenView(drf_views.APIView):
             ),
             OpenApiParameter("search", str),
             OpenApiParameter("page", int),
+            OpenApiParameter(
+                "layout",
+                str,
+                enum=["grid", "table"],
+                description="Switch the layout; saved as the user's preference, as the page does.",
+            ),
         ],
         responses={200: LibraryScreenSerializer, 400: DetailErrorSerializer},
     )

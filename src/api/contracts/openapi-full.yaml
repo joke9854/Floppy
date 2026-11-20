@@ -3794,6 +3794,15 @@ paths:
           enum:
           - asc
           - desc
+      - in: query
+        name: layout
+        schema:
+          type: string
+          enum:
+          - grid
+          - table
+        description: Switch the layout; saved as the user's preference, as the page
+          does.
       - in: path
         name: media_type
         schema:
@@ -17130,6 +17139,14 @@ components:
       - album_id
       - merged
       - track_count
+    AlignEnum:
+      enum:
+      - start
+      - center
+      type: string
+      description: |-
+        * `start` - start
+        * `center` - center
     AnimeLibraryModeEnum:
       enum:
       - anime
@@ -22258,9 +22275,17 @@ components:
       description: |-
         * `crash` - crash
         * `anr` - anr
+    LayoutEnum:
+      enum:
+      - grid
+      - table
+      type: string
+      description: |-
+        * `grid` - grid
+        * `table` - table
     LibraryCard:
       type: object
-      description: A Library poster card.
+      description: A Library poster card, or a table row.
       properties:
         key:
           type: integer
@@ -22289,13 +22314,24 @@ components:
         detail:
           type: string
           description: The value the list is sorted by, as the page shows it.
+        repeats:
+          type: integer
+          nullable: true
+          description: Times repeated, when the table's title shows it.
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryCell'
+          description: The row's cells after image and title; empty in the grid.
       required:
+      - cells
       - detail
       - key
       - media_type
       - poster
       - poster_srcset
       - progress
+      - repeats
       - status
       - subtitle
       - title
@@ -22311,6 +22347,31 @@ components:
       required:
       - paused
       - percent
+    LibraryCell:
+      type: object
+      description: One table cell, as the page's cell template shows it.
+      properties:
+        key:
+          type: string
+          description: The column key.
+        text:
+          type: string
+          nullable: true
+          description: The value; null for the page's dash.
+        note:
+          type: string
+          nullable: true
+          description: The small line under it (Latest, Total, Earliest, Remaining).
+        items:
+          type: array
+          items:
+            type: string
+          description: Genres or tag names, for those columns.
+      required:
+      - items
+      - key
+      - note
+      - text
     LibraryChoice:
       type: object
       description: A sort or status the page offers.
@@ -22322,6 +22383,34 @@ components:
       required:
       - label
       - value
+    LibraryColumn:
+      type: object
+      description: A visible table column, in order.
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        align:
+          $ref: '#/components/schemas/AlignEnum'
+      required:
+      - align
+      - key
+      - label
+    LibraryColumnConfig:
+      type: object
+      description: A column the user can show or hide (the page's column menu).
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        visible:
+          type: boolean
+      required:
+      - key
+      - label
+      - visible
     LibraryFilterOptions:
       type: object
       description: The filter menu's options; a pane shows when it has options or
@@ -22557,17 +22646,44 @@ components:
           type: integer
         has_next:
           type: boolean
+        layout:
+          allOf:
+          - $ref: '#/components/schemas/LayoutEnum'
+          description: |-
+            The user's saved layout for this type.
+
+            * `grid` - grid
+            * `table` - table
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumn'
+          description: Table only; image and title first.
+        column_config:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumnConfig'
+          description: 'Table only: the columns the user can hide, in order.'
+        column_defaults:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumnConfig'
+          description: 'Table only: the menu''s Reset to defaults.'
         results:
           type: array
           items:
             $ref: '#/components/schemas/LibraryCard'
       required:
+      - column_config
+      - column_defaults
+      - columns
       - count
       - direction
       - filter_options
       - filters
       - has_next
       - in_progress
+      - layout
       - media_type
       - page
       - results

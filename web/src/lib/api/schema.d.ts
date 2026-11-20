@@ -3879,6 +3879,12 @@ export interface components {
             track_count: number | null;
         };
         /**
+         * @description * `start` - start
+         *     * `center` - center
+         * @enum {string}
+         */
+        AlignEnum: "start" | "center";
+        /**
          * @description * `anime` - anime
          *     * `tv` - tv
          *     * `both` - both
@@ -6188,7 +6194,13 @@ export interface components {
          * @enum {string}
          */
         KindEnum: "crash" | "anr";
-        /** @description A Library poster card. */
+        /**
+         * @description * `grid` - grid
+         *     * `table` - table
+         * @enum {string}
+         */
+        LayoutEnum: "grid" | "table";
+        /** @description A Library poster card, or a table row. */
         LibraryCard: {
             /** @description The item id. */
             key: number;
@@ -6204,16 +6216,43 @@ export interface components {
             subtitle: string;
             /** @description The value the list is sorted by, as the page shows it. */
             detail: string;
+            /** @description Times repeated, when the table's title shows it. */
+            repeats: number | null;
+            /** @description The row's cells after image and title; empty in the grid. */
+            cells: components["schemas"]["LibraryCell"][];
         };
         /** @description The inset progress line. */
         LibraryCardProgress: {
             percent: number;
             paused: boolean;
         };
+        /** @description One table cell, as the page's cell template shows it. */
+        LibraryCell: {
+            /** @description The column key. */
+            key: string;
+            /** @description The value; null for the page's dash. */
+            text: string | null;
+            /** @description The small line under it (Latest, Total, Earliest, Remaining). */
+            note: string | null;
+            /** @description Genres or tag names, for those columns. */
+            items: string[];
+        };
         /** @description A sort or status the page offers. */
         LibraryChoice: {
             value: string;
             label: string;
+        };
+        /** @description A visible table column, in order. */
+        LibraryColumn: {
+            key: string;
+            label: string;
+            align: components["schemas"]["AlignEnum"];
+        };
+        /** @description A column the user can show or hide (the page's column menu). */
+        LibraryColumnConfig: {
+            key: string;
+            label: string;
+            visible: boolean;
         };
         /** @description The filter menu's options; a pane shows when it has options or its flag is on. */
         LibraryFilterOptions: {
@@ -6294,6 +6333,19 @@ export interface components {
             filter_options: components["schemas"]["LibraryFilterOptions"];
             page: number;
             has_next: boolean;
+            /**
+             * @description The user's saved layout for this type.
+             *
+             *     * `grid` - grid
+             *     * `table` - table
+             */
+            layout: components["schemas"]["LayoutEnum"];
+            /** @description Table only; image and title first. */
+            columns: components["schemas"]["LibraryColumn"][];
+            /** @description Table only: the columns the user can hide, in order. */
+            column_config: components["schemas"]["LibraryColumnConfig"][];
+            /** @description Table only: the menu's Reset to defaults. */
+            column_defaults: components["schemas"]["LibraryColumnConfig"][];
             results: components["schemas"]["LibraryCard"][];
         };
         /**
@@ -12727,6 +12779,8 @@ export interface operations {
         parameters: {
             query?: {
                 direction?: "asc" | "desc";
+                /** @description Switch the layout; saved as the user's preference, as the page does. */
+                layout?: "grid" | "table";
                 page?: number;
                 search?: string;
                 /** @description A value from `sorts`. */

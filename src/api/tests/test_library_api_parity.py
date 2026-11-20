@@ -209,6 +209,97 @@ class LibraryScreenTests(LibraryFixtures):
         self.assertEqual(self.user.movie_sort, "score")
         self.assertEqual(self.user.movie_direction, "asc")
 
+    def _page_table(self, media_type, params):
+        """Return the Django table's columns and each row's cell text, in order."""
+        from html.parser import HTMLParser
+
+        response = self.client.get(reverse("medialist", args=[media_type]), params)
+        keys = [column.key for column in response.context["resolved_columns"]]
+
+        class Cells(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.rows, self.depth, self.cell = [], 0, None
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "tbody" and dict(attrs).get("id") == "media-table-body":
+                    self.depth = 1
+                elif self.depth and tag == "tr":
+                    self.rows.append([])
+                elif self.depth and tag == "td":
+                    self.cell = []
+
+            def handle_endtag(self, tag):
+                if tag == "td" and self.cell is not None:
+                    self.rows[-1].append(" ".join("".join(self.cell).split()))
+                    self.cell = None
+                elif tag == "tbody":
+                    self.depth = 0
+
+            def handle_data(self, data):
+                if self.cell is not None:
+                    self.cell.append(data)
+
+        parser = Cells()
+        parser.feed(response.content.decode())
+        # Bulk select and drag columns come first; the resolved columns are the last.
+        return keys, [dict(zip(keys, row[-len(keys):], strict=True)) for row in parser.rows]
+
+    def test_table_cells_read_like_the_page(self):
+        for media_type in (MediaTypes.TV.value, MediaTypes.MOVIE.value):
+            params = {"layout": "table", "status": "all", "sort": "title", "direction": "asc"}
+            with self.subTest(media_type=media_type):
+                keys, rows = self._page_table(media_type, params)
+                body = self._screen(media_type, params)
+
+                self.assertEqual(body["layout"], "table")
+                self.assertEqual([column["key"] for column in body["columns"]], keys)
+                self.assertEqual(len(body["results"]), len(rows))
+                for card, row in zip(body["results"], rows, strict=True):
+                    for cell in card["cells"]:
+                        if cell["items"] or cell["key"] in ("genres", "tags"):
+                            continue
+                        shown = " ".join(filter(None, [cell["text"], cell["note"]]))
+                        expected = row[cell["key"]]
+                        self.assertEqual(
+                            shown or "-", "-" if expected in ("", "--") else expected, cell["key"]
+                        )
+
+    def test_table_lists_tags_and_saves_the_layout(self):
+        from app.models import ItemTag, Tag
+
+        movie = Movie.objects.filter(user=self.user).select_related("item").first()
+        for name in ("Zed", "Alpha"):
+            tag = Tag.objects.create(user=self.user, name=name)
+            ItemTag.objects.create(item=movie.item, tag=tag)
+        other = get_user_model().objects.create_user(username="other", password="x")
+        ItemTag.objects.create(item=movie.item, tag=Tag.objects.create(user=other, name="Theirs"))
+        body = self._screen(MediaTypes.MOVIE.value, {"layout": "table", "status": "all"})
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.movie_layout, "table")
+        self.assertTrue(body["column_config"])
+        self.assertTrue(body["column_defaults"])
+        row = next(card for card in body["results"] if card["key"] == movie.item.id)
+        cells = {cell["key"]: cell for cell in row["cells"]}
+        self.assertEqual(cells["tags"]["items"], ["Alpha", "Zed"])
+        self.assertNotIn("image", cells)
+        self.assertNotIn("title", cells)
+        grid = self._screen(MediaTypes.MOVIE.value, {"layout": "grid"})
+        self.assertEqual(grid["layout"], "grid")
+        self.assertEqual(grid["columns"], [])
+        self.assertEqual(grid["results"][0]["cells"], [])
+
+    def test_table_reads_no_more_queries_per_row(self):
+        def queries(layout):
+            self._screen(MediaTypes.MOVIE.value, {"layout": layout, "status": "all"})
+            with CaptureQueriesContext(connection) as captured:
+                self._screen(MediaTypes.MOVIE.value, {"layout": layout, "status": "all"})
+            return len(captured)
+
+        # The tags column reads every row's tags in one query.
+        self.assertLessEqual(queries("table") - queries("grid"), 2)
+
     def test_types_without_a_web_library_yet(self):
         response = self.client.get(reverse("api_library_screen", args=["music"]))
 

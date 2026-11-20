@@ -17,6 +17,7 @@ import re
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from app.models import MediaTypes, Status
@@ -67,7 +68,14 @@ def _sort_detail(request, entry, current_sort) -> str:
     return _SPACES.sub(" ", strip_tags(html)).strip()
 
 
-def _card(request, entry, current_sort) -> dict:
+def _card(request, entry, current_sort, table=None) -> dict:
+    card = _grid_card(request, entry, current_sort)
+    card["repeats"] = entry.repeats if _shows_repeats(entry, request.user) else None
+    card["cells"] = table.cells(entry) if table else []
+    return card
+
+
+def _grid_card(request, entry, current_sort) -> dict:
     item = entry.item
     media = getattr(entry, "media", None)
     if item.media_type == MediaTypes.SEASON.value:
@@ -90,6 +98,123 @@ def _card(request, entry, current_sort) -> dict:
         "subtitle": str(app_tags.ct_library_subtitle(entry) or ""),
         "detail": _sort_detail(request, entry, current_sort) if current_sort else "",
     }
+
+
+# Table cells the web draws from the card (image, title) or as lists (genres,
+# tags); every other column is the page's own cell template, as text.
+_CARD_COLUMNS = frozenset({"image", "title"})
+_LIST_COLUMNS = frozenset({"genres", "tags"})
+_CELL_NOTE = re.compile(r'<div class="text-xs[^"]*"[^>]*>(.*?)</div>', re.DOTALL)
+_EMPTY_CELL = frozenset({"", "-", "--"})
+
+
+def _align(column) -> str:
+    return "center" if "text-center" in column.th_classes else "start"
+
+
+def _shows_repeats(entry, user) -> bool:
+    """The cell templates' rule for the repeat count and the Latest/Total notes."""
+    if (getattr(entry, "repeats", 0) or 0) <= 1:
+        return False
+    sessions = getattr(user, "game_logging_style", None) == "sessions"
+    return not (
+        sessions
+        and entry.item.media_type in (MediaTypes.GAME.value, MediaTypes.BOARDGAME.value)
+    )
+
+
+def _cell_text(html: str) -> dict:
+    """Split a rendered cell into its value and its small note (Latest, Total...)."""
+    note_match = _CELL_NOTE.search(html)
+    note = _SPACES.sub(" ", strip_tags(note_match.group(1))).strip() if note_match else ""
+    main = _CELL_NOTE.sub("", html) if note_match else html
+    text = _SPACES.sub(" ", strip_tags(main)).strip()
+    return {
+        "text": None if text in _EMPTY_CELL else text,
+        "note": note or None,
+        "items": [],
+    }
+
+
+def _tag_names(user, items) -> dict[int, list[str]]:
+    """Return the user's tag names per item id, in one query (the cell reads per row)."""
+    from app.models import ItemTag
+
+    names: dict[int, list[str]] = {}
+    rows = (
+        ItemTag.objects.filter(item__in=items, tag__user=user)
+        .order_by("tag__name")
+        .values_list("item_id", "tag__name")
+    )
+    for item_id, name in rows:
+        names.setdefault(item_id, []).append(name)
+    return names
+
+
+class _Table:
+    """The page's table layout: its visible columns and each row's cells."""
+
+    def __init__(self, request, context, entries, media_type):
+        from django.template import Context
+        from django.template.loader import get_template
+
+        from app.columns import resolve_columns
+
+        self.user = request.user
+        self.media_type = media_type
+        self.columns = resolve_columns(
+            media_type, context["current_sort"], self.user, "media"
+        )
+        self._templates = {
+            column.key: get_template(column.cell_template).template
+            for column in self.columns
+            if column.key not in _CARD_COLUMNS | _LIST_COLUMNS
+        }
+        self._context = Context
+        keys = {column.key for column in self.columns}
+        self._tags = (
+            _tag_names(self.user, [entry.item for entry in entries])
+            if "tags" in keys
+            else {}
+        )
+
+    def header(self) -> list[dict]:
+        return [
+            {"key": column.key, "label": str(_(column.label)) if column.label else "",
+             "align": _align(column)}
+            for column in self.columns
+        ]
+
+    def cells(self, entry) -> list[dict]:
+        cells = []
+        for column in self.columns:
+            if column.key in _CARD_COLUMNS:
+                continue
+            if column.key == "genres":
+                cell = {"text": None, "note": None, "items": list(entry.item.genres or [])}
+            elif column.key == "tags":
+                cell = {"text": None, "note": None, "items": self._tags.get(entry.item.id, [])}
+            else:
+                html = self._templates[column.key].render(
+                    self._context(
+                        {
+                            "media": entry,
+                            "user": self.user,
+                            "media_type": self.media_type,
+                            "MediaTypes": MediaTypes,
+                        }
+                    )
+                )
+                cell = _cell_text(html)
+            cells.append({"key": column.key, **cell})
+        return cells
+
+
+def _column_config(config) -> list[dict]:
+    return [
+        {"key": column["key"], "label": str(_(column["label"])), "visible": column["visible"]}
+        for column in config or []
+    ]
 
 
 def _sort_choices(context) -> list[dict]:
@@ -189,8 +314,10 @@ def build_library_screen(request, media_type) -> dict:
     """Return the Library page for ``media_type`` as the web screen reads it."""
     from app.media_list_views import build_media_list_context
 
-    context, _layout, _resolved = build_media_list_context(request, media_type)
+    context, layout, _resolved = build_media_list_context(request, media_type)
     page = context["media_list"]
+    entries = list(page)
+    table = _Table(request, context, entries, media_type) if layout == "table" else None
     user = request.user
     library = app_tags.ct_library_types(user)
     views = []
@@ -200,7 +327,7 @@ def build_library_screen(request, media_type) -> dict:
             {"media_type": MediaTypes.SEASON.value, "label": "Seasons"},
         ]
     current_sort = context["current_sort"]
-    app_tags.ct_prefetch_posters(list(page), "item")
+    app_tags.ct_prefetch_posters(entries, "item")
     return {
         "media_type": media_type,
         "title": str(app_tags.media_type_readable_plural(media_type)),
@@ -221,7 +348,13 @@ def build_library_screen(request, media_type) -> dict:
         "filter_options": _filter_options(context),
         "page": page.number if hasattr(page, "number") else 1,
         "has_next": bool(getattr(page, "has_next", lambda: False)()),
-        "results": [_card(request, entry, current_sort) for entry in page],
+        "layout": "table" if table else "grid",
+        "columns": table.header() if table else [],
+        "column_config": _column_config(context.get("column_config")) if table else [],
+        "column_defaults": _column_config(context.get("default_column_config"))
+        if table
+        else [],
+        "results": [_card(request, entry, current_sort, table) for entry in entries],
     }
 
 
@@ -232,8 +365,37 @@ class LibraryCardProgressSerializer(serializers.Serializer):
     paused = serializers.BooleanField()
 
 
+class LibraryCellSerializer(serializers.Serializer):
+    """One table cell, as the page's cell template shows it."""
+
+    key = serializers.CharField(help_text="The column key.")
+    text = serializers.CharField(allow_null=True, help_text="The value; null for the page's dash.")
+    note = serializers.CharField(
+        allow_null=True, help_text="The small line under it (Latest, Total, Earliest, Remaining)."
+    )
+    items = serializers.ListField(
+        child=serializers.CharField(), help_text="Genres or tag names, for those columns."
+    )
+
+
+class LibraryColumnSerializer(serializers.Serializer):
+    """A visible table column, in order."""
+
+    key = serializers.CharField()
+    label = serializers.CharField(allow_blank=True)
+    align = serializers.ChoiceField(choices=["start", "center"])
+
+
+class LibraryColumnConfigSerializer(serializers.Serializer):
+    """A column the user can show or hide (the page's column menu)."""
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    visible = serializers.BooleanField()
+
+
 class LibraryCardSerializer(serializers.Serializer):
-    """A Library poster card."""
+    """A Library poster card, or a table row."""
 
     key = serializers.IntegerField(help_text="The item id.")
     media_type = serializers.CharField()
@@ -248,6 +410,12 @@ class LibraryCardSerializer(serializers.Serializer):
     )
     detail = serializers.CharField(
         allow_blank=True, help_text="The value the list is sorted by, as the page shows it."
+    )
+    repeats = serializers.IntegerField(
+        allow_null=True, help_text="Times repeated, when the table's title shows it."
+    )
+    cells = LibraryCellSerializer(
+        many=True, help_text="The row's cells after image and title; empty in the grid."
     )
 
 
@@ -347,4 +515,14 @@ class LibraryScreenSerializer(serializers.Serializer):
     filter_options = LibraryFilterOptionsSerializer()
     page = serializers.IntegerField()
     has_next = serializers.BooleanField()
+    layout = serializers.ChoiceField(
+        choices=["grid", "table"], help_text="The user's saved layout for this type."
+    )
+    columns = LibraryColumnSerializer(many=True, help_text="Table only; image and title first.")
+    column_config = LibraryColumnConfigSerializer(
+        many=True, help_text="Table only: the columns the user can hide, in order."
+    )
+    column_defaults = LibraryColumnConfigSerializer(
+        many=True, help_text="Table only: the menu's Reset to defaults."
+    )
     results = LibraryCardSerializer(many=True)
