@@ -98,6 +98,8 @@ handler500 = "app.error_views.server_error"
 urlpatterns = [
     path("", home, name="home"),
     path("accounts/login/", account_login, name="account_login"),
+    # ImageCacheMiddleware reverses this name on every GET.
+    path("image-cache/<str:token>", home, name="image_cache"),
     path(
         "jsi18n/",
         login_not_required(JavaScriptCatalog.as_view()),

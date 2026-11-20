@@ -27,7 +27,12 @@ class StaticCssContractTests(SimpleTestCase):
         )
 
     def test_shared_templates_and_service_worker_reference_main_css_only(self):
-        """Shared entrypoints should reference main.css and never the retired path."""
+        """Shared entrypoints should reference main.css and never the retired path.
+
+        The service worker no longer precaches main.css (pages cache their
+        ?<mtime> copy on first use, perf batch 2), so it only must not name
+        the retired file.
+        """
         for path in (
             self.base_template_path,
             self.base_public_template_path,
@@ -36,11 +41,12 @@ class StaticCssContractTests(SimpleTestCase):
             content = path.read_text(encoding="utf-8")
             relative_path = path.relative_to(settings.BASE_DIR).as_posix()
 
-            self.assertIn(
-                "css/main.css",
-                content,
-                f"{relative_path} should reference css/main.css.",
-            )
+            if path != self.service_worker_path:
+                self.assertIn(
+                    "css/main.css",
+                    content,
+                    f"{relative_path} should reference css/main.css.",
+                )
             self.assertNotIn(
                 "css/tailwind.css",
                 content,
