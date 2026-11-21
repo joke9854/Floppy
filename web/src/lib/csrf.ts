@@ -42,17 +42,15 @@ export async function djangoWrite(path: string, method: string, body?: unknown):
  */
 export async function djangoForm(
 	path: string,
-	fields: Record<string, string | string[]>
+	fields: Record<string, string | string[]>,
+	{ json = false }: { json?: boolean } = {}
 ): Promise<Response> {
 	const body = new URLSearchParams();
 	for (const [key, value] of Object.entries(fields)) {
 		for (const item of Array.isArray(value) ? value : [value]) body.append(key, item);
 	}
-	return fetch(path, {
-		method: 'POST',
-		credentials: 'same-origin',
-		redirect: 'manual',
-		headers: { 'x-csrftoken': await csrfToken() },
-		body
-	});
+	const headers: Record<string, string> = { 'x-csrftoken': await csrfToken() };
+	// The track views (P4-D) answer this with JSON instead of a redirect.
+	if (json) headers.accept = 'application/json';
+	return fetch(path, { method: 'POST', credentials: 'same-origin', redirect: 'manual', headers, body });
 }

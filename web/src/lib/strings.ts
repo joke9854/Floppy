@@ -67,44 +67,20 @@ export const t = {
 	libraryCount: (count: number, title: string, inProgress: number) =>
 		`${count} ${title.toLowerCase()}` + (inProgress ? ` · ${inProgress} in progress` : ''),
 
-	// Library table (P4-B3), worded as the Django table and its column menu.
+	// Library table, bulk select and card menu (P4-B3 to B5); the menus' own
+	// strings load with them (#lib/library/menu-strings.ts).
 	layout: 'Layout',
 	grid: 'Grid',
 	table: 'Table',
-	columns: 'Columns',
-	configureColumns: 'Configure Table Columns',
-	resetDefaults: 'Reset to defaults',
-	moveUp: (label: string) => `Move ${label} up`,
-	moveDown: (label: string) => `Move ${label} down`,
-	columnsFailed: 'The columns could not be saved. Try again.',
-
-	// Library settings, bulk select and card menu (P4-B4, B5), worded as the Django page.
 	viewSettings: 'View settings',
-	shareView: 'Share View',
-	sharing: 'Sharing…',
 	shareFailed: 'The view could not be shared. Try again.',
-	selectItems: 'Select Items',
-	cancelSelect: 'Cancel Select',
-	showEntriesSeparately: 'Show matching entries separately',
-	on: 'On',
-	off: 'Off',
 	selectedCount: (count: number) => `${count} selected`,
-	selected: 'Selected',
-	updateStatus: 'Update Status',
-	addToList: 'Add to List',
-	addToCollection: 'Add to Collection',
-	applyTag: 'Apply Tag',
 	add: 'Add',
-	remove: 'Remove',
-	clear: 'Clear',
-	noEditableLists: 'No editable lists.',
-	noTagsYet: 'No tags yet.',
 	bulkFailed: 'That did not work. Try again.',
 	cardActions: (title: string) => `Actions for ${title}`,
-	editTracking: 'Edit tracking',
-	viewHistory: 'View your activity history',
 	nextEp: 'Next ep',
 	jumpToNextEpisode: 'Jump to next episode',
+
 
 	// Detail page (P4-C1), worded as the Django movie and show page.
 	back: 'Back',
@@ -112,7 +88,7 @@ export const t = {
 	watched: 'Watched',
 	markEpisode: (season: number, episode: number) => `Mark S${season} E${episode} as watched`,
 	track: 'Track',
-	trackTitle: 'Status, rating, dates and lists, on the classic page',
+	trackTitle: 'Status, rating, dates and notes',
 	readMore: 'Read more',
 	showLess: 'Show less',
 	watchOn: 'Watch on',

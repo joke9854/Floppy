@@ -2,7 +2,7 @@
 	import Repeat from '@lucide/svelte/icons/repeat';
 	import Star from '@lucide/svelte/icons/star';
 	import { detailLink } from '#lib/details/link.ts';
-	import { t } from '#lib/strings.ts';
+	import { lt } from './menu-strings.ts';
 	import type { LibraryCard, LibraryScreen } from './query.ts';
 
 	/**
@@ -33,7 +33,7 @@
 	<table class="ct-library-table">
 		<thead>
 			<tr>
-				{#if selecting}<th class="is-select"><span class="sr-only">{t.selected}</span></th>{/if}
+				{#if selecting}<th class="is-select"><span class="sr-only">{lt.selected}</span></th>{/if}
 				{#each columns as column (column.key)}
 					<th scope="col" class={[`is-${column.key}`, column.align === 'center' && 'is-center']}
 						>{column.label}</th

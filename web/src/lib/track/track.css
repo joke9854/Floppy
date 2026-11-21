@@ -1,0 +1,275 @@
+/* The track dialog (P4-D1): a centred sheet on wide screens, a bottom sheet on phones. */
+.ct-track {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	z-index: 50;
+	display: flex;
+	flex-direction: column;
+	width: min(96vw, 44rem);
+	max-height: min(92dvh, 860px);
+	overflow-y: auto;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 24px;
+	background-color: var(--color-surface);
+	box-shadow: 0 24px 60px rgb(0 0 0 / 55%);
+	transform: translate(-50%, -50%);
+}
+
+@media (max-width: 767.98px) {
+	.ct-track {
+		top: auto;
+		bottom: 0;
+		width: 100vw;
+		max-height: 94dvh;
+		padding-bottom: env(safe-area-inset-bottom);
+		border-radius: 24px 24px 0 0;
+		transform: translateX(-50%);
+	}
+}
+
+.ct-track__head {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 20px 22px 14px;
+	background-color: var(--color-surface);
+}
+
+.ct-track__title {
+	color: var(--color-text);
+	font-size: 20px;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.ct-track__subtitle {
+	margin-top: 2px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-track__loading,
+.ct-track__form > .ct-track__problem:first-child {
+	padding: 40px 22px;
+	color: var(--color-muted);
+	text-align: center;
+}
+
+.ct-track__form {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 4px 22px 22px;
+}
+
+.ct-track__grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.ct-track__field.is-wide {
+	grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+	.ct-track__field.is-wide {
+		grid-column: auto;
+	}
+}
+
+.ct-track-label {
+	display: block;
+	margin-bottom: 6px;
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.ct-track-input {
+	width: 100%;
+	min-height: 42px;
+	padding: 8px 12px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 12px;
+	background-color: var(--color-surface-strong);
+	color: var(--color-text);
+	font-size: 15px;
+	color-scheme: dark;
+}
+
+textarea.ct-track-input {
+	min-height: 104px;
+	resize: vertical;
+}
+
+.ct-track-input:focus-visible,
+.ct-track-icon:focus-visible,
+.ct-track-btn:focus-visible,
+.ct-track-chips button:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.ct-track-number,
+.ct-track-date__row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.ct-track-icon {
+	display: grid;
+	flex: none;
+	width: 36px;
+	height: 36px;
+	place-items: center;
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+
+.ct-track-icon:hover {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-track-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.ct-track-chips button {
+	padding: 4px 10px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 4%);
+	color: var(--color-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ct-track-chips button:hover:not(:disabled) {
+	background-color: rgb(255 255 255 / 10%);
+	color: var(--color-text);
+}
+
+.ct-track-chips button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.ct-track__help {
+	margin-top: 4px;
+	color: var(--color-muted);
+	font-size: 12px;
+}
+
+.ct-track__error,
+.ct-track__problem {
+	margin-top: 4px;
+	color: rgb(248 113 113);
+	font-size: 13px;
+}
+
+.ct-track__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 4px;
+}
+
+.ct-track__actions-start,
+.ct-track__actions-end {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-track__actions-end {
+	margin-left: auto;
+}
+
+.ct-track__since {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--color-text-secondary);
+	font-size: 12px;
+}
+
+.ct-track__since .ct-track-input {
+	min-height: 34px;
+	padding: 4px 8px;
+	font-size: 13px;
+}
+
+.ct-track-btn {
+	min-height: 42px;
+	padding: 0 18px;
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.ct-track-btn:hover:not(:disabled) {
+	background-color: rgb(255 255 255 / 14%);
+}
+
+.ct-track-btn.is-primary {
+	background-color: var(--color-accent);
+	color: white;
+}
+
+.ct-track-btn.is-primary:hover:not(:disabled) {
+	filter: brightness(1.1);
+}
+
+.ct-track-btn.is-danger {
+	background-color: rgb(185 28 28 / 85%);
+	color: white;
+}
+
+.ct-track-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+/* What a save said (the Django page's toast). */
+.ct-track-notice {
+	position: fixed;
+	bottom: calc(24px + env(safe-area-inset-bottom));
+	left: 50%;
+	z-index: 60;
+	max-width: min(92vw, 32rem);
+	padding: 12px 18px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 16px;
+	background-color: rgb(28 28 34 / 94%);
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 600;
+	box-shadow: 0 12px 30px rgb(0 0 0 / 45%);
+	transform: translateX(-50%);
+	backdrop-filter: blur(16px);
+}
+
+@media (max-width: 767.98px) {
+	.ct-track-notice {
+		bottom: calc(100px + env(safe-area-inset-bottom));
+	}
+}

@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | Not started |
+| P4-D | Track dialog | D1 built (2026-11-21): the General tab for movies, shows, seasons and episodes; other types and tabs next |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -290,3 +290,44 @@ How C1 acts:
 
 Measured locally: the detail page with the shell is 108.4 kB gzip (budget
 110 kB).
+
+### P4-D: Track dialog
+
+Today's dialog (`app/components/fill_track.html`, `app.track_modal_views`,
+one form per type in `app/forms.py`) has five tabs: General, Metadata,
+Collection, Episode Plays and Discover. The scripts that drive the General
+tab are `static/js/mediaStatusDateHandler.js` and `dateTimePicker.js`.
+
+D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
+
+- [x] The fields in the page's order with the page's values, choices and
+      limits (score on the user's rating scale, "No Status"), the hidden
+      fields posted back unchanged, notes, the KOReader document ID.
+- [x] Dates: Start Now, Just Finished, Release Date (the runtime sets the
+      start), Now, Copy from the other date, Clear (the start-cleared flag).
+      A new Completed or In progress entry is dated now; a status change
+      clears the dates the dialog filled, but not an end date the entry was
+      saved without. Ported as pure functions with tests (`lib/track/rules.ts`).
+- [x] Delete, Rewatch (with Since) / End rewatch, Save as another play
+      (movies) / Save as new entry (episodes), Update / Add.
+- [x] Opens from Track and Watched on the title and episode pages and from
+      the Library card's Edit tracking (movies, shows, seasons); other types
+      keep their Django page.
+- [ ] D2: the other types (anime, manga, games with hh:mm progress and its
+      start-date sync, books with page or percentage progress, comics, board
+      games), then music and podcasts.
+- [ ] Episode Plays, Collection, Metadata, Discover; history editing on the
+      detail page.
+
+API (D1): `GET /api/v1/track/{type}/{source}/{id}/` reads
+`build_standard_track_context`, split from `_render_standard_track_modal`.
+The web posts the form to the page's own views with `Accept: application/json`
+(`media_save`, `episode_save`, `media_delete`, `media_rewatch` answer
+`{saved, message, instance_id, warnings}` or the form's errors), so saving
+keeps one implementation; plain and HTMX posts answer as before.
+
+Exact instants: the Django dialog dropped a play's microseconds on every
+untouched Update (Django zeroes them in a DateTimeInput's initial value), so
+`ExactPlayDatesMixin` keeps the stored value; the round trip is tested for
+movies and episodes. The dialog, its host and strings load on the first
+Track tap; the Library stays at 109.9 kB of 110.

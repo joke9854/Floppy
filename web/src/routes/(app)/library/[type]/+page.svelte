@@ -124,44 +124,6 @@
 		await invalidateAll();
 	}
 
-	async function cardToList(key: number, list: { value: string; label: string }) {
-		try {
-			const { addToList } = await import('#lib/library/actions.ts');
-			notice = (await addToList([key], list.value)).message;
-		} catch {
-			notice = t.bulkFailed;
-		}
-	}
-
-	let sharing = $state(false);
-	async function share() {
-		// Opened inside the click, so the browser does not block it as a pop-up.
-		const tab = window.open('', '_blank');
-		sharing = true;
-		try {
-			const { shareView } = await import('#lib/library/actions.ts');
-			const url = await shareView(screen.media_type, page.url.searchParams);
-			if (tab) tab.location.href = url;
-			else window.open(url, '_blank');
-		} catch {
-			tab?.close();
-			notice = t.shareFailed;
-		} finally {
-			sharing = false;
-		}
-	}
-
-	async function toggleGrouping() {
-		if (!screen.entry_grouping) return;
-		try {
-			const { setEntryGrouping } = await import('#lib/library/actions.ts');
-			await setEntryGrouping(screen.media_type, !screen.entry_grouping.enabled);
-			await invalidateAll();
-		} catch {
-			notice = t.bulkFailed;
-		}
-	}
-
 	// The View settings menu loads on first use (bundle budget).
 	let ViewMenu = $state<Component<ViewMenuProps> | null>(null);
 	let viewMenuOpen = $state(false);
@@ -347,13 +309,13 @@
 			</div>
 			{#if ViewMenu}
 				<ViewMenu
+					mediaType={screen.media_type}
+					search={page.url.searchParams}
 					grouping={screen.entry_grouping}
 					canSelect={screen.bulk !== null}
 					{selecting}
-					{sharing}
-					ongrouping={toggleGrouping}
-					onshare={share}
 					onselect={() => (selecting ? endSelect() : (selectingFor = listKey))}
+					onnotice={(message) => (notice = message)}
 					initialOpen={viewMenuOpen}
 				/>
 			{:else}
@@ -399,7 +361,7 @@
 						{selecting}
 						selected={selected.includes(card.key)}
 						ontoggle={toggleSelected}
-						onaddtolist={cardToList}
+						onnotice={(message) => (notice = message)}
 					/>
 				{/each}
 			</div>

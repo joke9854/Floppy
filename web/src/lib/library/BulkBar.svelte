@@ -3,6 +3,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { DropdownMenu } from 'bits-ui';
 	import { t } from '#lib/strings.ts';
+	import { lt } from './menu-strings.ts';
 	import { addToCollection, addToList, bulkStatus, bulkTag } from './actions.ts';
 	import type { LibraryScreen } from './query.ts';
 
@@ -48,11 +49,11 @@
 	const content = 'ct-menu z-50 max-h-[min(60dvh,420px)] min-w-[220px] overflow-y-auto p-1.5 outline-none';
 </script>
 
-<div class="ct-bulk-bar" role="toolbar" aria-label={t.selectItems} aria-busy={busy}>
+<div class="ct-bulk-bar" role="toolbar" aria-label={lt.selectItems} aria-busy={busy}>
 	<span class="ct-bulk-count" role="status">{t.selectedCount(selected.length)}</span>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger class={trigger} disabled={busy || !selected.length}>
-			{t.updateStatus}<ChevronDown class="size-4" aria-hidden="true" />
+			{lt.updateStatus}<ChevronDown class="size-4" aria-hidden="true" />
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Portal>
 			<DropdownMenu.Content side="top" align="start" sideOffset={8} class={content}>
@@ -66,7 +67,7 @@
 	</DropdownMenu.Root>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger class={trigger} disabled={busy || !selected.length}>
-			{t.addToList}<ChevronDown class="size-4" aria-hidden="true" />
+			{lt.addToList}<ChevronDown class="size-4" aria-hidden="true" />
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Portal>
 			<DropdownMenu.Content side="top" align="start" sideOffset={8} class={content}>
@@ -75,17 +76,17 @@
 						>{list.label}</DropdownMenu.Item
 					>
 				{:else}
-					<p class="px-3 py-2 text-[14px] text-muted">{t.noEditableLists}</p>
+					<p class="px-3 py-2 text-[14px] text-muted">{lt.noEditableLists}</p>
 				{/each}
 			</DropdownMenu.Content>
 		</DropdownMenu.Portal>
 	</DropdownMenu.Root>
 	<button type="button" class={trigger} disabled={busy || !selected.length} onclick={() => run(() => addToCollection(selected))}
-		>{t.addToCollection}</button
+		>{lt.addToCollection}</button
 	>
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger class={trigger} disabled={busy || !selected.length}>
-			{t.applyTag}<ChevronDown class="size-4" aria-hidden="true" />
+			{lt.applyTag}<ChevronDown class="size-4" aria-hidden="true" />
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Portal>
 			<DropdownMenu.Content side="top" align="start" sideOffset={8} class={content}>
@@ -97,17 +98,17 @@
 						<DropdownMenu.SubContent class={content}>
 							<DropdownMenu.Item class={item} onSelect={() => run(() => bulkTag(selected, tag, 'add'))}>{t.add}</DropdownMenu.Item>
 							<DropdownMenu.Item class={item} onSelect={() => run(() => bulkTag(selected, tag, 'remove'))}
-								>{t.remove}</DropdownMenu.Item
+								>{lt.remove}</DropdownMenu.Item
 							>
 						</DropdownMenu.SubContent>
 					</DropdownMenu.Sub>
 				{:else}
-					<p class="px-3 py-2 text-[14px] text-muted">{t.noTagsYet}</p>
+					<p class="px-3 py-2 text-[14px] text-muted">{lt.noTagsYet}</p>
 				{/each}
 			</DropdownMenu.Content>
 		</DropdownMenu.Portal>
 	</DropdownMenu.Root>
-	<button type="button" class="ct-bulk-clear" disabled={busy || !selected.length} onclick={onclear}>{t.clear}</button>
+	<button type="button" class="ct-bulk-clear" disabled={busy || !selected.length} onclick={onclear}>{lt.clear}</button>
 	{#if problem}<p class="ct-bulk-problem" role="alert">{problem}</p>{/if}
 </div>
 

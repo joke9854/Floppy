@@ -13,6 +13,8 @@
 	import { markWatched, type CheckOutcome, type Click } from '#lib/home/check.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { t } from '#lib/strings.ts';
+	import { page } from '$app/state';
+	import { openTrack } from '#lib/track/open.svelte.ts';
 	import type { PageProps } from './$types';
 
 	/**
@@ -45,6 +47,16 @@
 		} else {
 			problem = outcome;
 		}
+	}
+
+	function trackEpisode() {
+		openTrack({
+			mediaType: 'episode',
+			source: page.params.source ?? '',
+			mediaId: page.params.id ?? '',
+			season: Number(page.params.season),
+			episode: Number(page.params.episode)
+		});
 	}
 
 	const blurred = $derived(episode.blurred && !revealed);
@@ -117,23 +129,21 @@
 
 				<div class="ct-detail-actions">
 					{#if episode.watched}
-						<!-- The Django page, whose track window logs a rewatch or edits the play. -->
-						<a href={episode.page_url} class="ct-btn-primary is-watched" data-sveltekit-reload>
+						<!-- The track dialog, which logs a rewatch or edits the play. -->
+						<button type="button" class="ct-btn-primary is-watched" onclick={trackEpisode}>
 							<Check class="size-5" aria-hidden="true" />
 							<span>{t.watched}</span>
-						</a>
+						</button>
 					{:else if episode.check}
 						<button type="button" class="ct-btn-primary" disabled={busy} onclick={mark}>
 							<Check class="size-5" aria-hidden="true" />
 							<span>{t.markAsWatched}</span>
 						</button>
 					{/if}
-					{#if episode.page_url}
-						<a href={episode.page_url} class="ct-btn-quiet" title={t.trackTitle} data-sveltekit-reload>
-							<SlidersHorizontal class="size-4" aria-hidden="true" />
-							<span>{t.track}</span>
-						</a>
-					{/if}
+					<button type="button" class="ct-btn-quiet" title={t.trackTitle} onclick={trackEpisode}>
+						<SlidersHorizontal class="size-4" aria-hidden="true" />
+						<span>{t.track}</span>
+					</button>
 					<span class="ct-ep-nav">
 						{#if episode.previous_url}
 							<a {...detailLink(episode.previous_url)} class="ct-btn-quiet ct-btn-icon" aria-label={t.previousEpisode} title={t.previousEpisode}>

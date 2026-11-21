@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Columns3 from '@lucide/svelte/icons/columns-3';
 	import type { Component } from 'svelte';
-	import { t } from '#lib/strings.ts';
+	import { lt } from './menu-strings.ts';
 	import { lazyComponent } from './lazy.ts';
 	import type { LibraryScreen } from './query.ts';
 
@@ -32,13 +32,13 @@
 	<button
 		type="button"
 		class="ct-toolbar-button"
-		aria-label={t.columns}
+		aria-label={lt.columns}
 		aria-haspopup="dialog"
 		onpointerenter={() => load()}
 		onfocus={() => load()}
 		onclick={() => load(true)}
 	>
 		<Columns3 class="size-4" aria-hidden="true" />
-		<span class="ct-toolbar-label">{t.columns}</span>
+		<span class="ct-toolbar-label">{lt.columns}</span>
 	</button>
 {/if}

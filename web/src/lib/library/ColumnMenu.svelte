@@ -5,7 +5,7 @@
 	import { Popover } from 'bits-ui';
 	import { invalidateAll } from '$app/navigation';
 	import { djangoWrite } from '#lib/csrf.ts';
-	import { t } from '#lib/strings.ts';
+	import { lt } from './menu-strings.ts';
 	import type { LibraryScreen } from './query.ts';
 
 	type Column = LibraryScreen['column_config'][number];
@@ -67,9 +67,9 @@
 </script>
 
 <Popover.Root bind:open>
-	<Popover.Trigger class="ct-toolbar-button" aria-label={t.columns}>
+	<Popover.Trigger class="ct-toolbar-button" aria-label={lt.columns}>
 		<Columns3 class="size-4" aria-hidden="true" />
-		<span class="ct-toolbar-label">{t.columns}</span>
+		<span class="ct-toolbar-label">{lt.columns}</span>
 	</Popover.Trigger>
 	<Popover.Portal>
 		<Popover.Content
@@ -78,7 +78,7 @@
 			sideOffset={8}
 			class="ct-menu z-50 max-h-[min(72dvh,560px)] w-[280px] max-w-[calc(100vw-24px)] overflow-y-auto p-1.5 outline-none"
 		>
-			<p class="ct-columns-title">{t.configureColumns}</p>
+			<p class="ct-columns-title">{lt.configureColumns}</p>
 			<ul class="ct-columns" aria-busy={saving}>
 				{#each config as column, index (column.key)}
 					<li>
@@ -93,22 +93,22 @@
 						</label>
 						<button
 							type="button"
-							aria-label={t.moveUp(column.label)}
+							aria-label={lt.moveUp(column.label)}
 							disabled={saving || index === 0}
 							onclick={() => move(index, -1)}><ArrowUp class="size-3.5" aria-hidden="true" /></button
 						>
 						<button
 							type="button"
-							aria-label={t.moveDown(column.label)}
+							aria-label={lt.moveDown(column.label)}
 							disabled={saving || index === config.length - 1}
 							onclick={() => move(index, 1)}><ArrowDown class="size-3.5" aria-hidden="true" /></button
 						>
 					</li>
 				{/each}
 			</ul>
-			{#if failed}<p class="ct-columns-problem" role="alert">{t.columnsFailed}</p>{/if}
+			{#if failed}<p class="ct-columns-problem" role="alert">{lt.columnsFailed}</p>{/if}
 			<button type="button" class="ct-columns-reset" disabled={saving} onclick={() => save(defaults)}
-				>{t.resetDefaults}</button
+				>{lt.resetDefaults}</button
 			>
 		</Popover.Content>
 	</Popover.Portal>

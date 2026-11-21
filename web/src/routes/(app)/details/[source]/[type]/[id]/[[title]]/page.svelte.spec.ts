@@ -131,7 +131,7 @@ const renderDetail = (shellOverrides: object = {}, sectionsValue: object | null 
 	});
 
 describe('/next detail page', () => {
-	it('shows the hero, the next episode and the Django page for the rest', async () => {
+	it('shows the hero, the next episode and the Track button', async () => {
 		renderDetail();
 
 		await expect.element(page.getByRole('heading', { name: 'Test Show', level: 1 })).toBeVisible();
@@ -139,9 +139,8 @@ describe('/next detail page', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Mark S1 E2 as watched' }))
 			.toBeVisible();
-		await expect
-			.element(page.getByRole('link', { name: 'Track' }))
-			.toHaveAttribute('href', '/details/tmdb/tv/1399/test-show');
+		// Track opens the web track dialog (P4-D1), no longer the Django page.
+		await expect.element(page.getByRole('button', { name: 'Track' })).toBeVisible();
 	});
 
 	it('lists the season, the cast and the information once the sections load', async () => {

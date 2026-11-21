@@ -24,24 +24,26 @@
 		selecting = false,
 		selected = false,
 		ontoggle,
-		onaddtolist
+		onnotice
 	}: {
 		card: Card;
 		lists?: Choice[];
 		selecting?: boolean;
 		selected?: boolean;
 		ontoggle?: (key: number) => void;
-		onaddtolist?: (key: number, list: Choice) => void;
+		onnotice?: (message: string) => void;
 	} = $props();
 
 	const look = $derived(card.status ? STATUS_LOOKS[card.status] : undefined);
 
 	type MenuProps = {
 		title: string;
+		mediaType: string;
 		url: string;
 		historyUrl: string;
 		lists: Choice[];
-		onaddtolist?: (list: Choice) => void;
+		itemId: number;
+		onnotice?: (message: string) => void;
 		initialOpen?: boolean;
 	};
 	let Menu = $state<Component<MenuProps> | null>(null);
@@ -100,10 +102,12 @@
 		{#if Menu}
 			<Menu
 				title={card.title}
+				mediaType={card.media_type}
 				url={card.url}
 				historyUrl={card.history_url}
 				{lists}
-				onaddtolist={onaddtolist ? (list) => onaddtolist(card.key, list) : undefined}
+				itemId={card.key}
+				{onnotice}
 				initialOpen={openOnLoad}
 			/>
 		{:else}

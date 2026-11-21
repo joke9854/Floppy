@@ -26,7 +26,11 @@ export default defineConfig({
 				'/bulk',
 				'/list/',
 				'/tag_bulk_toggle',
-				'/medialist'
+				'/medialist',
+				'/media_save',
+				'/media_delete',
+				'/media_rewatch',
+				'/episode_save'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }
@@ -69,6 +73,8 @@ export default defineConfig({
 						'@lucide/svelte/icons/eye-off',
 						'@lucide/svelte/icons/funnel',
 						'@lucide/svelte/icons/info',
+						'@lucide/svelte/icons/minus',
+						'@lucide/svelte/icons/plus',
 						'@lucide/svelte/icons/play',
 						'@lucide/svelte/icons/repeat',
 						'@lucide/svelte/icons/star',

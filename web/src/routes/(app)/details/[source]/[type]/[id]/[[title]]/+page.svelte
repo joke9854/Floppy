@@ -25,9 +25,14 @@
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { libraryHref } from '#lib/shell/nav.ts';
 	import { t } from '#lib/strings.ts';
+	import { openTrack } from '#lib/track/open.svelte.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	function trackTitle() {
+		openTrack({ mediaType: shell.media_type, source: shell.source, mediaId: shell.media_id });
+	}
 
 	// The hero, refreshed after a watch is saved (the next episode moves on).
 	let fresh = $state.raw<{ for: DetailShell; shell: DetailShell } | null>(null);
@@ -387,10 +392,11 @@
 							</button>
 						</form>
 					{:else if shell.action?.kind === 'watched'}
-						<a href={shell.page_url} class="ct-btn-primary is-watched" data-sveltekit-reload>
+						<!-- The track dialog, which logs another play or edits this one. -->
+						<button type="button" class="ct-btn-primary is-watched" onclick={trackTitle}>
 							<Check class="size-5" aria-hidden="true" />
 							<span>{t.watched}</span>
-						</a>
+						</button>
 					{:else if shell.action?.kind === 'completed' || (heroDone?.for === shell && !heroEpisode)}
 						<span class="ct-btn-primary is-watched">
 							<Check class="size-5" aria-hidden="true" />
@@ -407,15 +413,10 @@
 							<span>{t.markEpisode(heroEpisode.season_number, heroEpisode.episode_number)}</span>
 						</button>
 					{/if}
-					<a
-						href={shell.page_url}
-						class="ct-btn-quiet"
-						title={t.trackTitle}
-						data-sveltekit-reload
-					>
+					<button type="button" class="ct-btn-quiet" title={t.trackTitle} onclick={trackTitle}>
 						<SlidersHorizontal class="size-4" aria-hidden="true" />
 						<span>{t.track}</span>
-					</a>
+					</button>
 					{#if trailerList.length}
 						<button type="button" class="ct-btn-quiet" onclick={() => (playing = trailerList[0].key)}>
 							<Play class="size-4" aria-hidden="true" />
