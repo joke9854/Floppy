@@ -156,13 +156,26 @@ function presetStatus(state: TrackState, status: string): TrackState {
 	return { ...state, values: { ...state.values, status } };
 }
 
-/** Set the other date for a preset (commitPairedValue): not a manual start. */
+/**
+ * Set the other date for a preset (commitPairedValue). The page commits it
+ * through the other picker, so a start set this way counts as the user's.
+ */
 function setPaired(state: TrackState, field: DateField, value: string): TrackState {
 	if (!(field in state.values)) return state;
 	return {
 		...state,
 		values: { ...state.values, [field]: value },
-		autoFilled: { ...state.autoFilled, [field]: false }
+		autoFilled: { ...state.autoFilled, [field]: false },
+		manualStart: field === 'start_date' ? true : state.manualStart
+	};
+}
+
+/** The Release Date backfill writes the start input directly: not the user's start. */
+function backfillStart(state: TrackState, value: string): TrackState {
+	return {
+		...state,
+		values: { ...state.values, start_date: value },
+		autoFilled: { ...state.autoFilled, start_date: false }
 	};
 }
 
@@ -206,7 +219,7 @@ export function releaseDate(
 	const at = new Date(y, m - 1, d, time.getHours(), time.getMinutes(), time.getSeconds());
 	next = setDate(next, field, formatValue(at, state.trackTime));
 	if (field === 'end_date' && runtime && runtime > 0 && state.trackTime && !next.manualStart && 'start_date' in next.values) {
-		next = setPaired(next, 'start_date', formatValue(new Date(at.getTime() - runtime * 60000), state.trackTime));
+		next = backfillStart(next, formatValue(new Date(at.getTime() - runtime * 60000), state.trackTime));
 	}
 	return next;
 }

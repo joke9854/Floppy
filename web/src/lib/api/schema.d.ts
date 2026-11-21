@@ -8538,6 +8538,66 @@ export interface components {
             end_date?: string | null;
             notes?: string | null;
         };
+        /** @description The Episode Plays tab: log plays over a range of episodes or tracks. */
+        TrackPlays: {
+            tab_label: string;
+            submit_label: string;
+            /** @description Post hidden, the four range numbers, write_mode, distribution_mode, start_date, end_date and episode_count with `Accept: application/json`; the plays are written by a background job. */
+            save_url: string;
+            mode_notice: string;
+            /** @description Post back unchanged. */
+            hidden: components["schemas"]["TrackField"][];
+            first: components["schemas"]["TrackPlaysSide"];
+            last: components["schemas"]["TrackPlaysSide"];
+            write_mode: components["schemas"]["TrackField"];
+            distribution_mode: components["schemas"]["TrackField"];
+            start_date: components["schemas"]["TrackField"];
+            end_date: components["schemas"]["TrackField"];
+            seasons: components["schemas"]["TrackPlaysSeason"][];
+            /** @description By season number. */
+            episodes: {
+                [key: string]: components["schemas"]["TrackPlaysEpisode"][];
+            };
+            locked_season_number: number | null;
+            hide_season_selectors: boolean;
+            labels: components["schemas"]["TrackPlaysLabels"];
+            /** @description "even" when saving falls back to an even spread for items without a date. */
+            missing_target_fallback: string;
+        };
+        /** @description An episode (or track) of the range, in watch order. */
+        TrackPlaysEpisode: {
+            /** @description The range runs from the first's order to the last's. */
+            order: number;
+            season_number: number;
+            episode_number: number;
+            episode_title: string;
+            selector_label: string;
+            existing_play_count: number;
+            runtime_minutes: number | null;
+            /** @description ISO date; empty when unknown. */
+            air_date: string;
+        };
+        /** @description The tab's wording for this kind of title (episodes, tracks). */
+        TrackPlaysLabels: {
+            first_selection: string;
+            last_selection: string;
+            season_field: string;
+            episode_field: string;
+            noun: string;
+            noun_plural: string;
+            target: string;
+            date_shortcut: string;
+        };
+        /** @description A season the range can start or end in. */
+        TrackPlaysSeason: {
+            season_number: number;
+            season_title: string;
+        };
+        /** @description The first or last episode of the range. */
+        TrackPlaysSide: {
+            season_number: number | null;
+            episode_number: number | null;
+        };
         /** @description Rewatch or End rewatch, for a finished or rewatching show or season. */
         TrackRewatch: {
             action: components["schemas"]["TrackRewatchActionEnum"];
@@ -8578,6 +8638,8 @@ export interface components {
             rewatch: components["schemas"]["TrackRewatch"] | null;
             /** @description The title's Django page. */
             page_url: string;
+            /** @description The Episode Plays tab, where the page has it. */
+            plays: components["schemas"]["TrackPlays"] | null;
         };
         /** @description Paginated tracked-media collection. */
         TrackedMediaEnvelope: {

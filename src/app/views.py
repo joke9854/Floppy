@@ -892,6 +892,7 @@ def anime_next_episode(request, media_id, title):
 @require_POST
 def music_bulk_save(request):
     """Dispatch a bulk music play range as a background task and return immediately."""
+    as_json = helpers.wants_json(request)
     context_kind = (request.POST.get("context_kind") or "").strip()
     context_id = request.POST.get("context_id")
     discover_tab_cache.mark_active_from_request(
@@ -900,12 +901,20 @@ def music_bulk_save(request):
     )
 
     if context_kind not in {"artist", "album"}:
+        if as_json:
+            return JsonResponse(
+                {"queued": False, "error": "Invalid music bulk tracking context."}, status=400
+            )
         return HttpResponseBadRequest("Invalid music bulk tracking context.")
 
     start_date_str = (request.POST.get("start_date") or "").strip()
     end_date_str = (request.POST.get("end_date") or "").strip()
 
     if not start_date_str or not end_date_str:
+        if as_json:
+            return JsonResponse(
+                {"queued": False, "error": gettext("Start and end dates are required.")}, status=422
+            )
         if request.headers.get("HX-Request"):
             response = HttpResponse(status=422)
             response["HX-Trigger"] = json.dumps(
@@ -926,6 +935,10 @@ def music_bulk_save(request):
         last_season_number = int(request.POST["last_season_number"])
         last_episode_number = int(request.POST["last_episode_number"])
     except (KeyError, ValueError):
+        if as_json:
+            return JsonResponse(
+                {"queued": False, "error": gettext("Invalid track range.")}, status=422
+            )
         if request.headers.get("HX-Request"):
             response = HttpResponse(status=422)
             response["HX-Trigger"] = json.dumps(
@@ -970,6 +983,15 @@ def music_bulk_save(request):
         context_id,
     )
 
+    if as_json:
+        plural = "s" if track_count != 1 else ""
+        return JsonResponse(
+            {
+                "queued": True,
+                "message": f"Adding plays to {track_count} track{plural}.",
+                "task_id": str(task.id),
+            }
+        )
     if request.headers.get("HX-Request"):
         plural = "s" if track_count != 1 else ""
         response = HttpResponse(status=204)

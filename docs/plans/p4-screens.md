@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. Songs, podcast episodes and the other tabs next |
+| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. Collection, Metadata and Discover tabs next |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -336,11 +336,19 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
       too (`data-existing-entry` on the dialog form, read when there is no
       `instance_id` field).
 - [ ] Songs and podcast episodes: the page's play-history dialog
-      (`fill_track_song.html`), a different shape.
+      (`fill_track_song.html`), inline on the album and podcast detail pages,
+      which are not on the web yet: build it with those pages.
 - [ ] The web detail pages serve movies and shows only; the other types'
       Track buttons come with their detail pages.
-- [ ] Episode Plays, Collection, Metadata, Discover; history editing on the
-      detail page.
+- [x] D3 (2026-11-21): the Episode Plays tab for shows, seasons, grouped
+      anime, podcast shows (`episode_bulk_save`), artists and albums
+      (`music_bulk_save`): the page's form as the track screen's `plays`
+      (range by watch order, summary and warnings ported from
+      episodeBulkTrackForm.js), posted as JSON; the page's job writes the
+      plays. Fixed with it: the job cut the start and end to dates, so the
+      plays fell on midnight and same-day episodes shared one timestamp; it
+      now keeps the picked times (Django tab too).
+- [ ] Collection, Metadata, Discover; history editing on the detail page.
 
 API (D1): `GET /api/v1/track/{type}/{source}/{id}/` reads
 `build_standard_track_context`, split from `_render_standard_track_modal`.

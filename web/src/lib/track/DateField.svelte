@@ -8,7 +8,8 @@
 	/**
 	 * A play date (the Django dialog's date_time_picker.html): the native date
 	 * and time input, the quick actions (Start Now, Just Finished, Release
-	 * Date) and Now, Copy from the other date, None. The value is the page's;
+	 * Date) and Now, Copy from the other date (not in Episode Plays: no
+	 * copyLabel), None. The value is the page's;
 	 * a stored fraction of a second stays in it until the user edits the date.
 	 */
 	let {
@@ -62,6 +63,6 @@
 			onclick={() => onaction('release-date')}>{t.releaseDate}</button
 		>
 		<button type="button" onclick={() => onaction('now')}>{tt.now}</button>
-		<button type="button" onclick={() => onaction('copy')}>{tt.copyFrom(copyLabel)}</button>
+		{#if copyLabel}<button type="button" onclick={() => onaction('copy')}>{tt.copyFrom(copyLabel)}</button>{/if}
 	</div>
 </div>

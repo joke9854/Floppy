@@ -27735,6 +27735,163 @@ components:
         notes:
           type: string
           nullable: true
+    TrackPlays:
+      type: object
+      description: 'The Episode Plays tab: log plays over a range of episodes or tracks.'
+      properties:
+        tab_label:
+          type: string
+        submit_label:
+          type: string
+        save_url:
+          type: string
+          description: 'Post hidden, the four range numbers, write_mode, distribution_mode,
+            start_date, end_date and episode_count with `Accept: application/json`;
+            the plays are written by a background job.'
+        mode_notice:
+          type: string
+        hidden:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+          description: Post back unchanged.
+        first:
+          $ref: '#/components/schemas/TrackPlaysSide'
+        last:
+          $ref: '#/components/schemas/TrackPlaysSide'
+        write_mode:
+          $ref: '#/components/schemas/TrackField'
+        distribution_mode:
+          $ref: '#/components/schemas/TrackField'
+        start_date:
+          $ref: '#/components/schemas/TrackField'
+        end_date:
+          $ref: '#/components/schemas/TrackField'
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackPlaysSeason'
+        episodes:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/TrackPlaysEpisode'
+          description: By season number.
+        locked_season_number:
+          type: integer
+          nullable: true
+        hide_season_selectors:
+          type: boolean
+        labels:
+          $ref: '#/components/schemas/TrackPlaysLabels'
+        missing_target_fallback:
+          type: string
+          description: '"even" when saving falls back to an even spread for items
+            without a date.'
+      required:
+      - distribution_mode
+      - end_date
+      - episodes
+      - first
+      - hidden
+      - hide_season_selectors
+      - labels
+      - last
+      - locked_season_number
+      - missing_target_fallback
+      - mode_notice
+      - save_url
+      - seasons
+      - start_date
+      - submit_label
+      - tab_label
+      - write_mode
+    TrackPlaysEpisode:
+      type: object
+      description: An episode (or track) of the range, in watch order.
+      properties:
+        order:
+          type: integer
+          description: The range runs from the first's order to the last's.
+        season_number:
+          type: integer
+        episode_number:
+          type: integer
+        episode_title:
+          type: string
+        selector_label:
+          type: string
+        existing_play_count:
+          type: integer
+        runtime_minutes:
+          type: integer
+          nullable: true
+        air_date:
+          type: string
+          description: ISO date; empty when unknown.
+      required:
+      - air_date
+      - episode_number
+      - episode_title
+      - existing_play_count
+      - order
+      - runtime_minutes
+      - season_number
+      - selector_label
+    TrackPlaysLabels:
+      type: object
+      description: The tab's wording for this kind of title (episodes, tracks).
+      properties:
+        first_selection:
+          type: string
+        last_selection:
+          type: string
+        season_field:
+          type: string
+        episode_field:
+          type: string
+        noun:
+          type: string
+        noun_plural:
+          type: string
+        target:
+          type: string
+        date_shortcut:
+          type: string
+      required:
+      - date_shortcut
+      - episode_field
+      - first_selection
+      - last_selection
+      - noun
+      - noun_plural
+      - season_field
+      - target
+    TrackPlaysSeason:
+      type: object
+      description: A season the range can start or end in.
+      properties:
+        season_number:
+          type: integer
+        season_title:
+          type: string
+      required:
+      - season_number
+      - season_title
+    TrackPlaysSide:
+      type: object
+      description: The first or last episode of the range.
+      properties:
+        season_number:
+          type: integer
+          nullable: true
+        episode_number:
+          type: integer
+          nullable: true
+      required:
+      - episode_number
+      - season_number
     TrackRewatch:
       type: object
       description: Rewatch or End rewatch, for a finished or rewatching show or season.
@@ -27819,6 +27976,11 @@ components:
         page_url:
           type: string
           description: The title's Django page.
+        plays:
+          allOf:
+          - $ref: '#/components/schemas/TrackPlays'
+          nullable: true
+          description: The Episode Plays tab, where the page has it.
       required:
       - date_suggestion
       - delete_url
@@ -27829,6 +27991,7 @@ components:
       - media_type
       - notes
       - page_url
+      - plays
       - rewatch
       - save_as_new
       - save_url

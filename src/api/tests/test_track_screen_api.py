@@ -863,3 +863,156 @@ class TrackerTrackScreenTests(TestCase):
             )
             self.assertEqual(response.status_code, 200, response.content[:300])
             self.assertTrue(response.json()["tracked"])
+
+
+class PlaysTrackScreenTests(TestCase):
+    """P4-D3: the Episode Plays tab, read from the page's form and posted back."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d3", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.item = Item.objects.create(
+            media_id="1396",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Breaking Bad",
+            image="https://example.com/breaking-bad.jpg",
+        )
+        TV.objects.create(item=self.item, user=self.user, status=Status.IN_PROGRESS.value)
+
+    def _patch_show(self):
+        from app.services.metadata_resolution import MetadataResolutionResult
+        from app.tests.views.test_track_modal import _tv_with_seasons_payload
+
+        payload = {
+            "media_id": "1396",
+            "title": "Breaking Bad",
+            "media_type": MediaTypes.TV.value,
+            "source": Sources.TMDB.value,
+            "image": "https://example.com/breaking-bad.jpg",
+            "details": {"episodes": 3},
+            "related": {"seasons": [{"season_number": 1, "season_title": "Season 1"}]},
+        }
+        metadata = patch(
+            "app.providers.services.get_media_metadata",
+            side_effect=lambda media_type, *_a, **_k: (
+                _tv_with_seasons_payload("1396", Sources.TMDB.value, title="Breaking Bad")
+                if media_type == "tv_with_seasons"
+                else payload
+            ),
+        )
+        resolution = patch(
+            "app.views.metadata_resolution.resolve_detail_metadata",
+            return_value=MetadataResolutionResult(
+                display_provider=Sources.TMDB.value,
+                identity_provider=Sources.TMDB.value,
+                mapping_status="identity",
+                header_metadata=payload,
+                grouped_preview=None,
+                provider_media_id="1396",
+            ),
+        )
+        metadata.start()
+        resolution.start()
+        self.addCleanup(metadata.stop)
+        self.addCleanup(resolution.stop)
+
+    def _screen(self):
+        response = self.client.get(reverse("api_track_screen", args=["tv", "tmdb", "1396"]))
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        return response.json()
+
+    def test_the_tab_follows_the_page(self):
+        self._patch_show()
+        page = self.client.get(reverse("track_modal", args=["tmdb", "tv", "1396"]))
+        plays = self._screen()["plays"]
+
+        form = page.context["episode_plays_form"]
+        domain = page.context["episode_plays_domain"]
+        self.assertEqual(plays["save_url"], reverse("episode_bulk_save"))
+        self.assertEqual(plays["tab_label"], "Episode Plays")
+        self.assertEqual(
+            [f["name"] for f in plays["hidden"]], [b.name for b in form.hidden_fields()]
+        )
+        self.assertEqual(
+            plays["first"],
+            {
+                "season_number": form.initial["first_season_number"],
+                "episode_number": form.initial["first_episode_number"],
+            },
+        )
+        self.assertEqual(plays["last"]["episode_number"], form.initial["last_episode_number"])
+        self.assertEqual(plays["distribution_mode"]["value"], "air_date")
+        self.assertEqual(
+            [c["value"] for c in plays["write_mode"]["choices"]], ["add", "replace"]
+        )
+        self.assertEqual(
+            [(e["order"], e["episode_number"], e["air_date"], e["runtime_minutes"])
+             for e in plays["episodes"]["1"]],
+            [(e["order"], e["episode_number"], e["air_date"], e["runtime_minutes"] or None)
+             for e in domain["seasonEpisodeMap"]["1"]],
+        )
+        self.assertEqual(plays["seasons"][0]["season_number"], 1)
+
+    def test_a_movie_has_no_tab(self):
+        movie = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/m.jpg",
+        )
+        Movie.objects.create(item=movie, user=self.user, status=Status.COMPLETED.value)
+
+        response = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"]))
+
+        self.assertIsNone(response.json()["plays"])
+
+    def test_the_posted_tab_queues_the_pages_job(self):
+        self._patch_show()
+        plays = self._screen()["plays"]
+        data = {f["name"]: f["value"] for f in plays["hidden"]}
+        data.update(
+            first_season_number=plays["first"]["season_number"],
+            first_episode_number=plays["first"]["episode_number"],
+            last_season_number=plays["last"]["season_number"],
+            last_episode_number=plays["last"]["episode_number"],
+            write_mode="add",
+            distribution_mode="even",
+            start_date="2026-03-01T20:00",
+            end_date="2026-03-03T22:00",
+            episode_count=3,
+        )
+
+        with patch("app.tasks.bulk_episode_plays_task.apply_async") as job:
+            job.return_value.id = "job-1"
+            response = self.client.post(plays["save_url"], data, **JSON)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            response.json(),
+            {"queued": True, "message": "Adding plays to 3 episodes.", "task_id": "job-1"},
+        )
+        kwargs = job.call_args.kwargs["kwargs"]
+        self.assertEqual(
+            (kwargs["media_id"], kwargs["first_episode_number"], kwargs["last_episode_number"]),
+            ("1396", 1, 3),
+        )
+        self.assertEqual((kwargs["start_date_str"], kwargs["end_date_str"]),
+                         ("2026-03-01T20:00", "2026-03-03T22:00"))
+
+    def test_bulk_errors_answer_json_and_htmx_is_unchanged(self):
+        base = {"media_id": "1396", "source": "tmdb", "media_type": "tv"}
+
+        missing = self.client.post(reverse("episode_bulk_save"), base, **JSON)
+        htmx = self.client.post(reverse("episode_bulk_save"), base, HTTP_HX_REQUEST="true")
+        music = self.client.post(reverse("music_bulk_save"), {"context_kind": "song"}, **JSON)
+
+        self.assertEqual(missing.status_code, 422)
+        self.assertEqual(missing.json()["error"], "Start and end dates are required.")
+        self.assertEqual(htmx.status_code, 422)
+        self.assertIn("HX-Trigger", htmx.headers)
+        self.assertEqual(music.status_code, 400)
+        self.assertFalse(music.json()["queued"])

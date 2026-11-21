@@ -129,6 +129,27 @@ describe('track dialog rules', () => {
 		expect(state.values.start_date_cleared).toBe('');
 	});
 
+	it('keeps a start a preset or Release Date set when Release Date sets the end', () => {
+		const range = fields({ instance_id: '', start_date: '', end_date: '' });
+		let state = initialState(range, true, NOW);
+		// The Episode Plays range: the first episode's date, then the last's.
+		state = releaseDate(state, 'start_date', '2008-01-20', 47, NOW);
+		state = releaseDate(state, 'end_date', '2008-03-09', 47, NOW);
+		expect(state.values.start_date).toBe('2008-01-20T20:15:30');
+		expect(state.values.end_date).toBe('2008-03-09T20:15:30');
+
+		// Just Finished on the end commits the start through the other picker.
+		let edit = initialState(range, true, NOW);
+		edit = justFinished(edit, 'end_date', 60, NOW);
+		edit = releaseDate(edit, 'end_date', '2008-03-09', 47, NOW);
+		expect(edit.values.start_date).toBe('2026-11-21T19:15:30');
+
+		// Only the backfill itself leaves the start the dialog's.
+		const fresh = releaseDate(initialState(range, true, NOW), 'end_date', '2008-03-09', 47, NOW);
+		expect(fresh.values.start_date).toBe('2008-03-09T19:28:30');
+		expect(fresh.manualStart).toBe(false);
+	});
+
 	it('leaves a tracked artist alone though its form has no instance_id', () => {
 		const tracker = fields({ artist_id: '5', status: 'Completed', start_date: '', end_date: '' });
 

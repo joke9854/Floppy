@@ -8,6 +8,7 @@
 	import { t } from '#lib/strings.ts';
 	import { tt } from './strings.ts';
 	import DateField, { type DateAction } from './DateField.svelte';
+	import PlaysTab from './PlaysTab.svelte';
 	import type { TrackTarget } from './open.svelte.ts';
 	import {
 		changeStatus,
@@ -51,6 +52,8 @@
 	let errors = $state.raw<Record<string, string[]>>({});
 	let problem = $state('');
 	let rewatchSince = $state('');
+	/** The Django dialog's tabs: General, and Episode Plays where the page has it. */
+	let tab = $state<'general' | 'plays'>('general');
 
 	function apiPath(): string {
 		const query = new URLSearchParams();
@@ -153,10 +156,31 @@
 				</Dialog.Close>
 			</header>
 
+			{#if screen?.plays && form && !loadError}
+				<div class="ct-track__tabs" role="tablist">
+					<button
+						type="button"
+						role="tab"
+						class="ct-track__tab"
+						aria-selected={tab === 'general'}
+						onclick={() => (tab = 'general')}>{tt.general}</button
+					>
+					<button
+						type="button"
+						role="tab"
+						class="ct-track__tab"
+						aria-selected={tab === 'plays'}
+						onclick={() => (tab = 'plays')}>{screen.plays.tab_label}</button
+					>
+				</div>
+			{/if}
+
 			{#if loadError}
 				<p class="ct-track__problem" role="alert">{loadError}</p>
 			{:else if !screen || !form}
 				<div class="ct-track__loading" aria-busy="true">{tt.loading}</div>
+			{:else if tab === 'plays' && screen.plays}
+				<PlaysTab plays={screen.plays} trackTime={screen.track_time} {onsaved} />
 			{:else}
 				<form
 					class="ct-track__form"

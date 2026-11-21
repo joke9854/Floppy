@@ -31,4 +31,8 @@ export const tt = {
 	trackSaveFailed: 'That did not save. Try again.',
 	trackLoadFailed: 'The tracking form could not load.',
 	trackProviderDown: 'The provider is not answering. Try again later.',
+	general: 'General',
+	startDate: 'Start date',
+	endDate: 'End date',
+	playsLocked: 'This range is locked to one mapped season.',
 } as const;

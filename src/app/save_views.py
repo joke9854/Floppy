@@ -1434,6 +1434,7 @@ def episode_history_poll(request, season_id):
 @require_POST
 def episode_bulk_save(request):
     """Dispatch a bulk episode play range as a background task and return immediately."""
+    as_json = helpers.wants_json(request)
     from app.tasks import bulk_episode_plays_task
 
     media_id = request.POST["media_id"]
@@ -1449,6 +1450,10 @@ def episode_bulk_save(request):
     end_date_str = (request.POST.get("end_date") or "").strip()
 
     if not start_date_str or not end_date_str:
+        if as_json:
+            return JsonResponse(
+                {"queued": False, "error": gettext("Start and end dates are required.")}, status=422
+            )
         if request.headers.get("HX-Request"):
             response = HttpResponse(status=422)
             response["HX-Trigger"] = json.dumps(
@@ -1469,6 +1474,10 @@ def episode_bulk_save(request):
         last_season_number = int(request.POST["last_season_number"])
         last_episode_number = int(request.POST["last_episode_number"])
     except (KeyError, ValueError):
+        if as_json:
+            return JsonResponse(
+                {"queued": False, "error": gettext("Invalid episode range.")}, status=422
+            )
         if request.headers.get("HX-Request"):
             response = HttpResponse(status=422)
             response["HX-Trigger"] = json.dumps(
@@ -1515,6 +1524,15 @@ def episode_bulk_save(request):
         media_id,
     )
 
+    if as_json:
+        plural = "s" if episode_count != 1 else ""
+        return JsonResponse(
+            {
+                "queued": True,
+                "message": f"Adding plays to {episode_count} episode{plural}.",
+                "task_id": str(task.id),
+            }
+        )
     if request.headers.get("HX-Request"):
         plural = "s" if episode_count != 1 else ""
         response = HttpResponse(status=204)

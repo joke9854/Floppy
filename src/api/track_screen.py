@@ -100,6 +100,82 @@ def _field(bound) -> dict:
     }
 
 
+def _as_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _plays(context) -> dict | None:
+    """Return the Episode Plays tab (fill_track_episode_bulk.html), or None.
+
+    Shows, seasons, grouped anime and podcast shows post it to
+    `episode_bulk_save`, artists and albums to `music_bulk_save`; both queue a
+    background job that writes the plays.
+    """
+    if not context.get("episode_plays_tab_available"):
+        return None
+    form = context["episode_plays_form"]
+    domain = context.get("episode_plays_domain") or {}
+
+    def side(prefix):
+        return {
+            "season_number": _as_int(form[f"{prefix}_season_number"].value()),
+            "episode_number": _as_int(form[f"{prefix}_episode_number"].value()),
+        }
+
+    return {
+        "tab_label": str(_(context.get("episode_plays_tab_label") or "Episode Plays")),
+        "submit_label": str(_(context.get("episode_plays_submit_label") or "Save plays")),
+        "save_url": str(context["episode_plays_formaction"]),
+        "mode_notice": str(context.get("episode_plays_mode_notice") or ""),
+        "hidden": [_field(bound) for bound in form.hidden_fields()],
+        "first": side("first"),
+        "last": side("last"),
+        "write_mode": _field(form["write_mode"]),
+        "distribution_mode": _field(form["distribution_mode"]),
+        "start_date": _field(form["start_date"]),
+        "end_date": _field(form["end_date"]),
+        "seasons": [
+            {"season_number": season["season_number"], "season_title": str(season["season_title"])}
+            for season in domain.get("seasons", [])
+        ],
+        "episodes": {
+            str(season_number): [
+                {
+                    "order": episode["order"],
+                    "season_number": episode["season_number"],
+                    "episode_number": episode["episode_number"],
+                    "episode_title": str(episode.get("episode_title") or ""),
+                    "selector_label": str(episode.get("selector_label") or ""),
+                    "existing_play_count": episode.get("existing_play_count") or 0,
+                    "runtime_minutes": _as_int(episode.get("runtime_minutes")),
+                    "air_date": str(episode.get("air_date") or ""),
+                }
+                for episode in episodes
+            ]
+            for season_number, episodes in (domain.get("seasonEpisodeMap") or {}).items()
+        },
+        "locked_season_number": _as_int(domain.get("lockedSeasonNumber")),
+        "hide_season_selectors": bool(domain.get("hideSeasonSelectors")),
+        "labels": {
+            key: str(domain.get(name) or "")
+            for key, name in (
+                ("first_selection", "firstSelectionTitle"),
+                ("last_selection", "lastSelectionTitle"),
+                ("season_field", "seasonFieldLabel"),
+                ("episode_field", "episodeFieldLabel"),
+                ("noun", "selectionNoun"),
+                ("noun_plural", "selectionNounPlural"),
+                ("target", "distributionTargetLabel"),
+                ("date_shortcut", "dateShortcutLabel"),
+            )
+        },
+        "missing_target_fallback": str(domain.get("missingTargetDateFallbackDistribution") or ""),
+    }
+
+
 def build_track_screen(request, media_type, source, media_id, season_number=None, episode_number=None):
     """Return the track dialog's General tab for the web."""
     from app.track_modal_views import build_standard_track_context
@@ -169,6 +245,7 @@ def build_track_screen(request, media_type, source, media_id, season_number=None
             else None
         ),
         "page_url": next_url,
+        "plays": _plays(context),
     }
 
 
@@ -237,6 +314,7 @@ def build_tracker_screen(request, media_type, context):
         "save_as_new": "",
         "rewatch": None,
         "page_url": "",
+        "plays": _plays(context),
     }
 
 
@@ -296,6 +374,77 @@ class TrackRewatchSerializer(serializers.Serializer):
     started_at = serializers.CharField(allow_null=True)
 
 
+class TrackPlaysSideSerializer(serializers.Serializer):
+    """The first or last episode of the range."""
+
+    season_number = serializers.IntegerField(allow_null=True)
+    episode_number = serializers.IntegerField(allow_null=True)
+
+
+class TrackPlaysSeasonSerializer(serializers.Serializer):
+    """A season the range can start or end in."""
+
+    season_number = serializers.IntegerField()
+    season_title = serializers.CharField(allow_blank=True)
+
+
+class TrackPlaysEpisodeSerializer(serializers.Serializer):
+    """An episode (or track) of the range, in watch order."""
+
+    order = serializers.IntegerField(help_text="The range runs from the first's order to the last's.")
+    season_number = serializers.IntegerField()
+    episode_number = serializers.IntegerField()
+    episode_title = serializers.CharField(allow_blank=True)
+    selector_label = serializers.CharField(allow_blank=True)
+    existing_play_count = serializers.IntegerField()
+    runtime_minutes = serializers.IntegerField(allow_null=True)
+    air_date = serializers.CharField(allow_blank=True, help_text="ISO date; empty when unknown.")
+
+
+class TrackPlaysLabelsSerializer(serializers.Serializer):
+    """The tab's wording for this kind of title (episodes, tracks)."""
+
+    first_selection = serializers.CharField(allow_blank=True)
+    last_selection = serializers.CharField(allow_blank=True)
+    season_field = serializers.CharField(allow_blank=True)
+    episode_field = serializers.CharField(allow_blank=True)
+    noun = serializers.CharField(allow_blank=True)
+    noun_plural = serializers.CharField(allow_blank=True)
+    target = serializers.CharField(allow_blank=True)
+    date_shortcut = serializers.CharField(allow_blank=True)
+
+
+class TrackPlaysSerializer(serializers.Serializer):
+    """The Episode Plays tab: log plays over a range of episodes or tracks."""
+
+    tab_label = serializers.CharField()
+    submit_label = serializers.CharField()
+    save_url = serializers.CharField(
+        help_text="Post hidden, the four range numbers, write_mode, distribution_mode, "
+        "start_date, end_date and episode_count with `Accept: application/json`; "
+        "the plays are written by a background job."
+    )
+    mode_notice = serializers.CharField(allow_blank=True)
+    hidden = TrackFieldSerializer(many=True, help_text="Post back unchanged.")
+    first = TrackPlaysSideSerializer()
+    last = TrackPlaysSideSerializer()
+    write_mode = TrackFieldSerializer()
+    distribution_mode = TrackFieldSerializer()
+    start_date = TrackFieldSerializer()
+    end_date = TrackFieldSerializer()
+    seasons = TrackPlaysSeasonSerializer(many=True)
+    episodes = serializers.DictField(
+        child=TrackPlaysEpisodeSerializer(many=True), help_text="By season number."
+    )
+    locked_season_number = serializers.IntegerField(allow_null=True)
+    hide_season_selectors = serializers.BooleanField()
+    labels = TrackPlaysLabelsSerializer()
+    missing_target_fallback = serializers.CharField(
+        allow_blank=True,
+        help_text='"even" when saving falls back to an even spread for items without a date.',
+    )
+
+
 class TrackScreenSerializer(serializers.Serializer):
     """The track dialog's General tab."""
 
@@ -321,3 +470,4 @@ class TrackScreenSerializer(serializers.Serializer):
     )
     rewatch = TrackRewatchSerializer(allow_null=True)
     page_url = serializers.CharField(allow_blank=True, help_text="The title's Django page.")
+    plays = TrackPlaysSerializer(allow_null=True, help_text="The Episode Plays tab, where the page has it.")

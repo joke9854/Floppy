@@ -320,10 +320,11 @@ class MusicBulkSaveViewTests(TestCase):
             ],
         )
         # Timestamps are biased toward known release dates: the dated track
-        # anchors the start of the range, undated tracks cluster at the end.
+        # anchors the start of the range, undated tracks cluster at the end,
+        # a second apart (the range keeps its times; it was cut to dates).
         self.assertEqual(
-            [play.end_date.date().isoformat() for play in plays],
-            ["2024-03-01", "2024-03-03", "2024-03-03"],
+            [timezone.localtime(play.end_date).isoformat(timespec="seconds")[:19] for play in plays],
+            ["2024-03-01T00:00:00", "2024-03-02T23:59:59", "2024-03-03T00:00:00"],
         )
 
     @patch("app.services.bulk_music_tracking.flush_media_change_side_effects")

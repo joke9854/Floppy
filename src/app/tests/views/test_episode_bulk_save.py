@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from app.models import (
     TV,
@@ -281,6 +282,71 @@ class EpisodeBulkSaveViewTests(TestCase):
         self.assertLess(episodes[0].end_date, episodes[1].end_date)
         self.assertLess(episodes[1].end_date, episodes[2].end_date)
         self.assertEqual(episodes[0].end_date.date(), episodes[2].end_date.date())
+
+    @patch("app.views.metadata_resolution.resolve_detail_metadata")
+    @patch("app.providers.services.get_media_metadata")
+    def test_bulk_add_keeps_the_range_times_and_same_day_episodes_apart(
+        self,
+        mock_get_metadata,
+        mock_resolve_detail_metadata,
+    ):
+        # Three episodes aired the same day, the fourth a week later. The
+        # range's times used to be cut to dates, so the plays fell on
+        # midnight and the same-day ones shared one timestamp.
+        seasons = [
+            {
+                "season_number": 1,
+                "season_title": "Season 1",
+                "episodes": [
+                    _season_episode(1, air_date="2022-09-21"),
+                    _season_episode(2, air_date="2022-09-21"),
+                    _season_episode(3, air_date="2022-09-21"),
+                    _season_episode(4, air_date="2022-09-28"),
+                ],
+            },
+        ]
+        base_payload = _tv_base_payload("83867", Sources.TMDB.value, title="Andor", seasons=seasons)
+        tv_with_seasons = _tv_with_seasons_payload(
+            "83867", Sources.TMDB.value, title="Andor", seasons=seasons
+        )
+        mock_get_metadata.side_effect = lambda media_type, *_args, **_kwargs: (
+            tv_with_seasons if media_type == "tv_with_seasons" else base_payload
+        )
+        mock_resolve_detail_metadata.return_value = self.default_resolution
+
+        response = self._post_bulk(
+            {
+                "media_id": "83867",
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.TV.value,
+                "library_media_type": MediaTypes.TV.value,
+                "identity_media_type": "",
+                "instance_id": "",
+                "return_url": self.return_url,
+                "first_season_number": 1,
+                "first_episode_number": 1,
+                "last_season_number": 1,
+                "last_episode_number": 4,
+                "write_mode": "add",
+                "distribution_mode": "air_date",
+                "start_date": "2022-09-21T21:39",
+                "end_date": "2022-09-28T21:39",
+            },
+        )
+
+        self.assertEqual(response.status_code, 204)
+        played = [
+            timezone.localtime(episode.end_date)
+            for episode in Episode.objects.filter(
+                related_season__user=self.user, item__media_id="83867"
+            ).order_by("item__episode_number")
+        ]
+        start = timezone.make_aware(datetime(2022, 9, 21, 21, 39))
+        end = timezone.make_aware(datetime(2022, 9, 28, 21, 39))
+        self.assertEqual(played[0], start)
+        self.assertEqual(played[-1], end)
+        self.assertEqual(played, sorted(set(played)))
+        self.assertTrue(all(start <= moment <= end for moment in played))
 
     @patch("app.views.metadata_resolution.resolve_detail_metadata")
     @patch("app.providers.services.get_media_metadata")

@@ -15,6 +15,15 @@ from app.providers import services
 logger = logging.getLogger(__name__)
 
 
+def _range_bound(value):
+    """Return a posted start or end as an aware datetime in the server's zone."""
+    from app.services import bulk_episode_tracking
+
+    if not value:
+        return None
+    return bulk_episode_tracking.coerce_episode_datetime(value.strip())
+
+
 @shared_task(bind=True, name="Bulk Episode Plays")
 def bulk_episode_plays_task(
     self,
@@ -34,8 +43,6 @@ def bulk_episode_plays_task(
     library_media_type: str | None = None,
 ):
     """Apply a bulk episode play range in the background after the modal has closed."""
-    from datetime import date
-
     from app.models import PodcastShow
     from app.services import bulk_episode_tracking, metadata_resolution
 
@@ -128,10 +135,11 @@ def bulk_episode_plays_task(
         if first_ep["order"] <= ep["order"] <= last_ep["order"]
     ]
 
-    start_date = (
-        date.fromisoformat(start_date_str.split("T")[0]) if start_date_str else None
-    )
-    end_date = date.fromisoformat(end_date_str.split("T")[0]) if end_date_str else None
+    # The pickers post local wall time ("YYYY-MM-DDTHH:MM[:SS]", or a date
+    # without TRACK_TIME). Keep the time: as plain dates the spread lost it,
+    # and same-day plays collapsed onto one midnight timestamp.
+    start_date = _range_bound(start_date_str)
+    end_date = _range_bound(end_date_str)
 
     result = bulk_episode_tracking.apply_bulk_episode_plays(
         user,
@@ -166,8 +174,6 @@ def bulk_music_plays_task(
     end_date_str: str | None,
 ):
     """Apply a bulk music play range in the background after the modal has closed."""
-    from datetime import date
-
     from app.models import Album, Artist
     from app.services import bulk_music_tracking
 
@@ -227,10 +233,11 @@ def bulk_music_plays_task(
         if first_ep["order"] <= ep["order"] <= last_ep["order"]
     ]
 
-    start_date = (
-        date.fromisoformat(start_date_str.split("T")[0]) if start_date_str else None
-    )
-    end_date = date.fromisoformat(end_date_str.split("T")[0]) if end_date_str else None
+    # The pickers post local wall time ("YYYY-MM-DDTHH:MM[:SS]", or a date
+    # without TRACK_TIME). Keep the time: as plain dates the spread lost it,
+    # and same-day plays collapsed onto one midnight timestamp.
+    start_date = _range_bound(start_date_str)
+    end_date = _range_bound(end_date_str)
 
     result = bulk_music_tracking.apply_bulk_music_plays(
         user,
