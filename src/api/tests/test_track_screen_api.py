@@ -453,6 +453,34 @@ class StandardTypesTrackScreenTests(TestCase):
         media.refresh_from_db()
         self.assertEqual(media.progress, 337)
 
+    def test_an_untouched_percentage_keeps_a_long_books_pages(self):
+        self.user.book_comic_manga_progress_percentage = True
+        self.user.save(update_fields=["book_comic_manga_progress_percentage"])
+        item, media = self._tracked(
+            MediaTypes.BOOK.value,
+            progress=337,
+            status=Status.IN_PROGRESS.value,
+            number_of_pages=1500,
+        )
+        screen = self._screen(item)
+        # 337 of 1500 shows as 22.5%, which converts back to 338.
+        self.assertEqual({f["name"]: f for f in screen["fields"]}["progress"]["value"], "22.5")
+
+        # The web dialog, then the page's own (plain) post.
+        self.client.post(screen["save_url"], TrackScreenTests._post_data(screen), **JSON)
+        media.refresh_from_db()
+        self.assertEqual(media.progress, 337)
+        self.client.post(screen["save_url"], TrackScreenTests._post_data(screen))
+        media.refresh_from_db()
+        self.assertEqual(media.progress, 337)
+
+        changed = self.client.post(
+            screen["save_url"], TrackScreenTests._post_data(screen, progress="50"), **JSON
+        )
+        self.assertEqual(changed.status_code, 200, changed.content)
+        media.refresh_from_db()
+        self.assertEqual(media.progress, 750)
+
     def _open_card(self, track):
         params = {}
         if track["season_number"] is not None:

@@ -320,7 +320,9 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
       Games: time played in the page's format ("3h 35min"), and typing it or
       changing the end backfills the start as end minus time played until
       the user sets the start (never on opening an edit). Book, comic and
-      manga progress in pages or the user's percentage mode, as the page.
+      manga progress in pages or the user's percentage mode, as the page; an
+      unchanged percentage keeps the stored count (it showed to 0.1%, so a
+      book over 1000 pages moved a page on every untouched Update, 2026-11-21).
       Tested: page-field parity and an untouched Update keeping dates and
       progress for every type.
 - [ ] D2b: music (artist, album, track) and podcasts (show, episode): their

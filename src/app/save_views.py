@@ -115,6 +115,7 @@ def media_save(request):
         mutable_post = request.POST.copy()
         max_progress = None
         item = None
+        instance = None
 
         # Get item to determine max_progress
         if instance_id:
@@ -196,7 +197,14 @@ def media_save(request):
             if max_progress:
                 try:
                     percentage = float(progress_value)
-                    converted_progress = round((percentage / 100) * max_progress)
+                    stored = getattr(instance, "progress", None)
+                    if stored and round((stored / max_progress) * 100, 1) == percentage:
+                        # The percentage the dialog showed (rounded to 0.1%),
+                        # unchanged: keep the exact count, or a long book
+                        # moves a page on every untouched Update.
+                        converted_progress = stored
+                    else:
+                        converted_progress = round((percentage / 100) * max_progress)
                     mutable_post["progress"] = str(converted_progress)
                     request.POST = mutable_post
                 except (ValueError, TypeError):
