@@ -27600,6 +27600,22 @@ components:
       - date
       - label
       - runtime_minutes
+    TrackDiscover:
+      type: object
+      description: 'The Discover tab: whether Discover recommends this title.'
+      properties:
+        item_id:
+          type: integer
+        hidden:
+          type: boolean
+          description: Hidden from Discover (Not interested).
+        save_url:
+          type: string
+          description: 'Post item_id and action (hide or unhide) with `Accept: application/json`.'
+      required:
+      - hidden
+      - item_id
+      - save_url
     TrackField:
       type: object
       description: One form field, as the page renders it; post `name=value` back.
@@ -27981,9 +27997,15 @@ components:
           - $ref: '#/components/schemas/TrackPlays'
           nullable: true
           description: The Episode Plays tab, where the page has it.
+        discover:
+          allOf:
+          - $ref: '#/components/schemas/TrackDiscover'
+          nullable: true
+          description: The Discover tab, where the page has it.
       required:
       - date_suggestion
       - delete_url
+      - discover
       - fields
       - hidden
       - koreader

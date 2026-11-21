@@ -177,6 +177,33 @@ describe('track dialog', () => {
 		});
 	});
 
+	it('hides a title from Discover on the Discover tab', async () => {
+		document.cookie = 'csrftoken=test-token';
+		const fetch = vi.fn(async (url: string) =>
+			url.startsWith('/api/v1/track/')
+				? new Response(
+						JSON.stringify({ ...screen, discover: { item_id: 42, hidden: false, save_url: '/discover/toggle-hidden/' } })
+					)
+				: new Response(JSON.stringify({ hidden: true, message: 'Hidden "The Matrix" from Discover.' }))
+		);
+		vi.stubGlobal('fetch', fetch);
+		const onsaved = vi.fn();
+		render(TrackDialog, {
+			props: { target: { mediaType: 'movie', source: 'tmdb', mediaId: '603' }, onclose: () => {}, onsaved }
+		});
+
+		await page.getByRole('tab', { name: 'Discover' }).click();
+		await expect.element(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+		await page.getByRole('combobox', { name: 'Status' }).selectOptions('hidden');
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		await expect.poll(() => onsaved.mock.calls.length).toBe(1);
+		expect(onsaved).toHaveBeenCalledWith('Hidden "The Matrix" from Discover.');
+		const [url, init] = fetch.mock.calls[1] as unknown as [string, RequestInit];
+		expect(url).toBe('/discover/toggle-hidden/');
+		expect(Object.fromEntries(new URLSearchParams(String(init.body)))).toMatchObject({ item_id: '42', action: 'hide' });
+	});
+
 	it('shows the form errors the page sends back', async () => {
 		document.cookie = 'csrftoken=test-token';
 		vi.stubGlobal(

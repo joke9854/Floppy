@@ -1016,3 +1016,64 @@ class PlaysTrackScreenTests(TestCase):
         self.assertIn("HX-Trigger", htmx.headers)
         self.assertEqual(music.status_code, 400)
         self.assertFalse(music.json()["queued"])
+
+
+class DiscoverTrackScreenTests(TestCase):
+    """P4-D4: the Discover tab hides or shows a title in Discover."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d4", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/m.jpg",
+        )
+        Movie.objects.create(item=self.item, user=self.user, status=Status.COMPLETED.value)
+
+    def _discover(self):
+        response = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"]))
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        return response.json()["discover"]
+
+    def test_the_tab_follows_the_page_and_toggles(self):
+        from app.models import DiscoverFeedback
+
+        page = self.client.get(reverse("track_modal", args=["tmdb", "movie", "603"]))
+        discover = self._discover()
+
+        self.assertTrue(page.context["discover_tab_available"])
+        self.assertEqual(
+            discover,
+            {"item_id": self.item.id, "hidden": False, "save_url": reverse("discover_toggle_hidden")},
+        )
+
+        hidden = self.client.post(
+            discover["save_url"], {"item_id": self.item.id, "action": "hide"}, **JSON
+        )
+        self.assertEqual(
+            hidden.json(), {"hidden": True, "message": 'Hidden "The Matrix" from Discover.'}
+        )
+        self.assertTrue(self._discover()["hidden"])
+        self.assertTrue(DiscoverFeedback.objects.filter(user=self.user, item=self.item).exists())
+
+        shown = self.client.post(
+            discover["save_url"], {"item_id": self.item.id, "action": "unhide"}, **JSON
+        )
+        self.assertFalse(shown.json()["hidden"])
+        self.assertFalse(self._discover()["hidden"])
+
+    def test_the_page_post_still_renders_the_tab(self):
+        response = self.client.post(
+            reverse("discover_toggle_hidden"),
+            {"item_id": self.item.id, "action": "hide"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "discover-tab-content")
+        self.assertIn("discoverActionComplete", response.headers["HX-Trigger"])

@@ -35,4 +35,13 @@ export const tt = {
 	startDate: 'Start date',
 	endDate: 'End date',
 	playsLocked: 'This range is locked to one mapped season.',
+	discover: 'Discover',
+	discoverVisibility: 'Discover Visibility',
+	discoverHelp: 'Control whether this item appears in your Discover recommendations.',
+	status: 'Status',
+	currentlyHidden: 'Currently hidden',
+	currentlyVisible: 'Currently visible',
+	visible: 'Visible',
+	hidden: 'Hidden',
+	save: 'Save',
 } as const;

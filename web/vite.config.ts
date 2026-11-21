@@ -40,7 +40,9 @@ export default defineConfig({
 				'/podcast/show/delete',
 				// The Episode Plays tab (P4-D3).
 				'/episode_bulk_save',
-				'/music/bulk_save'
+				'/music/bulk_save',
+				// The Discover tab (P4-D4).
+				'/discover/toggle-hidden'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

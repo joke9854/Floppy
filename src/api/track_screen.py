@@ -176,6 +176,18 @@ def _plays(context) -> dict | None:
     }
 
 
+def _discover(context) -> dict | None:
+    """Return the Discover tab (discover_tab_content.html), or None."""
+    item = context.get("metadata_item")
+    if not context.get("discover_tab_available") or item is None:
+        return None
+    return {
+        "item_id": item.id,
+        "hidden": bool(context.get("is_hidden_from_discover")),
+        "save_url": reverse("discover_toggle_hidden"),
+    }
+
+
 def build_track_screen(request, media_type, source, media_id, season_number=None, episode_number=None):
     """Return the track dialog's General tab for the web."""
     from app.track_modal_views import build_standard_track_context
@@ -246,6 +258,7 @@ def build_track_screen(request, media_type, source, media_id, season_number=None
         ),
         "page_url": next_url,
         "plays": _plays(context),
+        "discover": _discover(context),
     }
 
 
@@ -315,6 +328,7 @@ def build_tracker_screen(request, media_type, context):
         "rewatch": None,
         "page_url": "",
         "plays": _plays(context),
+        "discover": None,
     }
 
 
@@ -445,6 +459,16 @@ class TrackPlaysSerializer(serializers.Serializer):
     )
 
 
+class TrackDiscoverSerializer(serializers.Serializer):
+    """The Discover tab: whether Discover recommends this title."""
+
+    item_id = serializers.IntegerField()
+    hidden = serializers.BooleanField(help_text="Hidden from Discover (Not interested).")
+    save_url = serializers.CharField(
+        help_text="Post item_id and action (hide or unhide) with `Accept: application/json`."
+    )
+
+
 class TrackScreenSerializer(serializers.Serializer):
     """The track dialog's General tab."""
 
@@ -471,3 +495,4 @@ class TrackScreenSerializer(serializers.Serializer):
     rewatch = TrackRewatchSerializer(allow_null=True)
     page_url = serializers.CharField(allow_blank=True, help_text="The title's Django page.")
     plays = TrackPlaysSerializer(allow_null=True, help_text="The Episode Plays tab, where the page has it.")
+    discover = TrackDiscoverSerializer(allow_null=True, help_text="The Discover tab, where the page has it.")

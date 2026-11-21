@@ -9,7 +9,7 @@ from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 
-from app import cache_utils, discover
+from app import cache_utils, discover, helpers
 from app.discover import tab_cache as discover_tab_cache
 from app.models import (
     TV,
@@ -975,6 +975,8 @@ def discover_toggle_hidden(request):
         discover_debug=False,
         feedback_change=True,
     )
+    if helpers.wants_json(request):
+        return JsonResponse({"hidden": action == "hide", "message": message})
 
     context = {
         "item": item,

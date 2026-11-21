@@ -8479,6 +8479,14 @@ export interface components {
             /** @description Start = end minus this, when the end date is set from it. */
             runtime_minutes: number | null;
         };
+        /** @description The Discover tab: whether Discover recommends this title. */
+        TrackDiscover: {
+            item_id: number;
+            /** @description Hidden from Discover (Not interested). */
+            hidden: boolean;
+            /** @description Post item_id and action (hide or unhide) with `Accept: application/json`. */
+            save_url: string;
+        };
         /** @description One form field, as the page renders it; post `name=value` back. */
         TrackField: {
             name: string;
@@ -8640,6 +8648,8 @@ export interface components {
             page_url: string;
             /** @description The Episode Plays tab, where the page has it. */
             plays: components["schemas"]["TrackPlays"] | null;
+            /** @description The Discover tab, where the page has it. */
+            discover: components["schemas"]["TrackDiscover"] | null;
         };
         /** @description Paginated tracked-media collection. */
         TrackedMediaEnvelope: {
