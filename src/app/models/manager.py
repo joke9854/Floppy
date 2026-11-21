@@ -2044,25 +2044,31 @@ class MediaManager(models.Manager):
 
         An `anime` instance_id is an Anime row or a TV row filed as anime
         (separate tables, so the pks overlap). Pass the title's `media_id`
-        and `source` when known, so the pk only matches that title's row.
+        and `source` when known: when both tables have the pk, the row of
+        that title wins. Otherwise Anime first, then TV, as before.
         """
         if media_type == MediaTypes.ANIME.value:
             Anime = apps.get_model("app", "Anime")
             TV = apps.get_model("app", "TV")
-            identity = (
-                {"item__media_id": str(media_id), "item__source": source}
-                if media_id and source
-                else {}
-            )
-            try:
-                return Anime.objects.get(id=instance_id, user=user, **identity)
-            except Anime.DoesNotExist:
-                return TV.objects.get(
+            rows = [
+                Anime.objects.filter(id=instance_id, user=user).select_related("item").first(),
+                TV.objects.filter(
                     id=instance_id,
                     user=user,
                     item__library_media_type=MediaTypes.ANIME.value,
-                    **identity,
                 )
+                .select_related("item")
+                .first(),
+            ]
+            rows = [row for row in rows if row is not None]
+            if media_id and source:
+                for row in rows:
+                    if row.item.media_id == str(media_id) and row.item.source == source:
+                        return row
+            if rows:
+                return rows[0]
+            msg = f"No anime or anime-filed show with id {instance_id}."
+            raise TV.DoesNotExist(msg)
 
         model = apps.get_model(app_label="app", model_name=media_type)
         params = self._get_media_params(

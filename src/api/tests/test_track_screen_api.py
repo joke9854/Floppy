@@ -648,7 +648,24 @@ class StandardTypesTrackScreenTests(TestCase):
             id=show_entry.id, item=mal, user=self.user, status=Status.COMPLETED.value
         )
 
-        # The anime detail page's chip posts `anime` with the show's pk.
+        # The anime detail page's chip posts `anime` with the show's pk, and
+        # names the title (also in the slot the score view re-renders).
+        from django.template.loader import render_to_string
+
+        chip = render_to_string(
+            "app/components/detail_score_chip_slot.html",
+            {
+                "media": show,
+                "current_instance": show_entry,
+                "media_type": "anime",
+                "user": self.user,
+                "user_medias": [show_entry],
+                "public_view": False,
+                "csrf_token": "x",
+            },
+        )
+        score_url = reverse("update_media_score", args=["anime", show_entry.id])
+        self.assertIn(f"{score_url}?media_id=1429&amp;source=tmdb", chip)
         response = self.client.post(
             reverse("update_media_score", args=["anime", show_entry.id])
             + "?media_id=1429&source=tmdb",
