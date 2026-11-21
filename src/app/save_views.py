@@ -711,12 +711,7 @@ def media_delete(request):
     return redirect_response
 
 
-def _form_errors(form):
-    """Return a form's errors as {field: [message, ...]} for the web app."""
-    return {
-        field: [str(error["message"]) for error in errors]
-        for field, errors in form.errors.get_json_data().items()
-    }
+_form_errors = helpers.form_errors
 
 
 def _parse_rewatch_start(raw_value):

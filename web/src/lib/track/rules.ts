@@ -71,7 +71,9 @@ export function parseValue(value: string): Date | null {
 export function initialState(
 	fields: { name: string; kind: string; value: string }[],
 	trackTime: boolean,
-	now: Date
+	now: Date,
+	/** Whether nothing is tracked yet; the tracker forms (music, podcasts) have no instance_id. */
+	isNewEntry?: boolean
 ): TrackState {
 	const values: Record<string, string> = {};
 	for (const field of fields) {
@@ -80,7 +82,7 @@ export function initialState(
 				? normalizeInitialValue(field.value, field.kind === 'datetime')
 				: field.value;
 	}
-	const isNew = !values.instance_id;
+	const isNew = isNewEntry ?? !values.instance_id;
 	const state: TrackState = {
 		values,
 		autoFilled: { start_date: false, end_date: false },

@@ -28,7 +28,14 @@ from .details_screen import (
 )
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
-from .track_screen import TRACK_SCREEN_TYPES, TrackScreenSerializer, build_track_screen
+from .track_screen import (
+    TRACK_SCREEN_TYPES,
+    TRACKER_SCREEN_TYPES,
+    TrackScreenSerializer,
+    build_track_screen,
+    build_tracker_screen,
+    tracker_context,
+)
 
 _NOTE = (
     " Built by the Django page's own builder, so it shows what the page shows. "
@@ -219,8 +226,11 @@ class TrackScreenView(drf_views.APIView):
             "`rewatch.url`) as a form with `Accept: application/json`. The types "
             "the page's standard dialog edits (movies, shows, seasons, episodes, "
             "anime, manga, games, books, comics, comic issues, board games; "
-            "`anime` also opens a TMDB show filed as anime, like the page); 400 "
-            "for music and podcasts." + _NOTE
+            "`anime` also opens a TMDB show filed as anime, like the page). Music "
+            "artists and albums as `artist|album/music/{id}`, podcast shows as "
+            "`podcast/{source}/{podcast_uuid}`: the page's shared tracker dialog. "
+            "400 for anything else (songs and podcast episodes keep the page's "
+            "own dialog)." + _NOTE
         ),
         parameters=[
             OpenApiParameter("season_number", int, description="Seasons and episodes."),
@@ -237,6 +247,16 @@ class TrackScreenView(drf_views.APIView):
         """Return the track form."""
         from app.providers import services
 
+        if media_type in TRACKER_SCREEN_TYPES:
+            with credentials.current_user_scope(request.user):
+                context = tracker_context(request._request, media_type, source, media_id)
+                if context is None:
+                    return Response(
+                        {"detail": "This title has no web track dialog yet."},
+                        status=HTTP.BAD_REQUEST,
+                    )
+                data = build_tracker_screen(request._request, media_type, context)
+            return Response(TrackScreenSerializer(data).data, status=HTTP.OK)
         if media_type not in TRACK_SCREEN_TYPES:
             return Response(
                 {"detail": "This media type has no web track dialog yet."},

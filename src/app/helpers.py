@@ -135,6 +135,14 @@ def get_tmdb_backdrop_image(media_type, media_id):
     return backdrop if has_real_image(backdrop) else None
 
 
+def form_errors(form):
+    """Return a form's errors as {field: [message, ...]} for the web app."""
+    return {
+        field: [str(error["message"]) for error in errors]
+        for field, errors in form.errors.get_json_data().items()
+    }
+
+
 def wants_json(request):
     """Return whether the web app asked a Django form view for a JSON answer.
 

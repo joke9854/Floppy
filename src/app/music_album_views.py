@@ -3,7 +3,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -28,7 +28,8 @@ from app.music_views import (
     _build_music_album_activity_subtitle,
     _music_activity_date_range,
     _music_album_detail_url,
-    _render_music_tracker_modal,
+    _render_track_shell,
+    build_music_tracker_context,
 )
 from app.providers import musicbrainz
 from app.services import bulk_music_tracking
@@ -179,8 +180,8 @@ def set_music_release(request, album_id):
     return _music_release_redirect(request, album, return_url)
 
 
-def album_track_modal(request, album_id):
-    """Return the shared tracking form modal for a music album."""
+def build_album_track_context(request, album_id):
+    """Return the album's track modal context; the page and the web dialog read it."""
     album = get_object_or_404(Album, id=album_id)
     tracker = AlbumTracker.objects.filter(user=request.user, album=album).first()
     form = AlbumTrackerForm(
@@ -188,7 +189,7 @@ def album_track_modal(request, album_id):
         initial={"album_id": album.id},
         user=request.user,
     )
-    return _render_music_tracker_modal(
+    return build_music_tracker_context(
         request,
         title=album.title,
         tracker=tracker,
@@ -199,6 +200,11 @@ def album_track_modal(request, album_id):
         release_date_shortcut=_track_modal_release_date_shortcut(album.release_date),
         bulk_domain=bulk_music_tracking.build_album_play_domain(request.user, album),
     )
+
+
+def album_track_modal(request, album_id):
+    """Return the shared tracking form modal for a music album."""
+    return _render_track_shell(request, build_album_track_context(request, album_id))
 
 
 @require_POST
@@ -214,15 +220,26 @@ def album_save(request):
     tracker = AlbumTracker.objects.filter(user=request.user, album=album).first()
 
     form = AlbumTrackerForm(request.POST, instance=tracker, user=request.user)
+    as_json = helpers.wants_json(request)
     if form.is_valid():
         tracker = form.save(commit=False)
         tracker.user = request.user
         tracker.album = album
         tracker.save()
-        messages.success(
-            request, gettext("Saved %(value_1)s") % {"value_1": album.title}
-        )
+        if not as_json:
+            messages.success(
+                request, gettext("Saved %(value_1)s") % {"value_1": album.title}
+            )
 
+        if as_json:
+            return JsonResponse(
+                {
+                    "saved": True,
+                    "message": f"Saved {album.title}.",
+                    "instance_id": tracker.id,
+                    "warnings": [],
+                }
+            )
         if request.headers.get("HX-Request"):
             htmx_trigger = {
                 "closeModal": {},
@@ -235,6 +252,10 @@ def album_save(request):
             response["HX-Trigger"] = json.dumps(htmx_trigger)
             return response
     else:
+        if as_json:
+            return JsonResponse(
+                {"saved": False, "errors": helpers.form_errors(form)}, status=400
+            )
         messages.error(
             request,
             gettext("Error saving %(value_1)s: %(value_2)s")
@@ -260,10 +281,14 @@ def album_delete(request):
     tracker = AlbumTracker.objects.filter(user=request.user, album=album).first()
     if tracker:
         tracker.delete()
+        if helpers.wants_json(request):
+            return JsonResponse({"deleted": True})
         messages.success(
             request,
             gettext("Removed %(value_1)s from your library") % {"value_1": album.title},
         )
+    elif helpers.wants_json(request):
+        return JsonResponse({"deleted": False})
 
     next_url = request.GET.get("next", "")
     if next_url:

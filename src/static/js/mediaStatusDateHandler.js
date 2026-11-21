@@ -441,8 +441,13 @@ document.addEventListener("alpine:init", () => {
       const progressField = this.$el.querySelector('[name="progress"]');
       const instanceIdField = this.$el.querySelector('[name="instance_id"]');
 
-      // Check if this is a new form (no instance_id) vs editing existing record
-      const isNewForm = !instanceIdField || !instanceIdField.value;
+      // Check if this is a new form (no instance_id) vs editing existing record.
+      // The tracker forms (artists, albums, podcast shows) have no instance_id
+      // field, so they read the dialog's data-existing-entry instead: without
+      // it every tracker looked new, and an empty end date was filled with now.
+      const isNewForm = instanceIdField
+        ? !instanceIdField.value
+        : this.$el.dataset.existingEntry !== "true";
 
       // Store original values for edit forms
       if (!isNewForm) {

@@ -21,10 +21,10 @@ from django.utils.html import strip_tags
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
-from app.models import MediaTypes, Status
+from app.models import Artist, MediaTypes, Status
 from app.templatetags import app_tags
 
-from .track_screen import TRACK_SCREEN_TYPES
+from .track_screen import TRACK_SCREEN_TYPES, TRACKER_MUSIC_SOURCE
 
 LIBRARY_SCREEN_TYPES = (
     MediaTypes.TV.value,
@@ -123,6 +123,18 @@ def _track_target(entry) -> dict | None:
     item = entry.item
     if item.media_type == MediaTypes.EPISODE.value:
         return None
+    if item.media_type == MediaTypes.PODCAST.value:
+        # A podcast card is a show (the page's adapter); its button opens the
+        # show's tracker dialog by podcast_uuid.
+        if getattr(entry, "tracker", None) is None:
+            return None
+        return {
+            "media_type": MediaTypes.PODCAST.value,
+            "source": str(item.source),
+            "media_id": str(item.media_id),
+            "season_number": None,
+            "instance_id": None,
+        }
     kwargs = app_tags.media_view_kwargs("track_modal", item)
     if kwargs is None or kwargs["media_type"] not in TRACK_SCREEN_TYPES:
         return None
@@ -205,7 +217,14 @@ def _tracker_card(request, tracker, target, current_sort) -> dict:
         "detail": str(detail),
         "history_url": history,
         "next_episode_url": "",
-        "track": None,
+        # The page's card opens the tracker's own dialog (v2 P4-D2b).
+        "track": {
+            "media_type": "artist" if isinstance(target, Artist) else "album",
+            "source": TRACKER_MUSIC_SOURCE,
+            "media_id": str(target.id),
+            "season_number": None,
+            "instance_id": None,
+        },
     }
 
 

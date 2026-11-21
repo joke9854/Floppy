@@ -129,6 +129,13 @@ describe('track dialog rules', () => {
 		expect(state.values.start_date_cleared).toBe('');
 	});
 
+	it('leaves a tracked artist alone though its form has no instance_id', () => {
+		const tracker = fields({ artist_id: '5', status: 'Completed', start_date: '', end_date: '' });
+
+		expect(initialState(tracker, true, NOW, false).values.end_date).toBe('');
+		expect(initialState(tracker, true, NOW, true).values.end_date).toBe('2026-11-21T20:15');
+	});
+
 	it('reads time played as the page does', () => {
 		expect(parseProgressMinutes('2:05')).toBe(125);
 		expect(parseProgressMinutes('2h 05min')).toBe(125);

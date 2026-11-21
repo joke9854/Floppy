@@ -39,6 +39,11 @@ TRACK_SCREEN_TYPES = (
     MediaTypes.COMIC_ISSUE.value,
     MediaTypes.BOARDGAME.value,
 )
+# Music artists and albums (`/track/artist|album/music/<id>/`) and podcast
+# shows (`/track/podcast/<source>/<podcast_uuid>/`): their own trackers, in
+# the page's shared tracker dialog (v2 P4-D2b).
+TRACKER_SCREEN_TYPES = ("artist", "album", MediaTypes.PODCAST.value)
+TRACKER_MUSIC_SOURCE = "music"
 _DATE_FIELDS = ("start_date", "end_date")
 
 
@@ -164,6 +169,74 @@ def build_track_screen(request, media_type, source, media_id, season_number=None
             else None
         ),
         "page_url": next_url,
+    }
+
+
+def _suggestion(context) -> dict:
+    suggestion = context.get("date_suggestion") or {}
+    return {
+        "label": str(_(suggestion.get("label") or "")) if suggestion.get("date") else "",
+        "date": str(suggestion.get("date") or ""),
+        "runtime_minutes": int(suggestion["runtime_minutes"])
+        if str(suggestion.get("runtime_minutes") or "").isdigit()
+        else None,
+    }
+
+
+def tracker_context(request, media_type, source, media_id):
+    """Return the page's tracker dialog context, or None for no such tracker.
+
+    Artists and albums are addressed by their own id with the source `music`;
+    a podcast by its show's `podcast_uuid`, as the Library's podcast card
+    opens it (an episode's uuid opens the page's episode dialog: None).
+    """
+    from app.models import PodcastShow
+
+    if media_type in ("artist", "album"):
+        if source != TRACKER_MUSIC_SOURCE or not str(media_id).isdigit():
+            return None
+        if media_type == "artist":
+            from app.music_views import build_artist_track_context
+
+            return build_artist_track_context(request, int(media_id))
+        from app.music_album_views import build_album_track_context
+
+        return build_album_track_context(request, int(media_id))
+    show = PodcastShow.objects.filter(podcast_uuid=media_id, source=source).first()
+    if show is None:
+        return None
+    from app.track_modal_views import build_podcast_show_track_context
+
+    return build_podcast_show_track_context(request, show)
+
+
+def build_tracker_screen(request, media_type, context):
+    """Return an artist's, album's or podcast show's track dialog for the web."""
+    form = context["form"]
+    tracker = context["media"]
+
+    def action(key):
+        # The page's formaction carries `?next=<return_url>`; the web reads JSON.
+        return str(context.get(key) or "").split("?", 1)[0]
+
+    return {
+        "media_type": media_type,
+        "title": str(context["title"]),
+        "subtitle": "",
+        "tracked": tracker is not None,
+        "track_time": bool(settings.TRACK_TIME),
+        "max_progress": None,
+        "hidden": [_field(bound) for bound in context["general_hidden_fields"]],
+        "fields": [_field(bound) for bound in context["general_fields"]],
+        "notes": _field(form["notes"]) if "notes" in form.fields else None,
+        "koreader": None,
+        "date_suggestion": _suggestion(context),
+        "week_start": str(getattr(request.user, "week_start_day", "") or ""),
+        "save_url": action("general_submit_formaction"),
+        "delete_url": action("general_delete_formaction") if tracker is not None else "",
+        "save_as_new": "",
+        "rewatch": None,
+        "page_url": "",
     }
 
 

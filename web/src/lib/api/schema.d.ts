@@ -3400,7 +3400,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The Django track dialog's form for a title: its fields in order with their values, choices and limits, the date shortcut, and where to post. Post the fields back to `save_url` (or `delete_url`, `rewatch.url`) as a form with `Accept: application/json`. The types the page's standard dialog edits (movies, shows, seasons, episodes, anime, manga, games, books, comics, comic issues, board games; `anime` also opens a TMDB show filed as anime, like the page); 400 for music and podcasts. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        /** @description The Django track dialog's form for a title: its fields in order with their values, choices and limits, the date shortcut, and where to post. Post the fields back to `save_url` (or `delete_url`, `rewatch.url`) as a form with `Accept: application/json`. The types the page's standard dialog edits (movies, shows, seasons, episodes, anime, manga, games, books, comics, comic issues, board games; `anime` also opens a TMDB show filed as anime, like the page). Music artists and albums as `artist|album/music/{id}`, podcast shows as `podcast/{source}/{podcast_uuid}`: the page's shared tracker dialog. 400 for anything else (songs and podcast episodes keep the page's own dialog). Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
         get: operations["getTrackScreen"];
         put?: never;
         post?: never;

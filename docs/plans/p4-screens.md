@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. Music, podcasts and the other tabs next |
+| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. Songs, podcast episodes and the other tabs next |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -325,8 +325,18 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
       book over 1000 pages moved a page on every untouched Update, 2026-11-21).
       Tested: page-field parity and an untouched Update keeping dates and
       progress for every type.
-- [ ] D2b: music (artist, album, track) and podcasts (show, episode): their
-      own Django dialogs (`fill_track_song.html`, the tracker forms).
+- [x] D2b (2026-11-21): music artists and albums and podcast shows, the
+      page's shared tracker dialog (`build_music_tracker_context`,
+      `build_podcast_show_track_context`, split from their renders). API
+      targets `artist|album/music/{id}` and `podcast/{source}/{podcast_uuid}`
+      on the same track route; the save and delete views answer JSON. The
+      tracker forms have no `instance_id`, so the web dialog reads `tracked`
+      to tell an edit from an add: Django's script counts every tracker as
+      new and filled an empty end date with now on opening; fixed in Django
+      too (`data-existing-entry` on the dialog form, read when there is no
+      `instance_id` field).
+- [ ] Songs and podcast episodes: the page's play-history dialog
+      (`fill_track_song.html`), a different shape.
 - [ ] The web detail pages serve movies and shows only; the other types'
       Track buttons come with their detail pages.
 - [ ] Episode Plays, Collection, Metadata, Discover; history editing on the

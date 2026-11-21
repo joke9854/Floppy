@@ -686,3 +686,180 @@ class StandardTypesTrackScreenTests(TestCase):
         screen = self._screen(item)
 
         self.assertTrue(screen["tracked"])
+
+
+class TrackerTrackScreenTests(TestCase):
+    """P4-D2b: music artists and albums, podcast shows (the page's tracker dialog)."""
+
+    def setUp(self):
+        from app.models import (
+            Album,
+            AlbumTracker,
+            Artist,
+            ArtistTracker,
+            PodcastShow,
+            PodcastShowTracker,
+        )
+
+        cache.clear()
+        self.credentials = {"username": "d2b", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.start = datetime.datetime(2026, 4, 1, 7, 5, 9, 111111, tzinfo=datetime.UTC)
+        self.end = datetime.datetime(2026, 4, 2, 23, 58, 1, 999999, tzinfo=datetime.UTC)
+        dates = {"start_date": self.start, "end_date": self.end}
+        self.artist = Artist.objects.create(name="Radiohead")
+        self.album = Album.objects.create(title="In Rainbows", artist=self.artist)
+        self.show = PodcastShow.objects.create(podcast_uuid="show-uuid-1", title="The Daily")
+        self.trackers = {
+            "artist": ArtistTracker.objects.create(
+                user=self.user, artist=self.artist, status=Status.COMPLETED.value, score=8, **dates
+            ),
+            "album": AlbumTracker.objects.create(
+                user=self.user, album=self.album, status=Status.COMPLETED.value, score=8, **dates
+            ),
+            "podcast": PodcastShowTracker.objects.create(
+                user=self.user, show=self.show, status=Status.COMPLETED.value, score=8, **dates
+            ),
+        }
+        self.targets = {
+            "artist": ("artist", "music", str(self.artist.id)),
+            "album": ("album", "music", str(self.album.id)),
+            "podcast": ("podcast", "pocketcasts", "show-uuid-1"),
+        }
+        self.pages = {
+            "artist": reverse("artist_track_modal", args=[self.artist.id]),
+            "album": reverse("album_track_modal", args=[self.album.id]),
+            "podcast": reverse("podcast_show_track_modal", args=[self.show.id]),
+        }
+
+    def _screen(self, kind):
+        response = self.client.get(reverse("api_track_screen", args=self.targets[kind]))
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        return response.json()
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_fields_follow_the_page(self, _populate):
+        for kind in self.targets:
+            with self.subTest(kind=kind):
+                page = self.client.get(self.pages[kind])
+                screen = self._screen(kind)
+
+                self.assertEqual(
+                    [f["name"] for f in screen["fields"]],
+                    [b.name for b in page.context["general_fields"]],
+                )
+                self.assertEqual(
+                    [f["name"] for f in screen["hidden"]],
+                    [b.name for b in page.context["general_hidden_fields"]],
+                )
+                for bound in [
+                    *page.context["general_fields"],
+                    *page.context["general_hidden_fields"],
+                ]:
+                    self.assertIn(bound.field.widget.__class__.__name__, _KNOWN_WIDGETS, bound.name)
+                self.assertTrue(screen["tracked"])
+                self.assertEqual(screen["title"], str(page.context["title"]))
+                self.assertNotIn("?", screen["save_url"])
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_an_untouched_update_keeps_the_tracker(self, _populate):
+        for kind, tracker in self.trackers.items():
+            with self.subTest(kind=kind):
+                screen = self._screen(kind)
+
+                response = self.client.post(
+                    screen["save_url"], TrackScreenTests._post_data(screen), **JSON
+                )
+
+                self.assertEqual(response.status_code, 200, response.content)
+                body = response.json()
+                self.assertTrue(body["saved"])
+                self.assertEqual(body["instance_id"], tracker.id)
+                tracker.refresh_from_db()
+                self.assertEqual(tracker.start_date, self.start)
+                self.assertEqual(tracker.end_date, self.end)
+                self.assertEqual(tracker.status, Status.COMPLETED.value)
+                self.assertEqual(float(tracker.score), 8.0)
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_errors_and_delete_answer_json(self, _populate):
+        for kind, tracker in self.trackers.items():
+            with self.subTest(kind=kind):
+                screen = self._screen(kind)
+
+                bad = self.client.post(
+                    screen["save_url"], TrackScreenTests._post_data(screen, score="x"), **JSON
+                )
+                self.assertEqual(bad.status_code, 400, bad.content)
+                self.assertIn("score", bad.json()["errors"])
+
+                deleted = self.client.post(
+                    screen["delete_url"], TrackScreenTests._post_data(screen), **JSON
+                )
+                self.assertEqual(deleted.json(), {"deleted": True})
+                self.assertFalse(type(tracker).objects.filter(id=tracker.id).exists())
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_plain_and_htmx_posts_answer_as_before(self, _populate):
+        screen = self._screen("album")
+        data = TrackScreenTests._post_data(screen)
+
+        plain = self.client.post(screen["save_url"], data)
+        htmx = self.client.post(screen["save_url"], data, HTTP_HX_REQUEST="true")
+
+        self.assertEqual(plain.status_code, 302)
+        self.assertEqual(htmx.status_code, 204)
+        self.assertIn("HX-Trigger", htmx.headers)
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_the_page_dialog_tells_an_existing_tracker_from_a_new_one(self, _populate):
+        # The tracker forms have no instance_id, so the dialog's script reads
+        # data-existing-entry; without it an empty end date was filled with now.
+        tracked = self.client.get(self.pages["artist"])
+        self.trackers["artist"].delete()
+        untracked = self.client.get(self.pages["artist"])
+
+        self.assertContains(tracked, 'data-existing-entry="true"')
+        self.assertContains(untracked, 'data-existing-entry="false"')
+
+    def test_songs_episodes_and_wrong_sources_keep_the_page(self):
+        for args in (
+            ("artist", "tmdb", str(self.artist.id)),
+            ("album", "music", "not-a-number"),
+            ("podcast", "pocketcasts", "episode-uuid"),
+        ):
+            with self.subTest(args=args):
+                response = self.client.get(reverse("api_track_screen", args=args))
+                self.assertEqual(response.status_code, 400)
+
+    @patch("app.tasks_music.populate_album_tracks_batch.delay")
+    def test_library_cards_open_their_tracker(self, _populate):
+        artists = self.client.get(reverse("api_library_screen", args=["music"])).json()
+        podcasts = self.client.get(reverse("api_library_screen", args=["podcast"])).json()
+
+        tracks = [card["track"] for card in artists["results"]]
+        self.assertIn(
+            {
+                "media_type": "artist",
+                "source": "music",
+                "media_id": str(self.artist.id),
+                "season_number": None,
+                "instance_id": None,
+            },
+            tracks,
+        )
+        podcast_track = podcasts["results"][0]["track"]
+        self.assertEqual(
+            (podcast_track["media_type"], podcast_track["source"], podcast_track["media_id"]),
+            ("podcast", "pocketcasts", "show-uuid-1"),
+        )
+        for track in [*tracks, podcast_track]:
+            response = self.client.get(
+                reverse(
+                    "api_track_screen",
+                    args=[track["media_type"], track["source"], track["media_id"]],
+                )
+            )
+            self.assertEqual(response.status_code, 200, response.content[:300])
+            self.assertTrue(response.json()["tracked"])

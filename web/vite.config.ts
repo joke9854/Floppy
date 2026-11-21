@@ -30,7 +30,14 @@ export default defineConfig({
 				'/media_save',
 				'/media_delete',
 				'/media_rewatch',
-				'/episode_save'
+				'/episode_save',
+				// The tracker dialogs (P4-D2b).
+				'/music/artist/save',
+				'/music/artist/delete',
+				'/music/album/save',
+				'/music/album/delete',
+				'/podcast/show/save',
+				'/podcast/show/delete'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

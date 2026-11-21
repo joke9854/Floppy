@@ -71,7 +71,7 @@
 				if (!live) return;
 				screen = body;
 				const all = [...body.hidden, ...body.fields, ...(body.notes ? [body.notes] : [])];
-				form = initialState(all, body.track_time, new Date());
+				form = initialState(all, body.track_time, new Date(), !body.tracked);
 				if (body.koreader) form = { ...form, values: { ...form.values, koreader_document_id: body.koreader.value } };
 			})
 			.catch((error: Error) => {

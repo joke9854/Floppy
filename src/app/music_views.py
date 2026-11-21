@@ -6,12 +6,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
 from django.db import IntegrityError, models
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext, gettext_noop
 from django.views.decorators.http import require_GET, require_POST
 
+from app import helpers
 from app.discover import tab_cache as discover_tab_cache
 from app.forms import BulkEpisodeTrackForm
 from app.log_safety import exception_summary
@@ -194,7 +195,7 @@ def _build_music_detail_secondary_actions(
     ]
 
 
-def _render_music_tracker_modal(
+def build_music_tracker_context(
     request,
     *,
     title,
@@ -208,7 +209,11 @@ def _render_music_tracker_modal(
     bulk_form_override=None,
     initial_active_tab="general",
 ):
-    """Render a non-item music tracker modal through the shared shell."""
+    """Return a non-item music tracker modal's context (fill_track.html).
+
+    The page renders it; the web track dialog reads the same context
+    through `GET /api/v1/track/artist|album/music/<id>/` (v2 P4-D2b).
+    """
     from app import views as view_barrel
 
     return_url = request.GET.get("return_url") or request.POST.get("return_url", "")
@@ -257,10 +262,7 @@ def _render_music_tracker_modal(
             ),
         }
 
-    response = render(
-        request,
-        "app/components/fill_track.html",
-        {
+    return {
             "user": request.user,
             "title": title,
             "media_type": MediaTypes.MUSIC.value,
@@ -300,14 +302,23 @@ def _render_music_tracker_modal(
                 bulk_domain.get("mode_notice", "") if bulk_domain else ""
             ),
             "episode_plays_domain_script_id": f"{track_form_id}-episode-domain",
-        },
-    )
+    }
+
+
+
+
+def _render_music_tracker_modal(request, **kwargs):
+    """Render a non-item music tracker modal through the shared shell."""
+    return _render_track_shell(request, build_music_tracker_context(request, **kwargs))
+
+
+def _render_track_shell(request, context):
+    """Render a track modal context (fill_track.html), never cached."""
+    response = render(request, "app/components/fill_track.html", context)
     response["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
     return response
-
-
 def _music_bulk_redirect_url(request, *, artist=None, album=None):
     """Return the destination after a successful music bulk-play save."""
     next_url = request.GET.get("next") or request.POST.get("return_url", "")
@@ -1429,8 +1440,8 @@ def sync_artist_discography_view(request, artist_id):
     return response
 
 
-def artist_track_modal(request, artist_id):
-    """Return the shared tracking form modal for a music artist."""
+def build_artist_track_context(request, artist_id):
+    """Return the artist's track modal context; the page and the web dialog read it."""
     from app.forms import ArtistTrackerForm
     from app.models import ArtistTracker
     from app.tasks_music import populate_album_tracks_batch
@@ -1455,7 +1466,7 @@ def artist_track_modal(request, artist_id):
         initial={"artist_id": artist.id},
         user=request.user,
     )
-    return _render_music_tracker_modal(
+    return build_music_tracker_context(
         request,
         title=artist.name,
         tracker=tracker,
@@ -1466,6 +1477,11 @@ def artist_track_modal(request, artist_id):
             request.user, artist, fetch_missing=False
         ),
     )
+
+
+def artist_track_modal(request, artist_id):
+    """Return the shared tracking form modal for a music artist."""
+    return _render_track_shell(request, build_artist_track_context(request, artist_id))
 
 
 @require_POST
@@ -1484,15 +1500,26 @@ def artist_save(request):
     tracker = ArtistTracker.objects.filter(user=request.user, artist=artist).first()
 
     form = ArtistTrackerForm(request.POST, instance=tracker, user=request.user)
+    as_json = helpers.wants_json(request)
     if form.is_valid():
         tracker = form.save(commit=False)
         tracker.user = request.user
         tracker.artist = artist
         tracker.save()
-        messages.success(
-            request, gettext("Saved %(value_1)s") % {"value_1": artist.name}
-        )
+        if not as_json:
+            messages.success(
+                request, gettext("Saved %(value_1)s") % {"value_1": artist.name}
+            )
 
+        if as_json:
+            return JsonResponse(
+                {
+                    "saved": True,
+                    "message": f"Saved {artist.name}.",
+                    "instance_id": tracker.id,
+                    "warnings": [],
+                }
+            )
         if request.headers.get("HX-Request"):
             htmx_trigger = {
                 "closeModal": {},
@@ -1505,6 +1532,10 @@ def artist_save(request):
             response["HX-Trigger"] = json.dumps(htmx_trigger)
             return response
     else:
+        if as_json:
+            return JsonResponse(
+                {"saved": False, "errors": helpers.form_errors(form)}, status=400
+            )
         messages.error(
             request,
             gettext("Error saving %(value_1)s: %(value_2)s")
@@ -1532,10 +1563,14 @@ def artist_delete(request):
     tracker = ArtistTracker.objects.filter(user=request.user, artist=artist).first()
     if tracker:
         tracker.delete()
+        if helpers.wants_json(request):
+            return JsonResponse({"deleted": True})
         messages.success(
             request,
             gettext("Removed %(value_1)s from your library") % {"value_1": artist.name},
         )
+    elif helpers.wants_json(request):
+        return JsonResponse({"deleted": False})
 
     next_url = request.GET.get("next", "")
     if next_url:

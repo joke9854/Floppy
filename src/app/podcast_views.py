@@ -359,14 +359,16 @@ def podcast_show_save(request):
     old_status = getattr(tracker, "status", None)
 
     form = PodcastShowTrackerForm(request.POST, instance=tracker, user=request.user)
+    as_json = helpers.wants_json(request)
     if form.is_valid():
         tracker = form.save(commit=False)
         tracker.user = request.user
         tracker.show = show
         tracker.save()
-        messages.success(
-            request, gettext("Saved %(value_1)s") % {"value_1": show.title}
-        )
+        if not as_json:
+            messages.success(
+                request, gettext("Saved %(value_1)s") % {"value_1": show.title}
+            )
 
         if old_status != tracker.status:
             # Home/medialist read episode-level Podcast.status, not the
@@ -380,6 +382,15 @@ def podcast_show_save(request):
                 cache_utils.clear_media_list_cache_for_user(request.user.id)
                 cache_utils.clear_home_row_cache_for_user(request.user.id)
 
+        if as_json:
+            return JsonResponse(
+                {
+                    "saved": True,
+                    "message": f"Saved {show.title}.",
+                    "instance_id": tracker.id,
+                    "warnings": [],
+                }
+            )
         if request.headers.get("HX-Request"):
             htmx_trigger = {
                 "closeModal": {},
@@ -392,6 +403,10 @@ def podcast_show_save(request):
             response["HX-Trigger"] = json.dumps(htmx_trigger)
             return response
     else:
+        if as_json:
+            return JsonResponse(
+                {"saved": False, "errors": helpers.form_errors(form)}, status=400
+            )
         messages.error(
             request,
             gettext("Error saving %(value_1)s: %(value_2)s")
@@ -423,10 +438,14 @@ def podcast_show_delete(request):
     tracker = PodcastShowTracker.objects.filter(user=request.user, show=show).first()
     if tracker:
         tracker.delete()
+        if helpers.wants_json(request):
+            return JsonResponse({"deleted": True})
         messages.success(
             request,
             gettext("Removed %(value_1)s from your library") % {"value_1": show.title},
         )
+    elif helpers.wants_json(request):
+        return JsonResponse({"deleted": False})
 
     next_url = request.GET.get("next", "")
     if next_url:

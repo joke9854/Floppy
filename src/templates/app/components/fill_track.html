@@ -79,6 +79,7 @@
                   hx-swap="{% if track_action_update %}outerHTML{% else %}none{% endif %}"
                   x-data="mediaForm"
                   x-init="init"
+                  data-existing-entry="{% if general_existing_instance %}true{% else %}false{% endif %}"
                   @submit="closeTrackModal($el)">
           {% csrf_token %}
           <input type="hidden" name="track_form_id" value="{{ track_form_id }}">

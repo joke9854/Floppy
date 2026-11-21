@@ -948,7 +948,7 @@ def build_standard_track_context(
     return context
 
 
-def _render_podcast_show_track_modal(
+def build_podcast_show_track_context(
     request,
     show,
     *,
@@ -959,7 +959,11 @@ def _render_podcast_show_track_modal(
     return_url=None,
     track_action_update=False,
 ):
-    """Build and render the podcast show tracking modal with bulk episode plays."""
+    """Return the podcast show track modal's context (fill_track.html).
+
+    The page renders it; the web track dialog reads the same context
+    through `GET /api/v1/track/podcast/<source>/<podcast_uuid>/` (v2 P4-D2b).
+    """
     from app.forms import PodcastShowTrackerForm
     from app.models import PodcastShowTracker
 
@@ -1011,10 +1015,7 @@ def _render_podcast_show_track_modal(
         episode_plays_form = None
 
     track_form_id = track_form_id or f"track-form-{uuid4().hex}"
-    response = render(
-        request,
-        "app/components/fill_track.html",
-        {
+    return {
             "user": request.user,
             "title": show.title,
             "media_type": MediaTypes.PODCAST.value,
@@ -1052,14 +1053,22 @@ def _render_podcast_show_track_modal(
                 else ""
             ),
             "episode_plays_domain_script_id": f"{track_form_id}-episode-domain",
-        },
+    }
+
+
+
+
+def _render_podcast_show_track_modal(request, show, **kwargs):
+    """Build and render the podcast show tracking modal with bulk episode plays."""
+    response = render(
+        request,
+        "app/components/fill_track.html",
+        build_podcast_show_track_context(request, show, **kwargs),
     )
     response["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
     return response
-
-
 @never_cache
 @require_GET
 def track_modal(
