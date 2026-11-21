@@ -544,3 +544,60 @@ class ManualItemFormTest(TestCase):
         self.assertNotEqual(item1.media_id, item2.media_id)
         self.assertTrue(item1.media_id)
         self.assertTrue(item2.media_id)
+
+
+class ExactPlayDatesTest(TestCase):
+    """A play's dates keep their microseconds in the track form (the dialog posts them back)."""
+
+    def setUp(self):
+        """Create a user and a watched episode with sub-second instants."""
+        import datetime
+
+        self.user = get_user_model().objects.create_user(username="exact", password="12345")
+        season_item = Item.objects.create(
+            media_id="exact-1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Exact",
+            image="http://example.com/s.jpg",
+            season_number=1,
+        )
+        season = Season.objects.create(item=season_item, user=self.user, status=Status.IN_PROGRESS.value)
+        episode_item = Item.objects.create(
+            media_id="exact-1",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Pilot",
+            image="http://example.com/e.jpg",
+            season_number=1,
+            episode_number=1,
+        )
+        self.start = datetime.datetime(2026, 1, 2, 3, 4, 5, 678901, tzinfo=datetime.UTC)
+        self.end = datetime.datetime(2026, 1, 2, 4, 5, 6, 123000, tzinfo=datetime.UTC)
+        self.episode = Episode.objects.create(
+            item=episode_item, related_season=season, start_date=self.start, end_date=self.end
+        )
+
+    def test_initial_values_keep_microseconds(self):
+        """Django zeroes them for DateTimeInput unless the form keeps them."""
+        form = EpisodeForm(instance=self.episode, user=self.user)
+
+        self.assertEqual(form["start_date"].value().microsecond, 678901)
+        self.assertEqual(form["end_date"].value().microsecond, 123000)
+
+    def test_posting_the_values_back_stores_the_same_instants(self):
+        """An untouched Update must not change a synced instant."""
+        form = EpisodeForm(instance=self.episode, user=self.user)
+        data = {
+            "start_date": str(form["start_date"].value()).replace(" ", "T"),
+            "end_date": str(form["end_date"].value()).replace(" ", "T"),
+            "status": Status.COMPLETED.value,
+        }
+
+        bound = EpisodeForm(data, instance=self.episode, user=self.user)
+
+        self.assertTrue(bound.is_valid(), bound.errors)
+        bound.save()
+        self.episode.refresh_from_db()
+        self.assertEqual(self.episode.start_date, self.start)
+        self.assertEqual(self.episode.end_date, self.end)

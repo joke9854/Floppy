@@ -281,6 +281,27 @@ class ManualItemForm(forms.ModelForm):
         return instance
 
 
+class ExactPlayDatesMixin:
+    """Keep a play's start and end exactly as stored, microseconds included.
+
+    Django zeroes the microseconds of a datetime's initial value when the
+    widget does not render them (`BaseForm.get_initial_for_field`), so the
+    track dialog posted every untouched Update back truncated to the second
+    and changed the instants CineTrack synced. The dialog's date picker
+    reads the field's value, not the widget's text, so it carries the
+    fraction through.
+    """
+
+    exact_date_fields = ("start_date", "end_date")
+
+    def get_initial_for_field(self, field, field_name):
+        """Return the stored value of a play date unchanged."""
+        if field_name not in self.exact_date_fields:
+            return super().get_initial_for_field(field, field_name)
+        value = self.initial.get(field_name, field.initial)
+        return value() if callable(value) else value
+
+
 class RatingScaleFormMixin:
     """Apply user rating scale preferences to score fields."""
 
@@ -319,7 +340,7 @@ class RatingScaleFormMixin:
         return self.user.scale_score_for_storage(score)
 
 
-class MediaForm(RatingScaleFormMixin, forms.ModelForm):
+class MediaForm(ExactPlayDatesMixin, RatingScaleFormMixin, forms.ModelForm):
     """Base form for all media types."""
 
     instance_id = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -600,7 +621,7 @@ class SeasonForm(MediaForm):
         ]
 
 
-class EpisodeForm(RatingScaleFormMixin, forms.ModelForm):
+class EpisodeForm(ExactPlayDatesMixin, RatingScaleFormMixin, forms.ModelForm):
     """Form for episodes."""
 
     instance_id = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -969,7 +990,7 @@ class PodcastForm(MediaForm):
         }
 
 
-class ArtistTrackerForm(RatingScaleFormMixin, forms.ModelForm):
+class ArtistTrackerForm(ExactPlayDatesMixin, RatingScaleFormMixin, forms.ModelForm):
     """Form for tracking artists - mirrors MediaForm but without progress."""
 
     artist_id = forms.IntegerField(widget=forms.HiddenInput(), required=True)
@@ -1016,7 +1037,7 @@ class ArtistTrackerForm(RatingScaleFormMixin, forms.ModelForm):
             self.fields["end_date"].widget.attrs.pop("required", None)
 
 
-class PodcastShowTrackerForm(RatingScaleFormMixin, forms.ModelForm):
+class PodcastShowTrackerForm(ExactPlayDatesMixin, RatingScaleFormMixin, forms.ModelForm):
     """Form for tracking podcast shows - mirrors ArtistTrackerForm."""
 
     show_id = forms.IntegerField(widget=forms.HiddenInput(), required=True)
@@ -1063,7 +1084,7 @@ class PodcastShowTrackerForm(RatingScaleFormMixin, forms.ModelForm):
             self.fields["end_date"].widget.attrs.pop("required", None)
 
 
-class AlbumTrackerForm(RatingScaleFormMixin, forms.ModelForm):
+class AlbumTrackerForm(ExactPlayDatesMixin, RatingScaleFormMixin, forms.ModelForm):
     """Form for tracking albums - mirrors MediaForm but without progress."""
 
     album_id = forms.IntegerField(widget=forms.HiddenInput(), required=True)
