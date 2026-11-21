@@ -9,7 +9,7 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -261,6 +261,8 @@ def media_save(request):
         if not instance_id
         else pgettext("saved action", "Updated")
     )
+    as_json = helpers.wants_json(request)
+    warnings = []
     if form.is_valid():
         if isinstance(instance, (Season, TV)):
             media = form.save(commit=False)
@@ -293,22 +295,19 @@ def media_save(request):
             raw_hash = request.POST.get("koreader_document_id", "")
             normalized = normalize_document_hash(raw_hash)
             if raw_hash.strip() and normalized is None:
-                messages.error(
-                    request,
-                    gettext(
-                        "KOReader document ID must be a 32-character hexadecimal hash."
-                    ),
+                warnings.append(
+                    gettext("KOReader document ID must be a 32-character hexadecimal hash.")
                 )
             else:
                 try:
                     save_document_link(request.user, media.item, normalized or "")
                 except IntegrityError:
-                    messages.error(
-                        request,
-                        gettext(
-                            "That KOReader document ID is already linked to another book."
-                        ),
+                    warnings.append(
+                        gettext("That KOReader document ID is already linked to another book.")
                     )
+            if not as_json:
+                for warning in warnings:
+                    messages.error(request, warning)
         BasicMedia.objects.annotate_max_progress([media], media_type)
         image_url = form.cleaned_data.get("image_url")
         if image_url and media.item.image != image_url:
@@ -320,6 +319,14 @@ def media_save(request):
             if hasattr(media.item, "get_display_title")
             else media.item.title
         ) or "item"
+        saved_message = gettext("%(value_1)s %(value_2)s.") % {
+            "value_1": action_label,
+            "value_2": display_title,
+        }
+        if as_json:
+            return JsonResponse(
+                {"saved": True, "message": saved_message, "instance_id": media.id, "warnings": warnings}
+            )
         if is_htmx:
             fragment_context = (
                 f"{action_verb.lower()} save media_type={media_type} "
@@ -485,6 +492,8 @@ def media_save(request):
         )
     else:
         logger.error(form.errors.as_json())
+        if as_json:
+            return JsonResponse({"saved": False, "errors": _form_errors(form)}, status=400)
         if is_htmx:
             modal_response = _render_standard_track_modal(
                 request,
@@ -593,8 +602,8 @@ def media_delete(request):
         media.delete()
         logger.info("%s deleted successfully.", media)
 
-        if media_type == MediaTypes.EPISODE.value and request.headers.get(
-            "HX-Request",
+        if media_type == MediaTypes.EPISODE.value and (
+            request.headers.get("HX-Request") or helpers.wants_json(request)
         ):
             related_season._sync_status_after_episode_change()
             cache_utils.clear_time_left_cache_for_user(related_season.user_id)
@@ -610,6 +619,8 @@ def media_delete(request):
                     reason="media_delete",
                     force=True,
                 )
+            if helpers.wants_json(request):
+                return JsonResponse({"deleted": True})
 
             episode_history = list(
                 Episode.objects.filter(
@@ -678,10 +689,20 @@ def media_delete(request):
     except model.DoesNotExist:
         logger.warning("The %s was already deleted before.", media_type)
 
+    if helpers.wants_json(request):
+        return JsonResponse({"deleted": True})
     redirect_response = helpers.redirect_back(request)
     if request.headers.get("HX-Request"):
         return HttpResponse(status=204, headers={"HX-Redirect": redirect_response.url})
     return redirect_response
+
+
+def _form_errors(form):
+    """Return a form's errors as {field: [message, ...]} for the web app."""
+    return {
+        field: [str(error["message"]) for error in errors]
+        for field, errors in form.errors.get_json_data().items()
+    }
 
 
 def _parse_rewatch_start(raw_value):
@@ -715,6 +736,7 @@ def media_rewatch(request):
     # The track-modal button carries the action in the query string, the same
     # way the other modal actions carry `next`.
     action = request.POST.get("action") or request.GET.get("action") or "start"
+    rewatch_warning = ""
 
     if media_type not in {MediaTypes.TV.value, MediaTypes.SEASON.value}:
         return HttpResponseBadRequest("Only shows and seasons can be rewatched.")
@@ -731,10 +753,17 @@ def media_rewatch(request):
         try:
             started_at = _parse_rewatch_start(request.POST.get("rewatch_started_at"))
         except ValueError:
+            if helpers.wants_json(request):
+                return JsonResponse(
+                    {"ok": False, "error": gettext("Enter a rewatch start date in the past.")},
+                    status=400,
+                )
             return HttpResponseBadRequest("Enter a rewatch start date in the past.")
         try:
             skipped_seasons = media.start_rewatch(started_at=started_at) or []
         except RewatchAlreadyCompleteError as error:
+            if helpers.wants_json(request):
+                return JsonResponse({"ok": False, "error": str(error)}, status=400)
             # htmx doesn't swap a non-2xx response, so without an explicit
             # trigger the button click would just silently do nothing.
             response = HttpResponseBadRequest(str(error))
@@ -755,16 +784,16 @@ def media_rewatch(request):
             )
             season_word = "Season" if len(skipped_numbers) == 1 else "Seasons"
             skipped_list = ", ".join(str(number) for number in skipped_numbers)
-            messages.warning(
-                request,
-                gettext(
-                    "%(value_1)s %(value_2)s already fully watched from that date — left as is."
-                )
-                % {"value_1": gettext(season_word), "value_2": skipped_list},
-            )
+            rewatch_warning = gettext(
+                "%(value_1)s %(value_2)s already fully watched from that date — left as is."
+            ) % {"value_1": gettext(season_word), "value_2": skipped_list}
+            if not helpers.wants_json(request):
+                messages.warning(request, rewatch_warning)
         logger.info("Rewatch of %s started, from %s.", media, started_at)
 
     cache_utils.clear_media_list_cache_for_user(request.user.id)
+    if helpers.wants_json(request):
+        return JsonResponse({"ok": True, "warnings": [rewatch_warning] if rewatch_warning else []})
 
     redirect_response = helpers.redirect_back(request)
     if request.headers.get("HX-Request"):
@@ -1073,6 +1102,8 @@ def episode_save(request):
     form = EpisodeForm(request.POST, instance=episode_instance, user=request.user)
     if not form.is_valid():
         logger.warning("Episode form validation failed fields=%s", sorted(form.errors))
+        if helpers.wants_json(request):
+            return JsonResponse({"saved": False, "errors": _form_errors(form)}, status=400)
         return HttpResponseBadRequest("Invalid form data")
 
     if episode_instance:
@@ -1120,6 +1151,8 @@ def episode_save(request):
                 notes=form.cleaned_data.get("notes") or "",
             )
         except fork_services_episode.EpisodeWatchConflictError as error:
+            if helpers.wants_json(request):
+                return JsonResponse({"saved": False, "error": str(error)}, status=409)
             return HttpResponse(str(error), status=409)
         episode = result.episode
     if episode_instance and hasattr(related_season, "_episode_stats_cache"):
@@ -1128,6 +1161,22 @@ def episode_save(request):
         related_season._sync_status_after_episode_change()
         cache_utils.clear_time_left_cache_for_user(related_season.user_id)
         cache_utils.clear_media_list_cache_for_user(related_season.user_id)
+
+    if helpers.wants_json(request):
+        return JsonResponse(
+            {
+                "saved": True,
+                "message": (
+                    f"Updated episode {episode_number}."
+                    if instance_id
+                    else f"Added watch for episode {episode_number}."
+                ),
+                "instance_id": episode.id,
+                # The next save from the same dialog is a new operation.
+                "watch_operation_id": str(uuid4()),
+                "warnings": [],
+            }
+        )
 
     if request.headers.get("HX-Request"):
         episode_history = list(

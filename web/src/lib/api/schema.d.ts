@@ -3393,6 +3393,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/track/{media_type}/{source}/{media_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django track dialog's form for a title: its fields in order with their values, choices and limits, the date shortcut, and where to post. Post the fields back to `save_url` (or `delete_url`, `rewatch.url`) as a form with `Accept: application/json`. Movies, shows, seasons and episodes; 400 for other types. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getTrackScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tv/{tv_id}/episode-ordering/": {
         parameters: {
             query?: never;
@@ -3837,12 +3854,6 @@ export interface components {
             /** @description Whether recovery by authenticator code is set up. */
             authenticator_enabled: boolean;
         };
-        /**
-         * @description * `add` - add
-         *     * `remove` - remove
-         * @enum {string}
-         */
-        ActionEnum: "add" | "remove";
         /** @description Activity calendar (``app.stats_activity.get_activity_data``). */
         ActivityData: {
             calendar_weeks: components["schemas"]["ActivityDay"][][];
@@ -8358,9 +8369,15 @@ export interface components {
         TagEnum: "premiere" | "finale";
         /** @description Items to tag or untag. */
         TagItemsRequest: {
-            action: components["schemas"]["ActionEnum"];
+            action: components["schemas"]["TagItemsRequestActionEnum"];
             item_ids: number[];
         };
+        /**
+         * @description * `add` - add
+         *     * `remove` - remove
+         * @enum {string}
+         */
+        TagItemsRequestActionEnum: "add" | "remove";
         /** @description What was tagged or untagged. */
         TagItemsResult: {
             action: string;
@@ -8444,6 +8461,49 @@ export interface components {
         TokenResponse: {
             token: string;
         };
+        /** @description The pickers' Release Date shortcut. */
+        TrackDateSuggestion: {
+            label: string;
+            /** @description An ISO date; empty when unknown. */
+            date: string;
+            /** @description Start = end minus this, when the end date is set from it. */
+            runtime_minutes: number | null;
+        };
+        /** @description One form field, as the page renders it; post `name=value` back. */
+        TrackField: {
+            name: string;
+            label: string;
+            kind: components["schemas"]["TrackFieldKindEnum"];
+            /** @description The value as the page's input holds it. Dates are the server-time value with microseconds; post them back unchanged to keep the instant. */
+            value: string;
+            choices: components["schemas"]["TrackFieldChoice"][];
+            required: boolean;
+            min: string | null;
+            max: string | null;
+            step: string | null;
+            placeholder: string;
+            help_text: string;
+        };
+        /** @description A select option. */
+        TrackFieldChoice: {
+            value: string;
+            label: string;
+        };
+        /**
+         * @description * `hidden` - hidden
+         *     * `select` - select
+         *     * `number` - number
+         *     * `datetime` - datetime
+         *     * `date` - date
+         *     * `textarea` - textarea
+         *     * `text` - text
+         * @enum {string}
+         */
+        TrackFieldKindEnum: "hidden" | "select" | "number" | "datetime" | "date" | "textarea" | "text";
+        /** @description The KOReader document ID field (books, with KOReader connected). */
+        TrackKoreader: {
+            value: string;
+        };
         /** @description Accepted provider, manual-item, and tracking fields. */
         TrackMediaRequest: {
             source?: string;
@@ -8467,6 +8527,47 @@ export interface components {
             /** @description ISO 8601 date or date-time accepted by this deployment. */
             end_date?: string | null;
             notes?: string | null;
+        };
+        /** @description Rewatch or End rewatch, for a finished or rewatching show or season. */
+        TrackRewatch: {
+            action: components["schemas"]["TrackRewatchActionEnum"];
+            label: string;
+            /** @description POST the form here; `rewatch_started_at` for start. */
+            url: string;
+            started_at: string | null;
+        };
+        /**
+         * @description * `start` - start
+         *     * `stop` - stop
+         * @enum {string}
+         */
+        TrackRewatchActionEnum: "start" | "stop";
+        /** @description The track dialog's General tab. */
+        TrackScreen: {
+            media_type: string;
+            title: string;
+            subtitle: string;
+            /** @description False: the form adds the title. */
+            tracked: boolean;
+            /** @description Dates carry a time (TRACK_TIME). */
+            track_time: boolean;
+            max_progress: number | null;
+            /** @description Post back unchanged. */
+            hidden: components["schemas"]["TrackField"][];
+            /** @description In the page's order. */
+            fields: components["schemas"]["TrackField"][];
+            notes: components["schemas"]["TrackField"] | null;
+            koreader: components["schemas"]["TrackKoreader"] | null;
+            date_suggestion: components["schemas"]["TrackDateSuggestion"];
+            week_start: string;
+            /** @description POST the form here with Accept: application/json. */
+            save_url: string;
+            delete_url: string;
+            /** @description The label of the second save button (post save_as_new_entry=1); empty when none. */
+            save_as_new: string;
+            rewatch: components["schemas"]["TrackRewatch"] | null;
+            /** @description The title's Django page. */
+            page_url: string;
         };
         /** @description Paginated tracked-media collection. */
         TrackedMediaEnvelope: {
@@ -23503,6 +23604,70 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getTrackScreen: {
+        parameters: {
+            query?: {
+                /** @description Episodes. */
+                episode_number?: number;
+                /** @description A specific play to edit. */
+                instance_id?: number;
+                /** @description Seasons and episodes. */
+                season_number?: number;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackScreen"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

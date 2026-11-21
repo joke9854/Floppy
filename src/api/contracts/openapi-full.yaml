@@ -15563,6 +15563,87 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: any
+  /api/v1/track/{media_type}/{source}/{media_id}/:
+    get:
+      operationId: getTrackScreen
+      description: 'The Django track dialog''s form for a title: its fields in order
+        with their values, choices and limits, the date shortcut, and where to post.
+        Post the fields back to `save_url` (or `delete_url`, `rewatch.url`) as a form
+        with `Accept: application/json`. Movies, shows, seasons and episodes; 400
+        for other types. Built by the Django page''s own builder, so it shows what
+        the page shows. Like the page, the read can store metadata it resolves, so
+        integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: episode_number
+        schema:
+          type: integer
+        description: Episodes.
+      - in: query
+        name: instance_id
+        schema:
+          type: integer
+        description: A specific play to edit.
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: query
+        name: season_number
+        schema:
+          type: integer
+        description: Seasons and episodes.
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/tv/{tv_id}/episode-ordering/:
     get:
       operationId: api_v1_tv_episode_ordering_retrieve
@@ -17046,14 +17127,6 @@ components:
       required:
       - authenticator_enabled
       - username
-    ActionEnum:
-      enum:
-      - add
-      - remove
-      type: string
-      description: |-
-        * `add` - add
-        * `remove` - remove
     ActivityData:
       type: object
       description: Activity calendar (``app.stats_activity.get_activity_data``).
@@ -27267,7 +27340,7 @@ components:
       description: Items to tag or untag.
       properties:
         action:
-          $ref: '#/components/schemas/ActionEnum'
+          $ref: '#/components/schemas/TagItemsRequestActionEnum'
         item_ids:
           type: array
           items:
@@ -27277,6 +27350,14 @@ components:
       required:
       - action
       - item_ids
+    TagItemsRequestActionEnum:
+      enum:
+      - add
+      - remove
+      type: string
+      description: |-
+        * `add` - add
+        * `remove` - remove
     TagItemsResult:
       type: object
       description: What was tagged or untagged.
@@ -27468,6 +27549,105 @@ components:
           type: string
       required:
       - token
+    TrackDateSuggestion:
+      type: object
+      description: The pickers' Release Date shortcut.
+      properties:
+        label:
+          type: string
+        date:
+          type: string
+          description: An ISO date; empty when unknown.
+        runtime_minutes:
+          type: integer
+          nullable: true
+          description: Start = end minus this, when the end date is set from it.
+      required:
+      - date
+      - label
+      - runtime_minutes
+    TrackField:
+      type: object
+      description: One form field, as the page renders it; post `name=value` back.
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        kind:
+          $ref: '#/components/schemas/TrackFieldKindEnum'
+        value:
+          type: string
+          description: The value as the page's input holds it. Dates are the server-time
+            value with microseconds; post them back unchanged to keep the instant.
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackFieldChoice'
+        required:
+          type: boolean
+        min:
+          type: string
+          nullable: true
+        max:
+          type: string
+          nullable: true
+        step:
+          type: string
+          nullable: true
+        placeholder:
+          type: string
+        help_text:
+          type: string
+      required:
+      - choices
+      - help_text
+      - kind
+      - label
+      - max
+      - min
+      - name
+      - placeholder
+      - required
+      - step
+      - value
+    TrackFieldChoice:
+      type: object
+      description: A select option.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    TrackFieldKindEnum:
+      enum:
+      - hidden
+      - select
+      - number
+      - datetime
+      - date
+      - textarea
+      - text
+      type: string
+      description: |-
+        * `hidden` - hidden
+        * `select` - select
+        * `number` - number
+        * `datetime` - datetime
+        * `date` - date
+        * `textarea` - textarea
+        * `text` - text
+    TrackKoreader:
+      type: object
+      description: The KOReader document ID field (books, with KOReader connected).
+      properties:
+        value:
+          type: string
+      required:
+      - value
     TrackMediaRequest:
       type: object
       description: Accepted provider, manual-item, and tracking fields.
@@ -27521,6 +27701,108 @@ components:
         notes:
           type: string
           nullable: true
+    TrackRewatch:
+      type: object
+      description: Rewatch or End rewatch, for a finished or rewatching show or season.
+      properties:
+        action:
+          $ref: '#/components/schemas/TrackRewatchActionEnum'
+        label:
+          type: string
+        url:
+          type: string
+          description: POST the form here; `rewatch_started_at` for start.
+        started_at:
+          type: string
+          nullable: true
+      required:
+      - action
+      - label
+      - started_at
+      - url
+    TrackRewatchActionEnum:
+      enum:
+      - start
+      - stop
+      type: string
+      description: |-
+        * `start` - start
+        * `stop` - stop
+    TrackScreen:
+      type: object
+      description: The track dialog's General tab.
+      properties:
+        media_type:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+        tracked:
+          type: boolean
+          description: 'False: the form adds the title.'
+        track_time:
+          type: boolean
+          description: Dates carry a time (TRACK_TIME).
+        max_progress:
+          type: integer
+          nullable: true
+        hidden:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+          description: Post back unchanged.
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+          description: In the page's order.
+        notes:
+          allOf:
+          - $ref: '#/components/schemas/TrackField'
+          nullable: true
+        koreader:
+          allOf:
+          - $ref: '#/components/schemas/TrackKoreader'
+          nullable: true
+        date_suggestion:
+          $ref: '#/components/schemas/TrackDateSuggestion'
+        week_start:
+          type: string
+        save_url:
+          type: string
+          description: 'POST the form here with Accept: application/json.'
+        delete_url:
+          type: string
+        save_as_new:
+          type: string
+          description: The label of the second save button (post save_as_new_entry=1);
+            empty when none.
+        rewatch:
+          allOf:
+          - $ref: '#/components/schemas/TrackRewatch'
+          nullable: true
+        page_url:
+          type: string
+          description: The title's Django page.
+      required:
+      - date_suggestion
+      - delete_url
+      - fields
+      - hidden
+      - koreader
+      - max_progress
+      - media_type
+      - notes
+      - page_url
+      - rewatch
+      - save_as_new
+      - save_url
+      - subtitle
+      - title
+      - track_time
+      - tracked
+      - week_start
     TrackedMediaEnvelope:
       type: object
       description: Paginated tracked-media collection.

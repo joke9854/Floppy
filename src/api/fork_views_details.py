@@ -14,6 +14,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
+from app.models import MediaTypes
 from app.providers import credentials
 
 from .contract_serializers import DetailErrorSerializer
@@ -27,6 +28,7 @@ from .details_screen import (
 )
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
+from .track_screen import TRACK_SCREEN_TYPES, TrackScreenSerializer, build_track_screen
 
 _NOTE = (
     " Built by the Django page's own builder, so it shows what the page shows. "
@@ -202,3 +204,60 @@ class EpisodeScreenView(drf_views.APIView):
         if data is None:
             return Response({"detail": "No such episode."}, status=HTTP.NOT_FOUND)
         return Response(EpisodeScreenSerializer(data).data, status=HTTP.OK)
+
+
+# /api/v1/track/{media_type}/{source}/{media_id}/
+class TrackScreenView(drf_views.APIView):
+    """The track dialog's General tab for the new web app (v2 P4-D1)."""
+
+    @extend_schema(
+        operation_id="getTrackScreen",
+        description=(
+            "The Django track dialog's form for a title: its fields in order with "
+            "their values, choices and limits, the date shortcut, and where to "
+            "post. Post the fields back to `save_url` (or `delete_url`, "
+            "`rewatch.url`) as a form with `Accept: application/json`. Movies, "
+            "shows, seasons and episodes; 400 for other types." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("season_number", int, description="Seasons and episodes."),
+            OpenApiParameter("episode_number", int, description="Episodes."),
+            OpenApiParameter("instance_id", int, description="A specific play to edit."),
+        ],
+        responses={
+            200: TrackScreenSerializer,
+            400: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, media_type, source, media_id):
+        """Return the track form."""
+        from app.providers import services
+
+        if media_type not in TRACK_SCREEN_TYPES:
+            return Response(
+                {"detail": "This media type has no web track dialog yet."},
+                status=HTTP.BAD_REQUEST,
+            )
+
+        def number(name):
+            raw = request.query_params.get(name)
+            return int(raw) if raw and raw.isdigit() else None
+
+        season_number = number("season_number")
+        episode_number = number("episode_number")
+        if media_type in (MediaTypes.SEASON.value, MediaTypes.EPISODE.value) and season_number is None:
+            return Response({"detail": "season_number is required."}, status=HTTP.BAD_REQUEST)
+        if media_type == MediaTypes.EPISODE.value and episode_number is None:
+            return Response({"detail": "episode_number is required."}, status=HTTP.BAD_REQUEST)
+        try:
+            with credentials.current_user_scope(request.user):
+                data = build_track_screen(
+                    request._request, media_type, source, media_id, season_number, episode_number
+                )
+        except services.ProviderAPIError:
+            return Response(
+                {"detail": "The provider is not answering. Try again later."},
+                status=HTTP.SERVICE_UNAVAILABLE,
+            )
+        return Response(TrackScreenSerializer(data).data, status=HTTP.OK)

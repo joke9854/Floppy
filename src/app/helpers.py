@@ -135,6 +135,18 @@ def get_tmdb_backdrop_image(media_type, media_id):
     return backdrop if has_real_image(backdrop) else None
 
 
+def wants_json(request):
+    """Return whether the web app asked a Django form view for a JSON answer.
+
+    The new web app (v2 P4-D) posts the page's own forms with
+    `Accept: application/json` and reads the outcome; HTMX and plain posts
+    keep their HTML and redirects.
+    """
+    return "application/json" in request.headers.get("Accept", "") and not request.headers.get(
+        "HX-Request"
+    )
+
+
 def redirect_back(request):
     """Redirect to the previous page, removing the 'page' parameter if present."""
     next_url = normalize_navigation_url(

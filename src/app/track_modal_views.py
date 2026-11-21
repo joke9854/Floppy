@@ -277,6 +277,52 @@ def _render_standard_track_modal(
     track_action_update=False,
 ):
     """Build and render the standard media track modal context."""
+    context = build_standard_track_context(
+        request,
+        source,
+        media_type,
+        media_id,
+        season_number,
+        episode_number,
+        form_override=form_override,
+        bulk_form_override=bulk_form_override,
+        initial_active_tab=initial_active_tab,
+        track_form_id=track_form_id,
+        return_url=return_url,
+        track_action_update=track_action_update,
+    )
+    response = render(
+        request,
+        "app/components/fill_track.html",
+        context,
+    )
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
+
+
+def build_standard_track_context(
+    request,
+    source,
+    media_type,
+    media_id,
+    season_number=None,
+    episode_number=None,
+    *,
+    form_override=None,
+    bulk_form_override=None,
+    initial_active_tab="general",
+    track_form_id=None,
+    return_url=None,
+    track_action_update=False,
+):
+    """Return the standard track modal's context (fill_track.html).
+
+    The page renders it; the web app's track dialog reads the same context
+    through `GET /api/v1/track/...` (v2 P4-D). It can call providers and
+    write fetched metadata (a book's page count), like the page does.
+    """
     instance_id = request.GET.get("instance_id") or request.POST.get("instance_id")
     if instance_id:
         model = apps.get_model(app_label="app", model_name=media_type)
@@ -896,15 +942,7 @@ def _render_standard_track_modal(
             metadata=base_metadata,
         )
     context.update(_build_track_modal_discover_tab_context(request.user, metadata_item))
-    response = render(
-        request,
-        "app/components/fill_track.html",
-        context,
-    )
-    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response["Pragma"] = "no-cache"
-    response["Expires"] = "0"
-    return response
+    return context
 
 
 def _render_podcast_show_track_modal(

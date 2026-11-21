@@ -788,6 +788,11 @@ urlpatterns = [
         fork_views_admin.LibraryBulkDeleteView.as_view(),
         name="api_library_bulk_delete",
     ),
+    re_path(
+        r"^track/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/?$",
+        fork_views_details.TrackScreenView.as_view(),
+        name="api_track_screen",
+    ),
     # Before the title routes, whose <media_type> would match "person".
     re_path(
         r"^details/episode/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/(?P<episode_number>\d+)/?$",
