@@ -128,9 +128,9 @@ def _track_target(entry) -> dict | None:
         return None
     instance_id = getattr(entry, "id", None)
     if kwargs["media_type"] != item.media_type:
-        # A TMDB show filed as anime opens as `anime`, and the page looks an
-        # `anime` instance_id up in the Anime table first, so a MAL anime with
-        # the same pk would open instead. Without it the page finds the show.
+        # A TMDB show filed as anime opens as `anime`; an `anime` pk can name
+        # an Anime row or a TV row, so let the page find the show by its
+        # media_id instead (get_media matches the pk to the title too).
         instance_id = None
     return {
         "media_type": kwargs["media_type"],

@@ -123,6 +123,8 @@ def media_save(request):
                 request.user,
                 media_type,
                 instance_id,
+                media_id=media_id,
+                source=source,
             )
             if instance:
                 item = instance.item
@@ -215,6 +217,8 @@ def media_save(request):
             request.user,
             media_type,
             instance_id,
+            media_id=media_id,
+            source=source,
         )
     else:
         try:
@@ -600,6 +604,8 @@ def media_delete(request):
             request.user,
             media_type,
             instance_id,
+            media_id=request.POST.get("media_id"),
+            source=request.POST.get("source"),
         )
         if media_type == MediaTypes.EPISODE.value:
             episode_item = media.item

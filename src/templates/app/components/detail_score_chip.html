@@ -36,7 +36,7 @@
         {% for rating_value in rating_range %}
           <button @click="if (rating === {{ rating_value }}) { rating = null; } else { rating = {{ rating_value }}; } showRatingPopup = false; isHovering = false"
                   @mouseenter="hoverRating = {{ rating_value }}"
-                  hx-post="{% url 'update_media_score' media_type current_instance.id %}"
+                  hx-post="{% url 'update_media_score' media_type current_instance.id %}?media_id={{ media.media_id|urlencode }}&amp;source={{ media.source|urlencode }}"
                   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                   hx-vals='{"score": {{ rating_value }}, "toggle": true }'
                   hx-trigger="click"

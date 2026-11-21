@@ -53,10 +53,14 @@ def _collect_music_history_day_keys_for_artist(user, artist):
 @require_POST
 def update_media_score(request, media_type, instance_id):
     """Update the user's score for a media item."""
+    # The detail page's chip names its title, so an `anime` pk cannot match
+    # a different title's row (Anime and TV-filed-as-anime pks overlap).
     media = BasicMedia.objects.get_media(
         request.user,
         media_type,
         instance_id,
+        media_id=request.GET.get("media_id"),
+        source=request.GET.get("source"),
     )
 
     score_raw = request.POST.get("score")

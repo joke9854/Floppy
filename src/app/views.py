@@ -1148,6 +1148,8 @@ def history_modal(
                 request.user,
                 media_type,
                 instance_id,
+                media_id=media_id,
+                source=source,
             )
             user_medias = [media]
         except (ObjectDoesNotExist, ValueError, TypeError):

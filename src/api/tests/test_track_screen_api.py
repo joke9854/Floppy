@@ -568,7 +568,8 @@ class StandardTypesTrackScreenTests(TestCase):
         )
         self.assertEqual(_track_target(show_entry)["instance_id"], show_entry.id)
 
-    def test_a_show_filed_as_anime_opens_the_show_not_an_anime_with_its_id(self):
+    @patch("app.models.TV._start_next_available_season")
+    def test_a_show_filed_as_anime_opens_the_show_not_an_anime_with_its_id(self, _next_season):
         show = Item.objects.create(
             media_id="1429",
             source=Sources.TMDB.value,
@@ -600,6 +601,65 @@ class StandardTypesTrackScreenTests(TestCase):
         self.assertEqual(screen["title"], "Attack on Titan")
         hidden = {f["name"]: f["value"] for f in screen["hidden"]}
         self.assertEqual(hidden["instance_id"], str(show_entry.id))
+
+        # The page's own table button passes the show's pk as an `anime` instance_id.
+        page = self.client.get(
+            reverse("track_modal", args=["tmdb", "anime", "1429"]),
+            {"instance_id": show_entry.id},
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context["media"], show_entry)
+
+        # Saving and deleting the show must not touch the anime with its pk.
+        saved = self.client.post(
+            screen["save_url"], TrackScreenTests._post_data(screen, score="4"), **JSON
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        show_entry.refresh_from_db()
+        anime_entry = Anime.objects.get(id=show_entry.id)
+        self.assertEqual(show_entry.score, 4)
+        self.assertIsNone(anime_entry.score)
+        deleted = self.client.post(
+            screen["delete_url"], TrackScreenTests._post_data(screen), **JSON
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.content)
+        self.assertFalse(TV.objects.filter(id=show_entry.id).exists())
+        self.assertTrue(Anime.objects.filter(id=show_entry.id).exists())
+
+    @patch("app.models.TV._start_next_available_season")
+    def test_the_detail_score_chip_rates_the_show_not_an_anime_with_its_id(self, _next_season):
+        show = Item.objects.create(
+            media_id="1429",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            library_media_type=MediaTypes.ANIME.value,
+            title="Attack on Titan",
+            image="http://example.com/a.jpg",
+        )
+        show_entry = TV.objects.create(item=show, user=self.user, status=Status.IN_PROGRESS.value)
+        mal = Item.objects.create(
+            media_id="16498",
+            source=Sources.MAL.value,
+            media_type=MediaTypes.ANIME.value,
+            title="Shingeki no Kyojin",
+            image="http://example.com/a.jpg",
+        )
+        anime_entry = Anime.objects.create(
+            id=show_entry.id, item=mal, user=self.user, status=Status.COMPLETED.value
+        )
+
+        # The anime detail page's chip posts `anime` with the show's pk.
+        response = self.client.post(
+            reverse("update_media_score", args=["anime", show_entry.id])
+            + "?media_id=1429&source=tmdb",
+            {"score": 8},
+        )
+
+        self.assertLess(response.status_code, 400, response.content[:300])
+        show_entry.refresh_from_db()
+        anime_entry.refresh_from_db()
+        self.assertEqual(show_entry.score, 8)
+        self.assertIsNone(anime_entry.score)
 
     def test_a_media_id_with_a_slash_opens(self):
         item, _ = self._tracked(MediaTypes.BOOK.value)

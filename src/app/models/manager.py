@@ -2036,18 +2036,32 @@ class MediaManager(models.Manager):
         user,
         media_type,
         instance_id,
+        *,
+        media_id=None,
+        source=None,
     ):
-        """Get user media object given the media type and item."""
+        """Get user media object given the media type and item.
+
+        An `anime` instance_id is an Anime row or a TV row filed as anime
+        (separate tables, so the pks overlap). Pass the title's `media_id`
+        and `source` when known, so the pk only matches that title's row.
+        """
         if media_type == MediaTypes.ANIME.value:
             Anime = apps.get_model("app", "Anime")
             TV = apps.get_model("app", "TV")
+            identity = (
+                {"item__media_id": str(media_id), "item__source": source}
+                if media_id and source
+                else {}
+            )
             try:
-                return Anime.objects.get(id=instance_id, user=user)
+                return Anime.objects.get(id=instance_id, user=user, **identity)
             except Anime.DoesNotExist:
                 return TV.objects.get(
                     id=instance_id,
                     user=user,
                     item__library_media_type=MediaTypes.ANIME.value,
+                    **identity,
                 )
 
         model = apps.get_model(app_label="app", model_name=media_type)

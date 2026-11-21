@@ -3,8 +3,8 @@ from contextlib import suppress
 from datetime import UTC, date
 from uuid import uuid4
 
-from django.apps import apps
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
@@ -325,14 +325,17 @@ def build_standard_track_context(
     """
     instance_id = request.GET.get("instance_id") or request.POST.get("instance_id")
     if instance_id:
-        model = apps.get_model(app_label="app", model_name=media_type)
         try:
             media = BasicMedia.objects.get_media(
                 request.user,
                 media_type,
                 instance_id,
+                media_id=media_id,
+                source=source,
             )
-        except model.DoesNotExist:
+        except ObjectDoesNotExist:
+            # An `anime` pk is looked up as Anime, then as a TV row filed as
+            # anime, so the miss can be either model's DoesNotExist.
             media = None
             instance_id = None
     elif request.GET.get("is_create"):
