@@ -6,6 +6,10 @@
  * format, Start Now, Just Finished, Release Date with the runtime, copy
  * from the other date, Clear).
  *
+ * Games: time played (hh:mm, "3h 10min", hours) backfills the start as the
+ * end minus the time played (syncStartDateFromProgress), until the user sets
+ * the start.
+ *
  * Values are the page's: "YYYY-MM-DD" without TRACK_TIME, else
  * "YYYY-MM-DDTHH:MM[:SS[.ffffff]]" in local wall time. A stored value keeps
  * its fraction, so an untouched date posts back the same instant.
@@ -22,6 +26,8 @@ export type TrackState = {
 	original: { status: string; endDate: string | null };
 	isNew: boolean;
 	trackTime: boolean;
+	/** Progress is time played as text (games): it backfills the start date. */
+	progressIsTime: boolean;
 };
 
 const COMPLETED = 'Completed';
@@ -81,13 +87,17 @@ export function initialState(
 		manualStart: false,
 		original: { status: values.status ?? '', endDate: values.end_date || null },
 		isNew,
-		trackTime
+		trackTime,
+		progressIsTime: fields.some((field) => field.name === 'progress' && field.kind === 'text')
 	};
 	// A new entry that starts Completed or In progress is dated now.
 	if (isNew && 'end_date' in values && !values.end_date && [COMPLETED, IN_PROGRESS].includes(values.status)) {
 		values.end_date = currentValue(now, trackTime);
 		state.autoFilled.end_date = true;
 	}
+	// A new game with time played and an end gets its start (never an edit:
+	// an untouched Update must not move a saved start).
+	if (isNew && values.progress?.trim() && values.end_date) return syncStartFromProgress(state);
 	return state;
 }
 
@@ -114,11 +124,14 @@ export function changeStatus(state: TrackState, status: string, now: Date): Trac
 
 /** The user picked a date (the picker's commit). */
 export function setDate(state: TrackState, field: DateField, value: string): TrackState {
+	const values = { ...state.values, [field]: value };
+	// A start the user sets is no longer cleared on purpose.
+	if (field === 'start_date' && value && 'start_date_cleared' in values) values.start_date_cleared = '';
 	return {
 		...state,
-		values: { ...state.values, [field]: value },
+		values,
 		autoFilled: { ...state.autoFilled, [field]: false },
-		manualStart: field === 'start_date' ? true : state.manualStart
+		manualStart: field === 'start_date' ? Boolean(value) : state.manualStart
 	};
 }
 
@@ -206,4 +219,62 @@ export function copyFromOther(state: TrackState, field: DateField): TrackState {
 /** The fields to post: every value, the start-cleared flag only once set. */
 export function formData(state: TrackState): Record<string, string> {
 	return { ...state.values };
+}
+
+/** Minutes from time played as the page takes it (trackModalParseProgressMinutes). */
+export function parseProgressMinutes(value: string): number | null {
+	const normalized = value.trim().toLowerCase();
+	if (!normalized) return null;
+	if (/^\d+(?:\.\d+)?$/.test(normalized)) {
+		const hours = Number.parseFloat(normalized);
+		return Number.isFinite(hours) && hours >= 0 ? Math.trunc(hours * 60) : null;
+	}
+	if (normalized.includes(':')) {
+		const chunks = normalized.split(':');
+		if (chunks.length !== 2 || !chunks.every((chunk) => /^\d+$/.test(chunk))) return null;
+		const minutes = Number.parseInt(chunks[1], 10);
+		if (minutes > 59) return null;
+		return Number.parseInt(chunks[0], 10) * 60 + minutes;
+	}
+	const unit = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|h|minutes?|mins?|min)/g;
+	const matches = [...normalized.matchAll(unit)];
+	if (!matches.length || normalized.replace(unit, '').trim()) return null;
+	let total = 0;
+	for (const [, amount, name] of matches) total += Number.parseFloat(amount) * (name.startsWith('h') ? 60 : 1);
+	return Math.trunc(total);
+}
+
+/** Start = end - time played, unless the user set the start (syncStartDateFromProgress). */
+export function syncStartFromProgress(state: TrackState): TrackState {
+	const { values, autoFilled } = state;
+	if (
+		!state.progressIsTime ||
+		!('start_date' in values) ||
+		!('end_date' in values) ||
+		state.manualStart ||
+		(values.start_date && !autoFilled.start_date)
+	) {
+		return state;
+	}
+	if (!values.progress?.trim()) {
+		if (!autoFilled.start_date) return state;
+		return { ...state, values: { ...values, start_date: '' }, autoFilled: { ...autoFilled, start_date: false } };
+	}
+	const minutes = parseProgressMinutes(values.progress);
+	// The page reads the end to the minute, and only with a time.
+	const end = values.end_date.includes('T') ? parseValue(values.end_date.slice(0, 16)) : null;
+	if (minutes === null || minutes <= 0 || !end) return state;
+	const start = currentValue(new Date(end.getTime() - minutes * 60_000), true);
+	if (values.start_date === start) return state;
+	return { ...state, values: { ...values, start_date: start }, autoFilled: { ...autoFilled, start_date: true } };
+}
+
+/**
+ * Apply a change the user made: the page re-runs the start backfill on every
+ * input to time played or the end date (its input events), so do the same.
+ */
+export function settle(before: TrackState, after: TrackState): TrackState {
+	const changed =
+		before.values.progress !== after.values.progress || before.values.end_date !== after.values.end_date;
+	return changed ? syncStartFromProgress(after) : after;
 }

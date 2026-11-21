@@ -24,11 +24,20 @@ from rest_framework import serializers
 from app.models import MediaTypes
 from app.templatetags import app_tags
 
+# The types the page's standard dialog (fill_track.html) edits. Music and
+# podcasts have their own dialogs.
 TRACK_SCREEN_TYPES = (
     MediaTypes.MOVIE.value,
     MediaTypes.TV.value,
     MediaTypes.SEASON.value,
     MediaTypes.EPISODE.value,
+    MediaTypes.ANIME.value,
+    MediaTypes.MANGA.value,
+    MediaTypes.GAME.value,
+    MediaTypes.BOOK.value,
+    MediaTypes.COMIC.value,
+    MediaTypes.COMIC_ISSUE.value,
+    MediaTypes.BOARDGAME.value,
 )
 _DATE_FIELDS = ("start_date", "end_date")
 

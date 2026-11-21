@@ -6,8 +6,10 @@ import {
 	initialState,
 	justFinished,
 	normalizeInitialValue,
+	parseProgressMinutes,
 	releaseDate,
 	setDate,
+	settle,
 	startNow
 } from './rules.ts';
 
@@ -122,5 +124,62 @@ describe('track dialog rules', () => {
 		expect(state.values.start_date).toBe('');
 		expect(state.values.start_date_cleared).toBe('1');
 		expect(state.manualStart).toBe(false);
+
+		state = setDate(state, 'start_date', '2026-05-01T10:00');
+		expect(state.values.start_date_cleared).toBe('');
+	});
+
+	it('reads time played as the page does', () => {
+		expect(parseProgressMinutes('2:05')).toBe(125);
+		expect(parseProgressMinutes('2h 05min')).toBe(125);
+		expect(parseProgressMinutes('1.5')).toBe(90);
+		expect(parseProgressMinutes('111 minutes')).toBe(111);
+		expect(parseProgressMinutes('4.3 hours')).toBe(258);
+		expect(parseProgressMinutes('2:75')).toBeNull();
+		expect(parseProgressMinutes('soon')).toBeNull();
+		expect(parseProgressMinutes('')).toBeNull();
+	});
+
+	const game = (values: Record<string, string>) =>
+		initialState(
+			Object.entries(values).map(([name, value]) => ({
+				name,
+				value,
+				kind: name.endsWith('_date') ? 'datetime' : name === 'progress' ? 'text' : 'hidden'
+			})),
+			true,
+			NOW
+		);
+
+	it('backfills a game start from time played, never on opening an edit', () => {
+		const edit = game({
+			instance_id: '7',
+			status: 'Completed',
+			progress: '2h 05min',
+			start_date: '',
+			end_date: '2026-02-03 21:04:52.987654',
+			start_date_cleared: ''
+		});
+		expect(edit.values.start_date).toBe('');
+		expect(edit.values.end_date).toBe('2026-02-03T21:04:52.987654');
+
+		const typed = settle(edit, { ...edit, values: { ...edit.values, progress: '3h' } });
+		expect(typed.values.start_date).toBe('2026-02-03T18:04');
+		expect(typed.autoFilled.start_date).toBe(true);
+
+		const cleared = settle(typed, { ...typed, values: { ...typed.values, progress: '' } });
+		expect(cleared.values.start_date).toBe('');
+	});
+
+	it('leaves a start the user set, and fills a new game at once', () => {
+		let state = game({ instance_id: '', status: 'Planning', progress: '', start_date: '', end_date: '' });
+		state = settle(state, setDate(state, 'start_date', '2026-01-01T08:00'));
+		state = settle(state, setDate(state, 'end_date', '2026-01-01T12:00'));
+		state = settle(state, { ...state, values: { ...state.values, progress: '1:00' } });
+		expect(state.values.start_date).toBe('2026-01-01T08:00');
+
+		const added = game({ instance_id: '', status: 'Completed', progress: '1:30', start_date: '', end_date: '' });
+		expect(added.values.end_date).toBe('2026-11-21T20:15');
+		expect(added.values.start_date).toBe('2026-11-21T18:45');
 	});
 });

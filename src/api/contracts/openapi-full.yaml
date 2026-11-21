@@ -15569,10 +15569,12 @@ paths:
       description: 'The Django track dialog''s form for a title: its fields in order
         with their values, choices and limits, the date shortcut, and where to post.
         Post the fields back to `save_url` (or `delete_url`, `rewatch.url`) as a form
-        with `Accept: application/json`. Movies, shows, seasons and episodes; 400
-        for other types. Built by the Django page''s own builder, so it shows what
-        the page shows. Like the page, the read can store metadata it resolves, so
-        integration tokens cannot call it.'
+        with `Accept: application/json`. The types the page''s standard dialog edits
+        (movies, shows, seasons, episodes, anime, manga, games, books, comics, comic
+        issues, board games; `anime` also opens a TMDB show filed as anime, like the
+        page); 400 for music and podcasts. Built by the Django page''s own builder,
+        so it shows what the page shows. Like the page, the read can store metadata
+        it resolves, so integration tokens cannot call it.'
       parameters:
       - in: query
         name: episode_number
@@ -15588,7 +15590,7 @@ paths:
         name: media_id
         schema:
           type: string
-          pattern: ^[^/]+$
+          pattern: ^.+?$
         required: true
       - in: path
         name: media_type
@@ -22437,6 +22439,12 @@ components:
           items:
             $ref: '#/components/schemas/LibraryCell'
           description: The row's cells after image and title; empty in the grid.
+        track:
+          allOf:
+          - $ref: '#/components/schemas/LibraryTrackTarget'
+          nullable: true
+          description: What Edit tracking opens in the web track dialog; null opens
+            `url`.
       required:
       - cells
       - detail
@@ -22452,6 +22460,7 @@ components:
       - status
       - subtitle
       - title
+      - track
       - url
     LibraryCardProgress:
       type: object
@@ -22897,6 +22906,28 @@ components:
       - count
       - label
       - value
+    LibraryTrackTarget:
+      type: object
+      description: The track dialog the card's page button opens (`/api/v1/track/...`).
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        season_number:
+          type: integer
+          nullable: true
+        instance_id:
+          type: integer
+          nullable: true
+      required:
+      - instance_id
+      - media_id
+      - media_type
+      - season_number
+      - source
     LibraryType:
       type: object
       description: One entry of the Library switch.

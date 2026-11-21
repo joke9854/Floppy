@@ -18,6 +18,7 @@
 		justFinished,
 		releaseDate,
 		setDate,
+		settle,
 		startNow,
 		type DateField as DateName,
 		type TrackState
@@ -86,8 +87,9 @@
 
 	function set(name: string, next: string) {
 		if (!form) return;
-		if (name === 'status') form = changeStatus(form, next, new Date());
-		else form = { ...form, values: { ...form.values, [name]: next } };
+		const before = form;
+		if (name === 'status') form = settle(before, changeStatus(before, next, new Date()));
+		else form = settle(before, { ...before, values: { ...before.values, [name]: next } });
 	}
 
 	function step(field: Field, by: number) {
@@ -102,12 +104,15 @@
 	function dateAction(name: DateName, action: DateAction) {
 		if (!form || !screen) return;
 		const now = new Date();
-		if (action === 'start-now') form = startNow(form, name, runtime, now);
-		else if (action === 'just-finished') form = justFinished(form, name, runtime, now);
-		else if (action === 'release-date') form = releaseDate(form, name, screen.date_suggestion.date, runtime, now);
-		else if (action === 'now') form = setDate(form, name, formatValue(now, form.trackTime));
-		else if (action === 'copy') form = copyFromOther(form, name);
-		else form = clearDate(form, name);
+		const before = form;
+		let next: TrackState;
+		if (action === 'start-now') next = startNow(before, name, runtime, now);
+		else if (action === 'just-finished') next = justFinished(before, name, runtime, now);
+		else if (action === 'release-date') next = releaseDate(before, name, screen.date_suggestion.date, runtime, now);
+		else if (action === 'now') next = setDate(before, name, formatValue(now, before.trackTime));
+		else if (action === 'copy') next = copyFromOther(before, name);
+		else next = clearDate(before, name);
+		form = settle(before, next);
 	}
 
 	async function post(url: string, extra: Record<string, string> = {}, kind: 'save' | 'delete' | 'rewatch' = 'save') {
@@ -164,7 +169,7 @@
 					<div class="ct-track__grid">
 						{#each screen.fields as field (field.name)}
 							{@const id = `track-${field.name}`}
-							<div class={['ct-track__field', (field.kind === 'datetime' || field.kind === 'date') && 'is-wide']}>
+							<div class={['ct-track__field', (field.kind === 'datetime' || field.kind === 'date' || field.name === 'progress') && 'is-wide']}>
 								{#if field.kind === 'datetime' || field.kind === 'date'}
 									{@const name = field.name as DateName}
 									<DateField
@@ -174,7 +179,7 @@
 										trackTime={field.kind === 'datetime'}
 										releaseLabel={screen.date_suggestion.label}
 										copyLabel={name === 'start_date' ? tt.end : tt.start}
-										oninput={(next) => (form = setDate(form!, name, next))}
+										oninput={(next) => (form = settle(form!, setDate(form!, name, next)))}
 										onaction={(action) => dateAction(name, action)}
 									/>
 								{:else}

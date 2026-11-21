@@ -381,7 +381,8 @@ def _standard_grouped_domain(
 ):
     """Build a standard TV/grouped-anime episode domain."""
     related = base_metadata.get("related") if isinstance(base_metadata, dict) else {}
-    seasons = related.get("seasons") if isinstance(related, dict) else []
+    # A manual anime's metadata carries `"seasons": None`.
+    seasons = (related.get("seasons") if isinstance(related, dict) else None) or []
     season_numbers = [
         season.get("season_number")
         for season in seasons

@@ -24,6 +24,8 @@ from rest_framework import serializers
 from app.models import MediaTypes, Status
 from app.templatetags import app_tags
 
+from .track_screen import TRACK_SCREEN_TYPES
+
 LIBRARY_SCREEN_TYPES = (
     MediaTypes.TV.value,
     MediaTypes.SEASON.value,
@@ -111,6 +113,34 @@ def _next_episode_url(request, entry) -> str:
     return str(app_tags.next_episode_url(entry.item, entry) or "")
 
 
+def _track_target(entry) -> dict | None:
+    """Return what the page's card track button opens, for the web dialog.
+
+    The page's button (cells/media_image_cell.html) opens
+    `media_view_url 'track_modal' item` with the entry as `instance_id`: an
+    anime filed from TMDB opens as `anime`, like the page.
+    """
+    item = entry.item
+    if item.media_type == MediaTypes.EPISODE.value:
+        return None
+    kwargs = app_tags.media_view_kwargs("track_modal", item)
+    if kwargs is None or kwargs["media_type"] not in TRACK_SCREEN_TYPES:
+        return None
+    instance_id = getattr(entry, "id", None)
+    if kwargs["media_type"] != item.media_type:
+        # A TMDB show filed as anime opens as `anime`, and the page looks an
+        # `anime` instance_id up in the Anime table first, so a MAL anime with
+        # the same pk would open instead. Without it the page finds the show.
+        instance_id = None
+    return {
+        "media_type": kwargs["media_type"],
+        "source": str(kwargs["source"]),
+        "media_id": str(kwargs["media_id"]),
+        "season_number": kwargs.get("season_number"),
+        "instance_id": instance_id if isinstance(instance_id, int) else None,
+    }
+
+
 def _card(request, entry, current_sort, table=None, kind="item") -> dict:
     if kind == "artist":
         card = _tracker_card(request, entry, entry.artist, current_sort)
@@ -120,6 +150,7 @@ def _card(request, entry, current_sort, table=None, kind="item") -> dict:
         card = _grid_card(request, entry, current_sort)
         card["history_url"] = _history_url(entry)
         card["next_episode_url"] = _next_episode_url(request, entry)
+        card["track"] = _track_target(entry)
     card["shape"] = "square" if card["media_type"] in _SQUARE_TYPES else "poster"
     card["repeats"] = entry.repeats if _shows_repeats(entry, request.user) else None
     card["cells"] = table.cells(entry) if table else []
@@ -174,6 +205,7 @@ def _tracker_card(request, tracker, target, current_sort) -> dict:
         "detail": str(detail),
         "history_url": history,
         "next_episode_url": "",
+        "track": None,
     }
 
 
@@ -567,6 +599,16 @@ class LibraryColumnConfigSerializer(serializers.Serializer):
     visible = serializers.BooleanField()
 
 
+class LibraryTrackTargetSerializer(serializers.Serializer):
+    """The track dialog the card's page button opens (`/api/v1/track/...`)."""
+
+    media_type = serializers.CharField()
+    source = serializers.CharField()
+    media_id = serializers.CharField()
+    season_number = serializers.IntegerField(allow_null=True)
+    instance_id = serializers.IntegerField(allow_null=True)
+
+
 class LibraryCardSerializer(serializers.Serializer):
     """A Library poster card, or a table row."""
 
@@ -599,6 +641,10 @@ class LibraryCardSerializer(serializers.Serializer):
     )
     cells = LibraryCellSerializer(
         many=True, help_text="The row's cells after image and title; empty in the grid."
+    )
+    track = LibraryTrackTargetSerializer(
+        allow_null=True,
+        help_text="What Edit tracking opens in the web track dialog; null opens `url`.",
     )
 
 

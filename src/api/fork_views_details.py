@@ -216,8 +216,11 @@ class TrackScreenView(drf_views.APIView):
             "The Django track dialog's form for a title: its fields in order with "
             "their values, choices and limits, the date shortcut, and where to "
             "post. Post the fields back to `save_url` (or `delete_url`, "
-            "`rewatch.url`) as a form with `Accept: application/json`. Movies, "
-            "shows, seasons and episodes; 400 for other types." + _NOTE
+            "`rewatch.url`) as a form with `Accept: application/json`. The types "
+            "the page's standard dialog edits (movies, shows, seasons, episodes, "
+            "anime, manga, games, books, comics, comic issues, board games; "
+            "`anime` also opens a TMDB show filed as anime, like the page); 400 "
+            "for music and podcasts." + _NOTE
         ),
         parameters=[
             OpenApiParameter("season_number", int, description="Seasons and episodes."),

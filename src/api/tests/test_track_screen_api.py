@@ -15,7 +15,23 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 import events.tasks
-from app.models import Episode, Item, MediaTypes, Movie, Season, Sources, Status
+from app.models import (
+    TV,
+    Anime,
+    BoardGame,
+    Book,
+    Comic,
+    ComicIssue,
+    Episode,
+    Game,
+    Item,
+    Manga,
+    MediaTypes,
+    Movie,
+    Season,
+    Sources,
+    Status,
+)
 
 JSON = {"HTTP_ACCEPT": "application/json"}
 
@@ -195,10 +211,12 @@ class TrackScreenTests(TestCase):
         self.assertEqual(htmx.status_code, 200)
         self.assertIn("HX-Trigger", htmx.headers)
 
-    def test_other_types_wait_for_later_slices(self):
-        response = self.client.get(reverse("api_track_screen", args=["anime", "mal", "1"]))
-
-        self.assertEqual(response.status_code, 400)
+    def test_music_and_podcasts_keep_their_own_dialogs(self):
+        for media_type in (MediaTypes.MUSIC.value, MediaTypes.PODCAST.value):
+            response = self.client.get(
+                reverse("api_track_screen", args=[media_type, "manual", "1"])
+            )
+            self.assertEqual(response.status_code, 400, media_type)
 
     def test_integration_tokens_cannot_call_it(self):
         from integrations.models import IntegrationToken
@@ -279,3 +297,287 @@ class EpisodeTrackScreenTests(TestCase):
         response = self.client.get(reverse("api_track_screen", args=["episode", "tmdb", "ep-1"]))
 
         self.assertEqual(response.status_code, 400)
+
+
+# Widgets the web dialog draws; a new one must get a drawing first (P4-D2).
+_KNOWN_WIDGETS = {
+    "HiddenInput",
+    "NumberInput",
+    "Select",
+    "TextInput",
+    "Textarea",
+    "DateTimeInput",
+    "DateInput",
+}
+
+_STANDARD_MODELS = {
+    MediaTypes.ANIME.value: Anime,
+    MediaTypes.MANGA.value: Manga,
+    MediaTypes.GAME.value: Game,
+    MediaTypes.BOOK.value: Book,
+    MediaTypes.COMIC.value: Comic,
+    MediaTypes.COMIC_ISSUE.value: ComicIssue,
+    MediaTypes.BOARDGAME.value: BoardGame,
+}
+
+
+class StandardTypesTrackScreenTests(TestCase):
+    """P4-D2: every type the page's standard dialog edits, from manual items."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d2", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.start = datetime.datetime(2026, 2, 1, 9, 30, 11, 250000, tzinfo=datetime.UTC)
+        self.end = datetime.datetime(2026, 2, 3, 21, 4, 52, 987654, tzinfo=datetime.UTC)
+
+    def _tracked(self, media_type, progress=3, status=Status.COMPLETED.value, **item_fields):
+        item = Item.objects.create(
+            media_id=f"{media_type}-1",
+            source=Sources.MANUAL.value,
+            media_type=media_type,
+            title=f"A {media_type}",
+            image="http://example.com/a.jpg",
+            **item_fields,
+        )
+        media = _STANDARD_MODELS[media_type].objects.create(
+            item=item,
+            user=self.user,
+            status=status,
+            score=6,
+            progress=progress,
+            start_date=self.start,
+            end_date=self.end,
+        )
+        return item, media
+
+    def _screen(self, item, **params):
+        response = self.client.get(
+            reverse("api_track_screen", args=[item.media_type, item.source, item.media_id]),
+            params,
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        return response.json()
+
+    def test_fields_follow_the_page_for_every_type(self):
+        for media_type in _STANDARD_MODELS:
+            with self.subTest(media_type=media_type):
+                item, _ = self._tracked(media_type)
+                page = self.client.get(
+                    reverse("track_modal", args=[item.source, media_type, item.media_id])
+                )
+                screen = self._screen(item)
+
+                self.assertEqual(
+                    [f["name"] for f in screen["fields"]],
+                    [b.name for b in page.context["general_fields"]],
+                )
+                self.assertEqual(
+                    [f["name"] for f in screen["hidden"]],
+                    [b.name for b in page.context["general_hidden_fields"]],
+                )
+                self.assertTrue(screen["tracked"])
+                self.assertTrue(screen["save_url"].startswith(reverse("media_save")))
+                for bound in [
+                    *page.context["general_fields"],
+                    *page.context["general_hidden_fields"],
+                ]:
+                    self.assertIn(bound.field.widget.__class__.__name__, _KNOWN_WIDGETS, bound.name)
+
+    def test_an_untracked_title_opens_empty(self):
+        item = Item.objects.create(
+            media_id="game-2",
+            source=Sources.MANUAL.value,
+            media_type=MediaTypes.GAME.value,
+            title="New game",
+            image="http://example.com/a.jpg",
+        )
+
+        screen = self._screen(item)
+
+        self.assertFalse(screen["tracked"])
+        self.assertEqual(screen["delete_url"], "")
+
+    def test_an_untouched_update_keeps_dates_and_progress_for_every_type(self):
+        for media_type, model in _STANDARD_MODELS.items():
+            with self.subTest(media_type=media_type):
+                item, media = self._tracked(media_type, progress=95)
+                screen = self._screen(item)
+
+                response = self.client.post(
+                    screen["save_url"], TrackScreenTests._post_data(screen), **JSON
+                )
+
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertTrue(response.json()["saved"])
+                media.refresh_from_db()
+                self.assertEqual(media.start_date, self.start)
+                self.assertEqual(media.end_date, self.end)
+                self.assertEqual(media.progress, 95)
+                self.assertEqual(model.objects.filter(item=item).count(), 1)
+
+    def test_game_progress_is_hours_and_minutes(self):
+        item, media = self._tracked(MediaTypes.GAME.value, progress=125)
+
+        screen = self._screen(item)
+
+        progress = {f["name"]: f for f in screen["fields"]}["progress"]
+        self.assertEqual(progress["kind"], "text")
+        self.assertEqual(progress["value"], "2h 05min")
+        response = self.client.post(
+            screen["save_url"], TrackScreenTests._post_data(screen, progress="3h 10min"), **JSON
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        media.refresh_from_db()
+        self.assertEqual(media.progress, 190)
+        self.assertEqual(media.start_date, self.start)
+
+    def test_book_progress_in_percent_round_trips(self):
+        self.user.book_comic_manga_progress_percentage = True
+        self.user.save(update_fields=["book_comic_manga_progress_percentage"])
+        item, media = self._tracked(
+            MediaTypes.BOOK.value,
+            progress=337,
+            status=Status.IN_PROGRESS.value,
+            number_of_pages=480,
+        )
+
+        screen = self._screen(item)
+
+        progress = {f["name"]: f for f in screen["fields"]}["progress"]
+        self.assertEqual(progress["value"], "70.2")
+        self.assertEqual(progress["max"], "100")
+        response = self.client.post(screen["save_url"], TrackScreenTests._post_data(screen), **JSON)
+        self.assertEqual(response.status_code, 200, response.content)
+        media.refresh_from_db()
+        self.assertEqual(media.progress, 337)
+
+    def _open_card(self, track):
+        params = {}
+        if track["season_number"] is not None:
+            params["season_number"] = track["season_number"]
+        if track["instance_id"] is not None:
+            params["instance_id"] = track["instance_id"]
+        response = self.client.get(
+            reverse(
+                "api_track_screen", args=[track["media_type"], track["source"], track["media_id"]]
+            ),
+            params,
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        return response.json()
+
+    def test_the_library_card_opens_what_the_page_button_opens(self):
+        game, game_entry = self._tracked(MediaTypes.GAME.value)
+        movie_item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/a.jpg",
+        )
+        movie = Movie.objects.create(item=movie_item, user=self.user, status=Status.COMPLETED.value)
+
+        games = self.client.get(reverse("api_library_screen", args=["game"])).json()
+        movies = self.client.get(reverse("api_library_screen", args=["movie"])).json()
+
+        self.assertEqual(
+            games["results"][0]["track"],
+            {
+                "media_type": "game",
+                "source": "manual",
+                "media_id": game.media_id,
+                "season_number": None,
+                "instance_id": game_entry.id,
+            },
+        )
+        movie_track = movies["results"][0]["track"]
+        self.assertEqual(
+            (movie_track["media_type"], movie_track["media_id"], movie_track["instance_id"]),
+            ("movie", "603", movie.id),
+        )
+        self.assertEqual(self._open_card(movie_track)["title"], "The Matrix")
+        self.assertEqual(self._open_card(games["results"][0]["track"])["title"], game.title)
+
+    def test_a_season_card_opens_its_season(self):
+        from api.library_screen import _track_target
+
+        show = Item.objects.create(
+            media_id="1399",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Game of Thrones",
+            image="http://example.com/a.jpg",
+        )
+        show_entry = TV.objects.create(item=show, user=self.user, status=Status.IN_PROGRESS.value)
+        season_item = Item.objects.create(
+            media_id="1399",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Game of Thrones",
+            image="http://example.com/a.jpg",
+            season_number=2,
+        )
+        season = Season.objects.create(
+            item=season_item,
+            user=self.user,
+            related_tv=show_entry,
+            status=Status.IN_PROGRESS.value,
+        )
+
+        track = _track_target(season)
+
+        self.assertEqual(
+            track,
+            {
+                "media_type": "season",
+                "source": "tmdb",
+                "media_id": "1399",
+                "season_number": 2,
+                "instance_id": season.id,
+            },
+        )
+        self.assertEqual(_track_target(show_entry)["instance_id"], show_entry.id)
+
+    def test_a_show_filed_as_anime_opens_the_show_not_an_anime_with_its_id(self):
+        show = Item.objects.create(
+            media_id="1429",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            library_media_type=MediaTypes.ANIME.value,
+            title="Attack on Titan",
+            image="http://example.com/a.jpg",
+        )
+        show_entry = TV.objects.create(item=show, user=self.user, status=Status.IN_PROGRESS.value)
+        # A MAL anime whose row has the show's pk: the page's `anime`
+        # instance_id lookup would open it.
+        mal = Item.objects.create(
+            media_id="16498",
+            source=Sources.MAL.value,
+            media_type=MediaTypes.ANIME.value,
+            title="Shingeki no Kyojin",
+            image="http://example.com/a.jpg",
+        )
+        Anime.objects.create(id=show_entry.id, item=mal, user=self.user, status=Status.COMPLETED.value)
+
+        anime = self.client.get(reverse("api_library_screen", args=["anime"])).json()
+
+        track = next(c["track"] for c in anime["results"] if c["key"] == show.id)
+        # The page's button opens a TMDB show filed as anime as `anime`.
+        self.assertEqual(track["media_type"], "anime")
+        self.assertIsNone(track["instance_id"])
+        screen = self._open_card(track)
+        self.assertTrue(screen["tracked"])
+        self.assertEqual(screen["title"], "Attack on Titan")
+        hidden = {f["name"]: f["value"] for f in screen["hidden"]}
+        self.assertEqual(hidden["instance_id"], str(show_entry.id))
+
+    def test_a_media_id_with_a_slash_opens(self):
+        item, _ = self._tracked(MediaTypes.BOOK.value)
+        item.media_id = "works/OL1W"
+        item.save(update_fields=["media_id"])
+
+        screen = self._screen(item)
+
+        self.assertTrue(screen["tracked"])

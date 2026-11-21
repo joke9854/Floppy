@@ -38,7 +38,7 @@
 
 	type MenuProps = {
 		title: string;
-		mediaType: string;
+		track: Card['track'];
 		url: string;
 		historyUrl: string;
 		lists: Choice[];
@@ -102,7 +102,7 @@
 		{#if Menu}
 			<Menu
 				title={card.title}
-				mediaType={card.media_type}
+				track={card.track}
 				url={card.url}
 				historyUrl={card.history_url}
 				{lists}

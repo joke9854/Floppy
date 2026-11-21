@@ -1841,9 +1841,21 @@ def next_episode_url(item, media):
 @register.simple_tag
 def media_view_url(view_name, media):
     """Return the modal URL for both metadata and model object cases."""
+    kwargs = media_view_kwargs(view_name, media)
+    if kwargs is None:
+        return ""
+    return reverse(view_name, kwargs=kwargs)
+
+
+def media_view_kwargs(view_name, media):
+    """Return the URL kwargs `media_view_url` reverses; None without a source.
+
+    The web track dialog (v2 P4-D) opens the same target as the page's own
+    track button from these.
+    """
     is_dict = isinstance(media, dict)
     if not is_dict and not hasattr(media, "source"):
-        return ""
+        return None
 
     media_type = media["media_type"] if is_dict else media.media_type
 
@@ -1883,7 +1895,7 @@ def media_view_url(view_name, media):
     if view_name == "collection_modal":
         kwargs.pop("season_number", None)
 
-    return reverse(view_name, kwargs=kwargs)
+    return kwargs
 
 
 @register.simple_tag

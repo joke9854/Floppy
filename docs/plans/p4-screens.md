@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | D1 built (2026-11-21): the General tab for movies, shows, seasons and episodes; other types and tabs next |
+| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. Music, podcasts and the other tabs next |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -313,9 +313,20 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
 - [x] Opens from Track and Watched on the title and episode pages and from
       the Library card's Edit tracking (movies, shows, seasons); other types
       keep their Django page.
-- [ ] D2: the other types (anime, manga, games with hh:mm progress and its
-      start-date sync, books with page or percentage progress, comics, board
-      games), then music and podcasts.
+- [x] D2a (2026-11-21): anime, manga, games, books, comics, comic issues
+      and board games, opened from the Library card's Edit tracking with the
+      target the page's own card button opens (the card's `track`: an anime
+      filed from TMDB opens as `anime`, with the entry as `instance_id`).
+      Games: time played in the page's format ("3h 35min"), and typing it or
+      changing the end backfills the start as end minus time played until
+      the user sets the start (never on opening an edit). Book, comic and
+      manga progress in pages or the user's percentage mode, as the page.
+      Tested: page-field parity and an untouched Update keeping dates and
+      progress for every type.
+- [ ] D2b: music (artist, album, track) and podcasts (show, episode): their
+      own Django dialogs (`fill_track_song.html`, the tracker forms).
+- [ ] The web detail pages serve movies and shows only; the other types'
+      Track buttons come with their detail pages.
 - [ ] Episode Plays, Collection, Metadata, Discover; history editing on the
       detail page.
 

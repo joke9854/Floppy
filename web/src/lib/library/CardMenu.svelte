@@ -6,17 +6,19 @@
 	import { addToList } from './actions.ts';
 	import { lt } from './menu-strings.ts';
 	import { openTrack } from '#lib/track/open.svelte.ts';
-	import { TRACK_TYPES, trackTargetFromUrl } from '#lib/track/targets.ts';
+	import type { components } from '#lib/api/client.ts';
 
 	type Choice = { value: string; label: string };
+	type Track = components['schemas']['LibraryTrackTarget'];
 
 	/**
 	 * A Library card's menu (B5), as the page's hover buttons: Edit tracking
-	 * (the Django page's track window until P4-D), Add to List, History.
+	 * (the web track dialog where the page's button opens the standard one,
+	 * else the Django page), Add to List, History.
 	 */
 	let {
 		title,
-		mediaType,
+		track,
 		url,
 		historyUrl,
 		lists,
@@ -25,7 +27,7 @@
 		initialOpen = false
 	}: {
 		title: string;
-		mediaType: string;
+		track: Track | null;
 		url: string;
 		historyUrl: string;
 		lists: Choice[];
@@ -45,11 +47,19 @@
 		}
 	}
 
-	/** The web track dialog for the types it edits; the Django page for the rest. */
+	/** What the page's own track button opens, in the web dialog; else the Django page. */
 	function editTracking() {
-		const target = TRACK_TYPES.has(mediaType) ? trackTargetFromUrl(url, mediaType) : null;
-		if (target) openTrack(target);
-		else location.href = url;
+		if (!track) {
+			location.href = url;
+			return;
+		}
+		openTrack({
+			mediaType: track.media_type,
+			source: track.source,
+			mediaId: track.media_id,
+			season: track.season_number,
+			instanceId: track.instance_id
+		});
 	}
 	const item =
 		'flex h-10 cursor-pointer items-center gap-3 rounded-ct-xs px-3 text-[14px] font-semibold text-text-secondary outline-none data-highlighted:bg-white/8 data-highlighted:text-text';
