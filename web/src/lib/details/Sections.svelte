@@ -6,6 +6,7 @@
 	import StatusChip from '#lib/home/StatusChip.svelte';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import type { DetailCard, DetailSeason, DetailSections, DetailTrailer } from './api.ts';
 	import EpisodeRow from './EpisodeRow.svelte';
 	import { detailLink } from './link.ts';
@@ -51,10 +52,10 @@
 			{#if key === 'episodes' && sections.seasons.length}
 				<section aria-labelledby="ct-episodes-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-episodes-title">{t.episodes}</h2>
+						<h2 class="ct-row-title" id="ct-episodes-title">{dt.episodes}</h2>
 					</div>
 					{#if sections.seasons.length > 1}
-						<div class="ct-season-picker" role="tablist" aria-label={t.seasons}>
+						<div class="ct-season-picker" role="tablist" aria-label={dt.seasons}>
 							{#each sections.seasons as cover (cover.number)}
 								<div class="ct-season-item">
 									<button
@@ -84,8 +85,8 @@
 									<button
 										type="button"
 										class="ct-season-info-btn"
-										title={t.aboutSeason(cover.label)}
-										aria-label={t.aboutSeason(cover.label)}
+										title={dt.aboutSeason(cover.label)}
+										aria-label={dt.aboutSeason(cover.label)}
 										onclick={() => oninfo(cover.number)}
 									>
 										<Info class="size-4" aria-hidden="true" />
@@ -100,7 +101,7 @@
 								{@const progress = current.season.progress}
 								<div class="ct-season-progress">
 									<p class="ct-season-progress__count">
-										{t.episodesWatched(progress.watched, progress.total)}
+										{dt.episodesWatched(progress.watched, progress.total)}
 										<span>{progress.percent}%</span>
 									</p>
 									{#if progress.dashes.length}
@@ -133,14 +134,14 @@
 							<div class="ct-ep-skeleton"></div>
 						{/if}
 						{#if current.failed}
-							<p class="px-4 py-6 text-center text-muted" role="alert">{t.seasonFailed}</p>
+							<p class="px-4 py-6 text-center text-muted" role="alert">{dt.seasonFailed}</p>
 						{/if}
 					</div>
 				</section>
 			{:else if key === 'history' && sections.plays.length}
 				<section aria-labelledby="ct-plays-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-plays-title">{t.yourPlays}</h2>
+						<h2 class="ct-row-title" id="ct-plays-title">{dt.yourPlays}</h2>
 						<a class="ct-row-link" {...detailLink(sections.history_url)}
 							>{t.history} <ChevronRight class="size-4" aria-hidden="true" /></a
 						>
@@ -158,7 +159,7 @@
 								<span class="ct-play__text">
 									<span class="ct-play__title">{play.label}</span>
 									<span class="ct-play__sub"
-										>{play.when}{play.score !== null ? ` · ${t.rated(play.score)}` : ''}</span
+										>{play.when}{play.score !== null ? ` · ${dt.rated(play.score)}` : ''}</span
 									>
 								</span>
 							</li>
@@ -185,7 +186,7 @@
 			{:else if key === 'trailers' && trailers.length}
 				<section aria-labelledby="ct-trailers-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-trailers-title">{t.trailers}</h2>
+						<h2 class="ct-row-title" id="ct-trailers-title">{dt.trailers}</h2>
 					</div>
 					<div class="ct-detail-rail">
 						{#each trailers as trailer (trailer.key)}
@@ -205,7 +206,7 @@
 								</span>
 								<span class="ct-trailer-card__title">{trailer.name}</span>
 								<span class="ct-trailer-card__sub"
-									>{trailer.season ? `${t.seasonNumber(trailer.season)} · ` : ''}{trailer.type}</span
+									>{trailer.season ? `${dt.seasonNumber(trailer.season)} · ` : ''}{trailer.type}</span
 								>
 							</button>
 						{/each}
@@ -214,7 +215,7 @@
 			{:else if key === 'recommendations' && sections.recommendations.length}
 				<section aria-labelledby="ct-more-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-more-title">{t.moreLikeThis}</h2>
+						<h2 class="ct-row-title" id="ct-more-title">{dt.moreLikeThis}</h2>
 					</div>
 					<div class="ct-detail-rail">
 						{#each sections.recommendations as card (card.url)}
@@ -225,7 +226,7 @@
 			{:else if key === 'details' && sections.info.length}
 				<section aria-labelledby="ct-info-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-info-title">{t.information}</h2>
+						<h2 class="ct-row-title" id="ct-info-title">{dt.information}</h2>
 					</div>
 					<dl class="ct-info-grid">
 						{#each sections.info as row (row.label)}

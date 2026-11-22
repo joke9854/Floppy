@@ -13,6 +13,7 @@
 	import { markWatched, type CheckOutcome, type Click } from '#lib/home/check.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import { page } from '$app/state';
 	import { openTrack } from '#lib/track/open.svelte.ts';
 	import type { PageProps } from './$types';
@@ -74,9 +75,9 @@
 		</div>
 	{/if}
 	<div class="mx-auto max-w-[1400px] px-5 md:px-8">
-		<nav class="ct-detail-crumbs" aria-label={t.breadcrumb}>
+		<nav class="ct-detail-crumbs" aria-label={dt.breadcrumb}>
 			{#if episode.season_url}
-				<a class="ct-detail-back ct-glass-control" {...detailLink(episode.season_url)} aria-label={t.backToSeason}>
+				<a class="ct-detail-back ct-glass-control" {...detailLink(episode.season_url)} aria-label={dt.backToSeason}>
 					<ChevronLeft class="size-5" aria-hidden="true" />
 				</a>
 			{/if}
@@ -102,17 +103,17 @@
 				{#if blurred}
 					<div class="ct-spoiler">
 						<EyeOff class="size-6" aria-hidden="true" />
-						<span>{t.hiddenUntilWatched}</span>
-						<button type="button" class="ct-spoiler__reveal" onclick={() => (revealed = true)}>{t.reveal}</button>
+						<span>{dt.hiddenUntilWatched}</span>
+						<button type="button" class="ct-spoiler__reveal" onclick={() => (revealed = true)}>{dt.reveal}</button>
 					</div>
 				{/if}
 			</div>
 			<div class="ct-detail-identity">
 				<h1 class="ct-detail-title">{episode.title}</h1>
 				<p class="ct-detail-meta">
-					<span>{t.seasonEpisode(episode.season_number, episode.display_number)}</span>
+					<span>{dt.seasonEpisode(episode.season_number, episode.display_number)}</span>
 					{#if episode.runtime}<span>{episode.runtime}</span>{/if}
-					{#if episode.aired}<span>{t.aired(episode.aired)}</span>{/if}
+					{#if episode.aired}<span>{dt.aired(episode.aired)}</span>{/if}
 				</p>
 				{#if episode.scores.length}
 					<div class="ct-detail-chips">
@@ -121,7 +122,7 @@
 								<span class="ct-score__badge" aria-hidden="true">{score.short}</span>
 								<span class="sr-only">{score.label}</span>
 								<span class="ct-score__rating">{score.rating}</span>
-								{#if score.count !== null}<span class="ct-score__count">{t.votes(score.count)}</span>{/if}
+								{#if score.count !== null}<span class="ct-score__count">{dt.votes(score.count)}</span>{/if}
 							</span>
 						{/each}
 					</div>
@@ -132,26 +133,26 @@
 						<!-- The track dialog, which logs a rewatch or edits the play. -->
 						<button type="button" class="ct-btn-primary is-watched" onclick={trackEpisode}>
 							<Check class="size-5" aria-hidden="true" />
-							<span>{t.watched}</span>
+							<span>{dt.watched}</span>
 						</button>
 					{:else if episode.check}
 						<button type="button" class="ct-btn-primary" disabled={busy} onclick={mark}>
 							<Check class="size-5" aria-hidden="true" />
-							<span>{t.markAsWatched}</span>
+							<span>{dt.markAsWatched}</span>
 						</button>
 					{/if}
-					<button type="button" class="ct-btn-quiet" title={t.trackTitle} onclick={trackEpisode}>
+					<button type="button" class="ct-btn-quiet" title={dt.trackTitle} onclick={trackEpisode}>
 						<SlidersHorizontal class="size-4" aria-hidden="true" />
 						<span>{t.track}</span>
 					</button>
 					<span class="ct-ep-nav">
 						{#if episode.previous_url}
-							<a {...detailLink(episode.previous_url)} class="ct-btn-quiet ct-btn-icon" aria-label={t.previousEpisode} title={t.previousEpisode}>
+							<a {...detailLink(episode.previous_url)} class="ct-btn-quiet ct-btn-icon" aria-label={dt.previousEpisode} title={dt.previousEpisode}>
 								<ChevronLeft class="size-4" aria-hidden="true" />
 							</a>
 						{/if}
 						{#if episode.next_url}
-							<a {...detailLink(episode.next_url)} class="ct-btn-quiet ct-btn-icon" aria-label={t.nextEpisode} title={t.nextEpisode}>
+							<a {...detailLink(episode.next_url)} class="ct-btn-quiet ct-btn-icon" aria-label={dt.nextEpisode} title={dt.nextEpisode}>
 								<ChevronRight class="size-4" aria-hidden="true" />
 							</a>
 						{/if}
@@ -167,8 +168,8 @@
 					{#if hideOverview}
 						<p class="ct-spoiler-text">
 							<EyeOff class="size-4" aria-hidden="true" />
-							<span>{t.overviewHidden}</span>
-							<button type="button" class="ct-row-link" onclick={() => (overviewShown = true)}>{t.reveal}</button>
+							<span>{dt.overviewHidden}</span>
+							<button type="button" class="ct-row-link" onclick={() => (overviewShown = true)}>{dt.reveal}</button>
 						</p>
 					{:else}
 						<p class="ct-detail-synopsis">{episode.overview}</p>
@@ -185,7 +186,7 @@
 							{#if episode.season_url}<a {...detailLink(episode.season_url)}>{episode.season_title}</a>{:else}{episode.season_title}{/if}
 						</h2>
 						{#if episode.season_watched !== null}
-							<span class="ct-row-detail">{t.seasonWatched(episode.season_watched, episode.episodes.length)}</span>
+							<span class="ct-row-detail">{dt.seasonWatched(episode.season_watched, episode.episodes.length)}</span>
 						{/if}
 					</div>
 					<div class="ct-detail-rail">
@@ -207,12 +208,12 @@
 										use:fadeIn
 									/>
 									{#if row.watched}
-										<span class="ct-ep-card__badge" aria-label={t.watched}><Check class="size-3.5" /></span>
+										<span class="ct-ep-card__badge" aria-label={dt.watched}><Check class="size-3.5" /></span>
 									{/if}
 								</span>
 								<span class="ct-ep-card__title">{row.display_number}&ensp;{row.title}</span>
 								<span class="ct-ep-card__sub"
-									>{row.current ? t.thisEpisode : row.watched ? t.watched : row.air_date || t.unknown}</span
+									>{row.current ? dt.thisEpisode : row.watched ? dt.watched : row.air_date || t.unknown}</span
 								>
 							</a>
 						{/each}
@@ -223,7 +224,7 @@
 			{#if episode.guest_stars.length}
 				<section aria-labelledby="ct-guests-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-guests-title">{t.guestStars}</h2>
+						<h2 class="ct-row-title" id="ct-guests-title">{dt.guestStars}</h2>
 					</div>
 					<div class="ct-detail-rail">
 						{#each episode.guest_stars as person, index (index)}
@@ -260,7 +261,7 @@
 			{#if episode.crew.length}
 				<section aria-labelledby="ct-crew-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-crew-title">{t.information}</h2>
+						<h2 class="ct-row-title" id="ct-crew-title">{dt.information}</h2>
 					</div>
 					<dl class="ct-info-grid">
 						{#each episode.crew as member, index (index)}

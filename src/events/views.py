@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from app import helpers
 from app.models import Item, MediaTypes, PodcastEpisode, Status
 from events import tasks
 from events.models import INACTIVE_TRACKING_STATUSES, Event
@@ -26,6 +27,16 @@ logger = logging.getLogger(__name__)
 @require_GET
 def calendar(request):
     """Display the calendar page."""
+    return render(request, "events/calendar.html", build_calendar_context(request))
+
+
+def build_calendar_context(request):
+    """Return the Calendar page's context (events/calendar.html).
+
+    The page renders it; the web app's Calendar screen reads the same
+    releases through `GET /api/v1/calendar/screen/` (v2 P4-F). Like the page,
+    a `view` parameter saves the user's calendar layout.
+    """
     # Handle view type
     view_type = request.user.update_preference(
         "calendar_layout",
@@ -198,7 +209,7 @@ def calendar(request):
         else next(iter(sorted(release_dict.keys())), 1)
     )
 
-    context = {
+    return {
         "user": request.user,
         "media_types": [
             media_type.value
@@ -225,10 +236,10 @@ def calendar(request):
         "selected_day": selected_day,
         "weekday_headers": weekday_headers,
     }
-    return render(request, "events/calendar.html", context)
 
 
 @require_POST
+@helpers.answers_json
 def reload_calendar(request):
     """Refresh the calendar with the latest dates."""
     tasks.reload_calendar.delay(user_id=request.user.id)

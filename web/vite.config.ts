@@ -63,7 +63,9 @@ export default defineConfig({
 				// The Activity History dialog's Delete (P4-D7).
 				'/media/history/',
 				// History's Load more (P4-E).
-				'/history/day/'
+				'/history/day/',
+				// Calendar's Fetch New Releases (P4-F).
+				'/reload_calendar'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

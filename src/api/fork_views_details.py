@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from app.models import MediaTypes
 from app.providers import credentials
 
+from .calendar_screen import CalendarScreenSerializer, build_calendar_screen
 from .contract_serializers import DetailErrorSerializer
 from .details_screen import (
     DETAIL_SCREEN_TYPES,
@@ -217,6 +218,25 @@ class EpisodeScreenView(drf_views.APIView):
 
 
 # /api/v1/track/{media_type}/{source}/{media_id}/
+class CalendarScreenView(drf_views.APIView):
+    """The Calendar page for the web app (v2 P4-F)."""
+
+    @extend_schema(
+        operation_id="getCalendarScreen",
+        description=(
+            "The Django Calendar page's month (`month`, `year`): releases by local "
+            "day as the page writes them, the month grid in the user's week start, "
+            "the filter's types and statuses, and the iCal export options. `view` "
+            "(grid or list) saves the user's layout, as on the page." + _NOTE
+        ),
+        responses={200: CalendarScreenSerializer},
+    )
+    def get(self, request):
+        """Return the calendar screen."""
+        data = build_calendar_screen(request._request)
+        return Response(CalendarScreenSerializer(data).data, status=HTTP.OK)
+
+
 class HistoryScreenView(drf_views.APIView):
     """The History page for the web app (v2 P4-E)."""
 

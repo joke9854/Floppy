@@ -8,6 +8,7 @@
 	import { openActivity } from '#lib/track/open.svelte.ts';
 	import { detailLink } from './link.ts';
 	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import type { DetailEpisode } from './api.ts';
 
 	/**
@@ -67,8 +68,8 @@
 			<button
 				type="button"
 				class="ct-ep-reveal"
-				title={t.revealThumbnail}
-				aria-label={t.revealThumbnail}
+				title={dt.revealThumbnail}
+				aria-label={dt.revealThumbnail}
 				onclick={() => (revealed = true)}
 			>
 				<EyeOff class="size-5" aria-hidden="true" />
@@ -87,10 +88,10 @@
 		{#if episode.history}
 			<span class="ct-ep-sub is-watched">{episode.history}</span>
 		{:else if saved}
-			<span class="ct-ep-sub is-watched">{t.watched}</span>
+			<span class="ct-ep-sub is-watched">{dt.watched}</span>
 		{:else if episode.is_next}
 			<span class="ct-ep-sub"
-				><span class="ct-ep-next">{t.upNext}</span>{episode.runtime
+				><span class="ct-ep-next">{dt.upNext}</span>{episode.runtime
 					? ` · ${episode.runtime}`
 					: ''}</span
 			>
@@ -109,8 +110,8 @@
 		<button
 			type="button"
 			class="ct-ep-info"
-			title={t.episodeOverview}
-			aria-label={t.episodeOverview}
+			title={dt.episodeOverview}
+			aria-label={dt.episodeOverview}
 			aria-expanded={open}
 			onclick={() => (open = !open)}
 		>
@@ -141,7 +142,7 @@
 			type="button"
 			class={['ct-ep-check', done && 'is-done']}
 			disabled={busy || done}
-			aria-label={done ? t.watched : t.markEpisodeWatched(episode.episode_number ?? 0, episode.title)}
+			aria-label={done ? dt.watched : dt.markEpisodeWatched(episode.episode_number ?? 0, episode.title)}
 			aria-pressed={done}
 			onclick={check}
 		>

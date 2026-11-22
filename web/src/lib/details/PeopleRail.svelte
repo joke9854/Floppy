@@ -2,7 +2,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import type { components } from '#lib/api/client.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
-	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import { detailLink } from './link.ts';
 
 	type Person = components['schemas']['DetailPerson'];
@@ -26,14 +26,14 @@
 	const tabs = $derived.by(() => {
 		const list: { key: Tab; label: string }[] = [];
 		if (cast.length) {
-			list.push({ key: 'characters', label: t.characters }, { key: 'cast', label: t.cast });
+			list.push({ key: 'characters', label: dt.characters }, { key: 'cast', label: dt.cast });
 		}
-		if (crew.length) list.push({ key: 'crew', label: t.crew });
+		if (crew.length) list.push({ key: 'crew', label: dt.crew });
 		return list;
 	});
 </script>
 
-<section aria-label={t.cast}>
+<section aria-label={dt.cast}>
 	<div class="ct-row-head ct-title-toggle" role="tablist">
 		{#each tabs as item (item.key)}
 			<button
@@ -46,7 +46,7 @@
 		{/each}
 		{#if viewAllUrl}
 			<a class="ct-row-link" href={viewAllUrl} target="_blank" rel="noopener noreferrer"
-				>{t.seeAll} <ChevronRight class="size-4" aria-hidden="true" /></a
+				>{dt.seeAll} <ChevronRight class="size-4" aria-hidden="true" /></a
 			>
 		{/if}
 	</div>

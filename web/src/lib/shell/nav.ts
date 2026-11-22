@@ -36,7 +36,7 @@ export interface NavItem {
 export const PRIMARY: NavItem[] = [
 	{ label: t.home, href: `${BASE}/`, icon: House },
 	{ label: t.discover, href: '/discover', icon: Compass },
-	{ label: t.calendar, href: '/calendar', icon: Calendar }
+	{ label: t.calendar, href: `${BASE}/calendar`, icon: Calendar }
 ];
 
 export const LIBRARY_MORE: NavItem[] = [

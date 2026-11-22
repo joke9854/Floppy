@@ -53,7 +53,7 @@ adds a web test for its flow:
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
 | P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. D8: the custom-field editor. Songs and podcast episodes come with their detail pages |
 | P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
-| P4-F | Calendar | Not started |
+| P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | Not started |
 | P4-H | Statistics | Not started |
 | P4-I | Lists | Not started |
@@ -435,8 +435,8 @@ Parity checklist:
 - [x] The refresh banner while the cache rebuilds; the empty state.
 - [x] The shell's History link and the detail page's History link open the
       web screen (`detailHref` maps `/history`).
-- [ ] The Library card menu's View history still opens the Django page: the
-      Library is at its 110 kB budget (moving it there put it over).
+- [x] The Library card menu's View history opens the web screen (with F1,
+      once the detail-only strings left #lib/strings.ts).
 - [ ] The activity sessions dialog (`history/sessions`) belongs to the detail
       pages: build it with them.
 
@@ -445,3 +445,38 @@ E1 (2026-11-22): `GET /api/v1/history/screen/` reads the page's own context
 the page writes it. Watch out: Tailwind utilities a new screen adds go into
 the shared stylesheet every page loads (the Library went 0.1 kB over), so
 the screen's layout lives in `lib/history/history.css`.
+
+### P4-F: Calendar
+
+Today's page (`events/calendar.html`, `events.views.calendar`, the CineTrack
+agenda in `components/ct/calendar_agenda.html`): one month of releases.
+
+Parity checklist:
+
+- [x] Header and subtitle; previous and next month, Go to Today (the day and
+      month tile).
+- [x] Grid or List (`view`, saved as the user's calendar layout).
+- [x] Grid: weekday headers in the user's week start, a cell per day with
+      each release as title and code plus time, today marked, past days
+      dimmed. Phones: Agenda (today onward in the current month) or Month (a
+      day picker with up to three dots, then that day's releases); the choice
+      kept in the browser (`ct-calendar-mode`).
+- [x] List: days with releases, "Weekday, Month day", Today.
+- [x] Release rows: poster, title, code, type, "at" time; the title's page.
+- [x] The type and status filter in the browser under the page's own key
+      (`yamtrack.calendar.filters.<user id>`), so it holds on both pages:
+      Show all / Hide all, a status submenu per type, types and statuses
+      without releases this month dimmed, the button's label (All Types, No
+      Types, one type, N Types, " ·" for a status filter).
+- [x] Calendar Actions: Fetch New Releases (queued; `reload_calendar` answers
+      JSON through `answers_json`), Download Calendar.
+- [x] Export link: media types (the user's enabled ones on) and statuses,
+      the iCal URL with repeated `media_types` and `status`.
+- [ ] The list view uses the agenda rows (poster, code, time); the page's
+      older list rows show a square image. Same data.
+
+F1 (2026-11-22): `GET /api/v1/calendar/screen/` reads the page's own context
+(`build_calendar_context`, split from `events.views.calendar`). With it, 60
+strings only the detail and person pages use moved from #lib/strings.ts to
+`lib/details/strings.ts`: every page loads less (the Library 110.0 to
+109.4 kB).

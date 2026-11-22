@@ -2,6 +2,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import { DropdownMenu } from 'bits-ui';
+	import { detailHref } from '#lib/shell/nav.ts';
 	import { t } from '#lib/strings.ts';
 	import { addToList } from './actions.ts';
 	import { lt } from './menu-strings.ts';
@@ -93,7 +94,7 @@
 				</DropdownMenu.Sub>
 			{/if}
 			{#if historyUrl}
-				<DropdownMenu.Item class={item} onSelect={() => (location.href = historyUrl)}>{lt.viewHistory}</DropdownMenu.Item>
+				<DropdownMenu.Item class={item} onSelect={() => (location.href = detailHref(historyUrl))}>{lt.viewHistory}</DropdownMenu.Item>
 			{/if}
 		</DropdownMenu.Content>
 	</DropdownMenu.Portal>

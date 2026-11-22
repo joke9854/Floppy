@@ -126,6 +126,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calendar/screen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django Calendar page's month (`month`, `year`): releases by local day as the page writes them, the month grid in the user's week start, the filter's types and statuses, and the iCal export options. `view` (grid or list) saves the user's layout, as on the page. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getCalendarScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/calendar/update/": {
         parameters: {
             query?: never;
@@ -4061,10 +4078,96 @@ export interface components {
          * @enum {string}
          */
         CachesEnum: "search" | "history" | "statistics" | "discover";
+        /** @description A value and its label. */
+        CalendarChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description A day of the month that has releases. */
+        CalendarDay: {
+            day: number;
+            releases: components["schemas"]["CalendarRelease"][];
+        };
         /** @description Paginated calendar events. */
         CalendarEnvelope: {
             pagination: components["schemas"]["Pagination"];
             results: components["schemas"]["Event"][];
+        };
+        /** @description The iCal export link's options. */
+        CalendarExport: {
+            /** @description Add media_types and status params, repeated. */
+            url: string;
+            types: components["schemas"]["CalendarExportType"][];
+            statuses: components["schemas"]["CalendarChoice"][];
+        };
+        /** @description A media type the export link can include. */
+        CalendarExportType: {
+            value: string;
+            label: string;
+            /** @description On by default (the user's enabled types). */
+            enabled: boolean;
+        };
+        /** @description A media type the page's filter offers. */
+        CalendarFilterType: {
+            value: string;
+            label: string;
+            /** @description It has releases this month. */
+            in_month: boolean;
+            /** @description Its status submenu; empty for TV. */
+            statuses: components["schemas"]["CalendarChoice"][];
+            month_statuses: string[];
+        };
+        /** @description A month to navigate to. */
+        CalendarMonth: {
+            year: number;
+            month: number;
+        };
+        /** @description One release, as the page's rows write it. */
+        CalendarRelease: {
+            id: number;
+            media_type: string;
+            type_label: string;
+            /** @description The title's status, for the status filter. */
+            status: string;
+            title: string;
+            /** @description E5, #12, ... */
+            code: string;
+            /** @description Title and code, as the month grid's cell. */
+            label: string;
+            /** @description 'at 21:00'; empty without a time. */
+            time: string;
+            poster: string;
+            image: string;
+            /** @description The title's Django page. */
+            href: string;
+            color: string;
+        };
+        /** @description The Calendar page for one month. */
+        CalendarScreen: {
+            /** @description Keys the page's saved filter (localStorage). */
+            user_id: number;
+            view: components["schemas"]["ViewEnum"];
+            year: number;
+            month: number;
+            month_name: string;
+            prev: components["schemas"]["CalendarMonth"];
+            next: components["schemas"]["CalendarMonth"];
+            today: components["schemas"]["CalendarToday"];
+            selected_day: number;
+            weekdays: string[];
+            /** @description 0 pads a week. */
+            weeks: number[][];
+            days: components["schemas"]["CalendarDay"][];
+            filter_types: components["schemas"]["CalendarFilterType"][];
+            /** @description POST (form, CSRF) to queue Fetch New Releases. */
+            reload_url: string;
+            export: components["schemas"]["CalendarExport"];
+        };
+        /** @description Today in the user's time zone. */
+        CalendarToday: {
+            year: number;
+            month: number;
+            day: number;
         };
         /** @description An add-on install, without its install URL. */
         CatalogGrant: {
@@ -9117,6 +9220,12 @@ export interface components {
         UserSidebarUpdateResponse: {
             updated_fields: string[];
         };
+        /**
+         * @description * `grid` - grid
+         *     * `list` - list
+         * @enum {string}
+         */
+        ViewEnum: "grid" | "list";
         /** @description One entry in the watched-state change feed. */
         WatchedStateChange: {
             sequence: number;
@@ -9661,6 +9770,43 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getCalendarScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

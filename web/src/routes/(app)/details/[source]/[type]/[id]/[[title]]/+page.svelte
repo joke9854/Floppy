@@ -25,6 +25,7 @@
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { libraryHref } from '#lib/shell/nav.ts';
 	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import { openTrack } from '#lib/track/open.svelte.ts';
 	import type { PageProps } from './$types';
 
@@ -263,7 +264,7 @@
 	{/await}
 {/if}
 
-<Dialog bind:open={linksOpen} title={t.links} sheet>
+<Dialog bind:open={linksOpen} title={dt.links} sheet>
 	{#each shell.links.filter((section) => section.links.length) as section (section.title)}
 		<div class="ct-links-section">
 			<div class="ct-links-title">{section.title}</div>
@@ -283,7 +284,7 @@
 
 <Dialog
 	bind:open={seasonInfoOpen}
-	title={sections?.seasons.find((cover) => cover.number === seasonInfo?.number)?.label ?? t.seasons}
+	title={sections?.seasons.find((cover) => cover.number === seasonInfo?.number)?.label ?? dt.seasons}
 	sheet
 >
 	{#if seasonInfo?.info}
@@ -359,8 +360,8 @@
 					{#if shell.meta.year}<span>{shell.meta.year}</span>{/if}
 					{#if shell.meta.runtime}<span>{shell.meta.runtime}</span>{/if}
 					{#if shell.meta.certification}<span>{shell.meta.certification}</span>{/if}
-					{#if shell.meta.seasons}<span>{t.seasonsCount(shell.meta.seasons)}</span>{/if}
-					{#if shell.meta.percent}<span>{t.percentWatched(shell.meta.percent)}</span>{/if}
+					{#if shell.meta.seasons}<span>{dt.seasonsCount(shell.meta.seasons)}</span>{/if}
+					{#if shell.meta.percent}<span>{dt.percentWatched(shell.meta.percent)}</span>{/if}
 				</p>
 				{#if shell.scores.length}
 					<div class="ct-detail-chips">
@@ -369,7 +370,7 @@
 								<span class="ct-score__badge" aria-hidden="true">{score.short}</span>
 								<span class="sr-only">{score.label}</span>
 								<span class="ct-score__rating">{score.rating}</span>
-								{#if score.count !== null}<span class="ct-score__count">{t.votes(score.count)}</span>{/if}
+								{#if score.count !== null}<span class="ct-score__count">{dt.votes(score.count)}</span>{/if}
 							</span>
 						{/each}
 					</div>
@@ -388,19 +389,19 @@
 							<input type="hidden" name="end_date" value="" />
 							<button type="submit" class="ct-btn-primary" disabled={movieBusy || !hydrated}>
 								<Check class="size-5" aria-hidden="true" />
-								<span>{t.markAsWatched}</span>
+								<span>{dt.markAsWatched}</span>
 							</button>
 						</form>
 					{:else if shell.action?.kind === 'watched'}
 						<!-- The track dialog, which logs another play or edits this one. -->
 						<button type="button" class="ct-btn-primary is-watched" onclick={trackTitle}>
 							<Check class="size-5" aria-hidden="true" />
-							<span>{t.watched}</span>
+							<span>{dt.watched}</span>
 						</button>
 					{:else if shell.action?.kind === 'completed' || (heroDone?.for === shell && !heroEpisode)}
 						<span class="ct-btn-primary is-watched">
 							<Check class="size-5" aria-hidden="true" />
-							<span>{t.watched}</span>
+							<span>{dt.watched}</span>
 						</span>
 					{:else if heroEpisode}
 						<button
@@ -410,25 +411,25 @@
 							onclick={markHero}
 						>
 							<Check class="size-5" aria-hidden="true" />
-							<span>{t.markEpisode(heroEpisode.season_number, heroEpisode.episode_number)}</span>
+							<span>{dt.markEpisode(heroEpisode.season_number, heroEpisode.episode_number)}</span>
 						</button>
 					{/if}
-					<button type="button" class="ct-btn-quiet" title={t.trackTitle} onclick={trackTitle}>
+					<button type="button" class="ct-btn-quiet" title={dt.trackTitle} onclick={trackTitle}>
 						<SlidersHorizontal class="size-4" aria-hidden="true" />
 						<span>{t.track}</span>
 					</button>
 					{#if trailerList.length}
 						<button type="button" class="ct-btn-quiet" onclick={() => (playing = trailerList[0].key)}>
 							<Play class="size-4" aria-hidden="true" />
-							<span>{t.trailer}</span>
+							<span>{dt.trailer}</span>
 						</button>
 					{/if}
 					{#if shell.links.some((section) => section.links.length)}
 						<button
 							type="button"
 							class="ct-btn-quiet ct-btn-icon"
-							aria-label={t.links}
-							title={t.links}
+							aria-label={dt.links}
+							title={dt.links}
 							onclick={() => (linksOpen = true)}
 						>
 							<Link class="size-4" aria-hidden="true" />
@@ -447,14 +448,14 @@
 					</p>
 					{#if longSynopsis}
 						<button type="button" class="ct-detail-more" onclick={() => (synopsisOpen = !synopsisOpen)}>
-							{synopsisOpen ? t.showLess : t.readMore}
+							{synopsisOpen ? dt.showLess : dt.readMore}
 						</button>
 					{/if}
 				{/if}
 
 				{#if watchOn && (watchOn.subscription.length || watchOn.rent_buy.length)}
 					<div class="ct-watch-on">
-						<span class="ct-watch-on__label">{t.watchOn}</span>
+						<span class="ct-watch-on__label">{dt.watchOn}</span>
 						{#each [...watchOn.subscription, ...watchOn.rent_buy] as chip (chip.name)}
 							<span class="ct-watch-chip">
 								<img src={chip.image} alt="" width="20" height="20" loading="lazy" decoding="async" />
@@ -464,7 +465,7 @@
 						{/each}
 						{#if watchOn.link}
 							<a class="ct-watch-on__via" href={watchOn.link} target="_blank" rel="noopener noreferrer"
-								>{t.viaJustWatch}</a
+								>{dt.viaJustWatch}</a
 							>
 						{/if}
 					</div>
@@ -478,7 +479,7 @@
 			</div>
 		{:else if sections === null}
 			<p class="rounded-ct-md bg-surface px-4 py-10 text-center text-muted" role="status">
-				{t.sectionsFailed}
+				{dt.sectionsFailed}
 			</p>
 		{:else}
 			<!-- Loaded with the sections: the page's first load is the hero alone (bundle budget). -->

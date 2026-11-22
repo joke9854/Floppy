@@ -397,6 +397,40 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:read
+  /api/v1/calendar/screen/:
+    get:
+      operationId: getCalendarScreen
+      description: 'The Django Calendar page''s month (`month`, `year`): releases
+        by local day as the page writes them, the month grid in the user''s week start,
+        the filter''s types and statuses, and the iCal export options. `view` (grid
+        or list) saves the user''s layout, as on the page. Built by the Django page''s
+        own builder, so it shows what the page shows. Like the page, the read can
+        store metadata it resolves, so integration tokens cannot call it.'
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/calendar/update/:
     post:
       operationId: api_v1_calendar_update_create
@@ -17594,6 +17628,30 @@ components:
         * `history` - history
         * `statistics` - statistics
         * `discover` - discover
+    CalendarChoice:
+      type: object
+      description: A value and its label.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    CalendarDay:
+      type: object
+      description: A day of the month that has releases.
+      properties:
+        day:
+          type: integer
+        releases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarRelease'
+      required:
+      - day
+      - releases
     CalendarEnvelope:
       type: object
       description: Paginated calendar events.
@@ -17607,6 +17665,200 @@ components:
       required:
       - pagination
       - results
+    CalendarExport:
+      type: object
+      description: The iCal export link's options.
+      properties:
+        url:
+          type: string
+          description: Add media_types and status params, repeated.
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarExportType'
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarChoice'
+      required:
+      - statuses
+      - types
+      - url
+    CalendarExportType:
+      type: object
+      description: A media type the export link can include.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        enabled:
+          type: boolean
+          description: On by default (the user's enabled types).
+      required:
+      - enabled
+      - label
+      - value
+    CalendarFilterType:
+      type: object
+      description: A media type the page's filter offers.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        in_month:
+          type: boolean
+          description: It has releases this month.
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarChoice'
+          description: Its status submenu; empty for TV.
+        month_statuses:
+          type: array
+          items:
+            type: string
+      required:
+      - in_month
+      - label
+      - month_statuses
+      - statuses
+      - value
+    CalendarMonth:
+      type: object
+      description: A month to navigate to.
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+      required:
+      - month
+      - year
+    CalendarRelease:
+      type: object
+      description: One release, as the page's rows write it.
+      properties:
+        id:
+          type: integer
+        media_type:
+          type: string
+        type_label:
+          type: string
+        status:
+          type: string
+          description: The title's status, for the status filter.
+        title:
+          type: string
+        code:
+          type: string
+          description: 'E5, #12, ...'
+        label:
+          type: string
+          description: Title and code, as the month grid's cell.
+        time:
+          type: string
+          description: '''at 21:00''; empty without a time.'
+        poster:
+          type: string
+        image:
+          type: string
+        href:
+          type: string
+          description: The title's Django page.
+        color:
+          type: string
+      required:
+      - code
+      - color
+      - href
+      - id
+      - image
+      - label
+      - media_type
+      - poster
+      - status
+      - time
+      - title
+      - type_label
+    CalendarScreen:
+      type: object
+      description: The Calendar page for one month.
+      properties:
+        user_id:
+          type: integer
+          description: Keys the page's saved filter (localStorage).
+        view:
+          $ref: '#/components/schemas/ViewEnum'
+        year:
+          type: integer
+        month:
+          type: integer
+        month_name:
+          type: string
+        prev:
+          $ref: '#/components/schemas/CalendarMonth'
+        next:
+          $ref: '#/components/schemas/CalendarMonth'
+        today:
+          $ref: '#/components/schemas/CalendarToday'
+        selected_day:
+          type: integer
+        weekdays:
+          type: array
+          items:
+            type: string
+        weeks:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+          description: 0 pads a week.
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarDay'
+        filter_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarFilterType'
+        reload_url:
+          type: string
+          description: POST (form, CSRF) to queue Fetch New Releases.
+        export:
+          $ref: '#/components/schemas/CalendarExport'
+      required:
+      - days
+      - export
+      - filter_types
+      - month
+      - month_name
+      - next
+      - prev
+      - reload_url
+      - selected_day
+      - today
+      - user_id
+      - view
+      - weekdays
+      - weeks
+      - year
+    CalendarToday:
+      type: object
+      description: Today in the user's time zone.
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        day:
+          type: integer
+      required:
+      - day
+      - month
+      - year
     CatalogGrant:
       type: object
       description: An add-on install, without its install URL.
@@ -29219,6 +29471,14 @@ components:
             type: string
       required:
       - updated_fields
+    ViewEnum:
+      enum:
+      - grid
+      - list
+      type: string
+      description: |-
+        * `grid` - grid
+        * `list` - list
     WatchedStateChange:
       type: object
       description: One entry in the watched-state change feed.

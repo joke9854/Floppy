@@ -12,6 +12,7 @@
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { BASE } from '#lib/paths.ts';
 	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import type { PageProps } from './$types';
 
 	/**
@@ -62,7 +63,7 @@
 					use:fadeIn
 				/>
 				{#if entry.watched}
-					<span class="ct-credit-badge" aria-label={t.watched}><Check class="size-3.5" /></span>
+					<span class="ct-credit-badge" aria-label={dt.watched}><Check class="size-3.5" /></span>
 				{/if}
 			</span>
 			<span class="ct-poster-title">{entry.title}</span>
@@ -99,13 +100,13 @@
 				</p>
 				{#if person.watched.length}
 					<p class="ct-person-stats">
-						<span>{t.titlesWatched(person.stats.titles)}</span>
+						<span>{dt.titlesWatched(person.stats.titles)}</span>
 						{#if person.is_author}
-							{#if person.stats.books}<span>{t.booksRead(person.stats.books)}</span>{/if}
+							{#if person.stats.books}<span>{dt.booksRead(person.stats.books)}</span>{/if}
 						{:else}
-							{#if person.stats.movies}<span>{t.moviesCount(person.stats.movies)}</span>{/if}
-							{#if person.stats.shows}<span>{t.showsCount(person.stats.shows)}</span>{/if}
-							{#if person.stats.together}<span>{t.together(person.stats.together)}</span>{/if}
+							{#if person.stats.movies}<span>{dt.moviesCount(person.stats.movies)}</span>{/if}
+							{#if person.stats.shows}<span>{dt.showsCount(person.stats.shows)}</span>{/if}
+							{#if person.stats.together}<span>{dt.together(person.stats.together)}</span>{/if}
 						{/if}
 					</p>
 				{/if}
@@ -113,7 +114,7 @@
 					{#if person.history_url}
 						<a class="ct-btn-quiet" href={person.history_url} data-sveltekit-reload>
 							<History class="size-4" aria-hidden="true" />
-							<span>{t.viewInHistory}</span>
+							<span>{dt.viewInHistory}</span>
 						</a>
 					{/if}
 					{#if person.source_url}
@@ -127,7 +128,7 @@
 					<div class="ct-person-bio">
 						<p class:is-clamped={!bioOpen}>{person.biography}</p>
 						<button type="button" class="ct-row-link" onclick={() => (bioOpen = !bioOpen)}>
-							{bioOpen ? t.showLess : t.readMore}
+							{bioOpen ? dt.showLess : dt.readMore}
 						</button>
 					</div>
 				{/if}
@@ -139,7 +140,7 @@
 				<section aria-labelledby="ct-watched-title">
 					<div class="ct-row-head">
 						<h2 class="ct-row-title" id="ct-watched-title">
-							{person.is_author ? t.youveRead : t.youveWatched}
+							{person.is_author ? dt.youveRead : dt.youveWatched}
 						</h2>
 					</div>
 					<div class="ct-detail-rail">
@@ -151,7 +152,7 @@
 			{#if person.known_for.length}
 				<section aria-labelledby="ct-known-title">
 					<div class="ct-row-head">
-						<h2 class="ct-row-title" id="ct-known-title">{t.knownFor}</h2>
+						<h2 class="ct-row-title" id="ct-known-title">{dt.knownFor}</h2>
 					</div>
 					<div class="ct-detail-rail">
 						{#each person.known_for as entry, index (index)}{@render card(entry)}{/each}
@@ -163,7 +164,7 @@
 				<section aria-labelledby="ct-filmography-title">
 					<div class="ct-row-head ct-title-toggle" role="tablist">
 						<h2 class="ct-row-title" id="ct-filmography-title">
-							{person.is_author ? t.bibliography : t.filmography}
+							{person.is_author ? dt.bibliography : dt.filmography}
 						</h2>
 						{#if hasTypes}
 							{#each [['all', t.all], ['movie', t.movies], ['tv', t.shows]] as const as [key, label] (key)}
@@ -177,7 +178,7 @@
 							{/each}
 						{/if}
 						<button type="button" class="ct-row-link ct-filmography__sort" onclick={() => (oldest = !oldest)}>
-							{oldest ? t.oldestFirst : t.newestFirst}
+							{oldest ? dt.oldestFirst : dt.newestFirst}
 						</button>
 					</div>
 					<ol class="ct-filmography__list">
@@ -206,7 +207,7 @@
 									</span>
 									<span
 										class={['ct-credit__check', credit.watched && 'is-watched']}
-										title={credit.watched ? t.watched : undefined}
+										title={credit.watched ? dt.watched : undefined}
 									>
 										{#if credit.watched}<Check class="size-4" aria-hidden="true" />{/if}
 									</span>
@@ -216,7 +217,7 @@
 					</ol>
 					{#if type === 'all' && !showAll && person.filmography.length > 20}
 						<button type="button" class="ct-row-link ct-filmography__more" onclick={() => (showAll = true)}>
-							{t.allCredits(person.filmography.length)}
+							{dt.allCredits(person.filmography.length)}
 							<ChevronRight class="size-4" aria-hidden="true" />
 						</button>
 					{/if}

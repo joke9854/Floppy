@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { components } from '#lib/api/client.ts';
-	import { t } from '#lib/strings.ts';
+	import { dt } from '#lib/details/strings.ts';
 	import PeopleRail from './PeopleRail.svelte';
 
 	type Info = components['schemas']['DetailSeasonInfo'];
@@ -17,7 +17,7 @@
 		<div>
 			<p class="ct-detail-meta">
 				{#if info.year}<span>{info.year}</span>{/if}
-				{#if info.episodes}<span>{t.episodeCount(info.episodes)}</span>{/if}
+				{#if info.episodes}<span>{dt.episodeCount(info.episodes)}</span>{/if}
 				{#if info.runtime}<span>{info.runtime}</span>{/if}
 			</p>
 			{#if info.score}
