@@ -2439,6 +2439,42 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: watchlist:read
+  /api/v1/history/screen/:
+    get:
+      operationId: getHistoryScreen
+      description: 'The Django History page''s days and rows: the month view (`year`,
+        `m`) from the history cache, or a page (`page`) of a filtered view: `media_type`
+        (comma-separated), `start-date`/`end-date`, `history_mode=release`, `month`+`day`
+        (on this day), genre, title and person filters, `logging_style`. Each row
+        as the page writes it, with the track dialog target for Edit tracking. Built
+        by the Django page''s own builder, so it shows what the page shows. Like the
+        page, the read can store metadata it resolves, so integration tokens cannot
+        call it.'
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/home/:
     get:
       operationId: api_v1_home_retrieve
@@ -21061,6 +21097,221 @@ components:
       required:
       - pagination
       - results
+    HistoryScreen:
+      type: object
+      description: 'The History page: the month view, or a page of a filtered view.'
+      properties:
+        mode:
+          $ref: '#/components/schemas/ModeEnum'
+        refreshing:
+          type: boolean
+        media_type:
+          type: string
+        filters:
+          type: object
+          additionalProperties:
+            type: string
+          description: The active filters.
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryScreenChoice'
+        month:
+          allOf:
+          - $ref: '#/components/schemas/HistoryScreenMonth'
+          nullable: true
+          description: Null outside the month view.
+        page:
+          type: integer
+        pages:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryScreenDay'
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryScreenChoice'
+      required:
+      - days
+      - filters
+      - lists
+      - media_type
+      - mode
+      - month
+      - page
+      - pages
+      - refreshing
+      - types
+    HistoryScreenChoice:
+      type: object
+      description: A value and its label.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    HistoryScreenDay:
+      type: object
+      description: One day group, as ct/history_day.html writes it.
+      properties:
+        key:
+          type: string
+        weekday:
+          type: string
+        date:
+          type: string
+        meta:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryScreenEntry'
+        more_url:
+          type: string
+          description: 'GET with `Accept: application/json` for the day''s next entries.'
+        remaining:
+          type: integer
+      required:
+      - date
+      - entries
+      - key
+      - meta
+      - more_url
+      - remaining
+      - weekday
+    HistoryScreenEntry:
+      type: object
+      description: One play, as ct/history_row.html writes it.
+      properties:
+        key:
+          type: string
+        media_type:
+          type: string
+        item_id:
+          type: integer
+          nullable: true
+          description: For Add to List.
+        time:
+          type: string
+        time_title:
+          type: string
+        href:
+          type: string
+          description: The title's Django page.
+        poster:
+          type: string
+        square:
+          type: boolean
+        title:
+          type: string
+        code:
+          type: string
+        subtitle:
+          type: string
+        runtime:
+          type: string
+        score:
+          type: string
+          nullable: true
+        track:
+          allOf:
+          - $ref: '#/components/schemas/HistoryScreenTrackTarget'
+          nullable: true
+          description: Edit tracking in the web dialog.
+        history_query:
+          type: string
+          nullable: true
+          description: The History query for this title.
+      required:
+      - code
+      - history_query
+      - href
+      - item_id
+      - key
+      - media_type
+      - poster
+      - runtime
+      - score
+      - square
+      - subtitle
+      - time
+      - time_title
+      - title
+      - track
+    HistoryScreenMonth:
+      type: object
+      description: The month view's navigation (history.html).
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        name:
+          type: string
+        current:
+          allOf:
+          - $ref: '#/components/schemas/HistoryScreenMonthLink'
+          nullable: true
+          description: Back to this month; null when on it.
+        newer:
+          allOf:
+          - $ref: '#/components/schemas/HistoryScreenMonthLink'
+          nullable: true
+        older:
+          $ref: '#/components/schemas/HistoryScreenMonthLink'
+        year_back:
+          $ref: '#/components/schemas/HistoryScreenMonthLink'
+      required:
+      - current
+      - month
+      - name
+      - newer
+      - older
+      - year
+      - year_back
+    HistoryScreenMonthLink:
+      type: object
+      description: A month navigation link.
+      properties:
+        label:
+          type: string
+        query:
+          type: string
+          description: The History page query for that month.
+      required:
+      - label
+      - query
+    HistoryScreenTrackTarget:
+      type: object
+      description: The track dialog target (GET /api/v1/track/...).
+      properties:
+        media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        season_number:
+          type: integer
+          nullable: true
+        episode_number:
+          type: integer
+          nullable: true
+        instance_id:
+          type: integer
+          nullable: true
+      required:
+      - episode_number
+      - instance_id
+      - media_id
+      - media_type
+      - season_number
+      - source
     HltbGameLength:
       type: object
       description: Full persisted HLTB game-length detail.
@@ -23842,6 +24093,14 @@ components:
       required:
       - code
       - name
+    ModeEnum:
+      enum:
+      - activity
+      - release
+      type: string
+      description: |-
+        * `activity` - activity
+        * `release` - release
     MoveRequest:
       type: object
       description: Where to move the show.

@@ -27,6 +27,7 @@ from .details_screen import (
     build_detail_screen,
 )
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
+from .history_screen import HistoryScreenSerializer, build_history_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
 from .track_screen import (
     TRACK_SCREEN_TYPES,
@@ -216,6 +217,27 @@ class EpisodeScreenView(drf_views.APIView):
 
 
 # /api/v1/track/{media_type}/{source}/{media_id}/
+class HistoryScreenView(drf_views.APIView):
+    """The History page for the web app (v2 P4-E)."""
+
+    @extend_schema(
+        operation_id="getHistoryScreen",
+        description=(
+            "The Django History page's days and rows: the month view (`year`, `m`) "
+            "from the history cache, or a page (`page`) of a filtered view: "
+            "`media_type` (comma-separated), `start-date`/`end-date`, "
+            "`history_mode=release`, `month`+`day` (on this day), genre, title "
+            "and person filters, `logging_style`. Each row as the page writes it, "
+            "with the track dialog target for Edit tracking." + _NOTE
+        ),
+        responses={200: HistoryScreenSerializer},
+    )
+    def get(self, request):
+        """Return the history screen."""
+        data = build_history_screen(request._request)
+        return Response(HistoryScreenSerializer(data).data, status=HTTP.OK)
+
+
 class ActivityScreenView(drf_views.APIView):
     """A title's Activity History for the web app (v2 P4-D7)."""
 

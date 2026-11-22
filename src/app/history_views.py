@@ -14,7 +14,12 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import EmptyPage, Paginator
 from django.db.models.functions import ExtractDay, ExtractMonth
 from django.db.utils import OperationalError
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotFound,
+    JsonResponse,
+)
 from django.shortcuts import render
 from django.utils import formats, timezone
 from django.utils.dateparse import parse_date
@@ -1103,6 +1108,264 @@ def collect_history_genres(user):
     }
 
 
+def build_history_context(request):
+    """Return the History page's context (history.html).
+
+    The page renders it; the web app's History screen reads the same days
+    through `GET /api/v1/history/screen/` (v2 P4-E).
+    """
+    requested_media_type = request.GET.get("media_type")
+    context_media_type = (
+        requested_media_type if requested_media_type in MediaTypes.values else None
+    )
+    history_mode = request.GET.get("history_mode")
+    if history_mode != "release":
+        history_mode = "activity"
+
+    filters, logging_style = _parse_history_filters(request)
+
+    date_filters = {}
+    start_date_str = request.GET.get("start-date")
+    end_date_str = request.GET.get("end-date")
+    if start_date_str:
+        date_filters["start_date"] = start_date_str
+    if end_date_str:
+        date_filters["end_date"] = end_date_str
+
+    anniversary_month = request.GET.get("month")
+    anniversary_day = request.GET.get("day")
+    try:
+        anniversary_month = int(anniversary_month) if anniversary_month else None
+        anniversary_day = int(anniversary_day) if anniversary_day else None
+    except (TypeError, ValueError):
+        anniversary_month = None
+        anniversary_day = None
+
+    now = timezone.localtime()
+    try:
+        view_year = int(request.GET.get("year", now.year))
+        view_month = int(request.GET.get("m", now.month))
+        if view_month < 1 or view_month > MONTHS_PER_YEAR:
+            view_month = now.month
+    except (TypeError, ValueError):
+        view_year = now.year
+        view_month = now.month
+
+    logger.info(
+        "history_view_start user_id=%s year=%s month=%s filters=%s date_filters=%s logging_style=%s",
+        request.user.id,
+        view_year,
+        view_month,
+        filters,
+        date_filters,
+        logging_style,
+    )
+
+    use_month_cache = _can_use_cached_month_history(
+        history_mode,
+        filters,
+        date_filters,
+        anniversary_month,
+        anniversary_day,
+    )
+    history_refreshing = False
+
+    if use_month_cache:
+        allowed_types = _enabled_history_media_types(request.user)
+        entry_filter = partial(
+            _cached_history_entry_is_visible,
+            filters=filters,
+            allowed_types=allowed_types,
+        )
+        history_days, cache_meta = history_cache.get_month_history(
+            request.user,
+            view_year,
+            view_month,
+            logging_style_override=logging_style,
+            entry_filter=entry_filter,
+        )
+        history_days = [
+            prepared_day
+            for day in history_days
+            if (
+                prepared_day := _prepare_history_day_page(
+                    day,
+                    request.user,
+                    filters,
+                )
+            )
+        ]
+        history_refreshing = cache_meta.get("refreshing", False)
+
+        page_obj = None
+        current_page = 1
+        total_pages = 1
+        total_days = len(history_days)
+
+        if view_month == 1:
+            prev_year, prev_month = view_year - 1, 12
+        else:
+            prev_year, prev_month = view_year, view_month - 1
+        if view_month == MONTHS_PER_YEAR:
+            next_year, next_month = view_year + 1, 1
+        else:
+            next_year, next_month = view_year, view_month + 1
+
+        prev_month_name = calendar.month_abbr[prev_month]
+        next_month_name = calendar.month_abbr[next_month]
+        is_current_month = view_year == now.year and view_month == now.month
+        show_next_month = next_year < now.year or (
+            next_year == now.year and next_month <= now.month
+        )
+    else:
+        try:
+            page_number = int(request.GET.get("page", 1))
+        except (TypeError, ValueError):
+            page_number = 1
+
+        if history_mode == "release":
+            history_days_all = _build_release_history_days(
+                request.user,
+                month=anniversary_month,
+                day=anniversary_day,
+                date_filters=date_filters,
+                filters=filters,
+            )
+            history_refreshing = False
+        elif anniversary_month and anniversary_day:
+            history_days_all = _build_anniversary_history_days(
+                request.user,
+                month=anniversary_month,
+                day=anniversary_day,
+                logging_style=logging_style,
+            )
+            history_refreshing = False
+        else:
+            history_days_all = history_cache.get_history_days(
+                request.user,
+                filters=filters,
+                date_filters=date_filters,
+                logging_style_override=logging_style,
+            )
+
+        history_days_all = _filter_history_by_enabled_media_types(
+            history_days_all,
+            request.user,
+        )
+
+        paginator = Paginator(history_days_all, history_cache.HISTORY_DAYS_PER_PAGE)
+
+        if paginator.count == 0:
+            page_obj = None
+            history_days = []
+            current_page = 1
+            total_pages = 1
+            total_days = 0
+        else:
+            try:
+                page_obj = paginator.page(page_number)
+            except EmptyPage:
+                page_obj = paginator.page(paginator.num_pages)
+
+            history_days = page_obj.object_list
+            current_page = page_obj.number
+            total_pages = paginator.num_pages
+            total_days = paginator.count
+
+        history_days = [
+            annotated_day
+            for day in history_days
+            if (annotated_day := _annotate_history_day_for_template(day))
+        ]
+
+        prev_year = prev_month = next_year = next_month = None
+        prev_month_name = next_month_name = None
+        show_next_month = False
+        is_current_month = False
+
+    active_filters = filters.copy()
+    if date_filters.get("start_date"):
+        active_filters["start-date"] = date_filters["start_date"]
+    if date_filters.get("end_date"):
+        active_filters["end-date"] = date_filters["end_date"]
+    if logging_style:
+        active_filters["logging_style"] = logging_style
+    if anniversary_month and anniversary_day:
+        active_filters["month"] = anniversary_month
+        active_filters["day"] = anniversary_day
+    if history_mode == "release":
+        active_filters["history_mode"] = "release"
+    month_nav_query = urlencode(active_filters)
+    month_name = calendar.month_name[view_month] if use_month_cache else None
+
+    for day in history_days:
+        if day.get("has_more"):
+            day["next_entry_query"] = _history_day_fragment_query(
+                request,
+                day["next_entry_offset"],
+            )
+
+    context = {
+        "user": request.user,
+        "history_days": history_days,
+        "page_obj": page_obj,
+        "current_page": current_page,
+        "total_pages": total_pages,
+        "total_days": total_days,
+        "active_filters": active_filters,
+        "history_refreshing": history_refreshing,
+        "history_mode": history_mode,
+        "media_type": context_media_type,
+        "use_month_view": use_month_cache,
+        "view_year": view_year,
+        "view_month": view_month,
+        "month_name": month_name,
+        "prev_year": prev_year,
+        "prev_month": prev_month,
+        "prev_month_name": prev_month_name,
+        "next_year": next_year,
+        "next_month": next_month,
+        "next_month_name": next_month_name,
+        "show_next_month": show_next_month,
+        "is_current_month": is_current_month,
+        "current_year": now.year,
+        "current_month_num": now.month,
+        "month_nav_query": month_nav_query,
+    }
+    day_entry_counts = []
+    total_entries = 0
+    rendered_entries = 0
+    for day in history_days:
+        entries = (
+            day.get("entries", [])
+            if isinstance(day, dict)
+            else getattr(day, "entries", [])
+        )
+        count = (
+            day.get("entry_count", len(entries))
+            if isinstance(day, dict)
+            else len(entries)
+        )
+        total_entries += count
+        rendered_entries += len(entries)
+        day_entry_counts.append((day.get("date_display") or day.get("date"), count))
+    top_days = sorted(day_entry_counts, key=lambda item: item[1], reverse=True)[:3]
+    logger.info(
+        "history_page_entry_counts user_id=%s page=%s total_entries=%s top_days=%s",
+        request.user.id,
+        current_page,
+        total_entries,
+        top_days,
+    )
+    logger.info(
+        "history_page_rendered_entry_counts user_id=%s page=%s rendered_entries=%s",
+        request.user.id,
+        current_page,
+        rendered_entries,
+    )
+    return context
+
+
 @require_GET
 def history(request):
     """Show a day-by-day history of episode and movie plays."""
@@ -1116,251 +1379,11 @@ def history(request):
     )
     try:
         view_start = time.perf_counter()
-        history_mode = request.GET.get("history_mode")
-        if history_mode != "release":
-            history_mode = "activity"
-
-        filters, logging_style = _parse_history_filters(request)
-
-        date_filters = {}
-        start_date_str = request.GET.get("start-date")
-        end_date_str = request.GET.get("end-date")
-        if start_date_str:
-            date_filters["start_date"] = start_date_str
-        if end_date_str:
-            date_filters["end_date"] = end_date_str
-
-        anniversary_month = request.GET.get("month")
-        anniversary_day = request.GET.get("day")
-        try:
-            anniversary_month = int(anniversary_month) if anniversary_month else None
-            anniversary_day = int(anniversary_day) if anniversary_day else None
-        except (TypeError, ValueError):
-            anniversary_month = None
-            anniversary_day = None
-
-        now = timezone.localtime()
-        try:
-            view_year = int(request.GET.get("year", now.year))
-            view_month = int(request.GET.get("m", now.month))
-            if view_month < 1 or view_month > MONTHS_PER_YEAR:
-                view_month = now.month
-        except (TypeError, ValueError):
-            view_year = now.year
-            view_month = now.month
-
-        logger.info(
-            "history_view_start user_id=%s year=%s month=%s filters=%s date_filters=%s logging_style=%s",
-            request.user.id,
-            view_year,
-            view_month,
-            filters,
-            date_filters,
-            logging_style,
-        )
-
-        use_month_cache = _can_use_cached_month_history(
-            history_mode,
-            filters,
-            date_filters,
-            anniversary_month,
-            anniversary_day,
-        )
-        history_refreshing = False
-
-        if use_month_cache:
-            allowed_types = _enabled_history_media_types(request.user)
-            entry_filter = partial(
-                _cached_history_entry_is_visible,
-                filters=filters,
-                allowed_types=allowed_types,
-            )
-            history_days, cache_meta = history_cache.get_month_history(
-                request.user,
-                view_year,
-                view_month,
-                logging_style_override=logging_style,
-                entry_filter=entry_filter,
-            )
-            history_days = [
-                prepared_day
-                for day in history_days
-                if (
-                    prepared_day := _prepare_history_day_page(
-                        day,
-                        request.user,
-                        filters,
-                    )
-                )
-            ]
-            history_refreshing = cache_meta.get("refreshing", False)
-
-            page_obj = None
-            current_page = 1
-            total_pages = 1
-            total_days = len(history_days)
-
-            if view_month == 1:
-                prev_year, prev_month = view_year - 1, 12
-            else:
-                prev_year, prev_month = view_year, view_month - 1
-            if view_month == MONTHS_PER_YEAR:
-                next_year, next_month = view_year + 1, 1
-            else:
-                next_year, next_month = view_year, view_month + 1
-
-            prev_month_name = calendar.month_abbr[prev_month]
-            next_month_name = calendar.month_abbr[next_month]
-            is_current_month = view_year == now.year and view_month == now.month
-            show_next_month = next_year < now.year or (
-                next_year == now.year and next_month <= now.month
-            )
-        else:
-            try:
-                page_number = int(request.GET.get("page", 1))
-            except (TypeError, ValueError):
-                page_number = 1
-
-            if history_mode == "release":
-                history_days_all = _build_release_history_days(
-                    request.user,
-                    month=anniversary_month,
-                    day=anniversary_day,
-                    date_filters=date_filters,
-                    filters=filters,
-                )
-                history_refreshing = False
-            elif anniversary_month and anniversary_day:
-                history_days_all = _build_anniversary_history_days(
-                    request.user,
-                    month=anniversary_month,
-                    day=anniversary_day,
-                    logging_style=logging_style,
-                )
-                history_refreshing = False
-            else:
-                history_days_all = history_cache.get_history_days(
-                    request.user,
-                    filters=filters,
-                    date_filters=date_filters,
-                    logging_style_override=logging_style,
-                )
-
-            history_days_all = _filter_history_by_enabled_media_types(
-                history_days_all,
-                request.user,
-            )
-
-            paginator = Paginator(history_days_all, history_cache.HISTORY_DAYS_PER_PAGE)
-
-            if paginator.count == 0:
-                page_obj = None
-                history_days = []
-                current_page = 1
-                total_pages = 1
-                total_days = 0
-            else:
-                try:
-                    page_obj = paginator.page(page_number)
-                except EmptyPage:
-                    page_obj = paginator.page(paginator.num_pages)
-
-                history_days = page_obj.object_list
-                current_page = page_obj.number
-                total_pages = paginator.num_pages
-                total_days = paginator.count
-
-            history_days = [
-                annotated_day
-                for day in history_days
-                if (annotated_day := _annotate_history_day_for_template(day))
-            ]
-
-            prev_year = prev_month = next_year = next_month = None
-            prev_month_name = next_month_name = None
-            show_next_month = False
-            is_current_month = False
-
-        active_filters = filters.copy()
-        if date_filters.get("start_date"):
-            active_filters["start-date"] = date_filters["start_date"]
-        if date_filters.get("end_date"):
-            active_filters["end-date"] = date_filters["end_date"]
-        if logging_style:
-            active_filters["logging_style"] = logging_style
-        if anniversary_month and anniversary_day:
-            active_filters["month"] = anniversary_month
-            active_filters["day"] = anniversary_day
-        if history_mode == "release":
-            active_filters["history_mode"] = "release"
-        month_nav_query = urlencode(active_filters)
-        month_name = calendar.month_name[view_month] if use_month_cache else None
-
-        for day in history_days:
-            if day.get("has_more"):
-                day["next_entry_query"] = _history_day_fragment_query(
-                    request,
-                    day["next_entry_offset"],
-                )
-
-        context = {
-            "user": request.user,
-            "history_days": history_days,
-            "page_obj": page_obj,
-            "current_page": current_page,
-            "total_pages": total_pages,
-            "total_days": total_days,
-            "active_filters": active_filters,
-            "history_refreshing": history_refreshing,
-            "history_mode": history_mode,
-            "media_type": context_media_type,
-            "use_month_view": use_month_cache,
-            "view_year": view_year,
-            "view_month": view_month,
-            "month_name": month_name,
-            "prev_year": prev_year,
-            "prev_month": prev_month,
-            "prev_month_name": prev_month_name,
-            "next_year": next_year,
-            "next_month": next_month,
-            "next_month_name": next_month_name,
-            "show_next_month": show_next_month,
-            "is_current_month": is_current_month,
-            "current_year": now.year,
-            "current_month_num": now.month,
-            "month_nav_query": month_nav_query,
-        }
-        day_entry_counts = []
-        total_entries = 0
-        rendered_entries = 0
-        for day in history_days:
-            entries = (
-                day.get("entries", [])
-                if isinstance(day, dict)
-                else getattr(day, "entries", [])
-            )
-            count = (
-                day.get("entry_count", len(entries))
-                if isinstance(day, dict)
-                else len(entries)
-            )
-            total_entries += count
-            rendered_entries += len(entries)
-            day_entry_counts.append((day.get("date_display") or day.get("date"), count))
-        top_days = sorted(day_entry_counts, key=lambda item: item[1], reverse=True)[:3]
-        logger.info(
-            "history_page_entry_counts user_id=%s page=%s total_entries=%s top_days=%s",
-            request.user.id,
-            current_page,
-            total_entries,
-            top_days,
-        )
-        logger.info(
-            "history_page_rendered_entry_counts user_id=%s page=%s rendered_entries=%s",
-            request.user.id,
-            current_page,
-            rendered_entries,
-        )
+        context = build_history_context(request)
+        current_page = context["current_page"]
+        total_days = context["total_days"]
+        history_days = context["history_days"]
+        total_pages = context["total_pages"]
         render_start = time.perf_counter()
         logger.info(
             "history_render_start user_id=%s page=%s",
@@ -1464,6 +1487,10 @@ def history_day_fragment(request, day_key):
         request,
         prepared_day["next_entry_offset"],
     )
+    if helpers.wants_json(request):
+        from api.history_screen import history_day
+
+        return JsonResponse(history_day(prepared_day, request.user, "activity"))
     return render(
         request,
         "app/components/history_day.html",

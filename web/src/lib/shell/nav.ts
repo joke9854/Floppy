@@ -47,7 +47,7 @@ export const LIBRARY_MORE: NavItem[] = [
 ];
 
 export const YOU: NavItem[] = [
-	{ label: t.history, href: '/history', icon: History },
+	{ label: t.history, href: `${BASE}/history`, icon: History },
 	{ label: t.stats, href: '/statistics', icon: ChartColumn }
 ];
 
@@ -135,7 +135,9 @@ export function isCurrentHref(href: string, pathname: string, base: string = BAS
 const WEB_DETAIL = [
 	/^\/details\/[^/?#]+\/(?:movie|tv)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
 	/^\/details\/[^/?#]+\/tv\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
-	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/
+	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
+	// History (P4-E), any of its filters.
+	/^\/history\/?(\?|$)/
 ];
 
 /**

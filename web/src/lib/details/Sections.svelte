@@ -141,7 +141,7 @@
 				<section aria-labelledby="ct-plays-title">
 					<div class="ct-row-head">
 						<h2 class="ct-row-title" id="ct-plays-title">{t.yourPlays}</h2>
-						<a class="ct-row-link" href={sections.history_url} data-sveltekit-reload
+						<a class="ct-row-link" {...detailLink(sections.history_url)}
 							>{t.history} <ChevronRight class="size-4" aria-hidden="true" /></a
 						>
 					</div>

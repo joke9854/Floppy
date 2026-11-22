@@ -52,7 +52,7 @@ adds a web test for its flow:
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
 | P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. D8: the custom-field editor. Songs and podcast episodes come with their detail pages |
-| P4-E | History | Not started |
+| P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
 | P4-H | Statistics | Not started |
@@ -405,3 +405,43 @@ untouched Update (Django zeroes them in a DateTimeInput's initial value), so
 `ExactPlayDatesMixin` keeps the stored value; the round trip is tested for
 movies and episodes. The dialog, its host and strings load on the first
 Track tap; the Library stays at 109.9 kB of 110.
+
+### P4-E: History
+
+Today's page (`app/history.html`, `history_views.history`, rows in
+`components/ct/history_row.html`, days in `ct/history_day.html`): the month
+view from the history cache, or 30 days per page for filtered views.
+
+Parity checklist:
+
+- [x] Type pills (All plus the user's types), as `media_type`; other
+      filters stay.
+- [x] Month view: this month, the newer month (not in the future), the older
+      month, a year back; the month's name.
+- [x] Filtered views (a title, date range, release dates, on this day, genre,
+      person, logging style) paginate 30 days per page, numbered pages at the
+      top and bottom.
+- [x] Day: weekday, date, "N items · runtime" (or "N releases").
+- [x] Row: the local time ("Released" in release mode, music's time range,
+      a game's date range), poster (square for music and podcasts), title
+      (the show for an episode), the episode code and title or the type,
+      runtime and score; the title's page.
+- [x] Row actions (not in release mode): Edit tracking (the web track
+      dialog for that play), Add to custom lists, View your activity history
+      (History for that title; games and board games as sessions).
+- [x] Load more on a day over 30 plays (`history_day_fragment` answers JSON).
+- [x] Filter History: From/To, media types, Activity or Release dates, genre,
+      implied genre (all types or music); Clear filters, Apply.
+- [x] The refresh banner while the cache rebuilds; the empty state.
+- [x] The shell's History link and the detail page's History link open the
+      web screen (`detailHref` maps `/history`).
+- [ ] The Library card menu's View history still opens the Django page: the
+      Library is at its 110 kB budget (moving it there put it over).
+- [ ] The activity sessions dialog (`history/sessions`) belongs to the detail
+      pages: build it with them.
+
+E1 (2026-11-22): `GET /api/v1/history/screen/` reads the page's own context
+(`build_history_context`, split from `history_views.history`), each row as
+the page writes it. Watch out: Tailwind utilities a new screen adds go into
+the shared stylesheet every page loads (the Library went 0.1 kB over), so
+the screen's layout lives in `lib/history/history.css`.

@@ -82,6 +82,10 @@ describe('detail links', () => {
 		expect(detailHref('/person/tmdb/9273/amy-adams', '/next')).toBe(
 			'/next/person/tmdb/9273/amy-adams'
 		);
+		expect(detailHref('/history?media_type=movie&media_id=238&source=tmdb', '/next')).toBe(
+			'/next/history?media_type=movie&media_id=238&source=tmdb'
+		);
+		expect(detailHref('/history/sessions', '/next')).toBe('/history/sessions');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);

@@ -721,6 +721,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/history/screen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django History page's days and rows: the month view (`year`, `m`) from the history cache, or a page (`page`) of a filtered view: `media_type` (comma-separated), `start-date`/`end-date`, `history_mode=release`, `month`+`day` (on this day), genre, title and person filters, `logging_style`. Each row as the page writes it, with the track dialog target for Edit tracking. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getHistoryScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/home/": {
         parameters: {
             query?: never;
@@ -5534,6 +5551,87 @@ export interface components {
             /** @description Days, newest first. With `flat=1` this is instead a list of entry objects, each with an added `url`. */
             results: components["schemas"]["HistoryDay"][];
         };
+        /** @description The History page: the month view, or a page of a filtered view. */
+        HistoryScreen: {
+            mode: components["schemas"]["ModeEnum"];
+            refreshing: boolean;
+            media_type: string;
+            /** @description The active filters. */
+            filters: {
+                [key: string]: string;
+            };
+            types: components["schemas"]["HistoryScreenChoice"][];
+            /** @description Null outside the month view. */
+            month: components["schemas"]["HistoryScreenMonth"] | null;
+            page: number;
+            pages: number;
+            days: components["schemas"]["HistoryScreenDay"][];
+            lists: components["schemas"]["HistoryScreenChoice"][];
+        };
+        /** @description A value and its label. */
+        HistoryScreenChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description One day group, as ct/history_day.html writes it. */
+        HistoryScreenDay: {
+            key: string;
+            weekday: string;
+            date: string;
+            meta: string;
+            entries: components["schemas"]["HistoryScreenEntry"][];
+            /** @description GET with `Accept: application/json` for the day's next entries. */
+            more_url: string;
+            remaining: number;
+        };
+        /** @description One play, as ct/history_row.html writes it. */
+        HistoryScreenEntry: {
+            key: string;
+            media_type: string;
+            /** @description For Add to List. */
+            item_id: number | null;
+            time: string;
+            time_title: string;
+            /** @description The title's Django page. */
+            href: string;
+            poster: string;
+            square: boolean;
+            title: string;
+            code: string;
+            subtitle: string;
+            runtime: string;
+            score: string | null;
+            /** @description Edit tracking in the web dialog. */
+            track: components["schemas"]["HistoryScreenTrackTarget"] | null;
+            /** @description The History query for this title. */
+            history_query: string | null;
+        };
+        /** @description The month view's navigation (history.html). */
+        HistoryScreenMonth: {
+            year: number;
+            month: number;
+            name: string;
+            /** @description Back to this month; null when on it. */
+            current: components["schemas"]["HistoryScreenMonthLink"] | null;
+            newer: components["schemas"]["HistoryScreenMonthLink"] | null;
+            older: components["schemas"]["HistoryScreenMonthLink"];
+            year_back: components["schemas"]["HistoryScreenMonthLink"];
+        };
+        /** @description A month navigation link. */
+        HistoryScreenMonthLink: {
+            label: string;
+            /** @description The History page query for that month. */
+            query: string;
+        };
+        /** @description The track dialog target (GET /api/v1/track/...). */
+        HistoryScreenTrackTarget: {
+            media_type: string;
+            source: string;
+            media_id: string;
+            season_number: number | null;
+            episode_number: number | null;
+            instance_id: number | null;
+        };
         /** @description Full persisted HLTB game-length detail. */
         HltbGameLength: {
             game_id: number;
@@ -6838,6 +6936,12 @@ export interface components {
             code: string;
             name: string;
         };
+        /**
+         * @description * `activity` - activity
+         *     * `release` - release
+         * @enum {string}
+         */
+        ModeEnum: "activity" | "release";
         /** @description Where to move the show. */
         MoveRequest: {
             target_media_type: components["schemas"]["TargetMediaTypeEnum"];
@@ -11668,6 +11772,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryGenresResponse"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getHistoryScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryScreen"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */
