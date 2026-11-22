@@ -558,6 +558,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/discover/screen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django Discover page for `media_type` (saved as the user's last Discover type, as on the page; `hidden` is the Hidden view) and `show_more`: the type tabs, the hero, the rows with each card's quick-action fields for `/discover/action`, and the hidden items. `loading` is true while the rows rebuild in the background. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDiscoverScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/": {
         parameters: {
             query?: never;
@@ -5358,6 +5375,80 @@ export interface components {
             media_type: string;
             show_more: boolean;
             rows: components["schemas"]["DiscoverRow"][];
+        };
+        /** @description The Discover page for the web app. */
+        DiscoverScreen: {
+            media_type: string;
+            show_more: boolean;
+            loading: boolean;
+            options: components["schemas"]["DiscoverScreenOption"][];
+            hidden_count: number;
+            hidden_summary: string;
+            hero: components["schemas"]["DiscoverScreenSlide"][];
+            rows: components["schemas"]["DiscoverScreenRow"][];
+            hidden: components["schemas"]["DiscoverScreenHidden"][];
+            action_url: string;
+            refresh_url: string;
+            hide_url: string;
+            status_url: string;
+        };
+        /** @description The form fields a quick action posts to `/discover/action` (with `action`). */
+        DiscoverScreenAction: {
+            candidate_media_type: string;
+            identity_media_type: string;
+            library_media_type: string;
+            source: string;
+            media_id: string;
+            season_number: string;
+            active_media_type: string;
+            show_more: string;
+            row_key: string;
+            title: string;
+            image: string;
+            release_date: string;
+        };
+        /** @description A row's card: poster, title, "Type · Year". */
+        DiscoverScreenCard: {
+            key: string;
+            media_type: string;
+            title: string;
+            href: string;
+            poster: string;
+            poster_srcset: string;
+            sub: string;
+            action: components["schemas"]["DiscoverScreenAction"];
+        };
+        /** @description An item hidden from Discover (Unhide posts `item_id` to `hide_url`). */
+        DiscoverScreenHidden: {
+            item_id: number;
+            title: string;
+            poster: string;
+            meta: string;
+        };
+        /** @description A Discover type tab (Movies, Shows…); `primary` ones sit in the bar. */
+        DiscoverScreenOption: {
+            value: string;
+            label: string;
+            primary: boolean;
+        };
+        /** @description A Discover row; `square` for music and podcasts. */
+        DiscoverScreenRow: {
+            key: string;
+            title: string;
+            square: boolean;
+            empty_message: string;
+            cards: components["schemas"]["DiscoverScreenCard"][];
+        };
+        /** @description A hero slide: one pick per row with a backdrop. */
+        DiscoverScreenSlide: {
+            key: string;
+            title: string;
+            href: string;
+            meta: string;
+            backdrop: string;
+            backdrop_srcset: string;
+            logo: string;
+            action: components["schemas"]["DiscoverScreenAction"];
         };
         /** @description The edition to use. */
         EditionRequest: {
@@ -11410,6 +11501,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiscoverRefresh"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getDiscoverScreen: {
+        parameters: {
+            query?: {
+                media_type?: string;
+                show_more?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverScreen"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */

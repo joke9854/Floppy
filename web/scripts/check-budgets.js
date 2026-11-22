@@ -61,6 +61,15 @@ const PAGES = [
 		budgetKb: 110
 	},
 	{
+		name: 'Discover with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/discover/+page.svelte'
+		],
+		budgetKb: 110
+	},
+	{
 		name: 'Calendar with the shell',
 		routes: [
 			'src/routes/+layout.svelte',

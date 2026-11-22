@@ -43,6 +43,9 @@ export default defineConfig({
 				'/music/bulk_save',
 				// The Discover tab (P4-D4).
 				'/discover/toggle-hidden',
+				// Discover's quick actions and Refresh (P4-G).
+				'/discover/action',
+				'/discover/refresh',
 				// The Collection tab (P4-D5): collection/add/ and collection/<id>/remove/.
 				'/collection/',
 				// The Metadata tab (P4-D6a).

@@ -35,7 +35,7 @@ export interface NavItem {
  */
 export const PRIMARY: NavItem[] = [
 	{ label: t.home, href: `${BASE}/`, icon: House },
-	{ label: t.discover, href: '/discover', icon: Compass },
+	{ label: t.discover, href: `${BASE}/discover`, icon: Compass },
 	{ label: t.calendar, href: `${BASE}/calendar`, icon: Calendar }
 ];
 
@@ -137,7 +137,9 @@ const WEB_DETAIL = [
 	/^\/details\/[^/?#]+\/tv\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
 	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
 	// History (P4-E), any of its filters.
-	/^\/history\/?(\?|$)/
+	/^\/history\/?(\?|$)/,
+	// Discover (P4-G), any type.
+	/^\/discover\/?(\?|$)/
 ];
 
 /**

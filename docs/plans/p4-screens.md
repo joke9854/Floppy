@@ -40,7 +40,9 @@ adds a web test for its flow:
 - Session history calendar and the shared date picker
   (`test_session_history_calendar_...`): P4-D / P4-E.
 - Touch card actions (`test_touch_media_card_reveals_...`): P4-B5.
-- Discover's match signal wrapping (`test_discover_match_signal_...`): P4-G.
+- Discover's match signal wrapping (`test_discover_match_signal_...`): the
+  signal shows only in the Django page's debug panel, which stays on Django
+  (`?discover_debug=1`); nothing for the web screen.
 - Lists: the blank list modal and the add/remove flow (`test_blank_modal`,
   `test_flow`): P4-I.
 
@@ -54,7 +56,7 @@ adds a web test for its flow:
 | P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. D8: the custom-field editor. Songs and podcast episodes come with their detail pages |
 | P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
-| P4-G | Discover | Not started |
+| P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide |
 | P4-H | Statistics | Not started |
 | P4-I | Lists | Not started |
 | P4-J | Settings and integrations | Not started |
@@ -480,3 +482,52 @@ F1 (2026-11-22): `GET /api/v1/calendar/screen/` reads the page's own context
 strings only the detail and person pages use moved from #lib/strings.ts to
 `lib/details/strings.ts`: every page loads less (the Library 110.0 to
 109.4 kB).
+
+### P4-G: Discover
+
+Today's page (`app/discover.html`, `app.discover_views.discover_page`, the
+CineTrack header `components/ct/discover_header.html`, the hero
+`ct/discover_hero.html`, rows `discover_rows.html` and `discover_row.html`,
+cards `media_card.html` with `hover_action_mode='discover'`).
+
+Parity checklist:
+
+- [x] Title; on phones and tablets a search button (the web opens `/search`).
+- [x] Type tabs: All and the primary types, the rest under More (its label
+      becomes the picked type); the choice is saved as the user's last
+      Discover type.
+- [x] ⋮ menu: Refresh recommendations (queues the rebuild, then waits on the
+      page's cache status for fresh rows and reloads, "Recommendations
+      refreshed."; the wait ends when the page shows another type), Hidden
+      from Discover with its count.
+- [x] Hero: one pick per row with a backdrop (or logo), "Type · Genre ·
+      Year", Add to Planning, Details; dots; advances every 7 s unless
+      hovered, focused or reduced motion.
+- [x] Rows: title, cards (poster, title, "Type · Year"; square for music and
+      podcasts), the empty-row message (the continue rows have their own).
+- [x] Card quick actions: Add to Planning, Hide from Discover (on hover or
+      focus; always on touch screens). A toast with the message and Undo
+      for 8 s.
+- [x] The rest of the rows load when the page reaches its end (`show_more`);
+      as on the page, the rows on screen stay while the longer tab builds.
+- [x] Building Discover rows (rebuilding, polled until ready), No Discover
+      rows available, the "Refreshing recommendations in background..."
+      banner.
+- [x] Hidden from Discover: back link, count sentence, rows (poster, title,
+      "Type · Year · Hidden 22 Nov"), Unhide; the empty message.
+- [ ] Add to custom lists from a card: with the Lists dialog (P4-I). The
+      title's page has it meanwhile.
+- [ ] The hero's poster accent tint (the page samples the poster's colour);
+      the web uses the accent colour.
+- [ ] The debug panel (`?discover_debug=1`) stays on the Django page.
+
+G1 (2026-11-22): `GET /api/v1/discover/screen/` reads the page's own context
+(`build_discover_context`, split from `discover_page`); each card carries the
+exact fields the page posts to `discover_action`, with the stored image (a
+Hide seeds a new Item from it). `discover_action` answers JSON for
+`Accept: application/json` (`{action, message, undo_token}`; 400s as
+`{error}`), after the tab cache is patched, so the web re-reads the screen.
+The row styles (`.ct-row`) moved from the Home stylesheet to
+`lib/styles/cards.css`: Home and Discover share `lib/home/Row.svelte`.
+All repeats row keys (each type's Trending Right Now is `trending_right_now`;
+the Django page's ids repeat too), so the web keys rows by position.

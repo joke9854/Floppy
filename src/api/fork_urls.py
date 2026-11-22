@@ -203,6 +203,11 @@ urlpatterns = [
         name="api_collection_fields",
     ),
     re_path(
+        r"^discover/screen/?$",
+        fork_views_details.DiscoverScreenView.as_view(),
+        name="api_discover_screen",
+    ),
+    re_path(
         r"^calendar/screen/?$",
         fork_views_details.CalendarScreenView.as_view(),
         name="api_calendar_screen",

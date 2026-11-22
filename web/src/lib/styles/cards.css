@@ -51,6 +51,46 @@
 	outline-offset: 2px;
 }
 
+/* A horizontal row (#lib/home/Row.svelte; Home and Discover): touch and
+   trackpads scroll it, a mouse drags it, arrow keys scroll it once focused. */
+.ct-row {
+	display: flex;
+	gap: 24px;
+	overflow-x: auto;
+	padding-bottom: 12px;
+	scrollbar-width: none;
+	overscroll-behavior-x: contain;
+}
+
+.ct-row::-webkit-scrollbar {
+	display: none;
+}
+
+.ct-row.is-dragging {
+	cursor: grabbing;
+	user-select: none;
+}
+
+.ct-row.is-dragging a {
+	pointer-events: none;
+}
+
+.ct-row.has-progress {
+	gap: 20px;
+}
+
+@media (max-width: 639.98px) {
+	.ct-row,
+	.ct-row.has-progress {
+		gap: 12px;
+	}
+}
+
+.ct-row:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
 /* Poster cards (Recently Watched, Coming Soon). */
 .ct-poster-card {
 	position: relative;

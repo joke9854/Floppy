@@ -257,6 +257,13 @@ def _discover_response_rows(
     )
 
 
+def _discover_bad_request(request, message: str):
+    """Answer a discover_action 400: JSON for the web screen, text for HTMX."""
+    if helpers.wants_json(request):
+        return JsonResponse({"error": message}, status=400)
+    return HttpResponseBadRequest(message)
+
+
 def _discover_candidate_seed(request) -> dict:
     return {
         "fallback_title": request.POST.get("title", "").strip(),
@@ -379,6 +386,14 @@ def _invalidate_discover_after_action(
 @require_GET
 def discover_page(request):
     """Render Discover page with selected media rows."""
+    return render(request, "app/discover.html", build_discover_context(request))
+
+
+def build_discover_context(request) -> dict:
+    """Return the Discover page's context (the page and the web screen, P4-G).
+
+    A ``media_type`` in the query is saved as the user's last Discover type.
+    """
     raw_param = request.GET.get("media_type")
     if raw_param is not None:
         selected_media_type = _resolve_discover_media_type_for_user(
@@ -423,7 +438,7 @@ def discover_page(request):
             user=request.user,
             feedback_type=DiscoverFeedbackType.NOT_INTERESTED.value,
         ).count()
-    return render(request, "app/discover.html", context)
+    return context
 
 
 @login_required
@@ -525,7 +540,7 @@ def discover_action(request):
         undo_token = (request.POST.get("undo_token") or "").strip()
         snapshot = discover_tab_cache.get_undo_snapshot(request.user.id, undo_token)
         if not snapshot:
-            return HttpResponseBadRequest("Invalid undo token")
+            return _discover_bad_request(request, "Invalid undo token")
 
         side_effect = snapshot.get("side_effect") or {}
         side_effect_kind = side_effect.get("kind")
@@ -571,6 +586,14 @@ def discover_action(request):
             request.user.id,
             undo_token,
         )
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {
+                    "action": "undo",
+                    "message": "Discover action undone.",
+                    "active_media_type": active_media_type,
+                },
+            )
         rows = (
             restored_snapshot.get("rows")
             if restored_snapshot and not discover_debug
@@ -612,7 +635,7 @@ def discover_action(request):
         return response
 
     if action not in {"planning", "dismiss"}:
-        return HttpResponseBadRequest("Invalid action")
+        return _discover_bad_request(request, "Invalid action")
 
     candidate_media_type = (
         (request.POST.get("candidate_media_type") or "").strip().lower()
@@ -628,7 +651,7 @@ def discover_action(request):
         or not source
         or not media_id
     ):
-        return HttpResponseBadRequest("Missing candidate fields")
+        return _discover_bad_request(request, "Missing candidate fields")
 
     season_number = request.POST.get("season_number")
     season_number = int(season_number) if season_number not in (None, "") else None
@@ -856,6 +879,17 @@ def discover_action(request):
             preloaded_payloads=_action_payloads,
         )
     cache_patch_ms = int((time.monotonic() - cache_patch_started) * 1000)
+    if helpers.wants_json(request):
+        # The web screen (P4-G) re-reads its rows after the change: the tab
+        # cache was patched above (or is rebuilt on that read).
+        payload = {
+            "action": action,
+            "message": message,
+            "active_media_type": active_media_type,
+        }
+        if undo_token:
+            payload["undo_token"] = undo_token
+        return JsonResponse(payload)
     row_fetch_started = time.monotonic()
     if rows is None:
         rows = _discover_response_rows(

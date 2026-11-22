@@ -28,46 +28,11 @@
 
 
 .ct-page-bell:focus-visible,
-.ct-row-link:focus-visible,
-.ct-row:focus-visible {
+.ct-row-link:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
 
-/* A horizontal row: touch and trackpads scroll it, a mouse drags it, arrow
-   keys scroll it once focused. */
-.ct-row {
-	display: flex;
-	gap: 24px;
-	overflow-x: auto;
-	padding-bottom: 12px;
-	scrollbar-width: none;
-	overscroll-behavior-x: contain;
-}
-
-.ct-row::-webkit-scrollbar {
-	display: none;
-}
-
-.ct-row.is-dragging {
-	cursor: grabbing;
-	user-select: none;
-}
-
-.ct-row.is-dragging a {
-	pointer-events: none;
-}
-
-.ct-row.has-progress {
-	gap: 20px;
-}
-
-@media (max-width: 639.98px) {
-	.ct-row,
-	.ct-row.has-progress {
-		gap: 12px;
-	}
-}
 
 /* In Progress: a 16:9 backdrop, then the title and episode under it. */
 .ct-progress-card {

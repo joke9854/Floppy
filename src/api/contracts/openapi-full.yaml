@@ -1949,6 +1949,50 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:write
+  /api/v1/discover/screen/:
+    get:
+      operationId: getDiscoverScreen
+      description: 'The Django Discover page for `media_type` (saved as the user''s
+        last Discover type, as on the page; `hidden` is the Hidden view) and `show_more`:
+        the type tabs, the hero, the rows with each card''s quick-action fields for
+        `/discover/action`, and the hidden items. `loading` is true while the rows
+        rebuild in the background. Built by the Django page''s own builder, so it
+        shows what the page shows. Like the page, the read can store metadata it resolves,
+        so integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: media_type
+        schema:
+          type: string
+      - in: query
+        name: show_more
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/events/:
     get:
       operationId: streamEvents
@@ -20636,6 +20680,212 @@ components:
       - media_type
       - rows
       - show_more
+    DiscoverScreen:
+      type: object
+      description: The Discover page for the web app.
+      properties:
+        media_type:
+          type: string
+        show_more:
+          type: boolean
+        loading:
+          type: boolean
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverScreenOption'
+        hidden_count:
+          type: integer
+        hidden_summary:
+          type: string
+        hero:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverScreenSlide'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverScreenRow'
+        hidden:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverScreenHidden'
+        action_url:
+          type: string
+        refresh_url:
+          type: string
+        hide_url:
+          type: string
+        status_url:
+          type: string
+      required:
+      - action_url
+      - hero
+      - hidden
+      - hidden_count
+      - hidden_summary
+      - hide_url
+      - loading
+      - media_type
+      - options
+      - refresh_url
+      - rows
+      - show_more
+      - status_url
+    DiscoverScreenAction:
+      type: object
+      description: The form fields a quick action posts to `/discover/action` (with
+        `action`).
+      properties:
+        candidate_media_type:
+          type: string
+        identity_media_type:
+          type: string
+        library_media_type:
+          type: string
+        source:
+          type: string
+        media_id:
+          type: string
+        season_number:
+          type: string
+        active_media_type:
+          type: string
+        show_more:
+          type: string
+        row_key:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+        release_date:
+          type: string
+      required:
+      - active_media_type
+      - candidate_media_type
+      - identity_media_type
+      - image
+      - library_media_type
+      - media_id
+      - release_date
+      - row_key
+      - season_number
+      - show_more
+      - source
+      - title
+    DiscoverScreenCard:
+      type: object
+      description: 'A row''s card: poster, title, "Type · Year".'
+      properties:
+        key:
+          type: string
+        media_type:
+          type: string
+        title:
+          type: string
+        href:
+          type: string
+        poster:
+          type: string
+        poster_srcset:
+          type: string
+        sub:
+          type: string
+        action:
+          $ref: '#/components/schemas/DiscoverScreenAction'
+      required:
+      - action
+      - href
+      - key
+      - media_type
+      - poster
+      - poster_srcset
+      - sub
+      - title
+    DiscoverScreenHidden:
+      type: object
+      description: An item hidden from Discover (Unhide posts `item_id` to `hide_url`).
+      properties:
+        item_id:
+          type: integer
+        title:
+          type: string
+        poster:
+          type: string
+        meta:
+          type: string
+      required:
+      - item_id
+      - meta
+      - poster
+      - title
+    DiscoverScreenOption:
+      type: object
+      description: A Discover type tab (Movies, Shows…); `primary` ones sit in the
+        bar.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        primary:
+          type: boolean
+      required:
+      - label
+      - primary
+      - value
+    DiscoverScreenRow:
+      type: object
+      description: A Discover row; `square` for music and podcasts.
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        square:
+          type: boolean
+        empty_message:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverScreenCard'
+      required:
+      - cards
+      - empty_message
+      - key
+      - square
+      - title
+    DiscoverScreenSlide:
+      type: object
+      description: 'A hero slide: one pick per row with a backdrop.'
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        href:
+          type: string
+        meta:
+          type: string
+        backdrop:
+          type: string
+        backdrop_srcset:
+          type: string
+        logo:
+          type: string
+        action:
+          $ref: '#/components/schemas/DiscoverScreenAction'
+      required:
+      - action
+      - backdrop
+      - backdrop_srcset
+      - href
+      - key
+      - logo
+      - meta
+      - title
     EditionRequest:
       type: object
       description: The edition to use.

@@ -27,6 +27,7 @@ from .details_screen import (
     DetailTrailersSerializer,
     build_detail_screen,
 )
+from .discover_screen import DiscoverScreenSerializer, build_discover_screen
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .history_screen import HistoryScreenSerializer, build_history_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
@@ -235,6 +236,30 @@ class CalendarScreenView(drf_views.APIView):
         """Return the calendar screen."""
         data = build_calendar_screen(request._request)
         return Response(CalendarScreenSerializer(data).data, status=HTTP.OK)
+
+
+class DiscoverScreenView(drf_views.APIView):
+    """The Discover page for the web app (v2 P4-G)."""
+
+    @extend_schema(
+        operation_id="getDiscoverScreen",
+        description=(
+            "The Django Discover page for `media_type` (saved as the user's last "
+            "Discover type, as on the page; `hidden` is the Hidden view) and "
+            "`show_more`: the type tabs, the hero, the rows with each card's "
+            "quick-action fields for `/discover/action`, and the hidden items. "
+            "`loading` is true while the rows rebuild in the background." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("media_type", str, required=False),
+            OpenApiParameter("show_more", str, required=False),
+        ],
+        responses={200: DiscoverScreenSerializer},
+    )
+    def get(self, request):
+        """Return the discover screen."""
+        data = build_discover_screen(request._request)
+        return Response(DiscoverScreenSerializer(data).data, status=HTTP.OK)
 
 
 class HistoryScreenView(drf_views.APIView):

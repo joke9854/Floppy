@@ -1,0 +1,677 @@
+/* Discover (P4-G), from the Django page's rules (ct_discover_*, ct-hidden-*). */
+
+.ct-discover {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding-bottom: 96px;
+}
+
+.ct-discover-head {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.ct-discover-head .ct-page-head {
+	align-items: center;
+	padding-top: 0;
+}
+
+.ct-discover-search,
+.ct-discover-actions {
+	display: grid;
+	width: 40px;
+	height: 40px;
+	flex: none;
+	place-items: center;
+	border-radius: 999px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+	cursor: pointer;
+	list-style: none;
+}
+
+.ct-discover-actions {
+	width: 38px;
+	height: 38px;
+}
+
+.ct-discover-actions::-webkit-details-marker,
+.ct-type-pill::-webkit-details-marker {
+	display: none;
+}
+
+.ct-discover-search:hover,
+.ct-discover-actions:hover,
+details[open] > .ct-discover-actions {
+	background-color: var(--color-surface-hover);
+}
+
+.ct-discover-tools {
+	position: relative;
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 12px;
+}
+
+.ct-type-switch {
+	display: flex;
+	min-width: 0;
+	max-width: 100%;
+	align-self: flex-start;
+	gap: 2px;
+	padding: 3px;
+	overflow-x: auto;
+	border-radius: 999px;
+	background-color: var(--color-surface);
+	scrollbar-width: none;
+}
+
+.ct-type-switch::-webkit-scrollbar {
+	display: none;
+}
+
+.ct-type-pill {
+	display: inline-flex;
+	height: 32px;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	padding-inline: 16px;
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 700;
+	list-style: none;
+	white-space: nowrap;
+	transition:
+		background-color var(--motion-short) var(--ease-standard),
+		color var(--motion-short) var(--ease-standard);
+}
+
+.ct-type-pill:hover {
+	color: var(--color-text);
+}
+
+.ct-type-pill[aria-pressed='true'] {
+	background-color: var(--color-surface-hover);
+	color: var(--color-text);
+}
+
+/* The More types and ⋮ menus: <details>, so they work before hydration. */
+/* Static, so the panels anchor to .ct-discover-tools and the type switch's
+   scrolling cannot clip them. */
+.ct-discover-menu {
+	position: static;
+}
+
+.ct-discover-menu__panel {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 30;
+	display: flex;
+	min-width: 260px;
+	max-height: 70vh;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px;
+	overflow-y: auto;
+	border-radius: 14px;
+	background-color: var(--color-surface-strong);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 40%);
+}
+
+.ct-discover-menu__item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.ct-discover-menu__item:hover,
+.ct-discover-menu__item[aria-current='page'] {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-discover-menu__item:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.ct-discover-menu__count {
+	margin-left: auto;
+	color: var(--color-text-muted);
+	font-size: 13px;
+}
+
+.ct-discover-banner {
+	padding: 12px 16px;
+	border: 1px solid rgb(245 158 11 / 30%);
+	border-radius: 10px;
+	background-color: rgb(245 158 11 / 10%);
+	color: var(--color-warning-text);
+	font-size: 14px;
+}
+
+.ct-discover-banner.is-done {
+	border-color: rgb(16 185 129 / 30%);
+	background-color: rgb(16 185 129 / 10%);
+	color: rgb(209 250 229);
+}
+
+.ct-discover-empty {
+	padding: 24px;
+	border: 1px solid var(--color-border, rgb(255 255 255 / 8%));
+	border-radius: 10px;
+	background-color: var(--color-surface);
+	text-align: center;
+}
+
+.ct-discover-empty.is-loading {
+	border-color: rgb(245 158 11 / 30%);
+	background-color: rgb(245 158 11 / 10%);
+}
+
+.ct-discover-empty h2 {
+	color: var(--color-text);
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.ct-discover-empty p {
+	margin-top: 4px;
+	color: var(--color-text-muted);
+	font-size: 14px;
+}
+
+/* Hero */
+.ct-discover-hero {
+	position: relative;
+	overflow: hidden;
+	border-radius: 20px;
+	background-color: var(--color-surface-dim, var(--color-surface));
+}
+
+.ct-discover-hero__track {
+	display: flex;
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+}
+
+.ct-discover-hero__track::-webkit-scrollbar {
+	display: none;
+}
+
+.ct-discover-hero__slide {
+	position: relative;
+	height: 236px;
+	flex: 0 0 100%;
+	overflow: hidden;
+	scroll-snap-align: start;
+}
+
+.ct-discover-hero__art {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center 25%;
+}
+
+.ct-discover-hero__fade {
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(0deg, rgb(20 16 14 / 92%) 0%, rgb(20 16 14 / 45%) 45%, transparent 75%),
+		linear-gradient(90deg, rgb(20 16 14 / 70%) 0%, rgb(20 16 14 / 25%) 50%, transparent 75%),
+		radial-gradient(
+			90% 120% at 0% 100%,
+			color-mix(in srgb, var(--color-accent) 30%, transparent),
+			transparent 70%
+		);
+}
+
+.ct-discover-hero__body {
+	position: absolute;
+	inset: auto 0 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 20px;
+}
+
+.ct-discover-hero__title {
+	display: -webkit-box;
+	max-width: 100%;
+	overflow: hidden;
+	color: #fff;
+	font-size: 26px;
+	font-weight: 800;
+	letter-spacing: -0.5px;
+	line-height: 1.1;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.ct-discover-hero__title.has-logo img {
+	width: auto;
+	max-width: min(320px, 100%);
+	max-height: 96px;
+	object-fit: contain;
+	object-position: left center;
+}
+
+.ct-discover-hero__meta {
+	margin-top: 6px;
+	color: rgb(255 255 255 / 82%);
+	font-size: 13px;
+}
+
+.ct-discover-hero__actions {
+	display: flex;
+	gap: 12px;
+	margin-top: 16px;
+}
+
+.ct-discover-hero__primary,
+.ct-discover-hero__secondary {
+	display: inline-flex;
+	height: 40px;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding-inline: 22px;
+	border-radius: 999px;
+	cursor: pointer;
+	font-size: 15px;
+	font-weight: 700;
+	transition: background-color var(--motion-short) var(--ease-standard);
+}
+
+.ct-discover-hero__primary {
+	min-width: 168px;
+	background-color: #fff;
+	color: #14100e;
+}
+
+.ct-discover-hero__primary:hover {
+	background-color: rgb(255 255 255 / 88%);
+}
+
+.ct-discover-hero__primary:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.ct-discover-hero__secondary {
+	display: none;
+	background-color: rgb(255 255 255 / 18%);
+	color: #fff;
+	backdrop-filter: blur(12px);
+}
+
+.ct-discover-hero__secondary:hover {
+	background-color: rgb(255 255 255 / 26%);
+}
+
+:is(.ct-discover-hero__title, .ct-discover-hero__primary, .ct-discover-hero__secondary):focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 3px;
+}
+
+.ct-discover-hero__dots {
+	position: absolute;
+	right: 44px;
+	bottom: 14px;
+	display: none;
+	align-items: center;
+}
+
+.ct-discover-hero__dots > button {
+	display: inline-flex;
+	width: 16px;
+	height: 24px;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.ct-discover-hero__dots > button::before {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 40%);
+	content: '';
+	transition:
+		width var(--motion-medium, 250ms) var(--ease-standard),
+		background-color var(--motion-medium, 250ms) var(--ease-standard);
+}
+
+.ct-discover-hero__dots > button[aria-current='true']::before {
+	width: 22px;
+	background-color: #fff;
+}
+
+@media (min-width: 768px) {
+	.ct-discover-hero__slide {
+		height: 420px;
+	}
+
+	.ct-discover-hero__body {
+		padding: 0 48px 24px;
+	}
+
+	.ct-discover-hero__title {
+		font-size: 48px;
+		letter-spacing: -1.2px;
+	}
+
+	.ct-discover-hero__meta {
+		margin-top: 10px;
+		font-size: 15px;
+	}
+
+	.ct-discover-hero__actions {
+		margin-top: 22px;
+	}
+
+	.ct-discover-hero__primary,
+	.ct-discover-hero__secondary {
+		height: 44px;
+	}
+
+	.ct-discover-hero__primary {
+		min-width: 190px;
+	}
+
+	.ct-discover-hero__secondary {
+		display: inline-flex;
+		min-width: 110px;
+	}
+
+	.ct-discover-hero__dots {
+		display: flex;
+	}
+}
+
+/* Rows and cards */
+.ct-discover-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.ct-discover-row-title {
+	margin-bottom: 12px;
+	color: var(--color-text);
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.ct-discover-row-empty {
+	padding: 20px 16px;
+	border: 1px dashed rgb(255 255 255 / 12%);
+	border-radius: 10px;
+	color: var(--color-text-muted);
+	font-size: 14px;
+}
+
+.ct-discover-card {
+	width: 132px;
+}
+
+@media (min-width: 768px) {
+	.ct-discover-card {
+		width: 150px;
+	}
+}
+
+.ct-discover-card.is-square .ct-poster-frame {
+	aspect-ratio: 1;
+}
+
+.ct-discover-card.is-busy {
+	opacity: 0.5;
+}
+
+/* The quick actions sit over the poster's top-right corner: shown on hover
+   or keyboard focus with a mouse, always on touch screens. */
+.ct-discover-card__actions {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	opacity: 0;
+	transition: opacity var(--motion-short) var(--ease-standard);
+}
+
+.ct-discover-card:hover .ct-discover-card__actions,
+.ct-discover-card:focus-within .ct-discover-card__actions {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.ct-discover-card__actions {
+		opacity: 1;
+	}
+}
+
+.ct-discover-card__action {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border: 1px solid rgb(255 255 255 / 14%);
+	border-radius: 999px;
+	background-color: rgb(20 16 14 / 55%);
+	color: #fff;
+	cursor: pointer;
+	backdrop-filter: blur(12px) saturate(1.4);
+}
+
+.ct-discover-card__action:hover {
+	background-color: rgb(20 16 14 / 75%);
+}
+
+.ct-discover-card__action:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.ct-discover-more {
+	padding: 12px 0;
+	color: var(--color-text-muted);
+	font-size: 14px;
+	text-align: center;
+}
+
+/* Toast with Undo, as the page's. */
+.ct-discover-toast {
+	position: fixed;
+	bottom: calc(96px + env(safe-area-inset-bottom));
+	left: 50%;
+	z-index: 60;
+	display: flex;
+	width: min(36rem, calc(100% - 2rem));
+	align-items: center;
+	gap: 10px;
+	padding: 8px 8px 8px 16px;
+	border-radius: 14px;
+	background-color: var(--color-surface-hover);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 40%);
+	color: var(--color-text);
+	font-size: 14px;
+	transform: translateX(-50%);
+}
+
+@media (min-width: 768px) {
+	.ct-discover-toast {
+		bottom: 32px;
+	}
+}
+
+.ct-discover-toast p {
+	flex: 1;
+	font-weight: 500;
+}
+
+.ct-discover-toast__undo {
+	flex: none;
+	padding: 6px 12px;
+	border-radius: 8px;
+	background-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ct-discover-toast__close {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	flex: none;
+	place-items: center;
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+
+.ct-discover-toast__close:hover {
+	color: var(--color-text);
+}
+
+/* Hidden from Discover */
+.ct-hidden-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	margin-bottom: 8px;
+	margin-left: -6px;
+	color: var(--color-accent);
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ct-hidden-list {
+	margin-top: 32px;
+	overflow: hidden;
+	border-radius: 20px;
+	background-color: var(--color-surface);
+}
+
+.ct-hidden-row {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	padding: 14px 20px;
+}
+
+.ct-hidden-row + .ct-hidden-row {
+	border-top: 1px solid rgb(255 255 255 / 6%);
+}
+
+.ct-hidden-poster {
+	width: 40px;
+	height: 60px;
+	flex: none;
+	border-radius: 6px;
+	background-color: var(--color-surface-hover);
+	object-fit: cover;
+}
+
+.ct-hidden-text {
+	min-width: 0;
+	flex: 1;
+}
+
+.ct-hidden-title {
+	overflow: hidden;
+	color: var(--color-text);
+	font-size: 16px;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-hidden-meta {
+	margin-top: 2px;
+	color: var(--color-text-muted);
+	font-size: 13px;
+}
+
+.ct-hidden-unhide {
+	height: 32px;
+	flex: none;
+	padding-inline: 24px;
+	border-radius: 999px;
+	background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+	color: var(--color-accent);
+	font-size: 13px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.ct-hidden-unhide:hover {
+	background-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.ct-hidden-unhide:disabled {
+	opacity: 0.5;
+}
+
+.ct-hidden-empty {
+	margin-top: 32px;
+	color: var(--color-text-muted);
+}
+
+@media (min-width: 768px) {
+	.ct-discover-head {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 12px;
+	}
+
+	.ct-type-switch {
+		align-self: center;
+	}
+}
+
+@media (min-width: 1024px) {
+	.ct-discover-search {
+		display: none;
+	}
+}
+
+.ct-discover-spin {
+	animation: ct-discover-spin 1s linear infinite;
+}
+
+@keyframes ct-discover-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ct-discover-spin {
+		animation: none;
+	}
+}

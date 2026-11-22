@@ -86,6 +86,8 @@ describe('detail links', () => {
 			'/next/history?media_type=movie&media_id=238&source=tmdb'
 		);
 		expect(detailHref('/history/sessions', '/next')).toBe('/history/sessions');
+		expect(detailHref('/discover?media_type=movie', '/next')).toBe('/next/discover?media_type=movie');
+		expect(detailHref('/discover/rows', '/next')).toBe('/discover/rows');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);
