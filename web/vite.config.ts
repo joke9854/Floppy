@@ -42,7 +42,9 @@ export default defineConfig({
 				'/episode_bulk_save',
 				'/music/bulk_save',
 				// The Discover tab (P4-D4).
-				'/discover/toggle-hidden'
+				'/discover/toggle-hidden',
+				// The Collection tab (P4-D5): collection/add/ and collection/<id>/remove/.
+				'/collection/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

@@ -27583,6 +27583,71 @@ components:
           type: string
       required:
       - token
+    TrackCollection:
+      type: object
+      description: 'The Collection tab: the episode''s owned copies and the Add Copy
+        form.'
+      properties:
+        item_id:
+          type: integer
+          description: Post as item_id with the form.
+        save_url:
+          type: string
+          description: 'POST item_id, the fields and the custom fields here with `Accept:
+            application/json`.'
+        add_label:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+          description: In the page's order; the first is full width.
+        custom_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackCollectionGroup'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackCollectionEntry'
+      required:
+      - add_label
+      - custom_groups
+      - entries
+      - fields
+      - item_id
+      - save_url
+    TrackCollectionEntry:
+      type: object
+      description: An owned copy of the episode.
+      properties:
+        id:
+          type: integer
+        lines:
+          type: array
+          items:
+            type: string
+          description: The page's summary lines.
+        remove_url:
+          type: string
+          description: 'POST with `Accept: application/json` to remove the copy.'
+      required:
+      - id
+      - lines
+      - remove_url
+    TrackCollectionGroup:
+      type: object
+      description: One of the user's custom collection field groups.
+      properties:
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+      required:
+      - fields
+      - name
     TrackDateSuggestion:
       type: object
       description: The pickers' Release Date shortcut.
@@ -27625,7 +27690,19 @@ components:
         label:
           type: string
         kind:
-          $ref: '#/components/schemas/TrackFieldKindEnum'
+          allOf:
+          - $ref: '#/components/schemas/TrackFieldKindEnum'
+          description: |-
+            A checkbox posts its name only when ticked (value `on`).
+
+            * `hidden` - hidden
+            * `select` - select
+            * `number` - number
+            * `datetime` - datetime
+            * `date` - date
+            * `textarea` - textarea
+            * `text` - text
+            * `checkbox` - checkbox
         value:
           type: string
           description: The value as the page's input holds it. Dates are the server-time
@@ -27681,6 +27758,7 @@ components:
       - date
       - textarea
       - text
+      - checkbox
       type: string
       description: |-
         * `hidden` - hidden
@@ -27690,6 +27768,7 @@ components:
         * `date` - date
         * `textarea` - textarea
         * `text` - text
+        * `checkbox` - checkbox
     TrackKoreader:
       type: object
       description: The KOReader document ID field (books, with KOReader connected).
@@ -28002,7 +28081,13 @@ components:
           - $ref: '#/components/schemas/TrackDiscover'
           nullable: true
           description: The Discover tab, where the page has it.
+        collection:
+          allOf:
+          - $ref: '#/components/schemas/TrackCollection'
+          nullable: true
+          description: The Collection tab (single episodes).
       required:
+      - collection
       - date_suggestion
       - delete_url
       - discover

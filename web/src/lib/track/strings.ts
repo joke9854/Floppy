@@ -44,4 +44,11 @@ export const tt = {
 	visible: 'Visible',
 	hidden: 'Hidden',
 	save: 'Save',
+	collection: 'Collection',
+	existingEntries: 'Existing Entries',
+	removeCopy: 'Remove collection entry',
+	customFields: 'Custom Fields',
+	noCustomFields: 'No custom fields for this media type yet.',
+	addCopy: 'Add Copy',
+	yes: 'Yes',
 } as const;

@@ -204,6 +204,80 @@ describe('track dialog', () => {
 		expect(Object.fromEntries(new URLSearchParams(String(init.body)))).toMatchObject({ item_id: '42', action: 'hide' });
 	});
 
+	it('adds and removes owned copies on the Collection tab', async () => {
+		document.cookie = 'csrftoken=test-token';
+		const withCollection = {
+			...screen,
+			media_type: 'episode',
+			collection: {
+				item_id: 9,
+				save_url: '/collection/add/?next=%2Fdetails',
+				add_label: 'Add Another Copy',
+				fields: [
+					field('media_type', 'select', '', {
+						label: 'Format',
+						choices: [
+							{ value: '', label: 'Select' },
+							{ value: 'Blu-ray', label: 'Blu-ray' }
+						]
+					}),
+					field('is_3d', 'checkbox', '', { label: '3D' }),
+					field('purchase_price', 'number', '', { label: 'Purchase Price', step: '0.01', min: '0' })
+				],
+				custom_groups: [
+					{
+						name: 'Shelf',
+						fields: [
+							field('custom_field_1', 'checkbox', '', { label: 'Boxed' }),
+							field('custom_field_2', 'select', 'Attic', {
+								label: 'Room',
+								choices: [
+									{ value: '', label: 'Select' },
+									{ value: 'Attic', label: 'Attic' }
+								]
+							})
+						]
+					}
+				],
+				entries: [{ id: 5, lines: ['Format: DVD'], remove_url: '/collection/5/remove/' }]
+			}
+		};
+		const fetch = vi.fn(async (url: string) =>
+			url.startsWith('/api/v1/track/')
+				? new Response(JSON.stringify(withCollection))
+				: new Response(JSON.stringify({ saved: true, message: 'Added Pilot to collection' }))
+		);
+		vi.stubGlobal('fetch', fetch);
+		const onsaved = vi.fn();
+		render(TrackDialog, {
+			props: { target: { mediaType: 'episode', source: 'tmdb', mediaId: '1' }, onclose: () => {}, onsaved }
+		});
+
+		await page.getByRole('tab', { name: 'Collection' }).click();
+		await expect.element(page.getByText('Format: DVD')).toBeVisible();
+		await page.getByRole('button', { name: 'Remove collection entry' }).click();
+		await expect.poll(() => onsaved.mock.calls.length).toBe(1);
+		expect(fetch.mock.calls[1]?.[0]).toBe('/collection/5/remove/');
+
+		await page.getByRole('combobox', { name: 'Format' }).selectOptions('Blu-ray');
+		await page.getByRole('checkbox', { name: '3D' }).click();
+		await page.getByRole('button', { name: 'Increase Purchase Price' }).click();
+		await page.getByRole('button', { name: 'Add Copy' }).click();
+
+		await expect.poll(() => onsaved.mock.calls.length).toBe(2);
+		const [url, init] = fetch.mock.calls[2] as unknown as [string, RequestInit];
+		expect(url).toBe('/collection/add/?next=%2Fdetails');
+		expect((init.headers as Record<string, string>).accept).toBe('application/json');
+		const body = Object.fromEntries(new URLSearchParams(String(init.body)));
+		expect(body).toEqual({
+			item_id: '9',
+			media_type: 'Blu-ray',
+			is_3d: 'on',
+			purchase_price: '0.01',
+			custom_field_2: 'Attic'
+		});
+	});
+
 	it('shows the form errors the page sends back', async () => {
 		document.cookie = 'csrftoken=test-token';
 		vi.stubGlobal(

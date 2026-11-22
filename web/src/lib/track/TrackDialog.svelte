@@ -8,6 +8,7 @@
 	import { t } from '#lib/strings.ts';
 	import { tt } from './strings.ts';
 	import DateField, { type DateAction } from './DateField.svelte';
+	import CollectionTab from './CollectionTab.svelte';
 	import DiscoverTab from './DiscoverTab.svelte';
 	import PlaysTab from './PlaysTab.svelte';
 	import type { TrackTarget } from './open.svelte.ts';
@@ -53,8 +54,8 @@
 	let errors = $state.raw<Record<string, string[]>>({});
 	let problem = $state('');
 	let rewatchSince = $state('');
-	/** The Django dialog's tabs: General, then Episode Plays and Discover where the page has them. */
-	let tab = $state<'general' | 'plays' | 'discover'>('general');
+	/** The Django dialog's tabs: General, then Collection, Episode Plays and Discover where the page has them. */
+	let tab = $state<'general' | 'plays' | 'collection' | 'discover'>('general');
 
 	function apiPath(): string {
 		const query = new URLSearchParams();
@@ -157,7 +158,7 @@
 				</Dialog.Close>
 			</header>
 
-			{#if (screen?.plays || screen?.discover) && form && !loadError}
+			{#if (screen?.plays || screen?.collection || screen?.discover) && form && !loadError}
 				<div class="ct-track__tabs" role="tablist">
 					<button
 						type="button"
@@ -166,6 +167,15 @@
 						aria-selected={tab === 'general'}
 						onclick={() => (tab = 'general')}>{tt.general}</button
 					>
+					{#if screen.collection}
+						<button
+							type="button"
+							role="tab"
+							class="ct-track__tab"
+							aria-selected={tab === 'collection'}
+							onclick={() => (tab = 'collection')}>{tt.collection}</button
+						>
+					{/if}
 					{#if screen.plays}
 						<button
 							type="button"
@@ -193,6 +203,8 @@
 				<div class="ct-track__loading" aria-busy="true">{tt.loading}</div>
 			{:else if tab === 'plays' && screen.plays}
 				<PlaysTab plays={screen.plays} trackTime={screen.track_time} {onsaved} />
+			{:else if tab === 'collection' && screen.collection}
+				<CollectionTab collection={screen.collection} {onsaved} />
 			{:else if tab === 'discover' && screen.discover}
 				<DiscoverTab discover={screen.discover} {onsaved} />
 			{:else}

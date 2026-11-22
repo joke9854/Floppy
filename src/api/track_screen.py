@@ -188,6 +188,166 @@ def _discover(context) -> dict | None:
     }
 
 
+def _collection_kind(bound) -> str:
+    """Return how the web draws a CollectionEntryForm field.
+
+    The form swaps configured fields to a Select widget but keeps the
+    CharField, so the choices live on the widget, not the field.
+    """
+    widget = bound.field.widget
+    input_type = getattr(widget, "input_type", None)
+    if bound.name == "collected_at":
+        return "datetime" if settings.TRACK_TIME else "date"
+    if input_type == "checkbox":
+        return "checkbox"
+    if input_type == "select" or hasattr(widget, "choices"):
+        return "select"
+    if input_type == "number":
+        return "number"
+    return "text"
+
+
+def _collection_field(bound) -> dict:
+    kind = _collection_kind(bound)
+    attrs = bound.field.widget.attrs
+    value = bound.value()
+    if kind == "checkbox":
+        value = "on" if value else ""
+    elif kind in {"datetime", "date", "select"}:
+        value = "" if value is None else str(value)
+    else:
+        formatted = bound.field.widget.format_value(value)
+        value = "" if formatted is None else str(formatted)
+    return {
+        "name": bound.name,
+        "label": str(_(bound.label)) if bound.label else "",
+        "kind": kind,
+        "value": value,
+        "choices": [
+            {"value": "" if choice is None else str(choice), "label": str(_(str(label)))}
+            for choice, label in bound.field.widget.choices
+        ]
+        if kind == "select"
+        else [],
+        "required": bool(bound.field.required),
+        "min": str(attrs["min"]) if "min" in attrs else None,
+        "max": str(attrs["max"]) if "max" in attrs else None,
+        "step": str(attrs["step"]) if "step" in attrs else None,
+        "placeholder": str(attrs.get("placeholder") or ""),
+        "help_text": str(bound.help_text or ""),
+    }
+
+
+def _collection_entry_lines(entry) -> list[str]:
+    """Return an existing copy's summary lines, as the dialog's copies list.
+
+    collection_entry_summary.html writes them there without the date, the
+    source labels or the game layout.
+    """
+    lines = [
+        _("Format: %(value_1)s") % {"value_1": app_tags.title_preserve_acronyms(entry.media_type)}
+        if entry.media_type
+        else str(_("Collected"))
+    ]
+    quality = [
+        part
+        for part in (
+            entry.resolution,
+            entry.hdr,
+            entry.audio_codec,
+            entry.audio_channels,
+            (_("%(value_1)s kbps") % {"value_1": entry.bitrate}) if entry.bitrate else "",
+            str(_("3D")) if entry.is_3d else "",
+        )
+        if part
+    ]
+    if quality:
+        lines.append(" • ".join(str(part) for part in quality))
+    purchase = [
+        part
+        for part in (
+            f"${entry.purchase_price:.2f}" if entry.purchase_price else "",
+            entry.purchase_location or "",
+        )
+        if part
+    ]
+    if purchase:
+        lines.append(" • ".join(purchase))
+    return [str(line) for line in lines]
+
+
+def _custom_field(field, stored) -> dict:
+    kind = field.field_type
+    if kind == "checkbox":
+        value = "on" if stored is True else ""
+    elif kind == "number" and isinstance(stored, float) and stored.is_integer():
+        value = str(int(stored))
+    else:
+        value = "" if stored is None else str(stored)
+    return {
+        "name": f"custom_field_{field.id}",
+        "label": field.label,
+        "kind": kind,
+        "value": value,
+        "choices": (
+            [{"value": "", "label": str(_("Select"))}]
+            + [{"value": str(option), "label": str(option)} for option in field.options or []]
+        )
+        if kind == "select"
+        else [],
+        "required": False,
+        "min": None,
+        "max": None,
+        "step": "any" if kind == "number" else None,
+        "placeholder": "",
+        "help_text": "",
+    }
+
+
+def _collection(context) -> dict | None:
+    """Return the Collection tab (collection_modal.html), or None.
+
+    The dialog has it for a single episode only, so the season and episode
+    audit lists the show and season modals carry are always empty here.
+    """
+    collection = context.get("collection_context")
+    if not context.get("collection_tab_available") or collection is None:
+        return None
+    form = collection["form"]
+    item = collection["item"]
+    configured = collection.get("collection_fields") or []
+    fields = [
+        _collection_field(bound)
+        for bound in form
+        if bound.name != "item" and (not configured or bound.name in configured)
+    ]
+    stored = collection.get("entry_custom_field_values") or {}
+    return_url = collection.get("return_url") or ""
+    next_query = f"?next={quote(return_url, safe='')}" if return_url else ""
+    entries = collection.get("visible_existing_entries") or []
+    return {
+        "item_id": item.id,
+        "save_url": reverse("collection_add") + next_query,
+        "add_label": str(_("Add Another Copy") if entries else _("Add Copy")),
+        "fields": fields,
+        "custom_groups": [
+            {
+                "name": group.name,
+                "fields": [_custom_field(field, stored.get(str(field.id))) for field in group.visible_fields],
+            }
+            for group in collection.get("custom_field_groups") or []
+        ],
+        "entries": [
+            {
+                "id": entry.id,
+                "lines": _collection_entry_lines(entry),
+                "remove_url": reverse("collection_remove", args=[entry.id]),
+            }
+            for entry in entries
+        ],
+    }
+
+
 def build_track_screen(request, media_type, source, media_id, season_number=None, episode_number=None):
     """Return the track dialog's General tab for the web."""
     from app.track_modal_views import build_standard_track_context
@@ -259,6 +419,7 @@ def build_track_screen(request, media_type, source, media_id, season_number=None
         "page_url": next_url,
         "plays": _plays(context),
         "discover": _discover(context),
+        "collection": _collection(context),
     }
 
 
@@ -329,6 +490,7 @@ def build_tracker_screen(request, media_type, context):
         "page_url": "",
         "plays": _plays(context),
         "discover": None,
+        "collection": None,
     }
 
 
@@ -345,7 +507,8 @@ class TrackFieldSerializer(serializers.Serializer):
     name = serializers.CharField()
     label = serializers.CharField(allow_blank=True)
     kind = serializers.ChoiceField(
-        choices=["hidden", "select", "number", "datetime", "date", "textarea", "text"]
+        choices=["hidden", "select", "number", "datetime", "date", "textarea", "text", "checkbox"],
+        help_text="A checkbox posts its name only when ticked (value `on`).",
     )
     value = serializers.CharField(
         allow_blank=True,
@@ -469,6 +632,34 @@ class TrackDiscoverSerializer(serializers.Serializer):
     )
 
 
+class TrackCollectionEntrySerializer(serializers.Serializer):
+    """An owned copy of the episode."""
+
+    id = serializers.IntegerField()
+    lines = serializers.ListField(child=serializers.CharField(), help_text="The page's summary lines.")
+    remove_url = serializers.CharField(help_text="POST with `Accept: application/json` to remove the copy.")
+
+
+class TrackCollectionGroupSerializer(serializers.Serializer):
+    """One of the user's custom collection field groups."""
+
+    name = serializers.CharField()
+    fields = TrackFieldSerializer(many=True)
+
+
+class TrackCollectionSerializer(serializers.Serializer):
+    """The Collection tab: the episode's owned copies and the Add Copy form."""
+
+    item_id = serializers.IntegerField(help_text="Post as item_id with the form.")
+    save_url = serializers.CharField(
+        help_text="POST item_id, the fields and the custom fields here with `Accept: application/json`."
+    )
+    add_label = serializers.CharField()
+    fields = TrackFieldSerializer(many=True, help_text="In the page's order; the first is full width.")
+    custom_groups = TrackCollectionGroupSerializer(many=True)
+    entries = TrackCollectionEntrySerializer(many=True)
+
+
 class TrackScreenSerializer(serializers.Serializer):
     """The track dialog's General tab."""
 
@@ -496,3 +687,4 @@ class TrackScreenSerializer(serializers.Serializer):
     page_url = serializers.CharField(allow_blank=True, help_text="The title's Django page.")
     plays = TrackPlaysSerializer(allow_null=True, help_text="The Episode Plays tab, where the page has it.")
     discover = TrackDiscoverSerializer(allow_null=True, help_text="The Discover tab, where the page has it.")
+    collection = TrackCollectionSerializer(allow_null=True, help_text="The Collection tab (single episodes).")

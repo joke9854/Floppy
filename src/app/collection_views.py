@@ -402,6 +402,8 @@ def _collection_add_season_or_show_response(request, item, form, post_data):
             message += f" ({skipped_count} already collected)"
     else:
         message = gettext("All episodes are already in your collection")
+    if helpers.wants_json(request):
+        return JsonResponse({"saved": True, "message": message})
     messages.success(request, message)
     if request.headers.get("HX-Request"):
         return JsonResponse({"success": True, "message": message})
@@ -435,6 +437,10 @@ def _collection_quick_add_season_or_show_response(request, item):
 def collection_add(request):
     """Add a new owned copy to collection (with optional metadata)."""
     item_id = request.POST.get("item_id")
+    if helpers.wants_json(request) and not (
+        str(item_id or "").isdigit() and Item.objects.filter(id=item_id).exists()
+    ):
+        return JsonResponse({"saved": False, "error": gettext("Item not found")}, status=404)
     if not item_id:
         if request.headers.get("HX-Request"):
             return HttpResponseBadRequest("Item ID is required")
@@ -486,6 +492,13 @@ def collection_add(request):
             )
             entry.collected_at = collected_at
         _apply_custom_field_values(entry, request.user, post_data)
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {
+                    "saved": True,
+                    "message": gettext("Added %(value_1)s to collection") % {"value_1": item.title},
+                }
+            )
         messages.success(
             request,
             gettext("Added %(value_1)s to collection") % {"value_1": item.title},
@@ -499,6 +512,8 @@ def collection_add(request):
                 }
             )
     else:
+        if helpers.wants_json(request):
+            return JsonResponse({"saved": False, "errors": helpers.form_errors(form)}, status=400)
         helpers.form_error_messages(form, request)
         if request.headers.get("HX-Request"):
             return JsonResponse({"success": False, "errors": form.errors}, status=400)
@@ -604,6 +619,10 @@ def collection_remove(request, entry_id):
 
     item_title = entry.item.title
     entry.delete()
+    if helpers.wants_json(request):
+        return JsonResponse(
+            {"removed": True, "message": gettext("Removed %(value_1)s from collection") % {"value_1": item_title}}
+        )
     messages.success(
         request,
         gettext("Removed %(value_1)s from collection") % {"value_1": item_title},

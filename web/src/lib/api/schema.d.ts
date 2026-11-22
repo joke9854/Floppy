@@ -8471,6 +8471,31 @@ export interface components {
         TokenResponse: {
             token: string;
         };
+        /** @description The Collection tab: the episode's owned copies and the Add Copy form. */
+        TrackCollection: {
+            /** @description Post as item_id with the form. */
+            item_id: number;
+            /** @description POST item_id, the fields and the custom fields here with `Accept: application/json`. */
+            save_url: string;
+            add_label: string;
+            /** @description In the page's order; the first is full width. */
+            fields: components["schemas"]["TrackField"][];
+            custom_groups: components["schemas"]["TrackCollectionGroup"][];
+            entries: components["schemas"]["TrackCollectionEntry"][];
+        };
+        /** @description An owned copy of the episode. */
+        TrackCollectionEntry: {
+            id: number;
+            /** @description The page's summary lines. */
+            lines: string[];
+            /** @description POST with `Accept: application/json` to remove the copy. */
+            remove_url: string;
+        };
+        /** @description One of the user's custom collection field groups. */
+        TrackCollectionGroup: {
+            name: string;
+            fields: components["schemas"]["TrackField"][];
+        };
         /** @description The pickers' Release Date shortcut. */
         TrackDateSuggestion: {
             label: string;
@@ -8491,6 +8516,18 @@ export interface components {
         TrackField: {
             name: string;
             label: string;
+            /**
+             * @description A checkbox posts its name only when ticked (value `on`).
+             *
+             *     * `hidden` - hidden
+             *     * `select` - select
+             *     * `number` - number
+             *     * `datetime` - datetime
+             *     * `date` - date
+             *     * `textarea` - textarea
+             *     * `text` - text
+             *     * `checkbox` - checkbox
+             */
             kind: components["schemas"]["TrackFieldKindEnum"];
             /** @description The value as the page's input holds it. Dates are the server-time value with microseconds; post them back unchanged to keep the instant. */
             value: string;
@@ -8515,9 +8552,10 @@ export interface components {
          *     * `date` - date
          *     * `textarea` - textarea
          *     * `text` - text
+         *     * `checkbox` - checkbox
          * @enum {string}
          */
-        TrackFieldKindEnum: "hidden" | "select" | "number" | "datetime" | "date" | "textarea" | "text";
+        TrackFieldKindEnum: "hidden" | "select" | "number" | "datetime" | "date" | "textarea" | "text" | "checkbox";
         /** @description The KOReader document ID field (books, with KOReader connected). */
         TrackKoreader: {
             value: string;
@@ -8650,6 +8688,8 @@ export interface components {
             plays: components["schemas"]["TrackPlays"] | null;
             /** @description The Discover tab, where the page has it. */
             discover: components["schemas"]["TrackDiscover"] | null;
+            /** @description The Collection tab (single episodes). */
+            collection: components["schemas"]["TrackCollection"] | null;
         };
         /** @description Paginated tracked-media collection. */
         TrackedMediaEnvelope: {

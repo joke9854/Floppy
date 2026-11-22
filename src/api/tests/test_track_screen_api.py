@@ -1077,3 +1077,156 @@ class DiscoverTrackScreenTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "discover-tab-content")
         self.assertIn("discoverActionComplete", response.headers["HX-Trigger"])
+
+
+class CollectionTrackScreenTests(TestCase):
+    """P4-D5: an episode's Collection tab lists, adds and removes owned copies."""
+
+    def setUp(self):
+        EpisodeTrackScreenTests.setUp(self)
+        from app.models import CollectionField, CollectionFieldGroup
+
+        group = CollectionFieldGroup.objects.create(user=self.user, name="Shelf")
+        self.boxed = CollectionField.objects.create(
+            group=group, label="Boxed", field_type="checkbox", media_types=["episode"]
+        )
+        self.shelf = CollectionField.objects.create(
+            group=group,
+            label="Room",
+            field_type="select",
+            options=["Den", "Attic"],
+            media_types=["episode"],
+            position=1,
+        )
+        CollectionField.objects.create(
+            group=group, label="Pages", field_type="number", media_types=["book"], position=2
+        )
+        patcher = patch(
+            "app.models.providers.services.get_media_metadata",
+            return_value={
+                "title": "Show",
+                "episode_title": "Pilot",
+                "season/1": {"episodes": [{"episode_number": 1}]},
+                "max_progress": 1,
+            },
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _collection(self):
+        response = self.client.get(
+            reverse("api_track_screen", args=["episode", "tmdb", "ep-1"]),
+            {"season_number": 1, "episode_number": 1},
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        return response.json()["collection"]
+
+    def test_the_tab_follows_the_page_adds_and_removes_copies(self):
+        from app.models import CollectionEntry
+
+        page = self.client.get(
+            reverse("track_modal", args=["tmdb", "episode", "ep-1", 1]),
+            {"episode_number": 1},
+        )
+        collection = self._collection()
+
+        page_form = page.context["collection_context"]["form"]
+        configured = page.context["collection_context"]["collection_fields"]
+        self.assertEqual(
+            [f["name"] for f in collection["fields"]],
+            [b.name for b in page_form if b.name != "item" and b.name in configured],
+        )
+        kinds = {f["name"]: f["kind"] for f in collection["fields"]}
+        self.assertEqual(kinds["media_type"], "select")
+        self.assertEqual(kinds["is_3d"], "checkbox")
+        self.assertEqual(kinds["purchase_price"], "number")
+        self.assertIn(kinds["collected_at"], {"datetime", "date"})
+        formats = [c["value"] for c in collection["fields"][0]["choices"]]
+        self.assertEqual(formats[:3], ["", "4K Blu-ray", "Blu-ray"])
+        self.assertEqual(collection["item_id"], self.episode_item.id)
+        self.assertEqual(collection["entries"], [])
+        self.assertEqual(collection["add_label"], "Add Copy")
+        self.assertEqual(
+            [(g["name"], [f["label"] for f in g["fields"]]) for g in collection["custom_groups"]],
+            [("Shelf", ["Boxed", "Room"])],
+        )
+
+        added = self.client.post(
+            collection["save_url"],
+            {
+                "item_id": collection["item_id"],
+                "media_type": "Blu-ray",
+                "resolution": "4K",
+                "is_3d": "on",
+                "purchase_price": "9.99",
+                "purchase_location": "Amazon",
+                f"custom_field_{self.boxed.id}": "on",
+                f"custom_field_{self.shelf.id}": "Attic",
+            },
+            **JSON,
+        )
+
+        self.assertEqual(added.status_code, 200, added.content)
+        self.assertEqual(added.json(), {"saved": True, "message": "Added Pilot to collection"})
+        self.assertEqual(list(added.wsgi_request._messages), [])
+        entry = CollectionEntry.objects.get(user=self.user, item=self.episode_item)
+        self.assertEqual(
+            entry.custom_field_values, {str(self.boxed.id): True, str(self.shelf.id): "Attic"}
+        )
+
+        collection = self._collection()
+        self.assertEqual(collection["add_label"], "Add Another Copy")
+        self.assertEqual(
+            collection["entries"],
+            [
+                {
+                    "id": entry.id,
+                    "lines": ["Format: Blu-Ray", "4K • 3D", "$9.99 • Amazon"],
+                    "remove_url": reverse("collection_remove", args=[entry.id]),
+                }
+            ],
+        )
+        custom = {f["label"]: f["value"] for f in collection["custom_groups"][0]["fields"]}
+        self.assertEqual(custom, {"Boxed": "on", "Room": "Attic"})
+
+        removed = self.client.post(collection["entries"][0]["remove_url"], **JSON)
+
+        self.assertEqual(removed.json(), {"removed": True, "message": "Removed Pilot from collection"})
+        self.assertFalse(CollectionEntry.objects.filter(id=entry.id).exists())
+
+    def test_errors_answer_json_and_htmx_is_unchanged(self):
+        from app.models import CollectionEntry
+
+        collection = self._collection()
+        bad = self.client.post(
+            collection["save_url"], {"item_id": collection["item_id"], "purchase_price": "abc"}, **JSON
+        )
+        self.assertEqual(bad.status_code, 400)
+        self.assertFalse(bad.json()["saved"])
+        self.assertIn("purchase_price", bad.json()["errors"])
+
+        missing = self.client.post(collection["save_url"], {"item_id": "nope"}, **JSON)
+        self.assertEqual(missing.status_code, 404)
+        self.assertFalse(missing.json()["saved"])
+
+        htmx = self.client.post(
+            reverse("collection_add"),
+            {"item_id": collection["item_id"], "media_type": "DVD"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(htmx.json(), {"success": True, "message": "Added Pilot to collection"})
+        self.assertEqual(CollectionEntry.objects.filter(item=self.episode_item).count(), 1)
+
+    def test_other_types_have_no_tab(self):
+        item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/m.jpg",
+        )
+        Movie.objects.create(item=item, user=self.user, status=Status.COMPLETED.value)
+
+        response = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"]))
+
+        self.assertIsNone(response.json()["collection"])
