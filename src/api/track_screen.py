@@ -14,6 +14,7 @@ included, so posting an untouched date back stores the same instant.
 
 from __future__ import annotations
 
+import json
 from urllib.parse import quote
 
 from django.conf import settings
@@ -569,6 +570,13 @@ def _collection(context) -> dict | None:
     entries = collection.get("visible_existing_entries") or []
     return {
         "item_id": item.id,
+        "item_media_type": item.media_type,
+        "schema": {
+            "save_url": str(collection.get("collection_fields_save_url") or reverse("collection_fields_save")),
+            "groups": json.loads(collection.get("custom_field_schema_json") or "[]"),
+            "field_types": json.loads(collection.get("field_type_choices_json") or "[]"),
+            "media_types": json.loads(collection.get("media_type_choices_json") or "[]"),
+        },
         "save_url": reverse("collection_add") + next_query,
         "add_label": str(_("Add Another Copy") if entries else _("Add Copy")),
         "fields": fields,
@@ -891,10 +899,44 @@ class TrackCollectionGroupSerializer(serializers.Serializer):
     fields = TrackFieldSerializer(many=True)
 
 
+class TrackSchemaFieldSerializer(serializers.Serializer):
+    """A custom collection field, as the field editor edits it."""
+
+    id = serializers.IntegerField(allow_null=True)
+    label = serializers.CharField()
+    field_type = serializers.CharField()
+    options = serializers.ListField(child=serializers.CharField())
+    media_types = serializers.ListField(child=serializers.CharField())
+
+
+class TrackSchemaGroupSerializer(serializers.Serializer):
+    """A custom field group."""
+
+    id = serializers.IntegerField(allow_null=True)
+    name = serializers.CharField()
+    fields = TrackSchemaFieldSerializer(many=True)
+
+
+class TrackCollectionSchemaSerializer(serializers.Serializer):
+    """The user's whole custom-field schema (the page's Manage custom fields)."""
+
+    save_url = serializers.CharField(
+        help_text=(
+            "POST JSON {item_id, known_field_ids, groups} with the CSRF header: "
+            "the whole schema; fields known but missing are deleted. Answers {success, groups}."
+        )
+    )
+    groups = TrackSchemaGroupSerializer(many=True)
+    field_types = TrackFieldChoiceSerializer(many=True)
+    media_types = TrackFieldChoiceSerializer(many=True)
+
+
 class TrackCollectionSerializer(serializers.Serializer):
     """The Collection tab: the episode's owned copies and the Add Copy form."""
 
     item_id = serializers.IntegerField(help_text="Post as item_id with the form.")
+    item_media_type = serializers.CharField(help_text="Custom fields apply per media type.")
+    schema = TrackCollectionSchemaSerializer()
     save_url = serializers.CharField(
         help_text="POST item_id, the fields and the custom fields here with `Accept: application/json`."
     )

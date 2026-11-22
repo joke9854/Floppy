@@ -27704,6 +27704,11 @@ components:
         item_id:
           type: integer
           description: Post as item_id with the form.
+        item_media_type:
+          type: string
+          description: Custom fields apply per media type.
+        schema:
+          $ref: '#/components/schemas/TrackCollectionSchema'
         save_url:
           type: string
           description: 'POST item_id, the fields and the custom fields here with `Accept:
@@ -27729,7 +27734,9 @@ components:
       - entries
       - fields
       - item_id
+      - item_media_type
       - save_url
+      - schema
     TrackCollectionEntry:
       type: object
       description: An owned copy of the episode.
@@ -27761,6 +27768,33 @@ components:
       required:
       - fields
       - name
+    TrackCollectionSchema:
+      type: object
+      description: The user's whole custom-field schema (the page's Manage custom
+        fields).
+      properties:
+        save_url:
+          type: string
+          description: 'POST JSON {item_id, known_field_ids, groups} with the CSRF
+            header: the whole schema; fields known but missing are deleted. Answers
+            {success, groups}.'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackSchemaGroup'
+        field_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackFieldChoice'
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackFieldChoice'
+      required:
+      - field_types
+      - groups
+      - media_types
+      - save_url
     TrackDateSuggestion:
       type: object
       description: The pickers' Release Date shortcut.
@@ -28394,6 +28428,48 @@ components:
       description: |-
         * `start` - start
         * `stop` - stop
+    TrackSchemaField:
+      type: object
+      description: A custom collection field, as the field editor edits it.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        label:
+          type: string
+        field_type:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        media_types:
+          type: array
+          items:
+            type: string
+      required:
+      - field_type
+      - id
+      - label
+      - media_types
+      - options
+    TrackSchemaGroup:
+      type: object
+      description: A custom field group.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackSchemaField'
+      required:
+      - fields
+      - id
+      - name
     TrackScreen:
       type: object
       description: The track dialog's General tab.

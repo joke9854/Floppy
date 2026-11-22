@@ -603,3 +603,55 @@ button.ct-picker__result:hover {
 	flex: none;
 	align-self: flex-start;
 }
+
+/* The custom-field editor (P4-D8). */
+.ct-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.ct-fields__group {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px;
+	border-radius: 16px;
+	background-color: var(--color-surface-strong);
+}
+
+.ct-fields__field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 12px;
+}
+
+.ct-fields__type {
+	flex: none;
+	width: 8.5rem;
+}
+
+.ct-fields__types summary {
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.ct-fields__checks {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+	margin-top: 6px;
+}
+
+.ct-fields__field-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.ct-fields__group > .ct-track-btn,
+.ct-fields > .ct-track-btn {
+	align-self: flex-start;
+}

@@ -8510,6 +8510,9 @@ export interface components {
         TrackCollection: {
             /** @description Post as item_id with the form. */
             item_id: number;
+            /** @description Custom fields apply per media type. */
+            item_media_type: string;
+            schema: components["schemas"]["TrackCollectionSchema"];
             /** @description POST item_id, the fields and the custom fields here with `Accept: application/json`. */
             save_url: string;
             add_label: string;
@@ -8530,6 +8533,14 @@ export interface components {
         TrackCollectionGroup: {
             name: string;
             fields: components["schemas"]["TrackField"][];
+        };
+        /** @description The user's whole custom-field schema (the page's Manage custom fields). */
+        TrackCollectionSchema: {
+            /** @description POST JSON {item_id, known_field_ids, groups} with the CSRF header: the whole schema; fields known but missing are deleted. Answers {success, groups}. */
+            save_url: string;
+            groups: components["schemas"]["TrackSchemaGroup"][];
+            field_types: components["schemas"]["TrackFieldChoice"][];
+            media_types: components["schemas"]["TrackFieldChoice"][];
         };
         /** @description The pickers' Release Date shortcut. */
         TrackDateSuggestion: {
@@ -8796,6 +8807,20 @@ export interface components {
          * @enum {string}
          */
         TrackRewatchActionEnum: "start" | "stop";
+        /** @description A custom collection field, as the field editor edits it. */
+        TrackSchemaField: {
+            id: number | null;
+            label: string;
+            field_type: string;
+            options: string[];
+            media_types: string[];
+        };
+        /** @description A custom field group. */
+        TrackSchemaGroup: {
+            id: number | null;
+            name: string;
+            fields: components["schemas"]["TrackSchemaField"][];
+        };
         /** @description The track dialog's General tab. */
         TrackScreen: {
             media_type: string;

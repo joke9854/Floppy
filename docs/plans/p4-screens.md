@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. The custom-field editor next |
+| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. D8: the custom-field editor. Songs and podcast episodes come with their detail pages |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -385,7 +385,13 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
       `build_history_context`. Fixed with it: D6b's picker imported the
       shell's search icon, which split it into one more file and put the
       Library 0.1 kB over budget.
-- [ ] The custom-field schema editor.
+- [x] D8 (2026-11-22): the Collection tab's custom-field editor (the
+      page's Manage custom fields): groups and fields (name, type, media
+      types, a select's options) added, removed and reordered (up and down
+      for the page's drag handles), saved as the whole schema to
+      `collection_fields_save` (JSON already); the tab's custom fields
+      re-render from the saved schema. The track screen's `collection`
+      carries `schema` and `item_media_type`.
 
 API (D1): `GET /api/v1/track/{type}/{source}/{id}/` reads
 `build_standard_track_context`, split from `_render_standard_track_modal`.

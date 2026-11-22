@@ -1217,6 +1217,48 @@ class CollectionTrackScreenTests(TestCase):
         self.assertEqual(htmx.json(), {"success": True, "message": "Added Pilot to collection"})
         self.assertEqual(CollectionEntry.objects.filter(item=self.episode_item).count(), 1)
 
+    def test_the_schema_editor_saves_the_whole_schema(self):
+        import json as jsonlib
+
+        collection = self._collection()
+        schema = collection["schema"]
+        self.assertEqual(collection["item_media_type"], "episode")
+        self.assertEqual(schema["save_url"], reverse("collection_fields_save"))
+        self.assertEqual([g["name"] for g in schema["groups"]], ["Shelf"])
+        self.assertEqual(
+            [f["label"] for f in schema["groups"][0]["fields"]], ["Boxed", "Room", "Pages"]
+        )
+        self.assertIn({"value": "checkbox", "label": "Checkbox"}, schema["field_types"])
+        self.assertIn("episode", [c["value"] for c in schema["media_types"]])
+
+        shelf = schema["groups"][0]
+        payload = {
+            "item_id": collection["item_id"],
+            "known_field_ids": [f["id"] for f in shelf["fields"]],
+            "groups": [
+                {
+                    "id": shelf["id"],
+                    "name": "Shelf",
+                    "fields": [
+                        {**f, "options": f["options"]}
+                        for f in shelf["fields"]
+                        if f["label"] != "Boxed"
+                    ]
+                    + [
+                        {"id": None, "label": "Edition", "field_type": "text", "options": [], "media_types": ["episode"]}
+                    ],
+                }
+            ],
+        }
+        saved = self.client.post(
+            schema["save_url"], jsonlib.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertTrue(saved.json()["success"])
+
+        groups = self._collection()["custom_groups"]
+        self.assertEqual([f["label"] for f in groups[0]["fields"]], ["Room", "Edition"])
+
     def test_other_types_have_no_tab(self):
         item = Item.objects.create(
             media_id="603",

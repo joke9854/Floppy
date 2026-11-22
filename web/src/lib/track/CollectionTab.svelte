@@ -1,23 +1,62 @@
 <script lang="ts">
 	import Minus from '@lucide/svelte/icons/minus';
+	import Pencil from '@lucide/svelte/icons/pencil';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash from '@lucide/svelte/icons/trash-2';
 	import type { components } from '#lib/api/client.ts';
 	import { djangoForm } from '#lib/csrf.ts';
+	import FieldsEditor from './FieldsEditor.svelte';
 	import { tt } from './strings.ts';
 
 	type Collection = components['schemas']['TrackCollection'];
 	type Field = components['schemas']['TrackField'];
+	type SavedGroup = components['schemas']['TrackSchemaGroup'];
 
 	/**
 	 * The Collection tab (P4-D5), as the Django dialog's collection_modal.html
 	 * for one episode: the owned copies, each removable, then the Add Copy
-	 * form with the user's custom fields. Editing the custom-field schema
-	 * stays on the page for now.
+	 * form with the user's custom fields, and (P4-D8) the custom-field editor.
 	 */
 	let { collection, onsaved }: { collection: Collection; onsaved: (message: string) => void } = $props();
 
-	const customFields = $derived(collection.custom_groups.flatMap((group) => group.fields));
+	// svelte-ignore state_referenced_locally
+	let customGroups = $state.raw(collection.custom_groups);
+	// svelte-ignore state_referenced_locally
+	let schema = $state.raw(collection.schema);
+	let managing = $state(false);
+	const customFields = $derived(customGroups.flatMap((group) => group.fields));
+
+	/** The saved schema's groups for this media type, as the page re-renders them. */
+	function fieldsSaved(groups: SavedGroup[]) {
+		schema = { ...schema, groups };
+		customGroups = groups
+			.map((group) => ({
+				name: group.name,
+				fields: group.fields
+					.filter((field) => field.media_types.includes(collection.item_media_type))
+					.map((field) => {
+						const name = `custom_field_${field.id}`;
+						return {
+							name,
+							label: field.label,
+							kind: field.field_type as Field['kind'],
+							value: values[name] ?? '',
+							choices:
+								field.field_type === 'select'
+									? [{ value: '', label: tt.select }, ...field.options.map((option) => ({ value: option, label: option }))]
+									: [],
+							required: false,
+							min: null,
+							max: null,
+							step: field.field_type === 'number' ? 'any' : null,
+							placeholder: '',
+							help_text: ''
+						} satisfies Field;
+					})
+			}))
+			.filter((group) => group.fields.length);
+		managing = false;
+	}
 
 	// svelte-ignore state_referenced_locally
 	let values = $state<Record<string, string>>(
@@ -176,8 +215,29 @@
 		</div>
 
 		<section>
-			<h3 class="ct-collection__heading">{tt.customFields}</h3>
-			{#each collection.custom_groups as group, g (g)}
+			<div class="ct-discover__row">
+				<h3 class="ct-collection__heading">{tt.customFields}</h3>
+				<button
+					type="button"
+					class="ct-track-icon"
+					title={tt.manageFields}
+					aria-label={tt.manageFields}
+					aria-pressed={managing}
+					onclick={() => (managing = !managing)}
+				>
+					<Pencil class="size-4" aria-hidden="true" />
+				</button>
+			</div>
+			{#if managing}
+				<FieldsEditor
+					{schema}
+					itemId={collection.item_id}
+					itemMediaType={collection.item_media_type}
+					onsaved={fieldsSaved}
+					oncancel={() => (managing = false)}
+				/>
+			{:else}
+			{#each customGroups as group, g (g)}
 				<h4 class="ct-collection__group">{group.name}</h4>
 				<div class="ct-track__grid ct-collection__grid">
 					{#each group.fields as field (field.name)}
@@ -189,6 +249,7 @@
 			{:else}
 				<p class="ct-track__help">{tt.noCustomFields}</p>
 			{/each}
+			{/if}
 		</section>
 
 		{#each errors.__all__ ?? [] as error (error)}
