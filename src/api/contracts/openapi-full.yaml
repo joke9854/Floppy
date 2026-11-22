@@ -27681,6 +27681,24 @@ components:
       - hidden
       - item_id
       - save_url
+    TrackEditionPicker:
+      type: object
+      description: A Hardcover edition or MusicBrainz release picker.
+      properties:
+        search_url:
+          type: string
+          description: 'GET with q and `Accept: application/json`: {results}.'
+        save_url:
+          type: string
+          description: POST edition_id (Hardcover) or release_id (MusicBrainz).
+        selected:
+          allOf:
+          - $ref: '#/components/schemas/TrackPickResult'
+          nullable: true
+      required:
+      - save_url
+      - search_url
+      - selected
     TrackField:
       type: object
       description: One form field, as the page renders it; post `name=value` back.
@@ -27851,11 +27869,28 @@ components:
           allOf:
           - $ref: '#/components/schemas/TrackMetadataCustom'
           nullable: true
+        move:
+          allOf:
+          - $ref: '#/components/schemas/TrackMovePicker'
+          nullable: true
+        edition:
+          allOf:
+          - $ref: '#/components/schemas/TrackEditionPicker'
+          nullable: true
+          description: Hardcover books.
+        release:
+          allOf:
+          - $ref: '#/components/schemas/TrackEditionPicker'
+          nullable: true
+          description: Albums with a MusicBrainz release group.
       required:
       - custom
+      - edition
       - image
       - language
+      - move
       - provider
+      - release
     TrackMetadataCustom:
       type: object
       description: Custom metadata overrides, for titles shown with Custom metadata.
@@ -27927,12 +27962,66 @@ components:
         mapping_status:
           type: string
           description: identity, mapped, missing or custom.
+        remap:
+          allOf:
+          - $ref: '#/components/schemas/TrackRemap'
+          nullable: true
       required:
       - display_label
       - identity_label
       - mapping_status
       - options
+      - remap
       - save_url
+      - value
+    TrackMovePicker:
+      type: object
+      description: Move the title to another library identity (TV and anime).
+      properties:
+        search_url:
+          type: string
+          description: 'GET with q and `Accept: application/json`: {results}.'
+        save_url:
+          type: string
+          description: POST target_media_type, target_source, target_media_id; answers
+            {saved, location}.
+        target_label:
+          type: string
+        target_source_label:
+          type: string
+        target_media_type:
+          type: string
+        target_source:
+          type: string
+      required:
+      - save_url
+      - search_url
+      - target_label
+      - target_media_type
+      - target_source
+      - target_source_label
+    TrackPickResult:
+      type: object
+      description: An edition or release, as the page's picker lists it.
+      properties:
+        value:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            type: string
+        selected:
+          type: boolean
+      required:
+      - image
+      - lines
+      - selected
+      - title
       - value
     TrackPlays:
       type: object
@@ -28091,6 +28180,28 @@ components:
       required:
       - episode_number
       - season_number
+    TrackRemap:
+      type: object
+      description: Search the display provider for the right match and map it.
+      properties:
+        provider:
+          type: string
+        search_url:
+          type: string
+          description: 'GET with q and `Accept: application/json`: {results}.'
+        save_url:
+          type: string
+          description: POST provider and provider_media_id.
+        prompt:
+          type: string
+        placeholder:
+          type: string
+      required:
+      - placeholder
+      - prompt
+      - provider
+      - save_url
+      - search_url
     TrackRewatch:
       type: object
       description: Rewatch or End rewatch, for a finished or rewatching show or season.

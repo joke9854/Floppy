@@ -67,5 +67,25 @@ export const tt = {
 	customMetadataHelp: 'These overrides only affect this item while Custom is selected as the display provider.',
 	saveMetadata: 'Save Metadata',
 	saveImage: 'Save Image',
+	useMatch: (title: string) => `Use ${title}`,
+	moveTo: (label: string) => `Move to ${label}`,
+	moveHelp: (source: string) =>
+		`Search ${source} for the matching show. The selected title becomes the new tracking identity while your watch history and owned relations are retained when the destination supports them.`,
+	searchIn: (label: string) => `Search ${label}...`,
+	moveToTitle: (title: string) => `Move tracking to ${title}`,
+	edition: 'Edition',
+	editionHelp:
+		"Pick a specific Hardcover edition (e.g. a different language or cover) to use for this title's title and cover. Leave the search blank to see every edition.",
+	selectedEdition: 'Selected edition',
+	searchEditions: 'Search editions...',
+	useEdition: (title: string) => `Use edition ${title}`,
+	specificRelease: 'Specific release',
+	releaseHelp:
+		'Pick a MusicBrainz pressing for its format, cover, and release details. Play history remains grouped under this album.',
+	selectedRelease: 'Selected release',
+	searchReleases: 'Search releases...',
+	useRelease: (title: string) => `Use release ${title}`,
+	searchFailed: 'The search did not answer. Try again.',
+	noMatches: 'No matches found. Try a different search.',
 	imageWithGeneral: 'Save this image from the General tab when you add or update the entry.',
 } as const;

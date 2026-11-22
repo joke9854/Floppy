@@ -155,6 +155,88 @@ def wants_json(request):
     )
 
 
+def answers_json(view):
+    """Answer a redirecting form view in JSON when the web app asks for it.
+
+    The view keeps its flash messages and redirects for the page; for
+    `Accept: application/json` the messages it queued become the answer
+    (an error message fails it) and are not flashed on the next page.
+    """
+    from functools import wraps
+
+    from django.http import JsonResponse
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        response = view(request, *args, **kwargs)
+        if not wants_json(request) or isinstance(response, JsonResponse):
+            return response
+        storage = messages.get_messages(request)
+        queued = list(getattr(storage, "_queued_messages", []))
+        storage._queued_messages = []
+        errors = [str(message) for message in queued if message.level >= messages.ERROR]
+        if errors:
+            return JsonResponse({"saved": False, "error": " ".join(errors)}, status=400)
+        answer = {
+            "saved": True,
+            "message": " ".join(str(message) for message in queued),
+        }
+        if response.has_header("Location"):
+            answer["location"] = response["Location"]
+        return JsonResponse(answer)
+
+    return wrapper
+
+
+def edition_result(edition, picker_type, *, selected_release_id=None):
+    """Return a Hardcover edition or MusicBrainz release for the web picker.
+
+    The lines are the ones edition_picker_result.html writes.
+    """
+    from app.templatetags import app_tags
+
+    if picker_type == "music":
+        first = " · ".join(
+            part
+            for part in (
+                str(edition.get("release_date") or "Date unknown"),
+                str(edition.get("country") or ""),
+                str(edition.get("status") or "").title(),
+            )
+            if part
+        )
+        second = " · ".join(
+            part
+            for part in (
+                str(edition.get("format") or "Format unknown"),
+                str(edition.get("packaging") or ""),
+                str(edition.get("label") or ""),
+            )
+            if part
+        )
+        if edition.get("track_count"):
+            second += f" · {edition['track_count']} tracks"
+        lines = [first, second]
+        if edition.get("barcode"):
+            lines.append(f"Barcode: {edition['barcode']}")
+        value = str(edition.get("release_id") or "")
+        selected = bool(selected_release_id) and selected_release_id == edition.get("release_id")
+    else:
+        line = " · ".join(
+            str(edition.get(key)) for key in ("language", "format") if edition.get(key)
+        )
+        lines = [line] if line else []
+        value = str(edition.get("id") or "")
+        selected = False
+    return {
+        "value": value,
+        "title": str(edition.get("title") or ""),
+        "image": app_tags.image_url(edition["image"]) if edition.get("image") else None,
+        "lines": lines,
+        "selected": selected,
+    }
+
+
 def redirect_back(request):
     """Redirect to the previous page, removing the 'page' parameter if present."""
     next_url = normalize_navigation_url(

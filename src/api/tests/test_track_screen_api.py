@@ -1369,3 +1369,174 @@ class MetadataTrackScreenTests(TestCase):
 
         self.assertEqual(image["save_url"], "")
         self.assertEqual(image["field"]["name"], "image_url")
+
+
+class MetadataPickerTests(TestCase):
+    """P4-D6b: the Metadata tab's searches and pickers answer JSON."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d6b", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+
+    def _movie(self):
+        item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/m.jpg",
+        )
+        Movie.objects.create(item=item, user=self.user, status=Status.COMPLETED.value)
+        return item
+
+    @patch("app.metadata_sync_views.library_actions.remap_metadata_provider")
+    @patch("app.metadata_sync_views.services.search")
+    @patch("app.providers.tmdb.metadata_languages", return_value=[("", "Default")])
+    def test_remap_search_and_save(self, _languages, search, remap):
+        from app.models import MetadataProviderPreference
+
+        item = self._movie()
+        MetadataProviderPreference.objects.create(user=self.user, item=item, provider="manual")
+        screen = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"])).json()
+        remap_block = screen["metadata"]["provider"]["remap"]
+        self.assertEqual(remap_block["provider"], "manual")
+        self.assertEqual(remap_block["prompt"], "Wrong match? Search Custom to pick the correct title.")
+
+        search.return_value = {"results": [{"media_id": "77", "title": "Matrix", "image": "", "year": 1999}]}
+        found = self.client.get(remap_block["search_url"] + "&q=matrix", **JSON)
+        self.assertEqual(
+            found.json(), {"results": [{"media_id": "77", "title": "Matrix", "image": None, "year": "1999"}]}
+        )
+
+        bad = self.client.post(remap_block["save_url"], {"provider": "tmdb", "provider_media_id": "77"}, **JSON)
+        self.assertEqual(bad.status_code, 400)
+        self.assertEqual(bad.json()["error"], "That remap target is not valid for this title.")
+        saved = self.client.post(
+            remap_block["save_url"], {"provider": "manual", "provider_media_id": "77"}, **JSON
+        )
+        self.assertEqual(saved.json()["message"], "Remapped to the selected match.")
+        self.assertTrue(saved.json()["saved"])
+        self.assertEqual(list(saved.wsgi_request._messages), [])
+        remap.assert_called_once_with(self.user, item, "movie", "manual", "77")
+
+        page = self.client.post(remap_block["save_url"], {"provider": "manual", "provider_media_id": "77"})
+        self.assertEqual(page.status_code, 302)
+
+    @patch("app.metadata_sync_views.library_migration.migrate_library_item")
+    @patch("app.metadata_sync_views.library_migration.get_move_context")
+    @patch("app.metadata_sync_views.services.search")
+    def test_library_move_search_and_move(self, search, move_context, migrate):
+        from app.services.library_migration import LibraryMigrationError
+
+        item = self._movie()
+        move_context.return_value = {
+            "target_media_type": "anime",
+            "target_source": "mal",
+            "target_label": "Anime",
+            "target_source_label": "MyAnimeList",
+        }
+        search.return_value = {"results": [{"media_id": "1", "title": "Show", "image": "", "year": 2001}]}
+        found = self.client.get(
+            reverse("search_library_move_candidates", kwargs={"item_id": item.id}), {"q": "show"}, **JSON
+        )
+        self.assertEqual(found.json()["results"][0]["media_id"], "1")
+
+        move_url = reverse("move_library_item", kwargs={"item_id": item.id})
+        migrate.side_effect = LibraryMigrationError("Already tracked there.")
+        failed = self.client.post(move_url, {"target_media_id": "1"}, **JSON)
+        self.assertEqual(failed.json(), {"saved": False, "error": "Already tracked there."})
+
+        migrate.side_effect = None
+        migrate.return_value = item
+        moved = self.client.post(move_url, {"target_media_id": "1"}, **JSON)
+        self.assertEqual(moved.json()["message"], "Moved tracking to The Matrix.")
+        self.assertTrue(moved.json()["location"].startswith("/details/tmdb/movie/603/"))
+
+    @patch("app.track_modal_views.hardcover.editions")
+    @patch("app.metadata_sync_views.hardcover.editions")
+    def test_hardcover_edition_picker(self, list_editions, modal_editions):
+        from app.models import HardcoverEditionPreference
+
+        item = Item.objects.create(
+            media_id="778812",
+            source=Sources.HARDCOVER.value,
+            media_type=MediaTypes.BOOK.value,
+            title="Eye of the Needle",
+            image="http://example.com/en.jpg",
+            number_of_pages=354,
+        )
+        Book.objects.create(item=item, user=self.user, status=Status.IN_PROGRESS.value)
+        editions = [
+            {"id": "24008419", "title": "Die Nadel", "image": "", "format": "Paperback", "language": "German"},
+            {"id": "1", "title": "Eye of the Needle", "image": "", "format": "", "language": "English"},
+        ]
+        list_editions.return_value = modal_editions.return_value = editions
+        HardcoverEditionPreference.objects.create(user=self.user, item=item, edition_id="24008419")
+
+        response = self.client.get(reverse("api_track_screen", args=["book", "hardcover", "778812"]))
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        edition = response.json()["metadata"]["edition"]
+        self.assertEqual(edition["save_url"], reverse("set_hardcover_edition", kwargs={"item_id": item.id}))
+        self.assertEqual(edition["selected"]["title"], "Die Nadel")
+        self.assertEqual(edition["selected"]["lines"], ["German · Paperback"])
+
+        found = self.client.get(edition["search_url"], {"q": "eye"}, **JSON)
+        self.assertEqual(
+            found.json()["results"],
+            [{"value": "1", "title": "Eye of the Needle", "image": None, "lines": ["English"], "selected": False}],
+        )
+        empty = self.client.post(edition["save_url"], {"edition_id": ""}, **JSON)
+        self.assertEqual(empty.json(), {"saved": False, "error": "Select an edition to use."})
+        saved = self.client.post(edition["save_url"], {"edition_id": "1"}, **JSON)
+        self.assertEqual(saved.json()["message"], "Edition updated.")
+        self.assertTrue(saved.json()["saved"])
+
+    @patch("app.providers.musicbrainz.get_release_group_genres", return_value=[])
+    @patch("app.providers.musicbrainz.get_release")
+    @patch("app.music_album_views.musicbrainz.get_release_group_releases")
+    def test_album_release_picker(self, releases, get_release, _genres):
+        from app.models import Album, AlbumTracker, Artist
+
+        artist = Artist.objects.create(name="Test Artist")
+        album = Album.objects.create(
+            title="Test Album",
+            artist=artist,
+            musicbrainz_release_id="representative-release",
+            musicbrainz_release_group_id="release-group",
+            tracks_populated=True,
+            image="https://example.com/default.jpg",
+        )
+        AlbumTracker.objects.create(user=self.user, album=album, status=Status.COMPLETED.value)
+        release = {
+            "release_id": "release-1",
+            "title": "Original Pressing",
+            "release_date": "1977",
+            "country": "US",
+            "status": "official",
+            "packaging": "Jewel Case",
+            "format": "CD",
+            "label": "Example Records",
+            "barcode": "0123",
+            "track_count": 9,
+            "image": "",
+            "release_group_id": "release-group",
+            "tracks": [],
+        }
+        releases.return_value = [release]
+        get_release.return_value = release
+
+        screen = self.client.get(reverse("api_track_screen", args=["album", "music", str(album.id)]))
+        self.assertEqual(screen.status_code, 200, screen.content[:300])
+        picker = screen.json()["metadata"]["release"]
+        self.assertEqual(picker["save_url"], reverse("set_music_release", kwargs={"album_id": album.id}))
+        self.assertIsNone(picker["selected"])
+
+        found = self.client.get(picker["search_url"], **JSON)
+        self.assertEqual(
+            found.json()["results"][0]["lines"],
+            ["1977 · US · Official", "CD · Jewel Case · Example Records · 9 tracks", "Barcode: 0123"],
+        )
+        saved = self.client.post(picker["save_url"], {"release_id": "release-1"}, **JSON)
+        self.assertTrue(saved.json()["saved"], saved.content)

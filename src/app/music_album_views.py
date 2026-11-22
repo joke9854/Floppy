@@ -102,6 +102,16 @@ def list_music_releases(request, album_id):
         user=request.user,
         album=album,
     ).first()
+    if helpers.wants_json(request):
+        selected = preference.release_id if preference else None
+        return JsonResponse(
+            {
+                "results": [
+                    helpers.edition_result(release, "music", selected_release_id=selected)
+                    for release in releases
+                ]
+            }
+        )
     return render(
         request,
         "app/components/hardcover_edition_results.html",
@@ -123,6 +133,7 @@ def list_music_releases(request, album_id):
 
 @login_required
 @require_POST
+@helpers.answers_json
 def set_music_release(request, album_id):
     """Persist a validated per-user MusicBrainz release choice."""
     album = get_object_or_404(Album, id=album_id)

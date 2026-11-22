@@ -1,18 +1,21 @@
 <script lang="ts">
 	import type { components } from '#lib/api/client.ts';
 	import { djangoForm } from '#lib/csrf.ts';
+	import { detailHref } from '#lib/shell/nav.ts';
+	import PickerSearch from './PickerSearch.svelte';
 	import { tt } from './strings.ts';
 
 	type Metadata = components['schemas']['TrackMetadata'];
-	type Section = 'provider' | 'language' | 'custom' | 'image';
+	type Section = 'provider' | 'remap' | 'language' | 'move' | 'edition' | 'release' | 'custom' | 'image';
 
 	/**
 	 * The Metadata tab (P4-D6a), as the Django dialog's
 	 * media_metadata_panel.html: the display provider, the metadata language,
 	 * custom metadata and the image URL, each saved on its own. The image is
-	 * also part of the General form (`image`/`onimage`), as on the page. The
-	 * remap, edition, release and library-move searches and the grouped-anime
-	 * conversion stay on the page for now.
+	 * also part of the General form (`image`/`onimage`), as on the page.
+	 * P4-D6b adds the page's searches: remap the display provider's match,
+	 * move the title to another library, pick a Hardcover edition or a
+	 * MusicBrainz release.
 	 */
 	let {
 		metadata,
@@ -38,7 +41,7 @@
 	let problem = $state<{ section: Section; text: string } | null>(null);
 	let errors = $state<Record<string, string[]>>({});
 
-	async function send(section: Section, url: string, fields: Record<string, string>) {
+	async function send(section: Section, url: string, fields: Record<string, string>, moved = false) {
 		if (busy) return;
 		busy = section;
 		problem = null;
@@ -47,7 +50,9 @@
 			const response = await djangoForm(url, fields, { json: true });
 			const answer = await response.json().catch(() => ({}));
 			if (response.ok) {
-				onsaved(answer.message ?? '');
+				// A library move lands on the new title's page, as on the page.
+				if (moved && answer.location) window.location.assign(detailHref(answer.location));
+				else onsaved(answer.message ?? '');
 				return;
 			}
 			if (answer.errors) errors = answer.errors;
@@ -73,8 +78,9 @@
 <div class="ct-track__form">
 	{#if metadata.provider}
 		{@const p = metadata.provider}
+		<section class="ct-metadata__section">
 		<form
-			class="ct-metadata__section"
+			class="ct-metadata__form"
 			novalidate
 			onsubmit={(event) => {
 				event.preventDefault();
@@ -106,6 +112,22 @@
 			</div>
 			{@render outcome('provider')}
 		</form>
+		{#if p.remap}
+			{@const r = p.remap}
+			<div class="ct-metadata__form">
+				<p class="ct-track__help">{r.prompt}</p>
+				<PickerSearch
+					url={r.search_url}
+					label={r.placeholder}
+					placeholder={r.placeholder}
+					busy={busy !== null}
+					pickLabel={tt.useMatch}
+					onpick={(id) => send('remap', r.save_url, { provider: r.provider, provider_media_id: id })}
+				/>
+				{@render outcome('remap')}
+			</div>
+		{/if}
+		</section>
 	{/if}
 
 	{#if metadata.language}
@@ -133,6 +155,69 @@
 			{@render outcome('language')}
 		</form>
 	{/if}
+
+	{#if metadata.move}
+		{@const m = metadata.move}
+		<section class="ct-metadata__section">
+			<div>
+				<h3 class="ct-discover__title">{tt.moveTo(m.target_label)}</h3>
+				<p class="ct-track__help">{tt.moveHelp(m.target_source_label)}</p>
+			</div>
+			<PickerSearch
+				url={m.search_url}
+				label={tt.searchIn(m.target_label)}
+				placeholder={tt.searchIn(m.target_label)}
+				onFocus
+				busy={busy !== null}
+				pickLabel={tt.moveToTitle}
+				onpick={(id) =>
+					send(
+						'move',
+						m.save_url,
+						{ target_media_type: m.target_media_type, target_source: m.target_source, target_media_id: id },
+						true
+					)}
+			/>
+			{@render outcome('move')}
+		</section>
+	{/if}
+
+	{#each [{ section: 'edition' as const, picker: metadata.edition }, { section: 'release' as const, picker: metadata.release }] as entry (entry.section)}
+		{#if entry.picker}
+			{@const e = entry.picker}
+			{@const isRelease = entry.section === 'release'}
+			<section class="ct-metadata__section">
+				<div>
+					<h3 class="ct-discover__title">{isRelease ? tt.specificRelease : tt.edition}</h3>
+					<p class="ct-track__help">{isRelease ? tt.releaseHelp : tt.editionHelp}</p>
+				</div>
+				{#if e.selected}
+					<div>
+						<p class="ct-track-label">{isRelease ? tt.selectedRelease : tt.selectedEdition}</p>
+						<div class="ct-picker__result is-selected">
+							{#if e.selected.image}<img src={e.selected.image} alt="" class="ct-picker__image" />{/if}
+							<span class="min-w-0 flex-1">
+								<span class="ct-picker__title">{e.selected.title}</span>
+								{#each e.selected.lines as line, l (l)}<span class="ct-picker__line">{line}</span>{/each}
+							</span>
+						</div>
+					</div>
+				{/if}
+				{#if e.save_url}
+					<PickerSearch
+						url={e.search_url}
+						label={isRelease ? tt.searchReleases : tt.searchEditions}
+						placeholder={isRelease ? tt.searchReleases : tt.searchEditions}
+						onFocus
+						busy={busy !== null}
+						pickLabel={isRelease ? tt.useRelease : tt.useEdition}
+						onpick={(id) => send(entry.section, e.save_url, isRelease ? { release_id: id } : { edition_id: id })}
+					/>
+				{/if}
+				{@render outcome(entry.section)}
+			</section>
+		{/if}
+	{/each}
 
 	{#if metadata.custom}
 		{@const c = metadata.custom}

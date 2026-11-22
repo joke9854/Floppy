@@ -327,6 +327,78 @@ describe('track dialog', () => {
 		expect(new URLSearchParams(String(saveInit.body)).get('image_url')).toBe('http://example.com/new.jpg');
 	});
 
+	it('searches and picks a remap match and an edition on the Metadata tab', async () => {
+		document.cookie = 'csrftoken=test-token';
+		const withPickers = {
+			...screen,
+			metadata: {
+				provider: {
+					save_url: '/details/provider/tmdb/movie/603',
+					value: 'manual',
+					options: [
+						{ value: 'tmdb', label: 'The Movie Database' },
+						{ value: 'manual', label: 'Custom' }
+					],
+					display_label: 'Custom',
+					identity_label: 'The Movie Database',
+					mapping_status: 'custom',
+					remap: {
+						provider: 'manual',
+						search_url: '/details/remap-search/tmdb/movie/603?provider=manual',
+						save_url: '/details/remap/tmdb/movie/603',
+						prompt: 'Wrong match? Search Custom to pick the correct title.',
+						placeholder: 'Search Custom...'
+					}
+				},
+				language: null,
+				image: null,
+				custom: null,
+				move: null,
+				edition: {
+					search_url: '/details/hardcover-editions/778812',
+					save_url: '/details/hardcover-edition/5',
+					selected: null
+				},
+				release: null
+			}
+		};
+		const fetch = vi.fn(async (url: string) => {
+			if (url.startsWith('/api/v1/track/')) return new Response(JSON.stringify(withPickers));
+			if (url.startsWith('/details/remap-search/'))
+				return new Response(JSON.stringify({ results: [{ media_id: '77', title: 'Matrix', image: null, year: '1999' }] }));
+			if (url.startsWith('/details/hardcover-editions/'))
+				return new Response(
+					JSON.stringify({
+						results: [{ value: '1', title: 'Die Nadel', image: null, lines: ['German · Paperback'], selected: false }]
+					})
+				);
+			return new Response(JSON.stringify({ saved: true, message: 'Done.' }));
+		});
+		vi.stubGlobal('fetch', fetch);
+		const onsaved = vi.fn();
+		render(TrackDialog, {
+			props: { target: { mediaType: 'movie', source: 'tmdb', mediaId: '603' }, onclose: () => {}, onsaved }
+		});
+
+		await page.getByRole('tab', { name: 'Metadata' }).click();
+		await page.getByRole('searchbox', { name: 'Search Custom...' }).fill('matrix');
+		await page.getByRole('button', { name: 'Use Matrix' }).click();
+		await expect.poll(() => onsaved.mock.calls.length).toBe(1);
+		const urls = fetch.mock.calls.map(([url]) => url as string);
+		expect(urls).toContain('/details/remap-search/tmdb/movie/603?provider=manual&q=matrix');
+		const remap = fetch.mock.calls.find(([url]) => url === '/details/remap/tmdb/movie/603') as unknown as [string, RequestInit];
+		expect(Object.fromEntries(new URLSearchParams(String(remap[1].body)))).toEqual({
+			provider: 'manual',
+			provider_media_id: '77'
+		});
+
+		await page.getByRole('searchbox', { name: 'Search editions...' }).click();
+		await page.getByRole('button', { name: 'Use edition Die Nadel' }).click();
+		await expect.poll(() => onsaved.mock.calls.length).toBe(2);
+		const pick = fetch.mock.calls.find(([url]) => url === '/details/hardcover-edition/5') as unknown as [string, RequestInit];
+		expect(String(pick[1].body)).toBe('edition_id=1');
+	});
+
 	it('shows the form errors the page sends back', async () => {
 		document.cookie = 'csrftoken=test-token';
 		vi.stubGlobal(

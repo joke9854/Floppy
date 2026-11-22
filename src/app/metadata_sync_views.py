@@ -216,6 +216,8 @@ def search_remap_candidates(request, source, media_type, media_id):
         )
         results = (response or {}).get("results") or []
 
+    if helpers.wants_json(request):
+        return JsonResponse({"results": [_search_result(result) for result in results]})
     return render(
         request,
         "app/components/remap_search_results.html",
@@ -261,6 +263,8 @@ def search_library_move_candidates(request, item_id):
                 exc_info=True,
             )
 
+    if helpers.wants_json(request):
+        return JsonResponse({"results": [_search_result(result) for result in results]})
     return render(
         request,
         "app/components/library_move_results.html",
@@ -276,8 +280,21 @@ def search_library_move_candidates(request, item_id):
     )
 
 
+def _search_result(result):
+    """Return a provider search hit for the web's Metadata tab pickers."""
+    from app.templatetags import app_tags
+
+    return {
+        "media_id": str(result.get("media_id") or ""),
+        "title": str(result.get("title") or ""),
+        "image": app_tags.image_url(result["image"]) if result.get("image") else None,
+        "year": str(result.get("year") or ""),
+    }
+
+
 @login_required
 @require_POST
+@helpers.answers_json
 def move_library_item(request, item_id):
     """Move one owned TV/Anime show into an explicit destination identity."""
     item = get_object_or_404(Item, id=item_id)
@@ -359,6 +376,7 @@ def move_library_item(request, item_id):
 
 @login_required
 @require_POST
+@helpers.answers_json
 def remap_metadata_provider(request, source, media_type, media_id):
     """Persist a user-picked cross-provider ID mapping for an item."""
     item = _lookup_item_for_metadata_route(media_type, source, media_id)
@@ -427,6 +445,10 @@ def list_hardcover_editions(request, media_id):
                 for field in ("title", "language", "format", "publisher")
             ).lower()
         ]
+    if helpers.wants_json(request):
+        return JsonResponse(
+            {"results": [helpers.edition_result(edition, "hardcover") for edition in editions]}
+        )
     return render(
         request,
         "app/components/hardcover_edition_results.html",
@@ -450,6 +472,7 @@ def list_hardcover_editions(request, media_id):
 
 @login_required
 @require_POST
+@helpers.answers_json
 def set_hardcover_edition(request, item_id):
     """Persist a per-user Hardcover edition choice for a tracked book (#539)."""
     item = get_object_or_404(

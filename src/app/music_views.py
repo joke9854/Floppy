@@ -260,6 +260,7 @@ def build_music_tracker_context(
                 "list_music_releases",
                 kwargs={"album_id": album.id},
             ),
+            "save_url": reverse("set_music_release", kwargs={"album_id": album.id}),
         }
 
     return {

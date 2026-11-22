@@ -49,7 +49,15 @@ export default defineConfig({
 				'/details/provider/',
 				'/details/language/',
 				'/details/image/',
-				'/details/metadata/'
+				'/details/metadata/',
+				// The Metadata tab's searches (P4-D6b).
+				'/details/remap-search/',
+				'/details/remap/',
+				'/details/library-move-search/',
+				'/details/library-move/',
+				'/details/hardcover-editions/',
+				'/details/hardcover-edition/',
+				'/details/music/album/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

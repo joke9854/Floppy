@@ -8512,6 +8512,14 @@ export interface components {
             /** @description Post item_id and action (hide or unhide) with `Accept: application/json`. */
             save_url: string;
         };
+        /** @description A Hardcover edition or MusicBrainz release picker. */
+        TrackEditionPicker: {
+            /** @description GET with q and `Accept: application/json`: {results}. */
+            search_url: string;
+            /** @description POST edition_id (Hardcover) or release_id (MusicBrainz). */
+            save_url: string;
+            selected: components["schemas"]["TrackPickResult"] | null;
+        };
         /** @description One form field, as the page renders it; post `name=value` back. */
         TrackField: {
             name: string;
@@ -8590,6 +8598,11 @@ export interface components {
             language: components["schemas"]["TrackMetadataLanguage"] | null;
             image: components["schemas"]["TrackMetadataImage"] | null;
             custom: components["schemas"]["TrackMetadataCustom"] | null;
+            move: components["schemas"]["TrackMovePicker"] | null;
+            /** @description Hardcover books. */
+            edition: components["schemas"]["TrackEditionPicker"] | null;
+            /** @description Albums with a MusicBrainz release group. */
+            release: components["schemas"]["TrackEditionPicker"] | null;
         };
         /** @description Custom metadata overrides, for titles shown with Custom metadata. */
         TrackMetadataCustom: {
@@ -8623,6 +8636,26 @@ export interface components {
             identity_label: string;
             /** @description identity, mapped, missing or custom. */
             mapping_status: string;
+            remap: components["schemas"]["TrackRemap"] | null;
+        };
+        /** @description Move the title to another library identity (TV and anime). */
+        TrackMovePicker: {
+            /** @description GET with q and `Accept: application/json`: {results}. */
+            search_url: string;
+            /** @description POST target_media_type, target_source, target_media_id; answers {saved, location}. */
+            save_url: string;
+            target_label: string;
+            target_source_label: string;
+            target_media_type: string;
+            target_source: string;
+        };
+        /** @description An edition or release, as the page's picker lists it. */
+        TrackPickResult: {
+            value: string;
+            title: string;
+            image: string | null;
+            lines: string[];
+            selected: boolean;
         };
         /** @description The Episode Plays tab: log plays over a range of episodes or tracks. */
         TrackPlays: {
@@ -8683,6 +8716,16 @@ export interface components {
         TrackPlaysSide: {
             season_number: number | null;
             episode_number: number | null;
+        };
+        /** @description Search the display provider for the right match and map it. */
+        TrackRemap: {
+            provider: string;
+            /** @description GET with q and `Accept: application/json`: {results}. */
+            search_url: string;
+            /** @description POST provider and provider_media_id. */
+            save_url: string;
+            prompt: string;
+            placeholder: string;
         };
         /** @description Rewatch or End rewatch, for a finished or rewatching show or season. */
         TrackRewatch: {

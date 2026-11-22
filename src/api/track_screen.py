@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from app import helpers
 from app.models import MediaTypes
 from app.templatetags import app_tags
 
@@ -336,6 +337,7 @@ def _metadata(context) -> dict | None:
             "display_label": str(context.get("display_provider_label") or ""),
             "identity_label": str(context.get("identity_provider_label") or ""),
             "mapping_status": str(context.get("metadata_provider_mapping_status") or ""),
+            "remap": _remap(context, route),
         }
     language = None
     if item is not None and context.get("can_update_metadata_language") and context.get("metadata_language_options"):
@@ -373,9 +375,90 @@ def _metadata(context) -> dict | None:
             "fields": fields,
             "wide": [manual_form.add_prefix(name) for name in manual_form.fields if name in _WIDE_METADATA_FIELDS],
         }
-    if not (provider or language or image or custom):
+    move = None
+    move_context = context.get("library_move_context")
+    if item is not None and context.get("can_move_library_item") and move_context:
+        move = {
+            "search_url": reverse("search_library_move_candidates", kwargs={"item_id": item.id}),
+            "save_url": reverse("move_library_item", kwargs={"item_id": item.id}),
+            "target_label": str(move_context.get("target_label") or ""),
+            "target_source_label": str(move_context.get("target_source_label") or ""),
+            "target_media_type": str(move_context.get("target_media_type") or ""),
+            "target_source": str(move_context.get("target_source") or ""),
+        }
+    edition = None
+    if context.get("can_manage_hardcover_edition") and context.get("hardcover_edition_media_id"):
+        selected = context.get("hardcover_selected_edition")
+        edition = {
+            "search_url": reverse(
+                "list_hardcover_editions", kwargs={"media_id": context["hardcover_edition_media_id"]}
+            ),
+            "save_url": reverse("set_hardcover_edition", kwargs={"item_id": item.id}) if item is not None else "",
+            "selected": helpers.edition_result(selected, "hardcover") if selected else None,
+        }
+    release = None
+    picker = context.get("music_release_picker") or {}
+    if picker.get("available") and picker.get("list_url"):
+        selected = context.get("selected_music_release")
+        release = {
+            "search_url": str(picker["list_url"]),
+            "save_url": str(picker.get("save_url") or ""),
+            "selected": _selected_release(selected) if selected else None,
+        }
+    if not (provider or language or image or custom or move or edition or release):
         return None
-    return {"provider": provider, "language": language, "image": image, "custom": custom}
+    return {
+        "provider": provider,
+        "language": language,
+        "image": image,
+        "custom": custom,
+        "move": move,
+        "edition": edition,
+        "release": release,
+    }
+
+
+def _remap(context, route) -> dict | None:
+    """Return the provider's remap search, shown when display and tracking differ."""
+    display = str(context.get("display_provider") or "")
+    if not display or display == str(context.get("identity_provider") or ""):
+        return None
+    label = str(context.get("display_provider_label") or "")
+    return {
+        "provider": display,
+        "search_url": reverse("search_remap_candidates", kwargs=route) + f"?provider={quote(display)}",
+        "save_url": reverse("remap_metadata_provider", kwargs=route),
+        "prompt": (
+            _("No automatic match was found on %(value_1)s.")
+            if context.get("metadata_provider_mapping_status") == "missing"
+            else _("Wrong match? Search %(value_1)s to pick the correct title.")
+        )
+        % {"value_1": label},
+        "placeholder": _("Search %(value_1)s...") % {"value_1": label},
+    }
+
+
+def _selected_release(release) -> dict:
+    """Return the album's chosen MusicBrainz release as the panel shows it."""
+    from app.templatetags import app_tags
+
+    lines = [
+        " · ".join(
+            str(release.get(key))
+            for key in ("format", "packaging", "country", "release_date")
+            if release.get(key)
+        ),
+        " · ".join(str(release.get(key)) for key in ("label", "barcode") if release.get(key)),
+    ]
+    if release.get("track_count"):
+        lines.append(_("%(value_1)s tracks in this release") % {"value_1": release["track_count"]})
+    return {
+        "value": str(release.get("release_id") or ""),
+        "title": str(release.get("title") or ""),
+        "image": app_tags.image_url(release["image"]) if release.get("image") else None,
+        "lines": [str(line) for line in lines if line],
+        "selected": True,
+    }
 
 
 def _collection(context) -> dict | None:
@@ -566,7 +649,7 @@ def build_tracker_screen(request, media_type, context):
         "plays": _plays(context),
         "discover": None,
         "collection": None,
-        "metadata": None,
+        "metadata": _metadata(context),
     }
 
 
@@ -736,6 +819,16 @@ class TrackCollectionSerializer(serializers.Serializer):
     entries = TrackCollectionEntrySerializer(many=True)
 
 
+class TrackRemapSerializer(serializers.Serializer):
+    """Search the display provider for the right match and map it."""
+
+    provider = serializers.CharField()
+    search_url = serializers.CharField(help_text="GET with q and `Accept: application/json`: {results}.")
+    save_url = serializers.CharField(help_text="POST provider and provider_media_id.")
+    prompt = serializers.CharField()
+    placeholder = serializers.CharField()
+
+
 class TrackMetadataProviderSerializer(serializers.Serializer):
     """Where the title's display metadata comes from."""
 
@@ -747,6 +840,7 @@ class TrackMetadataProviderSerializer(serializers.Serializer):
     mapping_status = serializers.CharField(
         allow_blank=True, help_text="identity, mapped, missing or custom."
     )
+    remap = TrackRemapSerializer(allow_null=True)
 
 
 class TrackMetadataLanguageSerializer(serializers.Serializer):
@@ -775,6 +869,39 @@ class TrackMetadataCustomSerializer(serializers.Serializer):
     wide = serializers.ListField(child=serializers.CharField(), help_text="Fields drawn across both columns.")
 
 
+class TrackPickResultSerializer(serializers.Serializer):
+    """An edition or release, as the page's picker lists it."""
+
+    value = serializers.CharField()
+    title = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_null=True)
+    lines = serializers.ListField(child=serializers.CharField())
+    selected = serializers.BooleanField()
+
+
+class TrackMovePickerSerializer(serializers.Serializer):
+    """Move the title to another library identity (TV and anime)."""
+
+    search_url = serializers.CharField(help_text="GET with q and `Accept: application/json`: {results}.")
+    save_url = serializers.CharField(
+        help_text="POST target_media_type, target_source, target_media_id; answers {saved, location}."
+    )
+    target_label = serializers.CharField(allow_blank=True)
+    target_source_label = serializers.CharField(allow_blank=True)
+    target_media_type = serializers.CharField(allow_blank=True)
+    target_source = serializers.CharField(allow_blank=True)
+
+
+class TrackEditionPickerSerializer(serializers.Serializer):
+    """A Hardcover edition or MusicBrainz release picker."""
+
+    search_url = serializers.CharField(help_text="GET with q and `Accept: application/json`: {results}.")
+    save_url = serializers.CharField(
+        allow_blank=True, help_text="POST edition_id (Hardcover) or release_id (MusicBrainz)."
+    )
+    selected = TrackPickResultSerializer(allow_null=True)
+
+
 class TrackMetadataSerializer(serializers.Serializer):
     """The Metadata tab's forms; a section is null where the page has none."""
 
@@ -782,6 +909,9 @@ class TrackMetadataSerializer(serializers.Serializer):
     language = TrackMetadataLanguageSerializer(allow_null=True)
     image = TrackMetadataImageSerializer(allow_null=True)
     custom = TrackMetadataCustomSerializer(allow_null=True)
+    move = TrackMovePickerSerializer(allow_null=True)
+    edition = TrackEditionPickerSerializer(allow_null=True, help_text="Hardcover books.")
+    release = TrackEditionPickerSerializer(allow_null=True, help_text="Albums with a MusicBrainz release group.")
 
 
 class TrackScreenSerializer(serializers.Serializer):
