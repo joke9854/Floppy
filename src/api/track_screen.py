@@ -304,6 +304,80 @@ def _custom_field(field, stored) -> dict:
     }
 
 
+# media_metadata_panel.html draws these custom metadata fields across both
+# columns, as text boxes.
+_WIDE_METADATA_FIELDS = {
+    "synopsis", "genres", "studios", "languages", "authors", "isbn", "platforms", "themes", "creators",
+}
+
+
+def _metadata(context) -> dict | None:
+    """Return the Metadata tab's plain forms (media_metadata_panel.html), or None.
+
+    The provider, language, image and custom metadata forms; the remap,
+    edition, release and library-move searches and the grouped-anime
+    conversion stay on the page for now.
+    """
+    item = context.get("metadata_item")
+    route = {
+        "source": context.get("identity_provider"),
+        "media_type": context.get("media_type"),
+        "media_id": item.media_id if item is not None else "",
+    }
+    provider = None
+    if item is not None and context.get("can_update_metadata_provider") and context.get("metadata_provider_options"):
+        provider = {
+            "save_url": reverse("update_metadata_provider_preference", kwargs=route),
+            "value": str(context.get("display_provider") or ""),
+            "options": [
+                {"value": str(option.value), "label": str(option.label)}
+                for option in context["metadata_provider_options"]
+            ],
+            "display_label": str(context.get("display_provider_label") or ""),
+            "identity_label": str(context.get("identity_provider_label") or ""),
+            "mapping_status": str(context.get("metadata_provider_mapping_status") or ""),
+        }
+    language = None
+    if item is not None and context.get("can_update_metadata_language") and context.get("metadata_language_options"):
+        language = {
+            "save_url": reverse("update_metadata_language_preference", kwargs=route),
+            "value": str(context.get("selected_metadata_language") or ""),
+            "options": [
+                {"value": str(code), "label": str(_(str(label)))}
+                for code, label in context["metadata_language_options"]
+            ],
+        }
+    manual_form = context.get("manual_metadata_form")
+    image_field = context.get("image_field")
+    image = None
+    if image_field is not None and not manual_form:
+        image_item_id = context.get("image_save_item_id")
+        image = {
+            "field": _field(image_field),
+            "save_url": reverse("update_item_image", args=[image_item_id]) if image_item_id else "",
+        }
+    custom = None
+    if manual_form:
+        fields = []
+        for bound in manual_form:
+            field = _field(bound)
+            # The form is prefixed: post the prefixed name back.
+            field["name"] = bound.html_name
+            if bound.name in _WIDE_METADATA_FIELDS:
+                field["kind"] = "textarea"
+            elif getattr(bound.field.widget, "input_type", None) == "date":
+                field["kind"] = "date"
+            fields.append(field)
+        custom = {
+            "save_url": str(context.get("manual_metadata_formaction") or ""),
+            "fields": fields,
+            "wide": [manual_form.add_prefix(name) for name in manual_form.fields if name in _WIDE_METADATA_FIELDS],
+        }
+    if not (provider or language or image or custom):
+        return None
+    return {"provider": provider, "language": language, "image": image, "custom": custom}
+
+
 def _collection(context) -> dict | None:
     """Return the Collection tab (collection_modal.html), or None.
 
@@ -420,6 +494,7 @@ def build_track_screen(request, media_type, source, media_id, season_number=None
         "plays": _plays(context),
         "discover": _discover(context),
         "collection": _collection(context),
+        "metadata": _metadata(context),
     }
 
 
@@ -491,6 +566,7 @@ def build_tracker_screen(request, media_type, context):
         "plays": _plays(context),
         "discover": None,
         "collection": None,
+        "metadata": None,
     }
 
 
@@ -660,6 +736,54 @@ class TrackCollectionSerializer(serializers.Serializer):
     entries = TrackCollectionEntrySerializer(many=True)
 
 
+class TrackMetadataProviderSerializer(serializers.Serializer):
+    """Where the title's display metadata comes from."""
+
+    save_url = serializers.CharField(help_text="POST provider with `Accept: application/json`.")
+    value = serializers.CharField(allow_blank=True)
+    options = TrackFieldChoiceSerializer(many=True)
+    display_label = serializers.CharField(allow_blank=True)
+    identity_label = serializers.CharField(allow_blank=True)
+    mapping_status = serializers.CharField(
+        allow_blank=True, help_text="identity, mapped, missing or custom."
+    )
+
+
+class TrackMetadataLanguageSerializer(serializers.Serializer):
+    """The title's metadata language override."""
+
+    save_url = serializers.CharField(help_text="POST language with `Accept: application/json`.")
+    value = serializers.CharField(allow_blank=True)
+    options = TrackFieldChoiceSerializer(many=True)
+
+
+class TrackMetadataImageSerializer(serializers.Serializer):
+    """The image URL. It is also part of the General form, as on the page."""
+
+    field = TrackFieldSerializer()
+    save_url = serializers.CharField(
+        allow_blank=True,
+        help_text="POST image_url here for a tracked title; empty: it saves with the General tab.",
+    )
+
+
+class TrackMetadataCustomSerializer(serializers.Serializer):
+    """Custom metadata overrides, for titles shown with Custom metadata."""
+
+    save_url = serializers.CharField(help_text="POST the fields with `Accept: application/json`.")
+    fields = TrackFieldSerializer(many=True, help_text="Names carry the form's `metadata-` prefix.")
+    wide = serializers.ListField(child=serializers.CharField(), help_text="Fields drawn across both columns.")
+
+
+class TrackMetadataSerializer(serializers.Serializer):
+    """The Metadata tab's forms; a section is null where the page has none."""
+
+    provider = TrackMetadataProviderSerializer(allow_null=True)
+    language = TrackMetadataLanguageSerializer(allow_null=True)
+    image = TrackMetadataImageSerializer(allow_null=True)
+    custom = TrackMetadataCustomSerializer(allow_null=True)
+
+
 class TrackScreenSerializer(serializers.Serializer):
     """The track dialog's General tab."""
 
@@ -688,3 +812,4 @@ class TrackScreenSerializer(serializers.Serializer):
     plays = TrackPlaysSerializer(allow_null=True, help_text="The Episode Plays tab, where the page has it.")
     discover = TrackDiscoverSerializer(allow_null=True, help_text="The Discover tab, where the page has it.")
     collection = TrackCollectionSerializer(allow_null=True, help_text="The Collection tab (single episodes).")
+    metadata = TrackMetadataSerializer(allow_null=True, help_text="The Metadata tab, where the page has it.")

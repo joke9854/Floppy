@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Max, Min
 from django.db.utils import OperationalError
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -95,6 +95,11 @@ def update_metadata_provider_preference(request, source, media_type, media_id):
         )
     }
     if provider not in allowed_providers:
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {"saved": False, "error": gettext("That metadata provider is not available for this title.")},
+                status=400,
+            )
         messages.error(
             request, gettext("That metadata provider is not available for this title.")
         )
@@ -117,6 +122,8 @@ def update_metadata_provider_preference(request, source, media_type, media_id):
             item=item,
             defaults={"provider": provider},
         )
+        if helpers.wants_json(request):
+            return JsonResponse({"saved": True, "message": gettext("Metadata provider updated.")})
         messages.success(request, gettext("Metadata provider updated."))
 
     if return_url and (
@@ -153,9 +160,15 @@ def update_metadata_language_preference(request, source, media_type, media_id):
         language_choices = [("", f"Server Default ({settings.TMDB_LANG})")]
     valid_codes = {choice[0] for choice in language_choices}
     if language and language not in valid_codes:
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {"saved": False, "error": gettext("That metadata language is not available.")}, status=400
+            )
         messages.error(request, gettext("That metadata language is not available."))
     else:
         library_actions.set_metadata_language(request.user, item, language)
+        if helpers.wants_json(request):
+            return JsonResponse({"saved": True, "message": gettext("Metadata language updated.")})
         messages.success(request, gettext("Metadata language updated."))
 
     if return_url and (
@@ -482,22 +495,31 @@ def update_item_image(request, item_id):
 
     item = get_object_or_404(Item, id=item_id)
     media_model = apps.get_model("app", item.media_type)
+    as_json = helpers.wants_json(request)
     if not media_model.objects.filter(user=request.user, item=item).exists():
-        messages.error(
-            request, gettext("You can only update images for items in your library.")
-        )
+        message = gettext("You can only update images for items in your library.")
+        if as_json:
+            return JsonResponse({"saved": False, "error": message}, status=403)
+        messages.error(request, message)
         return helpers.redirect_back(request)
 
     if not image_url:
+        if as_json:
+            return JsonResponse(
+                {"saved": False, "errors": {"image_url": [gettext("Enter an image URL to save.")]}}, status=400
+            )
         messages.error(request, gettext("Enter an image URL to save."))
         return helpers.redirect_back(request)
 
     if item.image != image_url:
         item.image = image_url
         item.save(update_fields=["image"])
-        messages.success(request, gettext("Image URL updated."))
+        message = gettext("Image URL updated.")
     else:
-        messages.success(request, gettext("Image URL already matches this item."))
+        message = gettext("Image URL already matches this item.")
+    if as_json:
+        return JsonResponse({"saved": True, "message": message})
+    messages.success(request, message)
 
     if return_url and (
         return_url.startswith("/")
@@ -525,16 +547,19 @@ def update_manual_item_metadata(request, item_id):
         owned = media_model.objects.filter(related_season__user=request.user, item=item)
     else:
         owned = media_model.objects.filter(user=request.user, item=item)
+    as_json = helpers.wants_json(request)
     if not owned.exists():
-        messages.error(
-            request, gettext("You can only update metadata for items in your library.")
-        )
+        message = gettext("You can only update metadata for items in your library.")
+        if as_json:
+            return JsonResponse({"saved": False, "error": message}, status=403)
+        messages.error(request, message)
         return helpers.redirect_back(request)
 
     if not custom_metadata.supports_custom_metadata(item):
-        messages.error(
-            request, gettext("Metadata overrides are not available for this item.")
-        )
+        message = gettext("Metadata overrides are not available for this item.")
+        if as_json:
+            return JsonResponse({"saved": False, "error": message}, status=400)
+        messages.error(request, message)
         return helpers.redirect_back(request)
 
     form = custom_metadata.ManualMetadataForm(
@@ -542,6 +567,23 @@ def update_manual_item_metadata(request, item_id):
         item=item,
         prefix="metadata",
     )
+    if as_json:
+        if not form.is_valid():
+            # The web posts the prefixed names (metadata-<field>).
+            errors = {
+                (name if name == "__all__" else form.add_prefix(name)): messages_
+                for name, messages_ in helpers.form_errors(form).items()
+            }
+            return JsonResponse({"saved": False, "errors": errors}, status=400)
+        update_fields = form.save()
+        return JsonResponse(
+            {
+                "saved": True,
+                "message": gettext("Custom metadata updated.")
+                if update_fields
+                else gettext("Custom metadata already matches this item."),
+            }
+        )
     if form.is_valid():
         update_fields = form.save()
         if update_fields:

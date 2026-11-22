@@ -8584,6 +8584,46 @@ export interface components {
             end_date?: string | null;
             notes?: string | null;
         };
+        /** @description The Metadata tab's forms; a section is null where the page has none. */
+        TrackMetadata: {
+            provider: components["schemas"]["TrackMetadataProvider"] | null;
+            language: components["schemas"]["TrackMetadataLanguage"] | null;
+            image: components["schemas"]["TrackMetadataImage"] | null;
+            custom: components["schemas"]["TrackMetadataCustom"] | null;
+        };
+        /** @description Custom metadata overrides, for titles shown with Custom metadata. */
+        TrackMetadataCustom: {
+            /** @description POST the fields with `Accept: application/json`. */
+            save_url: string;
+            /** @description Names carry the form's `metadata-` prefix. */
+            fields: components["schemas"]["TrackField"][];
+            /** @description Fields drawn across both columns. */
+            wide: string[];
+        };
+        /** @description The image URL. It is also part of the General form, as on the page. */
+        TrackMetadataImage: {
+            field: components["schemas"]["TrackField"];
+            /** @description POST image_url here for a tracked title; empty: it saves with the General tab. */
+            save_url: string;
+        };
+        /** @description The title's metadata language override. */
+        TrackMetadataLanguage: {
+            /** @description POST language with `Accept: application/json`. */
+            save_url: string;
+            value: string;
+            options: components["schemas"]["TrackFieldChoice"][];
+        };
+        /** @description Where the title's display metadata comes from. */
+        TrackMetadataProvider: {
+            /** @description POST provider with `Accept: application/json`. */
+            save_url: string;
+            value: string;
+            options: components["schemas"]["TrackFieldChoice"][];
+            display_label: string;
+            identity_label: string;
+            /** @description identity, mapped, missing or custom. */
+            mapping_status: string;
+        };
         /** @description The Episode Plays tab: log plays over a range of episodes or tracks. */
         TrackPlays: {
             tab_label: string;
@@ -8690,6 +8730,8 @@ export interface components {
             discover: components["schemas"]["TrackDiscover"] | null;
             /** @description The Collection tab (single episodes). */
             collection: components["schemas"]["TrackCollection"] | null;
+            /** @description The Metadata tab, where the page has it. */
+            metadata: components["schemas"]["TrackMetadata"] | null;
         };
         /** @description Paginated tracked-media collection. */
         TrackedMediaEnvelope: {

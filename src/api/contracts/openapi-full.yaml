@@ -27830,6 +27830,110 @@ components:
         notes:
           type: string
           nullable: true
+    TrackMetadata:
+      type: object
+      description: The Metadata tab's forms; a section is null where the page has
+        none.
+      properties:
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/TrackMetadataProvider'
+          nullable: true
+        language:
+          allOf:
+          - $ref: '#/components/schemas/TrackMetadataLanguage'
+          nullable: true
+        image:
+          allOf:
+          - $ref: '#/components/schemas/TrackMetadataImage'
+          nullable: true
+        custom:
+          allOf:
+          - $ref: '#/components/schemas/TrackMetadataCustom'
+          nullable: true
+      required:
+      - custom
+      - image
+      - language
+      - provider
+    TrackMetadataCustom:
+      type: object
+      description: Custom metadata overrides, for titles shown with Custom metadata.
+      properties:
+        save_url:
+          type: string
+          description: 'POST the fields with `Accept: application/json`.'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackField'
+          description: Names carry the form's `metadata-` prefix.
+        wide:
+          type: array
+          items:
+            type: string
+          description: Fields drawn across both columns.
+      required:
+      - fields
+      - save_url
+      - wide
+    TrackMetadataImage:
+      type: object
+      description: The image URL. It is also part of the General form, as on the page.
+      properties:
+        field:
+          $ref: '#/components/schemas/TrackField'
+        save_url:
+          type: string
+          description: 'POST image_url here for a tracked title; empty: it saves with
+            the General tab.'
+      required:
+      - field
+      - save_url
+    TrackMetadataLanguage:
+      type: object
+      description: The title's metadata language override.
+      properties:
+        save_url:
+          type: string
+          description: 'POST language with `Accept: application/json`.'
+        value:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackFieldChoice'
+      required:
+      - options
+      - save_url
+      - value
+    TrackMetadataProvider:
+      type: object
+      description: Where the title's display metadata comes from.
+      properties:
+        save_url:
+          type: string
+          description: 'POST provider with `Accept: application/json`.'
+        value:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackFieldChoice'
+        display_label:
+          type: string
+        identity_label:
+          type: string
+        mapping_status:
+          type: string
+          description: identity, mapped, missing or custom.
+      required:
+      - display_label
+      - identity_label
+      - mapping_status
+      - options
+      - save_url
+      - value
     TrackPlays:
       type: object
       description: 'The Episode Plays tab: log plays over a range of episodes or tracks.'
@@ -28086,6 +28190,11 @@ components:
           - $ref: '#/components/schemas/TrackCollection'
           nullable: true
           description: The Collection tab (single episodes).
+        metadata:
+          allOf:
+          - $ref: '#/components/schemas/TrackMetadata'
+          nullable: true
+          description: The Metadata tab, where the page has it.
       required:
       - collection
       - date_suggestion
@@ -28096,6 +28205,7 @@ components:
       - koreader
       - max_progress
       - media_type
+      - metadata
       - notes
       - page_url
       - plays

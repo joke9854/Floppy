@@ -278,6 +278,55 @@ describe('track dialog', () => {
 		});
 	});
 
+	it('saves the language on the Metadata tab and sends the image with the General form', async () => {
+		document.cookie = 'csrftoken=test-token';
+		const withMetadata = {
+			...screen,
+			metadata: {
+				provider: null,
+				language: {
+					save_url: '/details/language/tmdb/movie/603',
+					value: '',
+					options: [
+						{ value: '', label: 'Server Default (en-US)' },
+						{ value: 'it-IT', label: 'Italian' }
+					]
+				},
+				image: {
+					field: field('image_url', 'text', 'http://example.com/m.jpg', { label: 'Image URL' }),
+					save_url: '/details/image/7'
+				},
+				custom: null
+			}
+		};
+		const fetch = vi.fn(async (url: string) =>
+			url.startsWith('/api/v1/track/')
+				? new Response(JSON.stringify(withMetadata))
+				: new Response(JSON.stringify({ saved: true, message: 'Done.', warnings: [] }))
+		);
+		vi.stubGlobal('fetch', fetch);
+		const onsaved = vi.fn();
+		render(TrackDialog, {
+			props: { target: { mediaType: 'movie', source: 'tmdb', mediaId: '603' }, onclose: () => {}, onsaved }
+		});
+
+		await page.getByRole('tab', { name: 'Metadata' }).click();
+		await page.getByRole('combobox', { name: 'Metadata Language' }).selectOptions('it-IT');
+		await page.getByRole('button', { name: 'Save Language' }).click();
+		await expect.poll(() => onsaved.mock.calls.length).toBe(1);
+		const [languageUrl, languageInit] = fetch.mock.calls[1] as unknown as [string, RequestInit];
+		expect(languageUrl).toBe('/details/language/tmdb/movie/603');
+		expect(Object.fromEntries(new URLSearchParams(String(languageInit.body)))).toEqual({ language: 'it-IT' });
+
+		await page.getByRole('textbox', { name: 'Image URL' }).fill('http://example.com/new.jpg');
+		await page.getByRole('tab', { name: 'General' }).click();
+		await page.getByRole('button', { name: 'Update' }).click();
+		await expect.poll(() => onsaved.mock.calls.length).toBe(2);
+		const [saveUrl, saveInit] = fetch.mock.calls[2] as unknown as [string, RequestInit];
+		expect(saveUrl).toBe(screen.save_url);
+		expect(new URLSearchParams(String(saveInit.body)).get('image_url')).toBe('http://example.com/new.jpg');
+	});
+
 	it('shows the form errors the page sends back', async () => {
 		document.cookie = 'csrftoken=test-token';
 		vi.stubGlobal(

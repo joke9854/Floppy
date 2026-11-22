@@ -461,3 +461,51 @@ textarea.ct-track-input {
 		grid-column: 1 / -1;
 	}
 }
+
+/* The Metadata tab (P4-D6a). */
+.ct-metadata__section {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.ct-metadata__section + .ct-metadata__section {
+	padding-top: 18px;
+	border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.ct-metadata__row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.ct-metadata__row > .ct-track-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.ct-metadata__text {
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-metadata__badge {
+	flex: none;
+	padding: 3px 8px;
+	border: 1px solid;
+	border-radius: 999px;
+	font-size: 11px;
+}
+
+.ct-metadata__badge.is-warning {
+	border-color: rgb(245 158 11 / 30%);
+	background-color: rgb(245 158 11 / 15%);
+	color: rgb(252 211 77);
+}
+
+.ct-metadata__badge.is-ok {
+	border-color: rgb(16 185 129 / 30%);
+	background-color: rgb(16 185 129 / 15%);
+	color: rgb(110 231 183);
+}

@@ -90,7 +90,7 @@
 		<label class="ct-track-label" for={id}>{field.label}</label>
 		{#if field.kind === 'select'}
 			<select {id} class="ct-track-input" bind:value={values[field.name]}>
-				{#each field.choices as choice (choice.value)}
+				{#each field.choices as choice, i (i)}
 					<option value={choice.value}>{choice.label}</option>
 				{/each}
 			</select>
@@ -177,7 +177,7 @@
 
 		<section>
 			<h3 class="ct-collection__heading">{tt.customFields}</h3>
-			{#each collection.custom_groups as group (group.name)}
+			{#each collection.custom_groups as group, g (g)}
 				<h4 class="ct-collection__group">{group.name}</h4>
 				<div class="ct-track__grid ct-collection__grid">
 					{#each group.fields as field (field.name)}

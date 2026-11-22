@@ -10,6 +10,7 @@
 	import DateField, { type DateAction } from './DateField.svelte';
 	import CollectionTab from './CollectionTab.svelte';
 	import DiscoverTab from './DiscoverTab.svelte';
+	import MetadataTab from './MetadataTab.svelte';
 	import PlaysTab from './PlaysTab.svelte';
 	import type { TrackTarget } from './open.svelte.ts';
 	import {
@@ -54,8 +55,8 @@
 	let errors = $state.raw<Record<string, string[]>>({});
 	let problem = $state('');
 	let rewatchSince = $state('');
-	/** The Django dialog's tabs: General, then Collection, Episode Plays and Discover where the page has them. */
-	let tab = $state<'general' | 'plays' | 'collection' | 'discover'>('general');
+	/** The Django dialog's tabs: General, then Metadata, Collection, Episode Plays and Discover where the page has them. */
+	let tab = $state<'general' | 'metadata' | 'plays' | 'collection' | 'discover'>('general');
 
 	function apiPath(): string {
 		const query = new URLSearchParams();
@@ -75,7 +76,9 @@
 				const body = (await response.json()) as Screen;
 				if (!live) return;
 				screen = body;
-				const all = [...body.hidden, ...body.fields, ...(body.notes ? [body.notes] : [])];
+				// The image URL is part of the General form, as on the page, though the Metadata tab shows it.
+				const image = body.metadata?.image ? [body.metadata.image.field] : [];
+				const all = [...body.hidden, ...body.fields, ...(body.notes ? [body.notes] : []), ...image];
 				form = initialState(all, body.track_time, new Date(), !body.tracked);
 				if (body.koreader) form = { ...form, values: { ...form.values, koreader_document_id: body.koreader.value } };
 			})
@@ -158,7 +161,7 @@
 				</Dialog.Close>
 			</header>
 
-			{#if (screen?.plays || screen?.collection || screen?.discover) && form && !loadError}
+			{#if (screen?.metadata || screen?.plays || screen?.collection || screen?.discover) && form && !loadError}
 				<div class="ct-track__tabs" role="tablist">
 					<button
 						type="button"
@@ -167,6 +170,15 @@
 						aria-selected={tab === 'general'}
 						onclick={() => (tab = 'general')}>{tt.general}</button
 					>
+					{#if screen.metadata}
+						<button
+							type="button"
+							role="tab"
+							class="ct-track__tab"
+							aria-selected={tab === 'metadata'}
+							onclick={() => (tab = 'metadata')}>{tt.metadata}</button
+						>
+					{/if}
 					{#if screen.collection}
 						<button
 							type="button"
@@ -203,6 +215,8 @@
 				<div class="ct-track__loading" aria-busy="true">{tt.loading}</div>
 			{:else if tab === 'plays' && screen.plays}
 				<PlaysTab plays={screen.plays} trackTime={screen.track_time} {onsaved} />
+			{:else if tab === 'metadata' && screen.metadata}
+				<MetadataTab metadata={screen.metadata} image={value('image_url')} onimage={(next) => set('image_url', next)} {onsaved} />
 			{:else if tab === 'collection' && screen.collection}
 				<CollectionTab collection={screen.collection} {onsaved} />
 			{:else if tab === 'discover' && screen.discover}

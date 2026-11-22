@@ -1230,3 +1230,142 @@ class CollectionTrackScreenTests(TestCase):
         response = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"]))
 
         self.assertIsNone(response.json()["collection"])
+
+
+@patch(
+    "app.providers.tmdb.metadata_languages",
+    return_value=[("", "Server Default (en-US)"), ("it-IT", "Italian")],
+)
+class MetadataTrackScreenTests(TestCase):
+    """P4-D6a: the Metadata tab's provider, language, image and custom forms."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d6", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+            image="http://example.com/m.jpg",
+        )
+        Movie.objects.create(item=self.item, user=self.user, status=Status.COMPLETED.value)
+
+    def _screen(self):
+        response = self.client.get(reverse("api_track_screen", args=["movie", "tmdb", "603"]))
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        return response.json()
+
+    def test_the_tab_follows_the_page(self, _languages):
+        page = self.client.get(reverse("track_modal", args=["tmdb", "movie", "603"]))
+        metadata = self._screen()["metadata"]
+
+        self.assertTrue(page.context["metadata_tab_available"])
+        self.assertEqual(
+            [o["value"] for o in metadata["provider"]["options"]],
+            [str(o.value) for o in page.context["metadata_provider_options"]],
+        )
+        self.assertEqual(metadata["provider"]["value"], page.context["display_provider"])
+        self.assertEqual(
+            metadata["language"]["options"],
+            [{"value": "", "label": "Server Default (en-US)"}, {"value": "it-IT", "label": "Italian"}],
+        )
+        self.assertEqual(metadata["image"]["field"]["name"], "image_url")
+        self.assertEqual(metadata["image"]["field"]["value"], "http://example.com/m.jpg")
+        self.assertEqual(metadata["image"]["save_url"], reverse("update_item_image", args=[self.item.id]))
+        self.assertIsNone(metadata["custom"])
+
+    def test_language_and_image_save_as_json(self, _languages):
+        metadata = self._screen()["metadata"]
+
+        bad = self.client.post(metadata["language"]["save_url"], {"language": "xx"}, **JSON)
+        self.assertEqual(bad.status_code, 400)
+        self.assertFalse(bad.json()["saved"])
+        saved = self.client.post(metadata["language"]["save_url"], {"language": "it-IT"}, **JSON)
+        self.assertEqual(saved.json(), {"saved": True, "message": "Metadata language updated."})
+        self.assertEqual(list(saved.wsgi_request._messages), [])
+        self.assertEqual(self._screen()["metadata"]["language"]["value"], "it-IT")
+
+        empty = self.client.post(metadata["image"]["save_url"], {"image_url": ""}, **JSON)
+        self.assertEqual(empty.status_code, 400)
+        self.assertIn("image_url", empty.json()["errors"])
+        image = self.client.post(
+            metadata["image"]["save_url"], {"image_url": "http://example.com/new.jpg"}, **JSON
+        )
+        self.assertEqual(image.json(), {"saved": True, "message": "Image URL updated."})
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.image, "http://example.com/new.jpg")
+
+    def test_the_general_form_carries_the_image_untouched(self, _languages):
+        screen = self._screen()
+        data = TrackScreenTests._post_data(screen)
+        data["image_url"] = screen["metadata"]["image"]["field"]["value"]
+
+        saved = self.client.post(screen["save_url"], data, **JSON)
+
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.image, "http://example.com/m.jpg")
+
+    @patch("app.metadata_sync_views._resolve_current_display_metadata_payload")
+    def test_custom_provider_opens_the_custom_form(self, payload, _languages):
+        payload.return_value = {"title": "The Matrix", "details": {"runtime": "2h 16m"}}
+        metadata = self._screen()["metadata"]
+        if "manual" not in [o["value"] for o in metadata["provider"]["options"]]:
+            self.skipTest("Movies offer no Custom provider here.")
+
+        bad = self.client.post(metadata["provider"]["save_url"], {"provider": "nope"}, **JSON)
+        self.assertEqual(bad.status_code, 400)
+        chosen = self.client.post(metadata["provider"]["save_url"], {"provider": "manual"}, **JSON)
+        self.assertEqual(chosen.json(), {"saved": True, "message": "Metadata provider updated."})
+
+        metadata = self._screen()["metadata"]
+        self.assertEqual(metadata["provider"]["value"], "manual")
+        self.assertIsNone(metadata["image"])
+        custom = metadata["custom"]
+        self.assertTrue(custom["fields"])
+        self.assertTrue(all(f["name"].startswith("metadata-") for f in custom["fields"]))
+        kinds = {f["name"]: f["kind"] for f in custom["fields"]}
+        self.assertEqual(kinds.get("metadata-release_date"), "date")
+        self.assertEqual(kinds.get("metadata-synopsis"), "textarea")
+        page = self.client.get(reverse("track_modal", args=["tmdb", "movie", "603"]))
+        self.assertEqual(
+            [f["name"] for f in custom["fields"]],
+            [b.html_name for b in page.context["manual_metadata_form"]],
+        )
+
+        untouched = {f["name"]: f["value"] for f in custom["fields"]}
+        kept = self.client.post(custom["save_url"], untouched, **JSON)
+        self.assertEqual(kept.status_code, 200, kept.content)
+        self.assertTrue(kept.json()["saved"])
+        self.assertEqual(
+            {f["name"]: f["value"] for f in self._screen()["metadata"]["custom"]["fields"]}, untouched
+        )
+
+        title = next(f["name"] for f in custom["fields"] if f["name"] == "metadata-title")
+        changed = self.client.post(custom["save_url"], {**untouched, title: "The Matrix (Custom)"}, **JSON)
+        self.assertEqual(changed.json(), {"saved": True, "message": "Custom metadata updated."})
+
+    def test_a_plain_post_still_redirects(self, _languages):
+        response = self.client.post(
+            reverse("update_metadata_language_preference", args=["tmdb", "movie", "603"]),
+            {"language": "it-IT", "return_url": "/"},
+        )
+        self.assertEqual(response.status_code, 302)
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_an_untracked_title_saves_its_image_with_the_general_form(self, metadata, _languages):
+        metadata.return_value = {
+            "title": "The Matrix",
+            "image": "http://example.com/m.jpg",
+            "max_progress": 1,
+            "details": {},
+        }
+        Movie.objects.filter(item=self.item).delete()
+
+        image = self._screen()["metadata"]["image"]
+
+        self.assertEqual(image["save_url"], "")
+        self.assertEqual(image["field"]["name"], "image_url")

@@ -44,7 +44,12 @@ export default defineConfig({
 				// The Discover tab (P4-D4).
 				'/discover/toggle-hidden',
 				// The Collection tab (P4-D5): collection/add/ and collection/<id>/remove/.
-				'/collection/'
+				'/collection/',
+				// The Metadata tab (P4-D6a).
+				'/details/provider/',
+				'/details/language/',
+				'/details/image/',
+				'/details/metadata/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }
