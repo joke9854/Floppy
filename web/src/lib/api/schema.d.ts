@@ -8564,6 +8564,24 @@ export interface components {
          * @enum {string}
          */
         TrackFieldKindEnum: "hidden" | "select" | "number" | "datetime" | "date" | "textarea" | "text" | "checkbox";
+        /** @description Convert a flat MAL anime to grouped series tracking. */
+        TrackGrouped: {
+            /** @description POST provider; answers {saved, location}. */
+            save_url: string;
+            provider: string;
+            lines: string[];
+            seasons: components["schemas"]["TrackGroupedSeason"][];
+        };
+        /** @description A season of the grouped series the conversion preview lists. */
+        TrackGroupedSeason: {
+            label: string;
+            title: string;
+            date: string;
+            /** @description The season this entry converts into. */
+            target: boolean;
+            mapped: string;
+            episodes: string;
+        };
         /** @description The KOReader document ID field (books, with KOReader connected). */
         TrackKoreader: {
             value: string;
@@ -8603,6 +8621,8 @@ export interface components {
             edition: components["schemas"]["TrackEditionPicker"] | null;
             /** @description Albums with a MusicBrainz release group. */
             release: components["schemas"]["TrackEditionPicker"] | null;
+            /** @description Flat MAL anime shown from TMDB or TVDB. */
+            grouped: components["schemas"]["TrackGrouped"] | null;
         };
         /** @description Custom metadata overrides, for titles shown with Custom metadata. */
         TrackMetadataCustom: {

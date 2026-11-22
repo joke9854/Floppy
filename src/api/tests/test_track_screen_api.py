@@ -1540,3 +1540,96 @@ class MetadataPickerTests(TestCase):
         )
         saved = self.client.post(picker["save_url"], {"release_id": "release-1"}, **JSON)
         self.assertTrue(saved.json()["saved"], saved.content)
+
+
+class GroupedAnimeConversionTests(TestCase):
+    """P4-D6c: Convert to Grouped Series, previewed and posted as JSON."""
+
+    def setUp(self):
+        cache.clear()
+        self.credentials = {"username": "d6c", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.item = Item.objects.create(
+            media_id="9253",
+            source=Sources.MAL.value,
+            media_type=MediaTypes.ANIME.value,
+            title="Steins;Gate",
+            image="http://example.com/a.jpg",
+        )
+        Anime.objects.create(item=self.item, user=self.user, status=Status.COMPLETED.value)
+
+    def test_the_preview_reads_as_the_page(self):
+        from api.track_screen import _grouped
+
+        context = {
+            "can_migrate_grouped_anime": True,
+            "grouped_preview": {
+                "title": "Steins;Gate",
+                "related": {
+                    "seasons": [
+                        {"season_number": 0, "max_progress": 2},
+                        {
+                            "season_number": 1,
+                            "episode_count": 24,
+                            "is_mapped_target": True,
+                            "mapped_episode_start": 1,
+                            "mapped_episode_end": 24,
+                        },
+                        {"season_number": 2},
+                    ]
+                },
+            },
+            "grouped_preview_target": {"season_title": "Season 1", "episode_start": 1, "episode_end": 24},
+            "identity_provider": "mal",
+            "display_provider": "tmdb",
+            "user": self.user,
+        }
+        route = {"source": "mal", "media_type": "anime", "media_id": "9253"}
+
+        grouped = _grouped(context, route)
+
+        self.assertEqual(grouped["save_url"], reverse("migrate_grouped_anime", kwargs=route))
+        self.assertEqual(grouped["provider"], "tmdb")
+        self.assertEqual(
+            grouped["lines"],
+            [
+                "See how this MAL entry will map into a single show with seasons before you convert it.",
+                "TMDB organizes this anime as Steins;Gate, with seasons grouped under one main show.",
+                "This MAL entry would convert to Season 1, episodes 1-24.",
+                "Nothing changes until you click Convert to Grouped Series. "
+                "Your existing MAL entry stays in place until then.",
+            ],
+        )
+        self.assertEqual(
+            [(s["label"], s["target"], s["mapped"], s["episodes"]) for s in grouped["seasons"]],
+            [
+                ("Specials", False, "", "2 episodes"),
+                ("Season 1", True, "MAL episodes: E1-E24", "24 episodes"),
+                ("Season 2", False, "", "? episodes"),
+            ],
+        )
+        self.assertIsNone(_grouped({**context, "can_migrate_grouped_anime": False}, route))
+
+    @patch("app.metadata_sync_views.anime_migration.migrate_flat_anime_to_grouped")
+    def test_convert_answers_json(self, migrate):
+        url = reverse("migrate_grouped_anime", args=["mal", "anime", "9253"])
+
+        refused = self.client.post(url, {"provider": "mal"}, **JSON)
+        self.assertEqual(
+            refused.json(), {"saved": False, "error": "Choose TMDB or TVDB before migrating this anime."}
+        )
+
+        grouped_item = Item.objects.create(
+            media_id="42509",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Steins;Gate",
+            image="http://example.com/t.jpg",
+        )
+        migrate.return_value.grouped_tv.item = grouped_item
+        converted = self.client.post(url, {"provider": "tmdb"}, **JSON)
+
+        self.assertEqual(converted.json()["message"], "Migrated this anime into grouped series tracking.")
+        self.assertTrue(converted.json()["location"].startswith("/details/tmdb/anime/42509/"))
+        self.assertEqual(list(converted.wsgi_request._messages), [])

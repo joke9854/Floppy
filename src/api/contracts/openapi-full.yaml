@@ -27787,6 +27787,52 @@ components:
         * `textarea` - textarea
         * `text` - text
         * `checkbox` - checkbox
+    TrackGrouped:
+      type: object
+      description: Convert a flat MAL anime to grouped series tracking.
+      properties:
+        save_url:
+          type: string
+          description: POST provider; answers {saved, location}.
+        provider:
+          type: string
+        lines:
+          type: array
+          items:
+            type: string
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackGroupedSeason'
+      required:
+      - lines
+      - provider
+      - save_url
+      - seasons
+    TrackGroupedSeason:
+      type: object
+      description: A season of the grouped series the conversion preview lists.
+      properties:
+        label:
+          type: string
+        title:
+          type: string
+        date:
+          type: string
+        target:
+          type: boolean
+          description: The season this entry converts into.
+        mapped:
+          type: string
+        episodes:
+          type: string
+      required:
+      - date
+      - episodes
+      - label
+      - mapped
+      - target
+      - title
     TrackKoreader:
       type: object
       description: The KOReader document ID field (books, with KOReader connected).
@@ -27883,9 +27929,15 @@ components:
           - $ref: '#/components/schemas/TrackEditionPicker'
           nullable: true
           description: Albums with a MusicBrainz release group.
+        grouped:
+          allOf:
+          - $ref: '#/components/schemas/TrackGrouped'
+          nullable: true
+          description: Flat MAL anime shown from TMDB or TVDB.
       required:
       - custom
       - edition
+      - grouped
       - image
       - language
       - move

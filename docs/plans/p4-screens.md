@@ -51,7 +51,7 @@ adds a web test for its flow:
 | P4-A | Home | Built: API `3a04e8483`, screen `cdefe0815`; follow-up (Now Playing pill, poster widths, TRACK_TIME) approved from screenshots |
 | P4-B | Library (every media list) | B1 to B6 built (2026-11-20): grid, filters, table, bulk select, card actions, music, podcasts and comics, Share View |
 | P4-C | Detail pages (title, episode, person, studio; there is no season page) | C1, C2, C3 built and pushed (2026-11-20); the studio page, anime episodes and ratings graphs later |
-| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). Grouped-anime conversion, history editing and the custom-field editor next |
+| P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. History editing and the custom-field editor next |
 | P4-E | History | Not started |
 | P4-F | Calendar | Not started |
 | P4-G | Discover | Not started |
@@ -371,7 +371,13 @@ D1 (2026-11-21): the General tab for movies, shows, seasons and episodes.
       `{results}` for `Accept: application/json`; the select views answer
       through `helpers.answers_json`, which turns the messages they queue
       into the JSON answer.
-- [ ] The grouped-anime conversion; history editing on the detail page; the
+- [x] D6c (2026-11-22): Convert to Grouped Series for a flat MAL anime
+      shown from TMDB or TVDB: the page's preview (lines and seasons, the
+      conversion target marked) as `metadata.grouped`; `migrate_grouped_anime`
+      answers JSON through `answers_json` and the web lands on the grouped
+      show's page. Not opened in the browser (no such anime on the local
+      account); covered by tests.
+- [ ] History editing on the detail page; the
       custom-field schema editor.
 
 API (D1): `GET /api/v1/track/{type}/{source}/{id}/` reads

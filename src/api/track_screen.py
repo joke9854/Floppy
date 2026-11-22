@@ -405,7 +405,8 @@ def _metadata(context) -> dict | None:
             "save_url": str(picker.get("save_url") or ""),
             "selected": _selected_release(selected) if selected else None,
         }
-    if not (provider or language or image or custom or move or edition or release):
+    grouped = _grouped(context, route) if item is not None else None
+    if not (provider or language or image or custom or move or edition or release or grouped):
         return None
     return {
         "provider": provider,
@@ -415,6 +416,90 @@ def _metadata(context) -> dict | None:
         "move": move,
         "edition": edition,
         "release": release,
+        "grouped": grouped,
+    }
+
+
+def _grouped(context, route) -> dict | None:
+    """Return Convert to Grouped Series (a flat MAL anime shown from TMDB or TVDB).
+
+    The preview and its seasons as media_metadata_panel.html writes them.
+    """
+    preview = context.get("grouped_preview")
+    if not (context.get("can_migrate_grouped_anime") and preview):
+        return None
+    from users.templatetags.user_tags import user_date_format
+
+    user = context.get("user")
+    identity = str(context.get("identity_provider") or "").upper()
+    display = str(context.get("display_provider") or "")
+    target = context.get("grouped_preview_target") or {}
+    lines = [
+        _("See how this %(value_1)s entry will map into a single show with seasons before you convert it.")
+        % {"value_1": identity},
+        _("%(value_1)s organizes this anime as") % {"value_1": display.upper()}
+        + f" {app_tags.display_title(preview, user)}"
+        + _(", with seasons grouped under one main show."),
+    ]
+    if target:
+        sentence = _("This %(value_1)s entry would convert to") % {"value_1": identity}
+        sentence += f" {target.get('season_title') or 'Unknown season'}"
+        if target.get("episode_start") and target.get("episode_end"):
+            sentence += _(", episodes %(value_1)s-%(value_2)s") % {
+                "value_1": target["episode_start"],
+                "value_2": target["episode_end"],
+            }
+        elif target.get("episode_start"):
+            sentence += " " + _("starting at episode %(value_1)s") % {"value_1": target["episode_start"]}
+        lines.append(sentence + ".")
+    lines.append(
+        _(
+            "Nothing changes until you click Convert to Grouped Series. "
+            "Your existing %(value_1)s entry stays in place until then."
+        )
+        % {"value_1": identity}
+    )
+    seasons = []
+    related = preview.get("related") if isinstance(preview, dict) else getattr(preview, "related", None)
+    for season in (related or {}).get("seasons") or []:
+        number = season.get("season_number")
+        count = None
+        for key in ("max_progress", "episode_count"):
+            if season.get(key) or season.get(key) == 0:
+                count = season[key]
+                break
+        else:
+            details_episodes = (season.get("details") or {}).get("episodes")
+            if details_episodes:
+                count = details_episodes
+        mapped = ""
+        if season.get("is_mapped_target") and season.get("mapped_episode_start") and season.get(
+            "mapped_episode_end"
+        ):
+            mapped = _("%(value_1)s episodes: E%(value_2)s-E%(value_3)s") % {
+                "value_1": identity,
+                "value_2": season["mapped_episode_start"],
+                "value_3": season["mapped_episode_end"],
+            }
+        seasons.append(
+            {
+                "label": str(_("Specials") if number == 0 else _("Season %(value_1)s") % {"value_1": number}),
+                "title": str(season.get("season_title") or season.get("title") or ""),
+                "date": str(user_date_format(season["first_air_date"], user))
+                if season.get("first_air_date")
+                else "",
+                "target": bool(season.get("is_mapped_target")),
+                "mapped": str(mapped),
+                "episodes": str(
+                    _("%(value_1)s episodes") % {"value_1": count} if count is not None else _("? episodes")
+                ),
+            }
+        )
+    return {
+        "save_url": reverse("migrate_grouped_anime", kwargs=route),
+        "provider": display,
+        "lines": [str(line) for line in lines],
+        "seasons": seasons,
     }
 
 
@@ -902,6 +987,26 @@ class TrackEditionPickerSerializer(serializers.Serializer):
     selected = TrackPickResultSerializer(allow_null=True)
 
 
+class TrackGroupedSeasonSerializer(serializers.Serializer):
+    """A season of the grouped series the conversion preview lists."""
+
+    label = serializers.CharField()
+    title = serializers.CharField(allow_blank=True)
+    date = serializers.CharField(allow_blank=True)
+    target = serializers.BooleanField(help_text="The season this entry converts into.")
+    mapped = serializers.CharField(allow_blank=True)
+    episodes = serializers.CharField()
+
+
+class TrackGroupedSerializer(serializers.Serializer):
+    """Convert a flat MAL anime to grouped series tracking."""
+
+    save_url = serializers.CharField(help_text="POST provider; answers {saved, location}.")
+    provider = serializers.CharField()
+    lines = serializers.ListField(child=serializers.CharField())
+    seasons = TrackGroupedSeasonSerializer(many=True)
+
+
 class TrackMetadataSerializer(serializers.Serializer):
     """The Metadata tab's forms; a section is null where the page has none."""
 
@@ -912,6 +1017,7 @@ class TrackMetadataSerializer(serializers.Serializer):
     move = TrackMovePickerSerializer(allow_null=True)
     edition = TrackEditionPickerSerializer(allow_null=True, help_text="Hardcover books.")
     release = TrackEditionPickerSerializer(allow_null=True, help_text="Albums with a MusicBrainz release group.")
+    grouped = TrackGroupedSerializer(allow_null=True, help_text="Flat MAL anime shown from TMDB or TVDB.")
 
 
 class TrackScreenSerializer(serializers.Serializer):

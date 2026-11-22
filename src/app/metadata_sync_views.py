@@ -679,6 +679,7 @@ def _resolve_current_display_metadata_payload(
 
 @login_required
 @require_POST
+@helpers.answers_json
 def migrate_grouped_anime(request, source, media_type, media_id):
     """Explicitly migrate a flat MAL anime entry into grouped TV-style tracking."""
     return_url = helpers.normalize_navigation_url(request.POST.get("return_url"))

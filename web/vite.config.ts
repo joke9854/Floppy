@@ -57,7 +57,9 @@ export default defineConfig({
 				'/details/library-move/',
 				'/details/hardcover-editions/',
 				'/details/hardcover-edition/',
-				'/details/music/album/'
+				'/details/music/album/',
+				// Convert to Grouped Series (P4-D6c).
+				'/details/migrate/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

@@ -86,6 +86,8 @@ export const tt = {
 	searchReleases: 'Search releases...',
 	useRelease: (title: string) => `Use release ${title}`,
 	searchFailed: 'The search did not answer. Try again.',
+	convertGrouped: 'Convert to Grouped Series',
+	conversionTarget: 'Conversion target',
 	noMatches: 'No matches found. Try a different search.',
 	imageWithGeneral: 'Save this image from the General tab when you add or update the entry.',
 } as const;

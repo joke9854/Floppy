@@ -6,7 +6,7 @@
 	import { tt } from './strings.ts';
 
 	type Metadata = components['schemas']['TrackMetadata'];
-	type Section = 'provider' | 'remap' | 'language' | 'move' | 'edition' | 'release' | 'custom' | 'image';
+	type Section = 'provider' | 'remap' | 'language' | 'move' | 'edition' | 'release' | 'custom' | 'image' | 'grouped';
 
 	/**
 	 * The Metadata tab (P4-D6a), as the Django dialog's
@@ -297,6 +297,43 @@
 			{/each}
 			{#if !i.save_url}<p class="ct-track__help">{tt.imageWithGeneral}</p>{/if}
 			{@render outcome('image')}
+		</form>
+	{/if}
+
+	{#if metadata.grouped}
+		{@const g = metadata.grouped}
+		<form
+			class="ct-metadata__section"
+			novalidate
+			onsubmit={(event) => {
+				event.preventDefault();
+				send('grouped', g.save_url, { provider: g.provider }, true);
+			}}
+		>
+			<div>
+				<h3 class="ct-discover__title">{tt.convertGrouped}</h3>
+				{#each g.lines as line, l (l)}
+					<p class={l === 0 ? 'ct-track__help' : 'ct-metadata__text'}>{line}</p>
+				{/each}
+			</div>
+			{#if g.seasons.length}
+				<ul class="ct-picker__results">
+					{#each g.seasons as season, s (s)}
+						<li class={['ct-picker__result', season.target && 'is-selected']}>
+							<span class="min-w-0 flex-1">
+								<span class="ct-picker__title">
+									{season.label}{#if season.target}<span class="ct-metadata__badge is-ok ml-2">{tt.conversionTarget}</span>{/if}
+								</span>
+								{#if season.date}<span class="ct-picker__line">{season.date}</span>{/if}
+								{#if season.mapped}<span class="ct-picker__line">{season.mapped}</span>{/if}
+							</span>
+							<span class="ct-picker__line">{season.episodes}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<div class="ct-track__actions">{@render saveButton(tt.convertGrouped)}</div>
+			{@render outcome('grouped')}
 		</form>
 	{/if}
 </div>
