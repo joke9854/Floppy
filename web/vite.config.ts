@@ -59,7 +59,9 @@ export default defineConfig({
 				'/details/hardcover-edition/',
 				'/details/music/album/',
 				// Convert to Grouped Series (P4-D6c).
-				'/details/migrate/'
+				'/details/migrate/',
+				// The Activity History dialog's Delete (P4-D7).
+				'/media/history/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

@@ -1020,6 +1020,49 @@ class TrackMetadataSerializer(serializers.Serializer):
     grouped = TrackGroupedSerializer(allow_null=True, help_text="Flat MAL anime shown from TMDB or TVDB.")
 
 
+def build_activity_screen(request, media_type, source, media_id, season_number=None, episode_number=None):
+    """Return the Activity History dialog (fill_history.html) for the web."""
+    from app.views import build_history_context
+    from users.templatetags.user_tags import user_datetime_format
+
+    context = build_history_context(
+        request, source, media_type, media_id, season_number, episode_number
+    )
+    several = (context.get("total_medias") or 0) > 1
+    return {
+        "media_type": media_type,
+        "entries": [
+            {
+                "id": entry["id"],
+                "date": str(user_datetime_format(entry["date"], request.user)),
+                "instance": entry.get("media_entry_number") if several else None,
+                "instance_id": entry.get("instance_id"),
+                "changes": [str(change.get("description") or "") for change in entry.get("changes") or []],
+                "delete_url": reverse("delete_history_record", args=[media_type, entry["id"]]),
+            }
+            for entry in context.get("timeline") or []
+        ],
+    }
+
+
+class ActivityEntrySerializer(serializers.Serializer):
+    """One entry of a title's activity history."""
+
+    id = serializers.IntegerField()
+    date = serializers.CharField(help_text="In the user's date and time format.")
+    instance = serializers.IntegerField(allow_null=True, help_text="Instance #N when there are several.")
+    instance_id = serializers.IntegerField(allow_null=True, help_text="The play to edit (track instance_id).")
+    changes = serializers.ListField(child=serializers.CharField())
+    delete_url = serializers.CharField(help_text="DELETE with the CSRF token to remove the entry.")
+
+
+class ActivityScreenSerializer(serializers.Serializer):
+    """A title's Activity History, newest first."""
+
+    media_type = serializers.CharField()
+    entries = ActivityEntrySerializer(many=True)
+
+
 class TrackScreenSerializer(serializers.Serializer):
     """The track dialog's General tab."""
 

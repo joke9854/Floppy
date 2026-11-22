@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Search from '@lucide/svelte/icons/search';
 	import { tt } from './strings.ts';
 
 	export type Pick = { key: string; title: string; image: string | null; lines: string[]; selected: boolean };
@@ -77,7 +76,6 @@
 
 <div class="ct-picker">
 	<div class="ct-picker__field">
-		<Search class="ct-picker__icon size-4" aria-hidden="true" />
 		<input
 			class="ct-track-input"
 			type="search"

@@ -789,6 +789,11 @@ urlpatterns = [
         name="api_library_bulk_delete",
     ),
     re_path(
+        r"^activity/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>.+?)/?$",
+        fork_views_details.ActivityScreenView.as_view(),
+        name="api_activity_screen",
+    ),
+    re_path(
         r"^track/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>.+?)/?$",
         fork_views_details.TrackScreenView.as_view(),
         name="api_track_screen",

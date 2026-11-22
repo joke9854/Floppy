@@ -31,7 +31,9 @@ from .person_screen import PersonScreenSerializer, build_person_screen
 from .track_screen import (
     TRACK_SCREEN_TYPES,
     TRACKER_SCREEN_TYPES,
+    ActivityScreenSerializer,
     TrackScreenSerializer,
+    build_activity_screen,
     build_track_screen,
     build_tracker_screen,
     tracker_context,
@@ -214,6 +216,41 @@ class EpisodeScreenView(drf_views.APIView):
 
 
 # /api/v1/track/{media_type}/{source}/{media_id}/
+class ActivityScreenView(drf_views.APIView):
+    """A title's Activity History for the web app (v2 P4-D7)."""
+
+    @extend_schema(
+        operation_id="getActivityScreen",
+        description=(
+            "The Django Activity History dialog's timeline for a title or an "
+            "episode: each entry's date, its changes, the play it describes "
+            "(open the track dialog with `instance_id` to edit it) and where to "
+            "DELETE it." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("season_number", int, description="Seasons and episodes."),
+            OpenApiParameter("episode_number", int, description="Episodes."),
+        ],
+        responses={200: ActivityScreenSerializer, 400: DetailErrorSerializer},
+    )
+    def get(self, request, media_type, source, media_id):
+        """Return the activity history."""
+        if media_type not in TRACK_SCREEN_TYPES:
+            return Response(
+                {"detail": "This media type has no web activity history yet."},
+                status=HTTP.BAD_REQUEST,
+            )
+        numbers = {}
+        for name in ("season_number", "episode_number"):
+            value = request.query_params.get(name)
+            if value is not None:
+                if not value.isdigit():
+                    return Response({"detail": f"{name} must be a number."}, status=HTTP.BAD_REQUEST)
+                numbers[name] = int(value)
+        data = build_activity_screen(request._request, media_type, source, media_id, **numbers)
+        return Response(ActivityScreenSerializer(data).data, status=HTTP.OK)
+
+
 class TrackScreenView(drf_views.APIView):
     """The track dialog's General tab for the new web app (v2 P4-D1)."""
 

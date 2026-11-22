@@ -1163,6 +1163,28 @@ def history_modal(
     episode_number=None,
 ):
     """Return the history page for a media item."""
+    return render(
+        request,
+        "app/components/fill_history.html",
+        build_history_context(
+            request, source, media_type, media_id, season_number, episode_number
+        ),
+    )
+
+
+def build_history_context(
+    request,
+    source,
+    media_type,
+    media_id,
+    season_number=None,
+    episode_number=None,
+):
+    """Return the Activity History dialog's context (fill_history.html).
+
+    The page renders it; the web app's history dialog reads the same
+    timeline through `GET /api/v1/activity/...` (v2 P4-D7).
+    """
     instance_id = request.GET.get("instance_id")
     if instance_id:
         try:
@@ -1216,27 +1238,23 @@ def history_modal(
                     request.user,
                 ),
             )
-    return render(
-        request,
-        "app/components/fill_history.html",
-        {
-            "user": request.user,
-            "media_type": media_type,
-            "timeline": timeline_entries,
-            "total_medias": total_medias,
-            "return_url": request.GET.get("return_url", ""),
-            # Lets each entry reopen the play it describes, which is the only
-            # way to edit an earlier watch while a rewatch pass hides it from
-            # the season page.
-            "edit_modal_url": _track_modal_url(
-                source,
-                media_type,
-                media_id,
-                season_number,
-            ),
-            "episode_number": episode_number,
-        },
-    )
+    return {
+        "user": request.user,
+        "media_type": media_type,
+        "timeline": timeline_entries,
+        "total_medias": total_medias,
+        "return_url": request.GET.get("return_url", ""),
+        # Lets each entry reopen the play it describes, which is the only
+        # way to edit an earlier watch while a rewatch pass hides it from
+        # the season page.
+        "edit_modal_url": _track_modal_url(
+            source,
+            media_type,
+            media_id,
+            season_number,
+        ),
+        "episode_number": episode_number,
+    }
 
 
 @require_http_methods(["DELETE"])

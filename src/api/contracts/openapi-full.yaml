@@ -9,6 +9,75 @@ info:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
 paths:
+  /api/v1/activity/{media_type}/{source}/{media_id}/:
+    get:
+      operationId: getActivityScreen
+      description: 'The Django Activity History dialog''s timeline for a title or
+        an episode: each entry''s date, its changes, the play it describes (open the
+        track dialog with `instance_id` to edit it) and where to DELETE it. Built
+        by the Django page''s own builder, so it shows what the page shows. Like the
+        page, the read can store metadata it resolves, so integration tokens cannot
+        call it.'
+      parameters:
+      - in: query
+        name: episode_number
+        schema:
+          type: integer
+        description: Episodes.
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^.+?$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: query
+        name: season_number
+        schema:
+          type: integer
+        description: Seasons and episodes.
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/admin/image-cache/:
     get:
       operationId: getImageCache
@@ -17176,6 +17245,50 @@ components:
       - count
       - date
       - level
+    ActivityEntry:
+      type: object
+      description: One entry of a title's activity history.
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+          description: In the user's date and time format.
+        instance:
+          type: integer
+          nullable: true
+          description: 'Instance #N when there are several.'
+        instance_id:
+          type: integer
+          nullable: true
+          description: The play to edit (track instance_id).
+        changes:
+          type: array
+          items:
+            type: string
+        delete_url:
+          type: string
+          description: DELETE with the CSRF token to remove the entry.
+      required:
+      - changes
+      - date
+      - delete_url
+      - id
+      - instance
+      - instance_id
+    ActivityScreen:
+      type: object
+      description: A title's Activity History, newest first.
+      properties:
+        media_type:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityEntry'
+      required:
+      - entries
+      - media_type
     ActivityStats:
       type: object
       description: Activity calendar summary.

@@ -1,9 +1,11 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import History from '@lucide/svelte/icons/history';
 	import Info from '@lucide/svelte/icons/info';
 	import { markWatched, type CheckOutcome, type Click } from '#lib/home/check.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
+	import { openActivity } from '#lib/track/open.svelte.ts';
 	import { detailLink } from './link.ts';
 	import { t } from '#lib/strings.ts';
 	import type { DetailEpisode } from './api.ts';
@@ -113,6 +115,25 @@
 			onclick={() => (open = !open)}
 		>
 			<Info class="size-5" aria-hidden="true" />
+		</button>
+	{/if}
+	{#if episode.check && done}
+		{@const c = episode.check}
+		<button
+			type="button"
+			class="ct-ep-info"
+			title="View your activity history"
+			aria-label={`View your activity history for ${episode.title}`}
+			onclick={() =>
+				openActivity({
+					mediaType: 'episode',
+					source: c.source,
+					mediaId: c.media_id,
+					season: c.season_number,
+					episode: c.episode_number
+				})}
+		>
+			<History class="size-5" aria-hidden="true" />
 		</button>
 	{/if}
 	{#if episode.check}

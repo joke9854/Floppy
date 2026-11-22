@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/activity/{media_type}/{source}/{media_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django Activity History dialog's timeline for a title or an episode: each entry's date, its changes, the play it describes (open the track dialog with `instance_id` to edit it) and where to DELETE it. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getActivityScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/image-cache/": {
         parameters: {
             query?: never;
@@ -3869,6 +3886,24 @@ export interface components {
             count: number;
             /** @description Heat level, 0 to 4. */
             level: number;
+        };
+        /** @description One entry of a title's activity history. */
+        ActivityEntry: {
+            id: number;
+            /** @description In the user's date and time format. */
+            date: string;
+            /** @description Instance #N when there are several. */
+            instance: number | null;
+            /** @description The play to edit (track instance_id). */
+            instance_id: number | null;
+            changes: string[];
+            /** @description DELETE with the CSRF token to remove the entry. */
+            delete_url: string;
+        };
+        /** @description A title's Activity History, newest first. */
+        ActivityScreen: {
+            media_type: string;
+            entries: components["schemas"]["ActivityEntry"][];
         };
         /** @description Activity calendar summary. */
         ActivityStats: {
@@ -9056,6 +9091,60 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getActivityScreen: {
+        parameters: {
+            query?: {
+                /** @description Episodes. */
+                episode_number?: number;
+                /** @description Seasons and episodes. */
+                season_number?: number;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityScreen"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
     getImageCache: {
         parameters: {
             query?: never;

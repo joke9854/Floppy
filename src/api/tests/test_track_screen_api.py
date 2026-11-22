@@ -1633,3 +1633,61 @@ class GroupedAnimeConversionTests(TestCase):
         self.assertEqual(converted.json()["message"], "Migrated this anime into grouped series tracking.")
         self.assertTrue(converted.json()["location"].startswith("/details/tmdb/anime/42509/"))
         self.assertEqual(list(converted.wsgi_request._messages), [])
+
+
+class ActivityScreenTests(TestCase):
+    """P4-D7: an episode's Activity History, read and deleted from the web."""
+
+    def setUp(self):
+        EpisodeTrackScreenTests.setUp(self)
+
+    def _activity(self):
+        response = self.client.get(
+            reverse("api_activity_screen", args=["episode", "tmdb", "ep-1"]),
+            {"season_number": 1, "episode_number": 1},
+        )
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        return response.json()
+
+    def test_the_timeline_follows_the_page_and_deletes(self):
+        page = self.client.get(
+            reverse("history_modal", args=["tmdb", "episode", "ep-1", 1, 1]),
+        )
+        activity = self._activity()
+
+        timeline = page.context["timeline"]
+        self.assertTrue(timeline)
+        self.assertEqual([e["id"] for e in activity["entries"]], [e["id"] for e in timeline])
+        entry = activity["entries"][0]
+        self.assertEqual(entry["instance_id"], self.episode.id)
+        self.assertIsNone(entry["instance"])
+        self.assertEqual(
+            entry["changes"], [str(c.get("description") or "") for c in timeline[0]["changes"]]
+        )
+        self.assertEqual(entry["delete_url"], reverse("delete_history_record", args=["episode", entry["id"]]))
+
+        deleted = self.client.delete(entry["delete_url"])
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertFalse(Episode.objects.filter(id=self.episode.id).exists())
+        self.assertEqual(self._activity()["entries"], [])
+
+    def test_bad_numbers_and_types_are_refused(self):
+        bad = self.client.get(
+            reverse("api_activity_screen", args=["episode", "tmdb", "ep-1"]), {"season_number": "x"}
+        )
+        self.assertEqual(bad.status_code, 400)
+        song = self.client.get(reverse("api_activity_screen", args=["music", "musicbrainz", "1"]))
+        self.assertEqual(song.status_code, 400)
+
+    def test_integration_tokens_cannot_call_it(self):
+        from integrations.models import IntegrationToken
+
+        _, raw = IntegrationToken.generate(
+            user=self.user, name="activity", scopes=["catalog:read", "progress:read"]
+        )
+        response = Client().get(
+            reverse("api_activity_screen", args=["episode", "tmdb", "ep-1"]), HTTP_X_API_KEY=raw
+        )
+
+        self.assertEqual(response.status_code, 403)

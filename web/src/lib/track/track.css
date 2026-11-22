@@ -527,19 +527,6 @@ textarea.ct-track-input {
 	position: relative;
 }
 
-.ct-picker__field .ct-track-input {
-	padding-left: 36px;
-}
-
-.ct-picker__icon {
-	position: absolute;
-	top: 50%;
-	left: 12px;
-	color: var(--color-muted);
-	transform: translateY(-50%);
-	pointer-events: none;
-}
-
 .ct-picker__results {
 	display: flex;
 	flex-direction: column;
@@ -596,4 +583,23 @@ button.ct-picker__result:hover {
 	font-size: 12px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+/* The Activity History dialog (P4-D7). */
+.ct-activity {
+	max-height: min(60vh, 32rem);
+}
+
+.ct-activity__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.ct-activity__actions {
+	display: flex;
+	flex: none;
+	align-self: flex-start;
 }
