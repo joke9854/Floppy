@@ -14660,6 +14660,55 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: statistics:write
+  /api/v1/statistics/screen/:
+    get:
+      operationId: getStatisticsScreen
+      description: 'The Django Statistics page for the page''s own query: `start-date`
+        and `end-date` (YYYY-MM-DD, or `all` for All Time; without them the user''s
+        default range) and `compare` (previous_period, last_year, none). A predefined
+        range is saved as the user''s default, as on the page. H1: the controls, every
+        type''s summary and highlights, the Activity card, Activity History and Played
+        Hours by Media Type, the preferences. Built by the Django page''s own builder,
+        so it shows what the page shows. Like the page, the read can store metadata
+        it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: compare
+        schema:
+          type: string
+      - in: query
+        name: end-date
+        schema:
+          type: string
+      - in: query
+        name: start-date
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/studios/{source}/{studio_id}/:
     get:
       operationId: getStudio
@@ -27218,6 +27267,378 @@ components:
       - status_pie_chart_data
       - timeline
       - top_rated
+    StatisticsScreen:
+      type: object
+      description: The Statistics page for the web app (H1).
+      properties:
+        database_error:
+          type: boolean
+        range:
+          $ref: '#/components/schemas/StatisticsScreenRange'
+        ranges:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenPreset'
+        compare:
+          $ref: '#/components/schemas/StatisticsScreenCompare'
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenChoice'
+        summaries:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenSummary'
+        highlights:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenHighlights'
+        activity:
+          $ref: '#/components/schemas/StatisticsScreenActivity'
+        rating_scale_max:
+          type: integer
+        heatmap:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenHeatmap'
+          nullable: true
+        played_hours:
+          $ref: '#/components/schemas/StatisticsScreenPlayedHours'
+        preferences:
+          $ref: '#/components/schemas/StatisticsScreenPreferences'
+        urls:
+          $ref: '#/components/schemas/StatisticsScreenUrls'
+      required:
+      - activity
+      - compare
+      - database_error
+      - heatmap
+      - highlights
+      - media_types
+      - played_hours
+      - preferences
+      - range
+      - ranges
+      - rating_scale_max
+      - summaries
+      - urls
+    StatisticsScreenActivity:
+      type: object
+      description: 'The Activity card (all types): the badge and "vs {period}".'
+      properties:
+        badge:
+          type: string
+        state:
+          type: string
+        details:
+          type: string
+        period_label:
+          type: string
+        tooltip:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenTooltip'
+          nullable: true
+      required:
+      - badge
+      - details
+      - period_label
+      - state
+      - tooltip
+    StatisticsScreenChoice:
+      type: object
+      description: A compare option (with the compared dates) or a media type.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        dates:
+          type: string
+      required:
+      - label
+      - value
+    StatisticsScreenCompare:
+      type: object
+      description: 'Compare to: the saved mode and its options.'
+      properties:
+        mode:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenChoice'
+      required:
+      - mode
+      - options
+    StatisticsScreenDay:
+      type: object
+      description: A heatmap cell (level 0-4).
+      properties:
+        date:
+          type: string
+        count:
+          type: integer
+        level:
+          type: integer
+        future:
+          type: boolean
+      required:
+      - count
+      - date
+      - future
+      - level
+    StatisticsScreenHeatmap:
+      type: object
+      description: 'Activity History: one column per week.'
+      properties:
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenMonth'
+        weekdays:
+          type: array
+          items:
+            type: string
+        weeks:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/StatisticsScreenDay'
+      required:
+      - months
+      - weekdays
+      - weeks
+    StatisticsScreenHighlights:
+      type: object
+      description: First Play, Last Play and the Today card for one type.
+      properties:
+        first_play:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenPlay'
+          nullable: true
+        last_play:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenPlay'
+          nullable: true
+        today_label:
+          type: string
+        today:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenPlay'
+          nullable: true
+      required:
+      - first_play
+      - last_play
+      - today
+      - today_label
+    StatisticsScreenMonth:
+      type: object
+      description: A heatmap month label spanning `weeks` columns.
+      properties:
+        label:
+          type: string
+        weeks:
+          type: integer
+      required:
+      - label
+      - weeks
+    StatisticsScreenPlay:
+      type: object
+      description: 'A highlight card: title, 3:2 image, its page, "Played …".'
+      properties:
+        title:
+          type: string
+        image:
+          type: string
+        href:
+          type: string
+        caption:
+          type: string
+      required:
+      - caption
+      - href
+      - image
+      - title
+    StatisticsScreenPlayedHours:
+      type: object
+      description: 'Played Hours by Media Type: days with activity, hours per type.'
+      properties:
+        days:
+          type: array
+          items:
+            type: string
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenSeries'
+      required:
+      - days
+      - series
+    StatisticsScreenPreferences:
+      type: object
+      description: Statistics Preferences (posted to `urls.preferences`).
+      properties:
+        activity_history_view:
+          type: string
+        duration_format:
+          type: string
+        week_start_day:
+          type: string
+        rating_scale:
+          type: string
+        stats_split_tv_anime:
+          type: boolean
+        show_anime_split:
+          type: boolean
+      required:
+      - activity_history_view
+      - duration_format
+      - rating_scale
+      - show_anime_split
+      - stats_split_tv_anime
+      - week_start_day
+    StatisticsScreenPreset:
+      type: object
+      description: A predefined range with its dates.
+      properties:
+        name:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        dates:
+          type: string
+      required:
+      - dates
+      - end
+      - name
+      - start
+    StatisticsScreenRange:
+      type: object
+      description: 'The range shown: `start`/`end` are the page''s query values (or
+        `all`).'
+      properties:
+        name:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        label:
+          type: string
+        finite:
+          type: boolean
+        predefined:
+          type: boolean
+        first_day:
+          type: string
+        last_day:
+          type: string
+      required:
+      - end
+      - finite
+      - first_day
+      - label
+      - last_day
+      - name
+      - predefined
+      - start
+    StatisticsScreenSeries:
+      type: object
+      description: A media type's hours per day.
+      properties:
+        label:
+          type: string
+        media_type:
+          type: string
+        color:
+          type: string
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+      required:
+      - color
+      - label
+      - media_type
+      - values
+    StatisticsScreenSummary:
+      type: object
+      description: One type's summary (the hero and the summary cards).
+      properties:
+        total:
+          type: integer
+        completed:
+          type: integer
+        total_hours:
+          type: integer
+        total_days:
+          type: integer
+        has_score:
+          type: boolean
+        average_score:
+          type: string
+        most_active_day:
+          type: string
+        most_active_day_percentage:
+          type: integer
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        longest_streak_dates:
+          type: string
+      required:
+      - average_score
+      - completed
+      - current_streak
+      - has_score
+      - longest_streak
+      - longest_streak_dates
+      - most_active_day
+      - most_active_day_percentage
+      - total
+      - total_days
+      - total_hours
+    StatisticsScreenTooltip:
+      type: object
+      description: The Activity card's comparison tooltip.
+      properties:
+        current_label:
+          type: string
+        current_total:
+          type: string
+        comparison_label:
+          type: string
+        comparison_total:
+          type: string
+      required:
+      - comparison_label
+      - comparison_total
+      - current_label
+      - current_total
+    StatisticsScreenUrls:
+      type: object
+      description: Where the page's controls post, and the recap page.
+      properties:
+        refresh:
+          type: string
+        compare:
+          type: string
+        preferences:
+          type: string
+        recap:
+          type: string
+        status:
+          type: string
+      required:
+      - compare
+      - preferences
+      - recap
+      - refresh
+      - status
     StatusDataset:
       type: object
       description: Per-media-type counts for one status.

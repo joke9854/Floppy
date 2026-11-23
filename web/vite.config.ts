@@ -49,6 +49,8 @@ export default defineConfig({
 				// A Discover card's Lists dialog (P4-G2).
 				'/lists_modal/',
 				'/list_item_toggle',
+				// Statistics' controls (P4-H).
+				'/statistics/',
 				// The Collection tab (P4-D5): collection/add/ and collection/<id>/remove/.
 				'/collection/',
 				// The Metadata tab (P4-D6a).

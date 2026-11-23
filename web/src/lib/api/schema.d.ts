@@ -3100,6 +3100,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/statistics/screen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django Statistics page for the page's own query: `start-date` and `end-date` (YYYY-MM-DD, or `all` for All Time; without them the user's default range) and `compare` (previous_period, last_year, none). A predefined range is saved as the user's default, as on the page. H1: the controls, every type's summary and highlights, the Activity card, Activity History and Played Hours by Media Type, the preferences. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getStatisticsScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studios/{source}/{studio_id}/": {
         parameters: {
             query?: never;
@@ -8255,6 +8272,145 @@ export interface components {
             timeline: {
                 [key: string]: components["schemas"]["TimelineItem"][];
             };
+        };
+        /** @description The Statistics page for the web app (H1). */
+        StatisticsScreen: {
+            database_error: boolean;
+            range: components["schemas"]["StatisticsScreenRange"];
+            ranges: components["schemas"]["StatisticsScreenPreset"][];
+            compare: components["schemas"]["StatisticsScreenCompare"];
+            media_types: components["schemas"]["StatisticsScreenChoice"][];
+            summaries: {
+                [key: string]: components["schemas"]["StatisticsScreenSummary"];
+            };
+            highlights: {
+                [key: string]: components["schemas"]["StatisticsScreenHighlights"];
+            };
+            activity: components["schemas"]["StatisticsScreenActivity"];
+            rating_scale_max: number;
+            heatmap: components["schemas"]["StatisticsScreenHeatmap"] | null;
+            played_hours: components["schemas"]["StatisticsScreenPlayedHours"];
+            preferences: components["schemas"]["StatisticsScreenPreferences"];
+            urls: components["schemas"]["StatisticsScreenUrls"];
+        };
+        /** @description The Activity card (all types): the badge and "vs {period}". */
+        StatisticsScreenActivity: {
+            badge: string;
+            state: string;
+            details: string;
+            period_label: string;
+            tooltip: components["schemas"]["StatisticsScreenTooltip"] | null;
+        };
+        /** @description A compare option (with the compared dates) or a media type. */
+        StatisticsScreenChoice: {
+            value: string;
+            label: string;
+            dates?: string;
+        };
+        /** @description Compare to: the saved mode and its options. */
+        StatisticsScreenCompare: {
+            mode: string;
+            options: components["schemas"]["StatisticsScreenChoice"][];
+        };
+        /** @description A heatmap cell (level 0-4). */
+        StatisticsScreenDay: {
+            date: string;
+            count: number;
+            level: number;
+            future: boolean;
+        };
+        /** @description Activity History: one column per week. */
+        StatisticsScreenHeatmap: {
+            months: components["schemas"]["StatisticsScreenMonth"][];
+            weekdays: string[];
+            weeks: components["schemas"]["StatisticsScreenDay"][][];
+        };
+        /** @description First Play, Last Play and the Today card for one type. */
+        StatisticsScreenHighlights: {
+            first_play: components["schemas"]["StatisticsScreenPlay"] | null;
+            last_play: components["schemas"]["StatisticsScreenPlay"] | null;
+            today_label: string;
+            today: components["schemas"]["StatisticsScreenPlay"] | null;
+        };
+        /** @description A heatmap month label spanning `weeks` columns. */
+        StatisticsScreenMonth: {
+            label: string;
+            weeks: number;
+        };
+        /** @description A highlight card: title, 3:2 image, its page, "Played …". */
+        StatisticsScreenPlay: {
+            title: string;
+            image: string;
+            href: string;
+            caption: string;
+        };
+        /** @description Played Hours by Media Type: days with activity, hours per type. */
+        StatisticsScreenPlayedHours: {
+            days: string[];
+            series: components["schemas"]["StatisticsScreenSeries"][];
+        };
+        /** @description Statistics Preferences (posted to `urls.preferences`). */
+        StatisticsScreenPreferences: {
+            activity_history_view: string;
+            duration_format: string;
+            week_start_day: string;
+            rating_scale: string;
+            stats_split_tv_anime: boolean;
+            show_anime_split: boolean;
+        };
+        /** @description A predefined range with its dates. */
+        StatisticsScreenPreset: {
+            name: string;
+            start: string;
+            end: string;
+            dates: string;
+        };
+        /** @description The range shown: `start`/`end` are the page's query values (or `all`). */
+        StatisticsScreenRange: {
+            name: string;
+            start: string;
+            end: string;
+            label: string;
+            finite: boolean;
+            predefined: boolean;
+            first_day: string;
+            last_day: string;
+        };
+        /** @description A media type's hours per day. */
+        StatisticsScreenSeries: {
+            label: string;
+            media_type: string;
+            color: string;
+            values: number[];
+        };
+        /** @description One type's summary (the hero and the summary cards). */
+        StatisticsScreenSummary: {
+            total: number;
+            completed: number;
+            total_hours: number;
+            total_days: number;
+            has_score: boolean;
+            average_score: string;
+            most_active_day: string;
+            most_active_day_percentage: number;
+            current_streak: number;
+            longest_streak: number;
+            longest_streak_dates: string;
+        };
+        /** @description The Activity card's comparison tooltip. */
+        StatisticsScreenTooltip: {
+            current_label: string;
+            current_total: string;
+            comparison_label: string;
+            comparison_total: string;
+        };
+        /** @description Where the page's controls post, and the recap page. */
+        StatisticsScreenUrls: {
+            refresh: string;
+            compare: string;
+            preferences: string;
+            recap: string;
+            status: string;
         };
         /** @description Per-media-type counts for one status. */
         StatusDataset: {
@@ -23155,6 +23311,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatisticsRangeError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getStatisticsScreen: {
+        parameters: {
+            query?: {
+                compare?: string;
+                "end-date"?: string;
+                "start-date"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsScreen"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */

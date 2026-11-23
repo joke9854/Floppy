@@ -420,6 +420,14 @@ def _build_hours_per_media_type_comparison(
 @require_GET
 def statistics(request):
     """Return the statistics page."""
+    return render(request, "app/statistics.html", build_statistics_context(request))
+
+
+def build_statistics_context(request) -> dict:
+    """Return the Statistics page's context (the page and the web screen, P4-H).
+
+    A database error gives the page's empty context with ``database_error``.
+    """
     try:
         timeformat = "%Y-%m-%d"
         today = timezone.localdate()
@@ -677,7 +685,7 @@ def statistics(request):
             },
         }
 
-        return render(request, "app/statistics.html", context)
+        return context  # noqa: RET504, TRY300 - the page and the web screen share this dict
     except OperationalError:
         logger.exception("Database error in statistics view")
         timeformat = "%Y-%m-%d"
@@ -813,7 +821,7 @@ def statistics(request):
             "show_year_charts": False,
             "database_error": True,
         }
-        return render(request, "app/statistics.html", context)
+        return context  # noqa: RET504 - the database-error context
 
 
 TALENT_FRAGMENT_CACHE_TTL = 300

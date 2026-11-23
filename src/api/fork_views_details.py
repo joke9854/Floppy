@@ -31,6 +31,7 @@ from .discover_screen import DiscoverScreenSerializer, build_discover_screen
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .history_screen import HistoryScreenSerializer, build_history_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
+from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
 from .track_screen import (
     TRACK_SCREEN_TYPES,
     TRACKER_SCREEN_TYPES,
@@ -236,6 +237,32 @@ class CalendarScreenView(drf_views.APIView):
         """Return the calendar screen."""
         data = build_calendar_screen(request._request)
         return Response(CalendarScreenSerializer(data).data, status=HTTP.OK)
+
+
+class StatisticsScreenView(drf_views.APIView):
+    """The Statistics page for the web app (v2 P4-H)."""
+
+    @extend_schema(
+        operation_id="getStatisticsScreen",
+        description=(
+            "The Django Statistics page for the page's own query: `start-date` and "
+            "`end-date` (YYYY-MM-DD, or `all` for All Time; without them the user's "
+            "default range) and `compare` (previous_period, last_year, none). A "
+            "predefined range is saved as the user's default, as on the page. H1: "
+            "the controls, every type's summary and highlights, the Activity card, "
+            "Activity History and Played Hours by Media Type, the preferences." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("start-date", str, required=False),
+            OpenApiParameter("end-date", str, required=False),
+            OpenApiParameter("compare", str, required=False),
+        ],
+        responses={200: StatisticsScreenSerializer},
+    )
+    def get(self, request):
+        """Return the statistics screen."""
+        data = build_statistics_screen(request._request)
+        return Response(StatisticsScreenSerializer(data).data, status=HTTP.OK)
 
 
 class DiscoverScreenView(drf_views.APIView):
