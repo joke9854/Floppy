@@ -410,7 +410,13 @@ def _episode_title_fields_from_season_metadata(item, season_metadata):
 def _maybe_backfill_episode_title(
     item, *, season_item=None, season_metadata=None, force=False
 ):
-    """Resolve malformed episode item titles that still store the show title."""
+    """Resolve malformed episode item titles that still store the show title.
+
+    ``force`` skips the needs-backfill check for episodes only: other items
+    (a movie's Lists dialog) would otherwise fetch a "season" for their id.
+    """
+    if getattr(item, "media_type", None) != MediaTypes.EPISODE.value:
+        return
     if not force and not _episode_title_needs_backfill(item, season_item=season_item):
         return
 

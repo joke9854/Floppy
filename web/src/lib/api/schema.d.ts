@@ -5416,6 +5416,8 @@ export interface components {
             poster: string;
             poster_srcset: string;
             sub: string;
+            /** @description The card's Lists dialog (`/lists_modal/...`, JSON with Accept: application/json). */
+            lists_url: string;
             action: components["schemas"]["DiscoverScreenAction"];
         };
         /** @description An item hidden from Discover (Unhide posts `item_id` to `hide_url`). */

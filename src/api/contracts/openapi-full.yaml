@@ -20792,12 +20792,17 @@ components:
           type: string
         sub:
           type: string
+        lists_url:
+          type: string
+          description: 'The card''s Lists dialog (`/lists_modal/...`, JSON with Accept:
+            application/json).'
         action:
           $ref: '#/components/schemas/DiscoverScreenAction'
       required:
       - action
       - href
       - key
+      - lists_url
       - media_type
       - poster
       - poster_srcset

@@ -14,6 +14,7 @@
 	import DiscoverCard from '#lib/discover/DiscoverCard.svelte';
 	import Hero from '#lib/discover/Hero.svelte';
 	import HiddenView from '#lib/discover/HiddenView.svelte';
+	import ListsDialog from '#lib/discover/ListsDialog.svelte';
 	import { dc } from '#lib/discover/strings.ts';
 	import {
 		actionFields,
@@ -44,6 +45,7 @@
 	const view = $derived(`${screen.media_type}:${screen.show_more}`);
 
 	let busy = $state('');
+	let listsUrl = $state<string | null>(null);
 	let unhiding = $state<number | null>(null);
 	let refreshing = $state(false);
 	let refreshedNote = $state(false);
@@ -328,6 +330,7 @@
 										square={row.square}
 										busy={busy === `${index}:${card.key}`}
 										onaction={(action, target) => act(action, `${index}:${target.key}`, target.action)}
+										onlists={(target) => (listsUrl = target.lists_url)}
 									/>
 								{/each}
 							</Row>
@@ -355,6 +358,8 @@
 		{/if}
 	{/if}
 </main>
+
+<ListsDialog bind:url={listsUrl} />
 
 {#if toast}
 	<div class="ct-discover-toast" role="status">

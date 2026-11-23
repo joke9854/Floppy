@@ -1,5 +1,6 @@
 <script lang="ts">
 	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import ListPlus from '@lucide/svelte/icons/list-plus';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { detailLink } from '#lib/details/link.ts';
 	import { fadeIn } from '#lib/media/fade.ts';
@@ -8,19 +9,22 @@
 
 	/**
 	 * A Discover card: poster, title, "Type · Year", and the page's quick
-	 * actions (Add to Planning, Hide from Discover) over the poster: on hover
+	 * actions (Add to Planning, Hide from Discover, Add to custom lists)
+	 * over the poster: on hover
 	 * or focus with a mouse, always on touch screens.
 	 */
 	let {
 		card,
 		square = false,
 		busy = false,
-		onaction
+		onaction,
+		onlists
 	}: {
 		card: DiscoverCard;
 		square?: boolean;
 		busy?: boolean;
 		onaction: (action: 'planning' | 'dismiss', card: DiscoverCard) => void;
+		onlists: (card: DiscoverCard) => void;
 	} = $props();
 </script>
 
@@ -64,5 +68,16 @@
 		>
 			<EyeOff class="size-4" aria-hidden="true" />
 		</button>
+		{#if card.lists_url}
+			<button
+				type="button"
+				class="ct-discover-card__action"
+				title={dc.addToLists}
+				aria-label="{dc.addToLists}: {card.title}"
+				onclick={() => onlists(card)}
+			>
+				<ListPlus class="size-4" aria-hidden="true" />
+			</button>
+		{/if}
 	</div>
 </article>

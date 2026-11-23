@@ -56,7 +56,7 @@ adds a web test for its flow:
 | P4-D | Track dialog | D1 and D2a on beta (2026-11-21): the General tab for movies, shows, seasons and episodes, then anime, manga, games, books, comics, comic issues, board games. D2b on beta: music artists and albums, podcast shows. D3: the Episode Plays tab. D4: the Discover tab. D5: the Collection tab (single episodes). D6a: the Metadata tab's plain forms. D6b: its searches (remap, library move, Hardcover edition, MusicBrainz release). D6c: Convert to Grouped Series. D7: the episode rows' Activity History. D8: the custom-field editor. Songs and podcast episodes come with their detail pages |
 | P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
-| P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide |
+| P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | Not started |
 | P4-I | Lists | Not started |
 | P4-J | Settings and integrations | Not started |
@@ -515,8 +515,9 @@ Parity checklist:
       banner.
 - [x] Hidden from Discover: back link, count sentence, rows (poster, title,
       "Type · Year · Hidden 22 Nov"), Unhide; the empty message.
-- [ ] Add to custom lists from a card: with the Lists dialog (P4-I). The
-      title's page has it meanwhile.
+- [x] Add to custom lists from a card (G2): the user's manual lists with
+      Add or Remove, the tag filter, "On N lists" (`lists_modal` and
+      `list_item_toggle` answer JSON). The full Lists screens stay P4-I.
 - [ ] The hero's poster accent tint (the page samples the poster's colour);
       the web uses the accent colour.
 - [ ] The debug panel (`?discover_debug=1`) stays on the Django page.
@@ -531,3 +532,12 @@ The row styles (`.ct-row`) moved from the Home stylesheet to
 `lib/styles/cards.css`: Home and Discover share `lib/home/Row.svelte`.
 All repeats row keys (each type's Trending Right Now is `trending_right_now`;
 the Django page's ids repeat too), so the web keys rows by position.
+
+G2 (2026-11-23): each card carries `lists_url` (the page's `lists_modal`
+URL); with `Accept: application/json` it answers the item, its manual lists
+with `has_item`, the tags and `on_list_count`, and `list_item_toggle` answers
+`{list_id, has_item}` (403 for a smart list, 500 with `{error}`). The dialog
+is `lib/discover/ListsDialog.svelte` on `lib/ui/Dialog.svelte` (a sheet on
+phones). `lists_modal` no longer runs the episode-title backfill for other
+items: with `force=True` it fetched a "season" and the title itself for every
+movie or show that opened its lists.

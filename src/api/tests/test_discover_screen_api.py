@@ -21,6 +21,7 @@ from app.models import (
     Sources,
 )
 from app.services.tracking_hydration import HydratedItemResult
+from lists.models import CustomList, CustomListItem
 
 JSON = {"HTTP_ACCEPT": "application/json"}
 
@@ -82,6 +83,7 @@ class DiscoverScreenTests(TestCase):
         self.assertEqual(card["action"]["image"], "https://image.tmdb.org/t/p/w500/matrix.jpg")
         self.assertEqual(card["action"]["row_key"], "top_picks_for_you")
         self.assertEqual(card["action"]["active_media_type"], "movie")
+        self.assertEqual(card["lists_url"], "/lists_modal/tmdb/movie/603")
         self.assertEqual(screen["rows"][1]["cards"], [])
         self.assertEqual(screen["rows"][1]["empty_message"], "No items matched this row right now.")
 
@@ -185,3 +187,44 @@ class DiscoverActionJsonTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["action"], "undo")
+
+
+class DiscoverListsDialogJsonTests(TestCase):
+    """The card's Lists dialog: lists_modal and list_item_toggle answer JSON."""
+
+    def setUp(self):
+        self.credentials = {"username": "g2-lists", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+        self.item = Item.objects.create(
+            media_id="603",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="The Matrix",
+        )
+        self.watchlist = CustomList.objects.create(name="Watchlist", owner=self.user)
+        self.smart = CustomList.objects.create(name="Smart", owner=self.user, is_smart=True)
+
+    @patch("app.providers.services.get_media_metadata")
+    def test_dialog_lists_manual_lists_with_membership(self, mock_metadata):
+        CustomListItem.objects.create(custom_list=self.watchlist, item=self.item, added_by=self.user)
+        response = self.client.get("/lists_modal/tmdb/movie/603", **JSON)
+        # A movie that has its Item needs no provider call (the episode
+        # title backfill is for episodes only).
+        mock_metadata.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["item_id"], self.item.id)
+        self.assertEqual(body["toggle_url"], reverse("list_item_toggle"))
+        self.assertEqual(body["on_list_count"], 1)
+        self.assertEqual(body["lists"], [{"id": self.watchlist.id, "name": "Watchlist", "has_item": True}])
+
+    def test_toggle_answers_json(self):
+        url = reverse("list_item_toggle")
+        fields = {"item_id": self.item.id, "custom_list_id": self.watchlist.id}
+        added = self.client.post(url, fields, **JSON)
+        self.assertEqual(added.json(), {"list_id": self.watchlist.id, "has_item": True})
+        removed = self.client.post(url, fields, **JSON)
+        self.assertEqual(removed.json(), {"list_id": self.watchlist.id, "has_item": False})
+        smart = self.client.post(url, {"item_id": self.item.id, "custom_list_id": self.smart.id}, **JSON)
+        self.assertEqual(smart.status_code, 403)

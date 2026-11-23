@@ -25,5 +25,16 @@ export const dc = {
 	hiddenEmpty: 'Items you hide from Discover will show up here.',
 	unhide: 'Unhide',
 	loadingMore: 'Loading more rows…',
-	failed: 'That did not work. Try again.'
+	failed: 'That did not work. Try again.',
+	addToLists: 'Add to custom lists',
+	lists: 'Lists',
+	filterByTag: 'Filter by tag',
+	allLists: 'All lists',
+	onLists: (n: number) => (n === 1 ? 'On 1 list' : `On ${n} lists`),
+	add: 'Add',
+	remove: 'Remove',
+	addTo: (name: string) => `Add item to ${name}`,
+	removeFrom: (name: string) => `Remove item from ${name}`,
+	noLists: "You haven't created any lists yet.",
+	loadingLists: 'Loading lists…'
 } as const;

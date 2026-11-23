@@ -76,6 +76,7 @@ def _card(candidate, user, *, row_key: str, active: str, show_more: bool) -> dic
         "poster": str(app_tags.image_url(app_tags.tmdb_size(image, "w342")) or ""),
         "poster_srcset": str(app_tags.tmdb_srcset(image) or ""),
         "sub": sub,
+        "lists_url": str(app_tags.media_view_url("lists_modal", candidate) or ""),
         "action": _action(
             candidate,
             title=title,
@@ -233,6 +234,10 @@ class DiscoverScreenCardSerializer(serializers.Serializer):
     poster = serializers.CharField(allow_blank=True)
     poster_srcset = serializers.CharField(allow_blank=True)
     sub = serializers.CharField(allow_blank=True)
+    lists_url = serializers.CharField(
+        allow_blank=True,
+        help_text="The card's Lists dialog (`/lists_modal/...`, JSON with Accept: application/json).",
+    )
     action = DiscoverScreenActionSerializer()
 
 

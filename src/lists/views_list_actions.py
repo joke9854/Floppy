@@ -390,6 +390,26 @@ def lists_modal(
             )
         ]
 
+    if helpers.wants_json(request):
+        return JsonResponse(
+            {
+                "item_id": item.id,
+                "title": str(item.title or ""),
+                "toggle_url": reverse("list_item_toggle"),
+                "tags": unique_tags,
+                "selected_tag": selected_tag,
+                "on_list_count": on_list_count,
+                "lists": [
+                    {
+                        "id": custom_list.id,
+                        "name": str(custom_list.name),
+                        "has_item": bool(getattr(custom_list, "has_item", False)),
+                    }
+                    for custom_list in custom_lists
+                ],
+            },
+        )
+
     return render(
         request,
         "lists/components/fill_lists.html",
@@ -446,6 +466,8 @@ def list_item_toggle(request):
     )
 
     if custom_list.is_smart:
+        if helpers.wants_json(request):
+            return JsonResponse({"error": "Smart lists fill themselves."}, status=403)
         return HttpResponse(status=403)
 
     try:
@@ -488,8 +510,15 @@ def list_item_toggle(request):
             custom_list.id,
             request.user.id,
         )
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {"error": "Couldn't update this list. Please try again."},
+                status=500,
+            )
         return _list_item_toggle_error_response()
 
+    if helpers.wants_json(request):
+        return JsonResponse({"list_id": custom_list.id, "has_item": has_item})
     return render(
         request,
         "lists/components/list_item_button.html",

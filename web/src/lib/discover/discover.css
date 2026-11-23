@@ -675,3 +675,81 @@ details[open] > .ct-discover-actions {
 		animation: none;
 	}
 }
+
+/* A card's Lists dialog (fill_lists.html). */
+.ct-lists-filter {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 14px;
+}
+
+.ct-lists-filter label {
+	color: var(--color-text-secondary);
+	font-weight: 500;
+}
+
+.ct-lists-filter select {
+	height: 38px;
+	padding-inline: 10px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 8px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+}
+
+.ct-lists-count {
+	align-self: flex-end;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-lists-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ct-lists-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background-color: var(--color-surface-strong);
+	color: var(--color-text);
+}
+
+.ct-lists-toggle {
+	height: 32px;
+	flex: none;
+	padding-inline: 14px;
+	border-radius: 8px;
+	background-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ct-lists-toggle.is-on {
+	border: 1px solid rgb(16 185 129 / 30%);
+	background-color: rgb(16 185 129 / 12%);
+	color: rgb(110 231 183);
+}
+
+.ct-lists-toggle:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.ct-lists-empty {
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-lists-error {
+	color: var(--color-error-text, #fca5a5);
+	font-size: 14px;
+}
