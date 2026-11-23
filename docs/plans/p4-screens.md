@@ -646,9 +646,11 @@ Parity checklist:
       status filters, sort, grid and table with the Library's columns, custom
       order (Edit Item Order moves), bulk select, Edit List, more on scroll.
       Add New Item, Add Recommendation, Activity History, Recommendations and
-      Export open the Django pages; smart lists and lists the user can only
-      view open the Django page too (until I3).
+      Export open the Django pages; smart lists (until I3) and lists the user
+      can only view (no slice yet) open the Django page too.
 - [ ] I3: smart lists (rules summary and builder), recommendations, activity.
+- [ ] Lists the user can only view (shared read-only, others' public lists)
+      still open the Django page.
 - [ ] The collaborator field takes exact usernames: the page's select2 user
       search has no endpoint the web can use.
 

@@ -73,7 +73,8 @@ def build_list_detail_screen(request, reference: str) -> dict:
             {"label": _("Radarr"), "href": f"{json_url}?arr=radarr"},
             {"label": _("Sonarr"), "href": f"{json_url}?arr=sonarr"},
         ]
-    can_recommend = bool(custom_list.can_recommend)
+    # A method on the model (templates call it implicitly).
+    can_recommend = bool(custom_list.can_recommend())
     return {
         "handled": True,
         "django_url": django_url,

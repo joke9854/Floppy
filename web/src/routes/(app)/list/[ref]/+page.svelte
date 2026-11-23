@@ -13,6 +13,7 @@
 	import { ld } from '#lib/lists/strings.ts';
 	import { listPageQuery, sortDirection, toggleValue, type ListsScreen } from '#lib/lists/types.ts';
 	import { BASE } from '#lib/paths.ts';
+	import type { ListPage } from './+page.server.ts';
 	import type { PageProps } from './$types';
 
 	/**
@@ -31,13 +32,23 @@
 	const here = $derived(`${BASE}/list/${encodeURIComponent(reference)}`);
 	const withNext = (url: string) => `${url}?next=${encodeURIComponent(here)}`;
 
-	// Cards loaded past the first page; a new page of data (a filter, a sort)
-	// clears them in the same update, so keyed rows never repeat.
-	let extra = $derived.by((): Card[] => {
+	// Pages fetched again before a refresh (a move, a bulk action), handed to
+	// the new data in the same update so the grid keeps its length and scroll.
+	let carry: { cards: Card[]; next: number; last: number } | null = null;
+	const carried = $derived.by(() => {
 		void screen;
-		return [];
+		const pages = carry;
+		carry = null;
+		return pages;
 	});
-	let nextPage = $derived(screen.has_next ? (screen.page ?? 1) + 1 : 0);
+	// Cards loaded past the first page; a new page of data (a filter, a sort)
+	// replaces them in the same update, so keyed rows never repeat.
+	let extra = $derived.by((): Card[] => {
+		const first = new Set((screen.cards ?? []).map((card) => card.key));
+		return (carried?.cards ?? []).filter((card) => !first.has(card.key));
+	});
+	let nextPage = $derived(carried ? carried.next : screen.has_next ? (screen.page ?? 1) + 1 : 0);
+	let lastPage = $derived(carried?.last ?? screen.page ?? 1);
 	const cards = $derived([...(screen.cards ?? []), ...extra]);
 	let loadingMore = $state(false);
 	let sentinel = $state<HTMLDivElement>();
@@ -64,25 +75,43 @@
 		searchTimer = setTimeout(() => go({ q: value || null }), 300);
 	}
 
+	async function fetchPage(query: string, number: number): Promise<ListPage | null> {
+		const response = await fetch(
+			`/api/v1/lists/page/${encodeURIComponent(reference)}/${query}${query ? '&' : '?'}page=${number}`,
+			{ credentials: 'same-origin', headers: { accept: 'application/json' } }
+		);
+		return response.ok ? ((await response.json()) as ListPage) : null;
+	}
+
 	async function loadMore() {
 		if (loadingMore || !nextPage) return;
 		loadingMore = true;
 		const query = listPageQuery(appPage.url.searchParams);
 		try {
-			const response = await fetch(
-				`/api/v1/lists/page/${encodeURIComponent(reference)}/${query}${query ? '&' : '?'}page=${nextPage}`,
-				{ credentials: 'same-origin', headers: { accept: 'application/json' } }
-			);
-			if (response.ok) {
-				const next = await response.json();
-				if (listPageQuery(appPage.url.searchParams) !== query) return;
-				const shown = new Set(cards.map((card) => card.key));
-				extra = [...extra, ...(next.cards as Card[]).filter((card) => !shown.has(card.key))];
-				nextPage = next.has_next ? next.page + 1 : 0;
-			}
+			const next = await fetchPage(query, nextPage);
+			if (!next || listPageQuery(appPage.url.searchParams) !== query) return;
+			const shown = new Set(cards.map((card) => card.key));
+			extra = [...extra, ...(next.cards ?? []).filter((card) => !shown.has(card.key))];
+			nextPage = next.has_next ? (next.page ?? nextPage) + 1 : 0;
+			lastPage = next.page ?? nextPage;
 		} finally {
 			loadingMore = false;
 		}
+	}
+
+	/** Reload the page's data with every page loaded so far. */
+	async function refresh() {
+		const query = listPageQuery(appPage.url.searchParams);
+		const pages: Card[] = [];
+		let next = 0;
+		for (let number = 2; number <= lastPage; number += 1) {
+			const loaded = await fetchPage(query, number);
+			if (!loaded) break;
+			pages.push(...(loaded.cards ?? []));
+			next = loaded.has_next ? number + 1 : 0;
+		}
+		carry = lastPage > 1 && pages.length ? { cards: pages, next, last: lastPage } : null;
+		await invalidate('floppy:list');
 	}
 
 	$effect(() => {
@@ -101,7 +130,7 @@
 			// beyond the loaded page keep their order.
 			const response = await djangoForm(screen.urls!.reorder, { item_id: String(key), action });
 			if (!response.ok) throw new Error(String(response.status));
-			await invalidate('floppy:list');
+			await refresh();
 		} catch {
 			notice = ld.failed;
 		}
@@ -116,7 +145,7 @@
 		selecting = false;
 		selected = [];
 		notice = message;
-		await invalidate('floppy:list');
+		await refresh();
 	}
 
 	// The edit dialog takes the index's shape: its urls come from this page.

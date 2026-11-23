@@ -72,6 +72,16 @@ class ListPageTests(TestCase):
         self.assertIsInstance(page.context["bulk_action_data"], dict)
         self.assertTrue(screen["bulk"]["statuses"])
 
+    def test_recommendations_follow_the_list_settings(self):
+        # A private list, or one without recommendations, offers none.
+        self.assertFalse(self._page(self.custom_list.id)["list"]["can_recommend"])
+        self.custom_list.visibility = "public"
+        self.custom_list.save(update_fields=["visibility"])
+        self.assertEqual(
+            self._page(self.custom_list.id)["list"]["can_recommend"],
+            self.custom_list.can_recommend(),
+        )
+
     def test_table_has_cells(self):
         screen = self._page(self.custom_list.id, "?layout=table")
         self.assertEqual(screen["layout"], "table")
