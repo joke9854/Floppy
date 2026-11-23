@@ -40,7 +40,7 @@ export const PRIMARY: NavItem[] = [
 ];
 
 export const LIBRARY_MORE: NavItem[] = [
-	{ label: t.lists, href: '/lists', icon: List },
+	{ label: t.lists, href: `${BASE}/lists`, icon: List },
 	{ label: t.collection, href: '/collection/', icon: Box },
 	{ label: t.tags, href: '/tags', icon: Tag },
 	{ label: t.addEntry, href: '/create', icon: CirclePlus }
@@ -141,7 +141,9 @@ const WEB_DETAIL = [
 	// Discover (P4-G), any type.
 	/^\/discover\/?(\?|$)/,
 	// Statistics (P4-H), any range; the Monthly recap stays Django.
-	/^\/statistics\/?(\?|$)/
+	/^\/statistics\/?(\?|$)/,
+	// The Lists index (P4-I1); a list's own page (/list/...) stays Django until I2.
+	/^\/lists\/?(\?|$)/
 ];
 
 /**

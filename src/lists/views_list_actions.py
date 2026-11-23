@@ -11,6 +11,7 @@ import json
 import logging
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.db import transaction
 from django.db.models import Q
@@ -119,7 +120,10 @@ def update_list_table_columns(request, list_id):
 @require_POST
 def create(request):
     """Create a new custom list."""
-    form = CustomListForm(request.POST, user=request.user)
+    data, unknown = _list_form_data(request)
+    form = CustomListForm(data, user=request.user)
+    if unknown:
+        return _unknown_collaborators(unknown)
     if form.is_valid():
         custom_list = form.save(commit=False)
         custom_list.owner = request.user
@@ -131,17 +135,114 @@ def create(request):
             user=request.user,
             activity_type=ListActivityType.LIST_CREATED,
         )
+        if helpers.wants_json(request):
+            return JsonResponse(_saved_list(custom_list, request))
         if custom_list.is_smart and request.POST.get("smart_create_flow"):
             return redirect(
                 f"{reverse('list_detail', args=[custom_list.public_reference])}?edit_smart_rules=1",
             )
     else:
         logger.error(form.errors.as_json())
+        if helpers.wants_json(request):
+            return _form_errors(form)
         helpers.form_error_messages(form, request)
     return helpers.redirect_back(request)
 
 
 @login_required
+def _list_form_data(request):
+    """Return the posted list form data, and any collaborator usernames not found.
+
+    The web dialog (v2 P4-I) names collaborators by username
+    (``collaborator_usernames``); the form takes user ids, so they are resolved
+    here. The page's select2 posts ids, unchanged.
+    """
+    if "collaborator_usernames" not in request.POST:
+        return request.POST, []
+    names = [
+        name.strip()
+        for name in request.POST.getlist("collaborator_usernames")
+        if name.strip()
+    ]
+    users = {
+        user.username.casefold(): user
+        for user in get_user_model().objects.filter(username__in=names)
+    }
+    for name in names:
+        if name.casefold() not in users:
+            match = get_user_model().objects.filter(username__iexact=name).first()
+            if match:
+                users[name.casefold()] = match
+    unknown = [name for name in names if name.casefold() not in users]
+    data = request.POST.copy()
+    data.setlist(
+        "collaborators",
+        [str(users[name.casefold()].pk) for name in names if name.casefold() in users],
+    )
+    return data, unknown
+
+
+def _unknown_collaborators(unknown):
+    return JsonResponse(
+        {
+            "saved": False,
+            "errors": {
+                "collaborators": [
+                    gettext("No user named %(names)s.") % {"names": ", ".join(unknown)},
+                ],
+            },
+        },
+        status=400,
+    )
+
+
+def _form_errors(form):
+    return JsonResponse(
+        {
+            "saved": False,
+            "errors": {
+                field: [str(message) for message in messages_]
+                for field, messages_ in form.errors.items()
+            },
+        },
+        status=400,
+    )
+
+
+def _saved_list(custom_list, request):
+    href = reverse("list_detail", args=[custom_list.public_reference])
+    location = href
+    if custom_list.is_smart and request.POST.get("smart_create_flow"):
+        location = f"{href}?edit_smart_rules=1"
+    return {
+        "saved": True,
+        "list": {"id": custom_list.id, "name": custom_list.name, "href": href},
+        "location": location,
+    }
+
+
+def _list_form_values(custom_list, request):
+    """Return every field of the edit form, as it would post them back."""
+    return {
+        "list_id": custom_list.id,
+        "name": custom_list.name,
+        "description": custom_list.description or "",
+        "tags": CustomListForm._normalize_tags(custom_list.tags or []),
+        "collaborators": [
+            {"id": user.pk, "username": user.username}
+            for user in custom_list.collaborators.order_by("username")
+        ],
+        "allow_recommendations": bool(custom_list.allow_recommendations),
+        "is_smart": bool(custom_list.is_smart),
+        "is_public": custom_list.visibility == "public",
+        "include_notes": bool(custom_list.include_notes),
+        "public_slug": custom_list.public_slug or "",
+        "can_delete": custom_list.user_can_delete(request.user),
+        "activity_url": reverse("list_activity", args=[custom_list.id]),
+        "url_template": _build_list_url_template(request),
+    }
+
+
 @require_POST
 def share_view(request):
     """Create (or reuse) a public smart list snapshotting the current view."""
@@ -204,7 +305,10 @@ def edit(request):
     list_id = request.POST.get("list_id")
     custom_list = get_object_or_404(CustomList, id=list_id)
     if custom_list.user_can_edit(request.user):
-        form = CustomListForm(request.POST, instance=custom_list, user=request.user)
+        data, unknown = _list_form_data(request)
+        if unknown:
+            return _unknown_collaborators(unknown)
+        form = CustomListForm(data, instance=custom_list, user=request.user)
         if form.is_valid():
             form.save()
             logger.info("%s list edited successfully.", custom_list)
@@ -213,7 +317,17 @@ def edit(request):
                 user=request.user,
                 activity_type=ListActivityType.LIST_EDITED,
             )
+            if helpers.wants_json(request):
+                return JsonResponse(_saved_list(custom_list, request))
+        elif helpers.wants_json(request):
+            # The page drops an invalid edit silently; the web shows why.
+            return _form_errors(form)
     else:
+        if helpers.wants_json(request):
+            return JsonResponse(
+                {"error": gettext("You do not have permission to edit this list.")},
+                status=403,
+            )
         messages.error(
             request, gettext("You do not have permission to edit this list.")
         )
@@ -231,6 +345,8 @@ def edit_form(request, list_id):
     custom_list = get_object_or_404(CustomList, id=list_id)
     if not custom_list.user_can_edit(request.user):
         return HttpResponse(status=403)
+    if helpers.wants_json(request):
+        return JsonResponse(_list_form_values(custom_list, request))
 
     available_tags = CustomListForm._normalize_tags(
         tag
@@ -264,8 +380,15 @@ def delete(request):
     if custom_list.user_can_delete(request.user):
         custom_list.delete()
         logger.info("%s list deleted successfully.", custom_list)
+        if helpers.wants_json(request):
+            return JsonResponse({"deleted": True})
         return redirect("lists")
 
+    if helpers.wants_json(request):
+        return JsonResponse(
+            {"error": gettext("You do not have permission to delete this list.")},
+            status=403,
+        )
     messages.error(request, gettext("You do not have permission to delete this list."))
     return helpers.redirect_back(request)
 

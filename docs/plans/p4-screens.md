@@ -58,7 +58,7 @@ adds a web test for its flow:
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
-| P4-I | Lists | Not started |
+| P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2: a list's page. I3: smart lists, recommendations, activity |
 | P4-J | Settings and integrations | Not started |
 | P4-K | Imports | Not started |
 
@@ -612,3 +612,51 @@ like update_top_talent_sort and select_featured_person, re-aggregates for
 `media_type` and features `person_source` + `person_id`. The sorts post to
 the page's own views (they already answer JSON). Both sections load after
 the page.
+
+### P4-I: Lists
+
+Today's pages: the index (`lists/custom_lists.html`,
+`lists.views_list_browse.lists`), a list (`list_detail.html`,
+`smart_list_detail.html`), the form (`components/list_form.html`), the
+recommendations and activity pages. Three slices. Public views, the public
+profile, RSS/JSON and CSV export stay Django (they work signed out).
+
+Parity checklist:
+
+- [x] I1: "Lists", "N lists · N shared with you"; New List with its menu (New
+      list, New smart list, Import from Trakt, Import from MDBList, Import CSV,
+      Public profile).
+- [x] I1: My Lists / Shared with Me; the toolbar from six lists or while
+      filtering: search (300 ms), type, sort (picking the active sort flips
+      it; saved as the user's list sort).
+- [x] I1: cards with the first four posters (batched), name, "N items ·
+      Shared/Public/Private · N% completed", the last-watched line under that
+      sort, Edit for editors; 20 a page, more on scroll; the empty state.
+- [x] I1: create and edit (name, description, tags, collaborators by exact
+      username, smart, public, recommendations, notes, custom URL with its
+      preview and errors), Activity History link, delete with a confirm step.
+      A new smart list opens its rules on the list's page.
+- [x] I1: CSV import (queued), MDBList (connect with API key and sync
+      frequency, import by URL or ID, Sync Now, Disconnect, connection
+      problem), Trakt (setup with the redirect URI, client ID and secret,
+      Login with Trakt by device code).
+- [x] I1: the nav's Lists link and `/lists` links open the web index.
+- [ ] I2: a manual list's page (items, filters, sort, grid and table, custom
+      order, bulk select, add item, export, links).
+- [ ] I3: smart lists (rules summary and builder), recommendations, activity.
+- [ ] The collaborator field takes exact usernames: the page's select2 user
+      search has no endpoint the web can use.
+
+I1 (2026-11-23): `GET /api/v1/lists/screen/` reads the page's own context
+(`build_lists_context`, split from `lists`). The form views answer JSON for
+`Accept: application/json`: `list_edit_form` returns every field, and the
+web posts every field back (the form saves them all: a field left out would
+be cleared, smart rules included); `list_create` and `list_edit` return
+`{saved, list, location}` or `{saved: false, errors}` (the page drops an
+invalid edit silently) and take `collaborator_usernames`; `list_delete`
+returns `{deleted}`. Imports use the list imports API. Trakt always uses the
+device code flow on the web, so its setup shows the out-of-band redirect URI.
+
+Page budgets went from 110 to 115 kB with I1 (the user's call, 2026-11-23):
+each new route grows the shared route table and re-splits shared code, and
+an empty Lists route alone tipped Discover over.

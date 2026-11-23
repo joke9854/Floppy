@@ -106,6 +106,64 @@ def user_profile(request, username):
 @require_GET
 def lists(request):
     """Return the custom list page."""
+    context = build_lists_context(request)
+    lists_page = context["custom_lists"]
+    # Add timestamp to context for cache busting
+    import time
+
+    cache_buster = int(time.time())
+
+    # Boosted navigation still sends HX-Request but needs the full page
+    if helpers.is_htmx_fragment(request):
+        response = render(
+            request,
+            "lists/components/list_grid.html",
+            {
+                "custom_lists": lists_page,
+                "current_sort": context["current_sort"],
+                "current_direction": context["current_direction"],
+                "cache_buster": cache_buster,
+                "list_url_template": _build_list_url_template(request),
+            },
+        )
+        # Explicitly set cache control headers for HTMX responses
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+        response["Vary"] = "Cookie, HX-Request, HX-Boosted"
+        response["X-Cache-Buster"] = str(cache_buster)
+        return response
+
+    create_list_form = CustomListForm(
+        user=request.user,
+        available_tags=context["available_tags"],
+    )
+    response = render(
+        request,
+        "lists/custom_lists.html",
+        {
+            **context,
+            "form": create_list_form,
+            "cache_buster": cache_buster,
+            "list_url_template": _build_list_url_template(request),
+        },
+    )
+
+    # Explicitly set cache control headers for Safari compatibility
+    # @never_cache should handle this, but Safari can be aggressive with caching
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    response["Vary"] = "Cookie"
+    response["X-Cache-Buster"] = str(cache_buster)
+    return response
+
+
+def build_lists_context(request) -> dict:
+    """Return the Lists page's context (the page and the web screen, P4-I).
+
+    ``sort`` and ``direction`` in the query are saved as the user's list sort.
+    """
     # Get parameters from request
     search_query = request.GET.get("q", "")
     page = request.GET.get("page", 1)
@@ -249,36 +307,7 @@ def lists(request):
     for custom_list in lists_page:
         custom_list.can_edit = custom_list.user_can_edit(request.user)
 
-    # Add timestamp to context for cache busting
-    import time
 
-    cache_buster = int(time.time())
-
-    # Boosted navigation still sends HX-Request but needs the full page
-    if helpers.is_htmx_fragment(request):
-        response = render(
-            request,
-            "lists/components/list_grid.html",
-            {
-                "custom_lists": lists_page,
-                "current_sort": sort_by,
-                "current_direction": direction,
-                "cache_buster": cache_buster,
-                "list_url_template": _build_list_url_template(request),
-            },
-        )
-        # Explicitly set cache control headers for HTMX responses
-        response["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        response["Pragma"] = "no-cache"
-        response["Expires"] = "0"
-        response["Vary"] = "Cookie, HX-Request, HX-Boosted"
-        response["X-Cache-Buster"] = str(cache_buster)
-        return response
-
-    create_list_form = CustomListForm(
-        user=request.user,
-        available_tags=available_tags,
-    )
     # Trakt refuses non-HTTPS redirect URIs, so this instance may only be able to
     # connect through the device code flow, which registers the OOB value (#681).
     trakt_redirect_uri = request.build_absolute_uri(reverse("trakt_lists_callback"))
@@ -287,43 +316,27 @@ def lists(request):
         trakt_redirect_uri = trakt_imports.TRAKT_OOB_REDIRECT_URI
     trakt_account = TraktAccount.objects.filter(user=request.user).first()
     mdblist_account = MDBListAccount.objects.filter(user=request.user).first()
-
-    response = render(
-        request,
-        "lists/custom_lists.html",
-        {
-            "custom_lists": lists_page,
-            "form": create_list_form,
-            "current_sort": sort_by,
-            "current_direction": direction,
-            "sort_choices": ListSortChoices.choices,
-            "media_types": enabled_media_types,
-            "current_media_type": selected_media_type,
-            "trakt_redirect_uri": trakt_redirect_uri,
-            "trakt_device_flow": trakt_device_flow,
-            "trakt_account": trakt_account,
-            "trakt_has_credentials": bool(
-                trakt_account and trakt_account.is_configured
-            ),
-            "mdblist_account": mdblist_account,
-            "cache_buster": cache_buster,
-            "list_url_template": _build_list_url_template(request),
-            "current_scope": scope,
-            "owned_count": CustomList.objects.filter(owner=request.user).count(),
-            "shared_count": CustomList.objects.filter(collaborators=request.user)
-            .exclude(owner=request.user)
-            .distinct()
-            .count(),
-        },
-    )
-    # Explicitly set cache control headers for Safari compatibility
-    # @never_cache should handle this, but Safari can be aggressive with caching
-    response["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-    response["Pragma"] = "no-cache"
-    response["Expires"] = "0"
-    response["Vary"] = "Cookie"
-    response["X-Cache-Buster"] = str(cache_buster)
-    return response
+    return {
+        "custom_lists": lists_page,
+        "available_tags": available_tags,
+        "current_sort": sort_by,
+        "current_direction": direction,
+        "sort_choices": ListSortChoices.choices,
+        "media_types": enabled_media_types,
+        "current_media_type": selected_media_type,
+        "search_query": search_query,
+        "trakt_redirect_uri": trakt_redirect_uri,
+        "trakt_device_flow": trakt_device_flow,
+        "trakt_account": trakt_account,
+        "trakt_has_credentials": bool(trakt_account and trakt_account.is_configured),
+        "mdblist_account": mdblist_account,
+        "current_scope": scope,
+        "owned_count": CustomList.objects.filter(owner=request.user).count(),
+        "shared_count": CustomList.objects.filter(collaborators=request.user)
+        .exclude(owner=request.user)
+        .distinct()
+        .count(),
+    }
 
 
 @login_not_required

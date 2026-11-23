@@ -5569,6 +5569,65 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: lists:write
+  /api/v1/lists/screen/:
+    get:
+      operationId: getListsScreen
+      description: 'The Django Lists page for `scope` (mine, shared), `q`, `media_type`,
+        `sort` and `direction` (saved as the user''s list sort, as on the page) and
+        `page` (20 lists): counts, toolbar options, cards with their four-poster covers,
+        and where the page''s actions post. Built by the Django page''s own builder,
+        so it shows what the page shows. Like the page, the read can store metadata
+        it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: direction
+        schema:
+          type: string
+      - in: query
+        name: media_type
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: query
+        name: scope
+        schema:
+          type: string
+      - in: query
+        name: sort
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListsScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/lists/share-view/:
     post:
       operationId: shareLibraryView
@@ -24425,6 +24484,133 @@ components:
       - message
       - user_name
       - valid
+    ListsScreen:
+      type: object
+      description: The Lists index for the web app.
+      properties:
+        owned_count:
+          type: integer
+        shared_count:
+          type: integer
+        scope:
+          type: string
+        q:
+          type: string
+        media_type:
+          type: string
+        sort:
+          type: string
+        direction:
+          type: string
+        sorts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListsScreenChoice'
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListsScreenChoice'
+        show_toolbar:
+          type: boolean
+        page:
+          type: integer
+        has_next:
+          type: boolean
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListsScreenCard'
+        tag_options:
+          type: array
+          items:
+            type: string
+        trakt_redirect_uri:
+          type: string
+        urls:
+          $ref: '#/components/schemas/ListsScreenUrls'
+      required:
+      - cards
+      - direction
+      - has_next
+      - media_type
+      - media_types
+      - owned_count
+      - page
+      - q
+      - scope
+      - shared_count
+      - show_toolbar
+      - sort
+      - sorts
+      - tag_options
+      - trakt_redirect_uri
+      - urls
+    ListsScreenCard:
+      type: object
+      description: 'A list card: cover posters, name, "N items · Shared · N% completed".'
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        href:
+          type: string
+        meta:
+          type: string
+        watched:
+          type: string
+          description: Last watched, under that sort.
+        is_smart:
+          type: boolean
+        can_edit:
+          type: boolean
+        covers:
+          type: array
+          items:
+            type: string
+      required:
+      - can_edit
+      - covers
+      - href
+      - id
+      - is_smart
+      - meta
+      - name
+      - watched
+    ListsScreenChoice:
+      type: object
+      description: A sort or media type option.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    ListsScreenUrls:
+      type: object
+      description: Where the page's actions post (`edit_form` has an `{id}` slot).
+      properties:
+        create:
+          type: string
+        edit:
+          type: string
+        delete:
+          type: string
+        edit_form:
+          type: string
+        profile:
+          type: string
+        url_template:
+          type: string
+      required:
+      - create
+      - delete
+      - edit
+      - edit_form
+      - profile
+      - url_template
     MDBListConnectRequest:
       type: object
       description: The user's MDBList API key and how often to sync.

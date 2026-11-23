@@ -30,6 +30,7 @@ from .details_screen import (
 from .discover_screen import DiscoverScreenSerializer, build_discover_screen
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .history_screen import HistoryScreenSerializer, build_history_screen
+from .lists_screen import ListsScreenSerializer, build_lists_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
 from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
 from .statistics_talent_screen import StatisticsTalentSerializer, build_talent_screen
@@ -238,6 +239,33 @@ class CalendarScreenView(drf_views.APIView):
         """Return the calendar screen."""
         data = build_calendar_screen(request._request)
         return Response(CalendarScreenSerializer(data).data, status=HTTP.OK)
+
+
+class ListsScreenView(drf_views.APIView):
+    """The Lists index for the web app (v2 P4-I)."""
+
+    @extend_schema(
+        operation_id="getListsScreen",
+        description=(
+            "The Django Lists page for `scope` (mine, shared), `q`, `media_type`, "
+            "`sort` and `direction` (saved as the user's list sort, as on the page) "
+            "and `page` (20 lists): counts, toolbar options, cards with their "
+            "four-poster covers, and where the page's actions post." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("scope", str, required=False),
+            OpenApiParameter("q", str, required=False),
+            OpenApiParameter("media_type", str, required=False),
+            OpenApiParameter("sort", str, required=False),
+            OpenApiParameter("direction", str, required=False),
+            OpenApiParameter("page", int, required=False),
+        ],
+        responses={200: ListsScreenSerializer},
+    )
+    def get(self, request):
+        """Return the lists screen."""
+        data = build_lists_screen(request._request)
+        return Response(ListsScreenSerializer(data).data, status=HTTP.OK)
 
 
 class StatisticsScreenView(drf_views.APIView):

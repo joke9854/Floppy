@@ -7,6 +7,11 @@
  * with their imports and CSS. The route files are found through the nodes
  * SvelteKit generates, so the budget follows the app, not a folder total
  * that grows with every screen.
+ *
+ * 115 kB for pages with the shell (raised from 110 on 2026-11-23, P4-I1):
+ * every new route grows the shared route table and re-splits shared code, so
+ * Library, Discover and the detail page had no headroom left. New sections
+ * still load lazily where they can.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,7 +36,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Library with the shell',
@@ -40,7 +45,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/library/[type]/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Detail page with the shell',
@@ -49,7 +54,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/details/[source]/[type]/[id]/[[title]]/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Episode page with the shell',
@@ -58,7 +63,16 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/details/[source]/tv/[id]/[title]/season/[season]/episode/[episode]/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
+	},
+	{
+		name: 'Lists with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/lists/+page.svelte'
+		],
+		budgetKb: 115
 	},
 	{
 		name: 'Statistics with the shell',
@@ -67,7 +81,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/statistics/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Discover with the shell',
@@ -76,7 +90,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/discover/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Calendar with the shell',
@@ -85,7 +99,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/calendar/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'History with the shell',
@@ -94,7 +108,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/history/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	},
 	{
 		name: 'Person page with the shell',
@@ -103,7 +117,7 @@ const PAGES = [
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/person/[source]/[id]/[[name]]/+page.svelte'
 		],
-		budgetKb: 110
+		budgetKb: 115
 	}
 ];
 

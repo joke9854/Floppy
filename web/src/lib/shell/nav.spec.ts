@@ -92,6 +92,8 @@ describe('detail links', () => {
 			'/next/statistics?start-date=all&end-date=all'
 		);
 		expect(detailHref('/statistics/recap?month=2026-11', '/next')).toBe('/statistics/recap?month=2026-11');
+		expect(detailHref('/lists?scope=shared', '/next')).toBe('/next/lists?scope=shared');
+		expect(detailHref('/list/7', '/next')).toBe('/list/7');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);

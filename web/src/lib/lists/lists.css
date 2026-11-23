@@ -1,0 +1,444 @@
+/* Lists (P4-I), from the Django page's ct-list-* rules. */
+
+.ct-lists {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	padding-bottom: 96px;
+}
+
+.ct-lists-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding-top: 8px;
+}
+
+.ct-lists-button {
+	display: inline-flex;
+	height: 40px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding-inline: 16px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 10px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	list-style: none;
+	white-space: nowrap;
+}
+
+.ct-lists-button::-webkit-details-marker {
+	display: none;
+}
+
+.ct-lists-button:hover {
+	background-color: var(--color-surface-hover);
+}
+
+.ct-lists-button.is-primary {
+	border-color: transparent;
+	background-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+}
+
+.ct-lists-button.is-danger {
+	border-color: rgb(244 63 94 / 35%);
+	background-color: rgb(244 63 94 / 12%);
+	color: rgb(254 205 211);
+}
+
+.ct-lists-button.is-icon {
+	width: 40px;
+	padding: 0;
+}
+
+.ct-lists-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.ct-lists-link {
+	align-self: center;
+	margin-right: auto;
+	color: var(--color-link);
+	font-size: 14px;
+}
+
+.ct-lists-split {
+	position: relative;
+	display: flex;
+	gap: 2px;
+}
+
+.ct-lists-split > .ct-lists-button {
+	border-radius: 10px 0 0 10px;
+}
+
+.ct-lists-split .ct-lists-menu > summary {
+	border-radius: 0 10px 10px 0;
+}
+
+.ct-lists-menu {
+	position: relative;
+}
+
+.ct-lists-menu__panel {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 40;
+	display: flex;
+	min-width: 220px;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px;
+	border-radius: 14px;
+	background-color: var(--color-surface-strong);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 40%);
+}
+
+.ct-lists-menu__panel > button,
+.ct-lists-menu__panel > a {
+	padding: 9px 12px;
+	border-radius: 10px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.ct-lists-menu__panel > :hover,
+.ct-lists-menu__panel > [aria-current='true'] {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-lists-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-lists-search {
+	display: flex;
+	height: 40px;
+	min-width: 200px;
+	flex: 1;
+	align-items: center;
+	gap: 8px;
+	padding-inline: 12px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 10px;
+	background-color: var(--color-surface);
+	color: var(--color-text-muted);
+}
+
+.ct-lists-search input {
+	min-width: 0;
+	flex: 1;
+	border: 0;
+	background: transparent;
+	color: var(--color-text);
+	outline: none;
+}
+
+.ct-lists-select {
+	height: 40px;
+	padding-inline: 10px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 10px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+}
+
+.ct-lists-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 20px;
+}
+
+@media (max-width: 639.98px) {
+	.ct-lists-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 14px;
+	}
+}
+
+.ct-list-card {
+	position: relative;
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ct-list-card__cover {
+	display: grid;
+	overflow: hidden;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 2px;
+	aspect-ratio: 16 / 10;
+	border-radius: 12px;
+	background-color: var(--color-surface);
+}
+
+.ct-list-card__cover img,
+.ct-list-card__blank {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.ct-list-card__blank {
+	grid-column: 1 / -1;
+	background-color: var(--color-surface-hover);
+}
+
+.ct-list-card__edit {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border: 1px solid rgb(255 255 255 / 14%);
+	border-radius: 999px;
+	background-color: rgb(20 16 14 / 60%);
+	color: #fff;
+	cursor: pointer;
+	backdrop-filter: blur(12px);
+}
+
+.ct-list-card__title {
+	overflow: hidden;
+	margin-top: 6px;
+	color: var(--color-text);
+	font-size: 15px;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-list-card__title:hover {
+	color: var(--color-link);
+}
+
+.ct-list-card__meta {
+	color: var(--color-text-muted);
+	font-size: 13px;
+}
+
+.ct-lists-more,
+.ct-lists-none {
+	padding: 16px 0;
+	color: var(--color-text-muted);
+	font-size: 14px;
+	text-align: center;
+}
+
+.ct-lists-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 48px 16px;
+	border-radius: 14px;
+	background-color: var(--color-surface);
+	text-align: center;
+}
+
+.ct-lists-empty h2 {
+	font-size: 20px;
+	font-weight: 700;
+}
+
+.ct-lists-empty p {
+	max-width: 28rem;
+	color: var(--color-text-muted);
+}
+
+/* Create / edit form and imports */
+.ct-list-form,
+.ct-import,
+.ct-import form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.ct-list-form label,
+.ct-list-form__field,
+.ct-import label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.ct-list-form small,
+.ct-list-form__note {
+	color: var(--color-text-muted);
+	font-size: 12px;
+	font-weight: 400;
+}
+
+.ct-list-form input:not([type='checkbox']),
+.ct-list-form textarea,
+.ct-import input,
+.ct-import select {
+	min-height: 38px;
+	padding: 8px 10px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 8px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+	color-scheme: dark;
+	font-weight: 400;
+}
+
+.ct-list-form__check {
+	flex-direction: row !important;
+	align-items: flex-start;
+	gap: 10px !important;
+}
+
+.ct-list-form__check input {
+	margin-top: 3px;
+}
+
+.ct-list-form__check span {
+	display: flex;
+	flex-direction: column;
+	color: var(--color-text);
+}
+
+.ct-list-form__check input:disabled + span {
+	opacity: 0.5;
+}
+
+.ct-list-form__error {
+	color: rgb(254 205 211) !important;
+	font-size: 13px;
+}
+
+.ct-list-form__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.ct-list-form__actions.is-start {
+	justify-content: flex-start;
+}
+
+.ct-list-form__confirm {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px;
+	border: 1px solid rgb(244 63 94 / 35%);
+	border-radius: 10px;
+	background-color: rgb(244 63 94 / 8%);
+	color: var(--color-text);
+	font-size: 14px;
+}
+
+.ct-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 6px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 8px;
+	background-color: var(--color-surface);
+}
+
+.ct-chips input {
+	min-height: 28px !important;
+	min-width: 8rem;
+	flex: 1;
+	padding: 2px 4px !important;
+	border: 0 !important;
+	background: transparent !important;
+}
+
+.ct-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 4px 3px 10px;
+	border-radius: 999px;
+	background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+	color: var(--color-text);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.ct-chip button {
+	display: grid;
+	width: 18px;
+	height: 18px;
+	place-items: center;
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+
+.ct-import h3 {
+	color: var(--color-text);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.ct-import p {
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-import__label {
+	color: var(--color-text-muted) !important;
+	font-size: 12px !important;
+}
+
+.ct-import__copy {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-import__copy code {
+	min-width: 0;
+	flex: 1;
+	overflow-x: auto;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background-color: var(--color-surface);
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.ct-import__code {
+	color: var(--color-text) !important;
+	font-size: 28px !important;
+	font-weight: 800;
+	letter-spacing: 0.2em;
+	text-align: center;
+}
+
+.ct-import__done {
+	color: rgb(110 231 183) !important;
+}

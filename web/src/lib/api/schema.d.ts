@@ -1624,6 +1624,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lists/screen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django Lists page for `scope` (mine, shared), `q`, `media_type`, `sort` and `direction` (saved as the user's list sort, as on the page) and `page` (20 lists): counts, toolbar options, cards with their four-poster covers, and where the page's actions post. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getListsScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lists/share-view/": {
         parameters: {
             query?: never;
@@ -7021,6 +7038,51 @@ export interface components {
             message: string;
             valid: boolean;
             user_name: string;
+        };
+        /** @description The Lists index for the web app. */
+        ListsScreen: {
+            owned_count: number;
+            shared_count: number;
+            scope: string;
+            q: string;
+            media_type: string;
+            sort: string;
+            direction: string;
+            sorts: components["schemas"]["ListsScreenChoice"][];
+            media_types: components["schemas"]["ListsScreenChoice"][];
+            show_toolbar: boolean;
+            page: number;
+            has_next: boolean;
+            cards: components["schemas"]["ListsScreenCard"][];
+            tag_options: string[];
+            trakt_redirect_uri: string;
+            urls: components["schemas"]["ListsScreenUrls"];
+        };
+        /** @description A list card: cover posters, name, "N items · Shared · N% completed". */
+        ListsScreenCard: {
+            id: number;
+            name: string;
+            href: string;
+            meta: string;
+            /** @description Last watched, under that sort. */
+            watched: string;
+            is_smart: boolean;
+            can_edit: boolean;
+            covers: string[];
+        };
+        /** @description A sort or media type option. */
+        ListsScreenChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description Where the page's actions post (`edit_form` has an `{id}` slot). */
+        ListsScreenUrls: {
+            create: string;
+            edit: string;
+            delete: string;
+            edit_form: string;
+            profile: string;
+            url_template: string;
         };
         /** @description The user's MDBList API key and how often to sync. */
         MDBListConnectRequest: {
@@ -15807,6 +15869,50 @@ export interface operations {
             };
             /** @description Metadata provider unavailable. Try again later. Code `provider_unavailable`, with `Retry-After`. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getListsScreen: {
+        parameters: {
+            query?: {
+                direction?: string;
+                media_type?: string;
+                page?: number;
+                q?: string;
+                scope?: string;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListsScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
