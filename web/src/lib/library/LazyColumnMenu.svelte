@@ -12,6 +12,7 @@
 		config: LibraryScreen['column_config'];
 		defaults: LibraryScreen['column_defaults'];
 		initialOpen?: boolean;
+		tableType?: 'media' | 'list';
 	};
 	let props: Props = $props();
 

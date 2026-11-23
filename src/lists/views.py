@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
 from django.core.paginator import Paginator
 from django.db.models import F, OuterRef, Subquery
-from django.http import Http404, StreamingHttpResponse
+from django.http import Http404, HttpResponseBase, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
@@ -62,6 +62,45 @@ logger = logging.getLogger(__name__)
 @require_GET
 def list_detail(request, list_reference):
     """Return the detail page of a custom list."""
+    context = build_list_detail_context(request, list_reference)
+    if isinstance(context, HttpResponseBase):
+        return context
+    custom_list = context["custom_list"]
+    layout = context["current_layout"]
+    is_pagination = context["is_pagination"]
+    total_items_count = context["items_count"]
+
+    # Additional context for full page render
+    if not context["is_partial"]:
+        context["form"] = (
+            CustomListForm(instance=custom_list, user=request.user)
+            if context["can_edit"]
+            else None
+        )
+        return render(request, "lists/list_detail.html", context)
+
+    # HTMX partial response
+    if layout == "table":
+        if is_pagination:
+            template_name = "app/components/table_items.html"
+        else:
+            template_name = "lists/components/list_table.html"
+    else:
+        template_name = "lists/components/media_grid.html"
+
+    response = render(request, template_name, context)
+    response["HX-Trigger"] = json.dumps(
+        _build_list_count_trigger(total_items_count),
+    )
+    return response
+
+
+def build_list_detail_context(request, list_reference):
+    """Return a manual list page's context, or the response it answers with.
+
+    Shared by the page and the web screen (v2 P4-I2). A missing list
+    redirects or 404s, and a smart list answers with its own page, as before.
+    """
     reference = str(list_reference or "").strip()
     custom_list = CustomList.objects.get_by_reference(reference)
     if custom_list is None:
@@ -469,7 +508,9 @@ def list_detail(request, list_reference):
                 tag_url=reverse("tag_bulk_toggle"),
             )
             if can_edit
-            else {},
+            # One dict: a trailing comma here made it a tuple, so the page's
+            # bulk menus read a JSON array and showed no options.
+            else {}
         ),
         "list_ordering_enabled": can_edit
         and params["sort_by"] == ListDetailSortChoices.CUSTOM,
@@ -525,38 +566,16 @@ def list_detail(request, list_reference):
             },
         )
 
-    # Additional context for full page render
-    if not is_partial:
-        context.update(
-            {
-                "form": CustomListForm(instance=custom_list, user=request.user)
-                if can_edit
-                else None,
-                "media_types": sorted(
-                    MediaTypes.values, key=lambda v: MediaTypes(v).label
-                ),
-                "collaborators_count": custom_list.collaborators.count() + 1,
-                "completion_percent": completion_percent,
-                "completed_count": completed_count,
-                "media_type_breakdown": media_type_breakdown,
-            },
-        )
-        return render(request, "lists/list_detail.html", context)
-
-    # HTMX partial response
-    if layout == "table":
-        if is_pagination:
-            template_name = "app/components/table_items.html"
-        else:
-            template_name = "lists/components/list_table.html"
-    else:
-        template_name = "lists/components/media_grid.html"
-
-    response = render(request, template_name, context)
-    response["HX-Trigger"] = json.dumps(
-        _build_list_count_trigger(total_items_count),
+    context.update(
+        {
+            "media_types": sorted(MediaTypes.values, key=lambda v: MediaTypes(v).label),
+            "collaborators_count": custom_list.collaborators.count() + 1,
+            "completion_percent": completion_percent,
+            "completed_count": completed_count,
+            "media_type_breakdown": media_type_breakdown,
+        },
     )
-    return response
+    return context
 
 
 @login_not_required

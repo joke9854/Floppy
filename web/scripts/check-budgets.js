@@ -66,6 +66,15 @@ const PAGES = [
 		budgetKb: 115
 	},
 	{
+		name: 'List page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/list/[ref]/+page.svelte'
+		],
+		budgetKb: 115
+	},
+	{
 		name: 'Lists with the shell',
 		routes: [
 			'src/routes/+layout.svelte',

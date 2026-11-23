@@ -58,7 +58,7 @@ adds a web test for its flow:
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
-| P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2: a list's page. I3: smart lists, recommendations, activity |
+| P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3: smart lists, recommendations, activity |
 | P4-J | Settings and integrations | Not started |
 | P4-K | Imports | Not started |
 
@@ -641,8 +641,13 @@ Parity checklist:
       problem), Trakt (setup with the redirect URI, client ID and secret,
       Login with Trakt by device code).
 - [x] I1: the nav's Lists link and `/lists` links open the web index.
-- [ ] I2: a manual list's page (items, filters, sort, grid and table, custom
-      order, bulk select, add item, export, links).
+- [x] I2: a manual list's page: header (items, completion, Public · Links,
+      collaborators, media type breakdown, description), search, type and
+      status filters, sort, grid and table with the Library's columns, custom
+      order (Edit Item Order moves), bulk select, Edit List, more on scroll.
+      Add New Item, Add Recommendation, Activity History, Recommendations and
+      Export open the Django pages; smart lists and lists the user can only
+      view open the Django page too (until I3).
 - [ ] I3: smart lists (rules summary and builder), recommendations, activity.
 - [ ] The collaborator field takes exact usernames: the page's select2 user
       search has no endpoint the web can use.
@@ -656,6 +661,17 @@ be cleared, smart rules included); `list_create` and `list_edit` return
 invalid edit silently) and take `collaborator_usernames`; `list_delete`
 returns `{deleted}`. Imports use the list imports API. Trakt always uses the
 device code flow on the web, so its setup shows the out-of-band redirect URI.
+
+I2 (2026-11-23): `GET /api/v1/lists/page/<reference>/` reads the page's own
+context (`build_list_detail_context`, split from `list_detail`) and draws the
+items with the Library's card and table builders (the grid's items go
+through the same table adapter). It answers `handled: false` with the Django
+URL for smart lists, read-only lists and missing lists, and the web route
+redirects there. Moves use `list_reorder_item`, which renumbers the whole
+list, so paging stays right. Fixed in passing: the Django list page's
+`bulk_action_data` was a one-element tuple (a trailing comma), so its bulk
+menus read a JSON array and showed no options. The grid's card loads with
+the grid to keep the page within its budget.
 
 Page budgets went from 110 to 115 kB with I1 (the user's call, 2026-11-23):
 each new route grows the shared route table and re-splits shared code, and

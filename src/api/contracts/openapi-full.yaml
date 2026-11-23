@@ -5569,6 +5569,81 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: lists:write
+  /api/v1/lists/page/{reference}/:
+    get:
+      operationId: getListPage
+      description: 'The Django list page for `reference` (id or custom URL) with its
+        own query: `q`, repeated `type` and `status`, `sort` and `direction`, `layout`
+        (grid, table) and `page` (16 items); sort, statuses and layout are saved as
+        the user''s, as on the page. Cards and table cells match the Library''s. A
+        smart list, a list the user cannot edit, or a missing one answers `handled:
+        false` and its Django page. Built by the Django page''s own builder, so it
+        shows what the page shows. Like the page, the read can store metadata it resolves,
+        so integration tokens cannot call it.'
+      parameters:
+      - in: query
+        name: direction
+        schema:
+          type: string
+      - in: query
+        name: layout
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: path
+        name: reference
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: query
+        name: sort
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            type: string
+      - in: query
+        name: type
+        schema:
+          type: array
+          items:
+            type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPage'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/lists/screen/:
     get:
       operationId: getListsScreen
@@ -24229,6 +24304,209 @@ components:
       properties:
         library_media_type:
           type: string
+    ListPage:
+      type: object
+      description: 'A manual list''s page for the web app (`handled: false`: open
+        `django_url`).'
+      properties:
+        handled:
+          type: boolean
+        django_url:
+          type: string
+        list:
+          $ref: '#/components/schemas/ListPageList'
+        breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageBreakdown'
+        q:
+          type: string
+        sort:
+          type: string
+        direction:
+          type: string
+        sorts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        current_statuses:
+          type: array
+          items:
+            type: string
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        current_media_types:
+          type: array
+          items:
+            type: string
+        layout:
+          type: string
+        ordering:
+          type: boolean
+        page:
+          type: integer
+        has_next:
+          type: boolean
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumn'
+        column_config:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumnConfig'
+        default_column_config:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryColumnConfig'
+        column_media_type:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryCard'
+        bulk:
+          allOf:
+          - $ref: '#/components/schemas/LibraryBulk'
+          nullable: true
+        urls:
+          $ref: '#/components/schemas/ListPageUrls'
+      required:
+      - django_url
+      - handled
+    ListPageBreakdown:
+      type: object
+      description: A slice of the media type breakdown.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+        percent:
+          type: integer
+        color:
+          type: string
+      required:
+      - color
+      - count
+      - label
+      - percent
+      - value
+    ListPageChoice:
+      type: object
+      description: A sort, status or media type option.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    ListPageLink:
+      type: object
+      description: A Links menu entry (public lists).
+      properties:
+        label:
+          type: string
+        href:
+          type: string
+      required:
+      - href
+      - label
+    ListPageList:
+      type: object
+      description: The list's header.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        reference:
+          type: string
+        items_count:
+          type: integer
+        filtered_count:
+          type: integer
+        completion_percent:
+          type: integer
+          nullable: true
+        completed_count:
+          type: integer
+        collaborators_count:
+          type: integer
+        is_public:
+          type: boolean
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageLink'
+        can_recommend:
+          type: boolean
+        recommendation_count:
+          type: integer
+      required:
+      - can_recommend
+      - collaborators_count
+      - completed_count
+      - completion_percent
+      - description
+      - filtered_count
+      - id
+      - is_public
+      - items_count
+      - links
+      - name
+      - recommendation_count
+      - reference
+    ListPageUrls:
+      type: object
+      description: 'The page''s actions: Django pages, and where the web posts.'
+      properties:
+        add_item:
+          type: string
+        recommend:
+          type: string
+        recommendations:
+          type: string
+        activity:
+          type: string
+        export:
+          type: string
+        reorder:
+          type: string
+        columns:
+          type: string
+        edit_form:
+          type: string
+        edit:
+          type: string
+        delete:
+          type: string
+        url_template:
+          type: string
+      required:
+      - activity
+      - add_item
+      - columns
+      - delete
+      - edit
+      - edit_form
+      - export
+      - recommend
+      - recommendations
+      - reorder
+      - url_template
     ListRecommendation:
       type: object
       description: A pending recommendation for a list.

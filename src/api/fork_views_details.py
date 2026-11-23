@@ -30,6 +30,7 @@ from .details_screen import (
 from .discover_screen import DiscoverScreenSerializer, build_discover_screen
 from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .history_screen import HistoryScreenSerializer, build_history_screen
+from .list_detail_screen import ListPageSerializer, build_list_detail_screen
 from .lists_screen import ListsScreenSerializer, build_lists_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
 from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
@@ -239,6 +240,36 @@ class CalendarScreenView(drf_views.APIView):
         """Return the calendar screen."""
         data = build_calendar_screen(request._request)
         return Response(CalendarScreenSerializer(data).data, status=HTTP.OK)
+
+
+class ListPageView(drf_views.APIView):
+    """A manual list's page for the web app (v2 P4-I2)."""
+
+    @extend_schema(
+        operation_id="getListPage",
+        description=(
+            "The Django list page for `reference` (id or custom URL) with its own "
+            "query: `q`, repeated `type` and `status`, `sort` and `direction`, "
+            "`layout` (grid, table) and `page` (16 items); sort, statuses and "
+            "layout are saved as the user's, as on the page. Cards and table "
+            "cells match the Library's. A smart list, a list the user cannot "
+            "edit, or a missing one answers `handled: false` and its Django page." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("q", str, required=False),
+            OpenApiParameter("type", str, many=True, required=False),
+            OpenApiParameter("status", str, many=True, required=False),
+            OpenApiParameter("sort", str, required=False),
+            OpenApiParameter("direction", str, required=False),
+            OpenApiParameter("layout", str, required=False),
+            OpenApiParameter("page", int, required=False),
+        ],
+        responses={200: ListPageSerializer},
+    )
+    def get(self, request, reference):
+        """Return the list page."""
+        data = build_list_detail_screen(request._request, reference)
+        return Response(ListPageSerializer(data).data, status=HTTP.OK)
 
 
 class ListsScreenView(drf_views.APIView):

@@ -203,6 +203,11 @@ urlpatterns = [
         name="api_collection_fields",
     ),
     re_path(
+        r"^lists/page/(?P<reference>[^/]+)/?$",
+        fork_views_details.ListPageView.as_view(),
+        name="api_list_page",
+    ),
+    re_path(
         r"^lists/screen/?$",
         fork_views_details.ListsScreenView.as_view(),
         name="api_lists_screen",

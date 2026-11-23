@@ -1624,6 +1624,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lists/page/{reference}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Django list page for `reference` (id or custom URL) with its own query: `q`, repeated `type` and `status`, `sort` and `direction`, `layout` (grid, table) and `page` (16 items); sort, statuses and layout are saved as the user's, as on the page. Cards and table cells match the Library's. A smart list, a list the user cannot edit, or a missing one answers `handled: false` and its Django page. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getListPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lists/screen/": {
         parameters: {
             query?: never;
@@ -6922,6 +6939,80 @@ export interface components {
         /** @description Optional hint for resolving the item being added to a list. */
         ListMembershipRequest: {
             library_media_type?: string;
+        };
+        /** @description A manual list's page for the web app (`handled: false`: open `django_url`). */
+        ListPage: {
+            handled: boolean;
+            django_url: string;
+            list?: components["schemas"]["ListPageList"];
+            breakdown?: components["schemas"]["ListPageBreakdown"][];
+            q?: string;
+            sort?: string;
+            direction?: string;
+            sorts?: components["schemas"]["ListPageChoice"][];
+            statuses?: components["schemas"]["ListPageChoice"][];
+            current_statuses?: string[];
+            media_types?: components["schemas"]["ListPageChoice"][];
+            current_media_types?: string[];
+            layout?: string;
+            ordering?: boolean;
+            page?: number;
+            has_next?: boolean;
+            columns?: components["schemas"]["LibraryColumn"][];
+            column_config?: components["schemas"]["LibraryColumnConfig"][];
+            default_column_config?: components["schemas"]["LibraryColumnConfig"][];
+            column_media_type?: string;
+            cards?: components["schemas"]["LibraryCard"][];
+            bulk?: components["schemas"]["LibraryBulk"] | null;
+            urls?: components["schemas"]["ListPageUrls"];
+        };
+        /** @description A slice of the media type breakdown. */
+        ListPageBreakdown: {
+            value: string;
+            label: string;
+            count: number;
+            percent: number;
+            color: string;
+        };
+        /** @description A sort, status or media type option. */
+        ListPageChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description A Links menu entry (public lists). */
+        ListPageLink: {
+            label: string;
+            href: string;
+        };
+        /** @description The list's header. */
+        ListPageList: {
+            id: number;
+            name: string;
+            description: string;
+            reference: string;
+            items_count: number;
+            filtered_count: number;
+            completion_percent: number | null;
+            completed_count: number;
+            collaborators_count: number;
+            is_public: boolean;
+            links: components["schemas"]["ListPageLink"][];
+            can_recommend: boolean;
+            recommendation_count: number;
+        };
+        /** @description The page's actions: Django pages, and where the web posts. */
+        ListPageUrls: {
+            add_item: string;
+            recommend: string;
+            recommendations: string;
+            activity: string;
+            export: string;
+            reorder: string;
+            columns: string;
+            edit_form: string;
+            edit: string;
+            delete: string;
+            url_template: string;
         };
         /** @description A pending recommendation for a list. */
         ListRecommendation: {
@@ -15869,6 +15960,53 @@ export interface operations {
             };
             /** @description Metadata provider unavailable. Try again later. Code `provider_unavailable`, with `Retry-After`. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getListPage: {
+        parameters: {
+            query?: {
+                direction?: string;
+                layout?: string;
+                page?: number;
+                q?: string;
+                sort?: string;
+                status?: string[];
+                type?: string[];
+            };
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListPage"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

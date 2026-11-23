@@ -22,7 +22,12 @@
 	const screen = $derived(data.screen);
 
 	// The next pages, loaded as the grid reaches its end (the page's revealed).
-	let extra = $state<Card[]>([]);
+	// Cards loaded past the first page; a new page of data (a filter, a sort)
+	// clears them in the same update, so keyed rows never repeat.
+	let extra = $derived.by((): Card[] => {
+		void screen;
+		return [];
+	});
 	let nextPage = $derived(screen.has_next ? screen.page + 1 : 0);
 	const cards = $derived([...screen.cards, ...extra]);
 	let loadingMore = $state(false);
@@ -42,11 +47,6 @@
 	let formLoaded = $state(false);
 	let importLoaded = $state(false);
 
-	$effect(() => {
-		// A new first page drops the pages loaded after it.
-		void screen;
-		extra = [];
-	});
 
 	function go(changes: Record<string, string | null>) {
 		goto(`${BASE}/lists${listsQuery(page.url.searchParams, changes)}`, { reset: false });
@@ -87,7 +87,10 @@
 			});
 			if (response.ok) {
 				const next: ListsScreen = await response.json();
-				extra = [...extra, ...next.cards];
+				// A page that arrives after the filters changed belongs to the old view.
+				if (listsQuery(page.url.searchParams) !== query) return;
+				const shown = new Set(cards.map((card) => card.id));
+				extra = [...extra, ...next.cards.filter((card) => !shown.has(card.id))];
 				nextPage = next.has_next ? next.page + 1 : 0;
 			}
 		} finally {

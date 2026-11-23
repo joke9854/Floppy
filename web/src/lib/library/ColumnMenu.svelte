@@ -20,13 +20,16 @@
 		sort,
 		config,
 		defaults,
-		initialOpen = false
+		initialOpen = false,
+		tableType = 'media'
 	}: {
 		mediaType: string;
 		sort: string;
 		config: Column[];
 		defaults: Column[];
 		initialOpen?: boolean;
+		/** The table the columns belong to: the Library's, or a list's (P4-I2). */
+		tableType?: 'media' | 'list';
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -39,7 +42,7 @@
 		failed = false;
 		try {
 			const response = await djangoWrite('/api/v1/user/table-columns/', 'PUT', {
-				table_type: 'media',
+				table_type: tableType,
 				media_type: mediaType,
 				sort,
 				order: columns.map((column) => column.key),

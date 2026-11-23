@@ -102,3 +102,41 @@ export const im = {
 	back: 'Back',
 	next: 'Next'
 };
+
+/** A list's page (list_detail.html). */
+export const ld = {
+	items: (n: number) => `${n} item${n === 1 ? '' : 's'}`,
+	complete: (n: number) => `${n}% complete`,
+	completedOf: (done: number, total: number) => `${done}/${total} completed`,
+	public: 'Public',
+	links: 'Links',
+	collaborators: (n: number) => `${n} collaborators`,
+	breakdown: 'Media type breakdown',
+	addItem: 'Add New Item',
+	addRecommendation: 'Add Recommendation',
+	editList: 'Edit List',
+	activity: 'View Activity History',
+	recommendations: 'View Recommendations',
+	exportCsv: 'Export as CSV',
+	moreActions: 'More list actions',
+	select: 'Select Items',
+	cancelSelect: 'Cancel Select',
+	search: 'Search this list...',
+	allTypes: 'All',
+	type: 'Type',
+	status: 'Status',
+	editOrder: 'Edit Item Order',
+	doneOrder: 'Done Editing Order',
+	grid: 'Grid View',
+	table: 'Table View',
+	results: (n: number) => `${n} result${n === 1 ? '' : 's'}`,
+	noResults: 'No results found',
+	noResultsQuery: (q: string) => `We couldn't find any matches for "${q}".`,
+	empty: 'No items in this list yet',
+	moveFirst: 'Move to first',
+	moveBack: 'Move back',
+	moveNext: 'Move next',
+	moveLast: 'Move to last',
+	loadingMore: 'Loading more items…',
+	failed: 'That did not work. Try again.'
+};

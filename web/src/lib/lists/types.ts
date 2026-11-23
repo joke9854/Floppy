@@ -50,3 +50,27 @@ export function readDevicePoll(status: number, body: { status?: string; interval
 	if (status === 410) return { kind: 'expired' };
 	return { kind: 'error', message: body.detail || `Trakt answered ${status}.` };
 }
+
+/** A list page's query (list_detail): q, repeated type and status, sort, direction, layout. */
+export function listPageQuery(
+	params: { get(key: string): string | null; getAll(key: string): string[] },
+	changes: { q?: string | null; type?: string[]; status?: string[]; sort?: string | null; direction?: string | null; layout?: string | null } = {}
+): string {
+	const query = new URLSearchParams();
+	const q = 'q' in changes ? changes.q : params.get('q');
+	if (q) query.set('q', q);
+	for (const value of changes.type ?? params.getAll('type')) query.append('type', value);
+	for (const value of changes.status ?? params.getAll('status')) query.append('status', value);
+	for (const key of ['sort', 'direction', 'layout'] as const) {
+		const value = key in changes ? changes[key] : params.get(key);
+		if (value) query.set(key, value);
+	}
+	const text = query.toString();
+	return text ? `?${text}` : '';
+}
+
+/** Toggle a value in a multi-select; "all" (or none left) clears the filter. */
+export function toggleValue(current: string[], value: string, all = 'all'): string[] {
+	if (value === all) return [];
+	return current.includes(value) ? current.filter((entry) => entry !== value) : [...current.filter((entry) => entry !== all), value];
+}

@@ -143,7 +143,9 @@ const WEB_DETAIL = [
 	// Statistics (P4-H), any range; the Monthly recap stays Django.
 	/^\/statistics\/?(\?|$)/,
 	// The Lists index (P4-I1); a list's own page (/list/...) stays Django until I2.
-	/^\/lists\/?(\?|$)/
+	/^\/lists\/?(\?|$)/,
+	// A list's page (P4-I2): /list/<id or custom URL>, not the actions beside it.
+	/^\/list\/(?!(?:bulk-add|create|delete|edit|import-csv|share-view)(?:[/?#]|$))[^/?#]+\/?(?:\?.*)?$/
 ];
 
 /**

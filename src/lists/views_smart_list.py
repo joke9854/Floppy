@@ -426,7 +426,9 @@ def _smart_list_detail_response(
                 tag_url=reverse("tag_bulk_toggle"),
             )
             if can_edit
-            else {},
+            # One dict: a trailing comma here made it a tuple, so the page's
+            # bulk menus read a JSON array and showed no options.
+            else {}
         ),
         "list_ordering_enabled": can_edit and sort_by == ListDetailSortChoices.CUSTOM,
         "is_public_view": is_public_view,

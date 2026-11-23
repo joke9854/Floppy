@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { addTag, listsQuery, previewUrl, readDevicePoll, sortDirection } from './types.ts';
+import {
+	addTag,
+	listPageQuery,
+	listsQuery,
+	previewUrl,
+	readDevicePoll,
+	sortDirection,
+	toggleValue
+} from './types.ts';
 
 describe('listsQuery', () => {
 	it('keeps the page query and applies changes', () => {
@@ -38,5 +46,23 @@ describe('readDevicePoll', () => {
 		expect(readDevicePoll(200, { status: 'importing' })).toEqual({ kind: 'importing' });
 		expect(readDevicePoll(410, {})).toEqual({ kind: 'expired' });
 		expect(readDevicePoll(400, { detail: 'Denied' })).toEqual({ kind: 'error', message: 'Denied' });
+	});
+});
+
+describe('listPageQuery', () => {
+	it('repeats type and status and applies changes', () => {
+		const params = new URLSearchParams('q=star&type=movie&type=tv&status=Completed&sort=title&page=2');
+		expect(listPageQuery(params)).toBe('?q=star&type=movie&type=tv&status=Completed&sort=title');
+		expect(listPageQuery(params, { type: [], sort: 'custom', layout: 'table' })).toBe(
+			'?q=star&status=Completed&sort=custom&layout=table'
+		);
+	});
+});
+
+describe('toggleValue', () => {
+	it('adds, removes and clears with all', () => {
+		expect(toggleValue([], 'movie')).toEqual(['movie']);
+		expect(toggleValue(['movie', 'tv'], 'movie')).toEqual(['tv']);
+		expect(toggleValue(['movie'], 'all')).toEqual([]);
 	});
 });
