@@ -203,6 +203,11 @@ urlpatterns = [
         name="api_collection_fields",
     ),
     re_path(
+        r"^statistics/talent/?$",
+        fork_views_details.StatisticsTalentView.as_view(),
+        name="api_statistics_talent",
+    ),
+    re_path(
         r"^statistics/screen/?$",
         fork_views_details.StatisticsScreenView.as_view(),
         name="api_statistics_screen",

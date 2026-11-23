@@ -88,6 +88,10 @@ describe('detail links', () => {
 		expect(detailHref('/history/sessions', '/next')).toBe('/history/sessions');
 		expect(detailHref('/discover?media_type=movie', '/next')).toBe('/next/discover?media_type=movie');
 		expect(detailHref('/discover/rows', '/next')).toBe('/discover/rows');
+		expect(detailHref('/statistics?start-date=all&end-date=all', '/next')).toBe(
+			'/next/statistics?start-date=all&end-date=all'
+		);
+		expect(detailHref('/statistics/recap?month=2026-11', '/next')).toBe('/statistics/recap?month=2026-11');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);

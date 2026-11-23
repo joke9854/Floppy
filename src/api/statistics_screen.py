@@ -24,6 +24,8 @@ from app import statistics_cache
 from app.templatetags import app_tags
 from users.templatetags import user_tags
 
+from .statistics_overviews import build_board_games, build_overviews
+
 # The page's media-type dropdown (statistics.html initialMediaTypeOptions).
 _MEDIA_TYPES = (
     ("all", "All media", None),
@@ -375,12 +377,19 @@ def build_statistics_screen(request) -> dict:
         "played_hours": _played_hours(context.get("daily_hours_by_media_type")),
         "preferences": _preferences(user),
         "charts": _charts(context),
+        "overviews": build_overviews(context, user),
+        "board_games": build_board_games(context),
+        "no_top_played": not any(
+            (context.get("top_played") or {}).get(media_type) for media_type in ("movie", "tv", "boardgame", "anime")
+        ),
         "urls": {
             "refresh": reverse("refresh_statistics"),
             "compare": reverse("update_statistics_compare_mode"),
             "preferences": reverse("update_statistics_preferences"),
             "recap": reverse("statistics_recap"),
             "status": reverse("cache_status"),
+            "talent": reverse("api_statistics_talent"),
+            "board_games": reverse("medialist", args=["boardgame"]),
         },
     }
 
@@ -597,6 +606,42 @@ class StatisticsScreenChartsSerializer(serializers.Serializer):
     ratings = StatisticsScreenChartSerializer(help_text="Labels are scores; a series per type.")
 
 
+class StatisticsScreenEntrySerializer(serializers.Serializer):
+    """A ranked title (or artist, platform, genre) with its caption."""
+
+    title = serializers.CharField(allow_blank=True)
+    href = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_blank=True)
+    caption = serializers.CharField(allow_blank=True)
+
+
+class StatisticsScreenOverviewChartSerializer(serializers.Serializer):
+    """An overview's single-series chart."""
+
+    title = serializers.CharField()
+    labels = serializers.ListField(child=serializers.CharField())
+    values = serializers.ListField(child=serializers.FloatField())
+    color = serializers.CharField(allow_blank=True)
+    empty = serializers.CharField(allow_blank=True)
+
+
+class StatisticsScreenOverviewListSerializer(serializers.Serializer):
+    """An overview's ranked list (Most Played, Top Rated, Top Artists...)."""
+
+    title = serializers.CharField()
+    items = StatisticsScreenEntrySerializer(many=True)
+    empty = serializers.CharField(allow_blank=True)
+
+
+class StatisticsScreenOverviewSerializer(serializers.Serializer):
+    """A type's Activity Overview."""
+
+    media_type = serializers.CharField()
+    eyebrow = serializers.CharField()
+    charts = StatisticsScreenOverviewChartSerializer(many=True)
+    lists = StatisticsScreenOverviewListSerializer(many=True)
+
+
 class StatisticsScreenPreferencesSerializer(serializers.Serializer):
     """Statistics Preferences (posted to `urls.preferences`)."""
 
@@ -616,6 +661,8 @@ class StatisticsScreenUrlsSerializer(serializers.Serializer):
     preferences = serializers.CharField()
     recap = serializers.CharField()
     status = serializers.CharField()
+    talent = serializers.CharField()
+    board_games = serializers.CharField()
 
 
 class StatisticsScreenSerializer(serializers.Serializer):
@@ -634,5 +681,8 @@ class StatisticsScreenSerializer(serializers.Serializer):
     played_hours = StatisticsScreenPlayedHoursSerializer()
     preferences = StatisticsScreenPreferencesSerializer()
     charts = StatisticsScreenChartsSerializer()
+    overviews = StatisticsScreenOverviewSerializer(many=True)
+    board_games = StatisticsScreenEntrySerializer(many=True)
+    no_top_played = serializers.BooleanField()
     urls = StatisticsScreenUrlsSerializer()
 

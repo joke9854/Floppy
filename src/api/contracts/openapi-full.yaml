@@ -14709,6 +14709,71 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/statistics/talent/:
+    get:
+      operationId: getStatisticsTalent
+      description: 'The talent fragment''s own context for `range_name` (a preset)
+        or `start-date`/`end-date`, and `compare`: the Featured Repeat Player with
+        their titles, Role Leaders, Studio Footprint, Top Genres and Era Spotlight,
+        sorted by the user''s saved sorts. `media_type` (tv, movie, anime, game) re-aggregates
+        the leaders, player and studios for it; `person_source` and `person_id` feature
+        that person. Built by the Django page''s own builder, so it shows what the
+        page shows. Like the page, the read can store metadata it resolves, so integration
+        tokens cannot call it.'
+      parameters:
+      - in: query
+        name: compare
+        schema:
+          type: string
+      - in: query
+        name: end-date
+        schema:
+          type: string
+      - in: query
+        name: media_type
+        schema:
+          type: string
+      - in: query
+        name: person_id
+        schema:
+          type: string
+      - in: query
+        name: person_source
+        schema:
+          type: string
+      - in: query
+        name: range_name
+        schema:
+          type: string
+      - in: query
+        name: start-date
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsTalent'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/studios/{source}/{studio_id}/:
     get:
       operationId: getStudio
@@ -27307,16 +27372,29 @@ components:
           $ref: '#/components/schemas/StatisticsScreenPreferences'
         charts:
           $ref: '#/components/schemas/StatisticsScreenCharts'
+        overviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenOverview'
+        board_games:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenEntry'
+        no_top_played:
+          type: boolean
         urls:
           $ref: '#/components/schemas/StatisticsScreenUrls'
       required:
       - activity
+      - board_games
       - charts
       - compare
       - database_error
       - heatmap
       - highlights
       - media_types
+      - no_top_played
+      - overviews
       - played_hours
       - preferences
       - range
@@ -27529,6 +27607,23 @@ components:
       - date
       - future
       - level
+    StatisticsScreenEntry:
+      type: object
+      description: A ranked title (or artist, platform, genre) with its caption.
+      properties:
+        title:
+          type: string
+        href:
+          type: string
+        image:
+          type: string
+        caption:
+          type: string
+      required:
+      - caption
+      - href
+      - image
+      - title
     StatisticsScreenGenre:
       type: object
       description: A Top Genres slice.
@@ -27641,6 +27736,68 @@ components:
       required:
       - label
       - weeks
+    StatisticsScreenOverview:
+      type: object
+      description: A type's Activity Overview.
+      properties:
+        media_type:
+          type: string
+        eyebrow:
+          type: string
+        charts:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenOverviewChart'
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenOverviewList'
+      required:
+      - charts
+      - eyebrow
+      - lists
+      - media_type
+    StatisticsScreenOverviewChart:
+      type: object
+      description: An overview's single-series chart.
+      properties:
+        title:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+        color:
+          type: string
+        empty:
+          type: string
+      required:
+      - color
+      - empty
+      - labels
+      - title
+      - values
+    StatisticsScreenOverviewList:
+      type: object
+      description: An overview's ranked list (Most Played, Top Rated, Top Artists...).
+      properties:
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenEntry'
+        empty:
+          type: string
+      required:
+      - empty
+      - items
+      - title
     StatisticsScreenPlay:
       type: object
       description: 'A highlight card: title, 3:2 image, its page, "Played …".'
@@ -27832,12 +27989,201 @@ components:
           type: string
         status:
           type: string
+        talent:
+          type: string
+        board_games:
+          type: string
       required:
+      - board_games
       - compare
       - preferences
       - recap
       - refresh
       - status
+      - talent
+    StatisticsTalent:
+      type: object
+      description: 'The talent section: featured player, role leaders, studios, taste.'
+      properties:
+        featured:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsTalentPerson'
+          nullable: true
+        strip:
+          $ref: '#/components/schemas/StatisticsTalentStrip'
+        talent_sort:
+          type: string
+        role_leaders:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentColumn'
+        studio_sort:
+          type: string
+        studios:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentBar'
+        genre_sort:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentBar'
+        eras:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentBar'
+        urls:
+          $ref: '#/components/schemas/StatisticsTalentUrls'
+      required:
+      - eras
+      - featured
+      - genre_sort
+      - genres
+      - role_leaders
+      - strip
+      - studio_sort
+      - studios
+      - talent_sort
+      - urls
+    StatisticsTalentBar:
+      type: object
+      description: 'A ranked bar: a studio, genre or decade.'
+      properties:
+        name:
+          type: string
+        pct:
+          type: number
+          format: double
+        color:
+          type: string
+        metric:
+          type: string
+      required:
+      - metric
+      - name
+      - pct
+    StatisticsTalentColumn:
+      type: object
+      description: A Role Leaders column (Actors, Actresses, Directors, Writers).
+      properties:
+        bucket:
+          type: string
+        label:
+          type: string
+        people:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentLeader'
+      required:
+      - bucket
+      - label
+      - people
+    StatisticsTalentLeader:
+      type: object
+      description: A role leader (`metric` per the talent sort).
+      properties:
+        name:
+          type: string
+        source:
+          type: string
+        person_id:
+          type: string
+        metric:
+          type: string
+      required:
+      - metric
+      - name
+      - person_id
+      - source
+    StatisticsTalentPerson:
+      type: object
+      description: The Featured Repeat Player.
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+        href:
+          type: string
+        source:
+          type: string
+        person_id:
+          type: string
+        unique_titles:
+          type: integer
+        unique_movies:
+          type: integer
+        unique_shows:
+          type: integer
+        unique_games:
+          type: integer
+        pct_of_library:
+          type: number
+          format: double
+        known_for:
+          type: array
+          items:
+            type: string
+      required:
+      - href
+      - image
+      - known_for
+      - name
+      - pct_of_library
+      - person_id
+      - source
+      - unique_games
+      - unique_movies
+      - unique_shows
+      - unique_titles
+    StatisticsTalentStrip:
+      type: object
+      description: The featured person's titles.
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsTalentStripItem'
+      required:
+      - items
+      - summary
+      - title
+    StatisticsTalentStripItem:
+      type: object
+      description: A title in the featured person's strip.
+      properties:
+        title:
+          type: string
+        href:
+          type: string
+        image:
+          type: string
+        caption:
+          type: string
+      required:
+      - caption
+      - href
+      - image
+      - title
+    StatisticsTalentUrls:
+      type: object
+      description: Where the sorts post (`sort_by`).
+      properties:
+        talent_sort:
+          type: string
+        studio_sort:
+          type: string
+        genre_sort:
+          type: string
+      required:
+      - genre_sort
+      - studio_sort
+      - talent_sort
     StatusDataset:
       type: object
       description: Per-media-type counts for one status.

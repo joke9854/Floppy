@@ -3117,6 +3117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/statistics/talent/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The talent fragment's own context for `range_name` (a preset) or `start-date`/`end-date`, and `compare`: the Featured Repeat Player with their titles, Role Leaders, Studio Footprint, Top Genres and Era Spotlight, sorted by the user's saved sorts. `media_type` (tv, movie, anime, game) re-aggregates the leaders, player and studios for it; `person_source` and `person_id` feature that person. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getStatisticsTalent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studios/{source}/{studio_id}/": {
         parameters: {
             query?: never;
@@ -8292,6 +8309,9 @@ export interface components {
             played_hours: components["schemas"]["StatisticsScreenPlayedHours"];
             preferences: components["schemas"]["StatisticsScreenPreferences"];
             charts: components["schemas"]["StatisticsScreenCharts"];
+            overviews: components["schemas"]["StatisticsScreenOverview"][];
+            board_games: components["schemas"]["StatisticsScreenEntry"][];
+            no_top_played: boolean;
             urls: components["schemas"]["StatisticsScreenUrls"];
         };
         /** @description The Activity card (all types): the badge and "vs {period}". */
@@ -8378,6 +8398,13 @@ export interface components {
             level: number;
             future: boolean;
         };
+        /** @description A ranked title (or artist, platform, genre) with its caption. */
+        StatisticsScreenEntry: {
+            title: string;
+            href: string;
+            image: string;
+            caption: string;
+        };
         /** @description A Top Genres slice. */
         StatisticsScreenGenre: {
             name: string;
@@ -8418,6 +8445,27 @@ export interface components {
         StatisticsScreenMonth: {
             label: string;
             weeks: number;
+        };
+        /** @description A type's Activity Overview. */
+        StatisticsScreenOverview: {
+            media_type: string;
+            eyebrow: string;
+            charts: components["schemas"]["StatisticsScreenOverviewChart"][];
+            lists: components["schemas"]["StatisticsScreenOverviewList"][];
+        };
+        /** @description An overview's single-series chart. */
+        StatisticsScreenOverviewChart: {
+            title: string;
+            labels: string[];
+            values: number[];
+            color: string;
+            empty: string;
+        };
+        /** @description An overview's ranked list (Most Played, Top Rated, Top Artists...). */
+        StatisticsScreenOverviewList: {
+            title: string;
+            items: components["schemas"]["StatisticsScreenEntry"][];
+            empty: string;
         };
         /** @description A highlight card: title, 3:2 image, its page, "Played …". */
         StatisticsScreenPlay: {
@@ -8493,6 +8541,76 @@ export interface components {
             preferences: string;
             recap: string;
             status: string;
+            talent: string;
+            board_games: string;
+        };
+        /** @description The talent section: featured player, role leaders, studios, taste. */
+        StatisticsTalent: {
+            featured: components["schemas"]["StatisticsTalentPerson"] | null;
+            strip: components["schemas"]["StatisticsTalentStrip"];
+            talent_sort: string;
+            role_leaders: components["schemas"]["StatisticsTalentColumn"][];
+            studio_sort: string;
+            studios: components["schemas"]["StatisticsTalentBar"][];
+            genre_sort: string;
+            genres: components["schemas"]["StatisticsTalentBar"][];
+            eras: components["schemas"]["StatisticsTalentBar"][];
+            urls: components["schemas"]["StatisticsTalentUrls"];
+        };
+        /** @description A ranked bar: a studio, genre or decade. */
+        StatisticsTalentBar: {
+            name: string;
+            /** Format: double */
+            pct: number;
+            color?: string;
+            metric: string;
+        };
+        /** @description A Role Leaders column (Actors, Actresses, Directors, Writers). */
+        StatisticsTalentColumn: {
+            bucket: string;
+            label: string;
+            people: components["schemas"]["StatisticsTalentLeader"][];
+        };
+        /** @description A role leader (`metric` per the talent sort). */
+        StatisticsTalentLeader: {
+            name: string;
+            source: string;
+            person_id: string;
+            metric: string;
+        };
+        /** @description The Featured Repeat Player. */
+        StatisticsTalentPerson: {
+            name: string;
+            image: string;
+            href: string;
+            source: string;
+            person_id: string;
+            unique_titles: number;
+            unique_movies: number;
+            unique_shows: number;
+            unique_games: number;
+            /** Format: double */
+            pct_of_library: number;
+            known_for: string[];
+        };
+        /** @description The featured person's titles. */
+        StatisticsTalentStrip: {
+            title: string;
+            summary: string;
+            items: components["schemas"]["StatisticsTalentStripItem"][];
+        };
+        /** @description A title in the featured person's strip. */
+        StatisticsTalentStripItem: {
+            title: string;
+            href: string;
+            image: string;
+            caption: string;
+        };
+        /** @description Where the sorts post (`sort_by`). */
+        StatisticsTalentUrls: {
+            talent_sort: string;
+            studio_sort: string;
+            genre_sort: string;
         };
         /** @description Per-media-type counts for one status. */
         StatusDataset: {
@@ -23434,6 +23552,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatisticsScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getStatisticsTalent: {
+        parameters: {
+            query?: {
+                compare?: string;
+                "end-date"?: string;
+                media_type?: string;
+                person_id?: string;
+                person_source?: string;
+                range_name?: string;
+                "start-date"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsTalent"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */

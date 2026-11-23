@@ -57,7 +57,7 @@ adds a web test for its flow:
 | P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
-| P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3: per-type overviews, talent section, nav |
+| P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
 | P4-I | Lists | Not started |
 | P4-J | Settings and integrations | Not started |
 | P4-K | Imports | Not started |
@@ -577,10 +577,16 @@ Parity checklist:
       Year/Month/Day, Average Playtime/Length), Status Composition, Rating
       Distribution, Status Breakdown, Average Rating; all follow the media
       type as on the page.
-- [ ] H3: per-type Activity Overviews (TV, anime, movies, games, music,
-      podcasts, books, comics, manga), board games Most Played, the talent
-      section (Featured Repeat Player, Role Leaders, Studio Footprint, Taste
-      Signals), the nav link.
+- [x] H3: per-type Activity Overviews (TV, anime, manga, movies, games,
+      books, comics, music, podcasts: their year, month and daily charts and
+      ranked lists with the templates' captions), board games Most Played,
+      the Top Played empty state.
+- [x] H3: the talent section for All, TV, movies, anime and games (Featured
+      Repeat Player with Known For and View Profile, their titles, Role
+      Leaders with Plays/Time/Titles and a click to feature a person, Studio
+      Footprint and Taste Signals with their sorts).
+- [x] H3: the nav's Stats and `/statistics` links open the web page; the
+      Monthly recap stays the Django page.
 - [ ] Monthly recap stays the Django page.
 
 H1 (2026-11-23): `GET /api/v1/statistics/screen/` reads the page's own
@@ -596,3 +602,13 @@ combined hours, consumption, status, ratings) drawn as plain SVG
 (`ChartsTop`, `ChartsRest`, `Donut`, `Rhythm`) and loaded after the page with
 their own CSS and strings (`charts.css`, `chart-strings.ts`), so the page
 stays under its budget.
+
+H3 (2026-11-23): the screen's `overviews` (`api/statistics_overviews.py`
+maps the nine overview templates to charts and ranked lists), `board_games`
+and `no_top_played`; `GET /api/v1/statistics/talent/`
+(`api/statistics_talent_screen.py`) reads the talent fragment's own context
+(`build_talent_fragment_context`, split from statistics_talent_fragment) and,
+like update_top_talent_sort and select_featured_person, re-aggregates for
+`media_type` and features `person_source` + `person_id`. The sorts post to
+the page's own views (they already answer JSON). Both sections load after
+the page.

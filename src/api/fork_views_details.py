@@ -32,6 +32,7 @@ from .episode_screen import EpisodeScreenSerializer, build_episode_screen
 from .history_screen import HistoryScreenSerializer, build_history_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
 from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
+from .statistics_talent_screen import StatisticsTalentSerializer, build_talent_screen
 from .track_screen import (
     TRACK_SCREEN_TYPES,
     TRACKER_SCREEN_TYPES,
@@ -263,6 +264,36 @@ class StatisticsScreenView(drf_views.APIView):
         """Return the statistics screen."""
         data = build_statistics_screen(request._request)
         return Response(StatisticsScreenSerializer(data).data, status=HTTP.OK)
+
+
+class StatisticsTalentView(drf_views.APIView):
+    """The Statistics page's talent section for the web app (v2 P4-H3)."""
+
+    @extend_schema(
+        operation_id="getStatisticsTalent",
+        description=(
+            "The talent fragment's own context for `range_name` (a preset) or "
+            "`start-date`/`end-date`, and `compare`: the Featured Repeat Player with "
+            "their titles, Role Leaders, Studio Footprint, Top Genres and Era "
+            "Spotlight, sorted by the user's saved sorts. `media_type` (tv, movie, "
+            "anime, game) re-aggregates the leaders, player and studios for it; "
+            "`person_source` and `person_id` feature that person." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter("range_name", str, required=False),
+            OpenApiParameter("start-date", str, required=False),
+            OpenApiParameter("end-date", str, required=False),
+            OpenApiParameter("compare", str, required=False),
+            OpenApiParameter("media_type", str, required=False),
+            OpenApiParameter("person_source", str, required=False),
+            OpenApiParameter("person_id", str, required=False),
+        ],
+        responses={200: StatisticsTalentSerializer},
+    )
+    def get(self, request):
+        """Return the talent section."""
+        data = build_talent_screen(request._request)
+        return Response(StatisticsTalentSerializer(data).data, status=HTTP.OK)
 
 
 class DiscoverScreenView(drf_views.APIView):

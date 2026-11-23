@@ -64,6 +64,10 @@
 	// H2's charts sit below the cards: loaded after the page, as their own chunks.
 	const chartsTop = import.meta.env.SSR ? null : import('#lib/statistics/ChartsTop.svelte');
 	const chartsRest = import.meta.env.SSR ? null : import('#lib/statistics/ChartsRest.svelte');
+	// H3: the talent section (all, TV, movies, anime, games) and the overviews.
+	const talentSection = import.meta.env.SSR ? null : import('#lib/statistics/Talent.svelte');
+	const overviewSection = import.meta.env.SSR ? null : import('#lib/statistics/Overviews.svelte');
+	const TALENT_TYPES = new Set(['all', 'tv', 'movie', 'anime', 'game']);
 	let failed = $state('');
 	let watchGeneration = 0;
 
@@ -336,6 +340,14 @@
 					</div>
 				{/if}
 			</section>
+		{/if}
+
+		{#if talentSection && TALENT_TYPES.has(mediaType)}
+			{#await talentSection then { default: Talent }}<Talent {screen} {mediaType} />{/await}
+		{/if}
+
+		{#if overviewSection}
+			{#await overviewSection then { default: Overviews }}<Overviews {screen} {mediaType} />{/await}
 		{/if}
 	{/if}
 </main>

@@ -48,7 +48,7 @@ export const LIBRARY_MORE: NavItem[] = [
 
 export const YOU: NavItem[] = [
 	{ label: t.history, href: `${BASE}/history`, icon: History },
-	{ label: t.stats, href: '/statistics', icon: ChartColumn }
+	{ label: t.stats, href: `${BASE}/statistics`, icon: ChartColumn }
 ];
 
 export const LIBRARY_ICON = LayoutGrid;
@@ -139,7 +139,9 @@ const WEB_DETAIL = [
 	// History (P4-E), any of its filters.
 	/^\/history\/?(\?|$)/,
 	// Discover (P4-G), any type.
-	/^\/discover\/?(\?|$)/
+	/^\/discover\/?(\?|$)/,
+	// Statistics (P4-H), any range; the Monthly recap stays Django.
+	/^\/statistics\/?(\?|$)/
 ];
 
 /**

@@ -933,6 +933,15 @@ def statistics_talent_fragment(request):
     user's history version so any tracked-media change (or the refresh
     button) invalidates it automatically.
     """
+    return render(
+        request,
+        "app/components/statistics/talent_section.html",
+        build_talent_fragment_context(request),
+    )
+
+
+def build_talent_fragment_context(request) -> dict:
+    """Return the talent section's context (the fragment and the web screen, P4-H3)."""
     from django.core.cache import cache
 
     range_name = request.GET.get("range_name") or None
@@ -986,11 +995,7 @@ def statistics_talent_fragment(request):
         )
         cache.set(cache_key, context, TALENT_FRAGMENT_CACHE_TTL)
 
-    return render(
-        request,
-        "app/components/statistics/talent_section.html",
-        context,
-    )
+    return context
 
 
 @require_POST
