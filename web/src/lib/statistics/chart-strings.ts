@@ -1,0 +1,32 @@
+/** Statistics H2 chart strings, loaded with the charts. */
+export const cs = {
+	rhythm: 'Activity Rhythm',
+	rhythmSub: 'Each cell is one day. Brighter means more.',
+	noRhythm: 'No activity data for this range.',
+	hoursByType: 'Hours by Media Type',
+	hoursByTypeSub: 'Where your hours go.',
+	topGenres: 'Top Genres',
+	genresSub: (type: string) => `Where your ${type} hours go.`,
+	genresOverlap:
+		'Shows can belong to multiple genres, so genre hours overlap and can add up to more than the total shown in the middle, which reflects your actual watch time.',
+	total: 'total',
+	noFilterData: 'No data for this filter.',
+	byMonth: 'Hours by Month',
+	byWeekday: 'Hours by Day of Week',
+	byTime: 'Hours by Time of Day',
+	statusComposition: 'Status Composition',
+	statusCompositionSub: 'What portion of your library is in each state.',
+	statusOf: (type: string) => `${type} status breakdown.`,
+	totalItems: 'total items',
+	noStatus: 'No status data available for this range.',
+	ratingDistribution: 'Rating Distribution',
+	ratingDistributionSub: 'How your rated items are distributed.',
+	items: 'items',
+	noRatings: 'No ratings yet.',
+	noRatingsFilter: 'No ratings yet for this filter.',
+	statusBreakdown: 'Status Breakdown',
+	statusBreakdownSub: 'Breakdown by type across all status states.',
+	statusCounts: (type: string) => `${type} status counts.`,
+	totalColumn: 'Total',
+	averageRatingSub: 'Your average score by type.'
+};

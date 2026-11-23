@@ -57,7 +57,7 @@ adds a web test for its flow:
 | P4-E | History | E1 (2026-11-22): the month view, filtered pages, type pills, rows with Edit tracking, Add to list and the title's history, Load more, the Filter History sheet. E2 next: the Library card menu's link, a web test for the sessions dialog |
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
-| P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2: the filtered charts. H3: per-type overviews, talent section, nav |
+| P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3: per-type overviews, talent section, nav |
 | P4-I | Lists | Not started |
 | P4-J | Settings and integrations | Not started |
 | P4-K | Imports | Not started |
@@ -571,9 +571,12 @@ Parity checklist:
 - [x] H1: Statistics Preferences (view, duration format, week start, rating
       scale, anime split with TVDB and no Anime type).
 - [x] H1: a database error is an error state, not zeros.
-- [ ] H2: Activity Rhythm, Hours by Media Type / Top Genres, Hours by
-      Month, Day of Week and Time of Day, consumption tiles, Status
-      Composition, Rating Distribution, Status Breakdown, Average Rating.
+- [x] H2: Activity Rhythm (quantile tiers), Hours by Media Type (Top
+      Genres for TV, movies, anime, music and games, with the overlap note),
+      Hours by Month, Day of Week and Time of Day, consumption tiles (Per
+      Year/Month/Day, Average Playtime/Length), Status Composition, Rating
+      Distribution, Status Breakdown, Average Rating; all follow the media
+      type as on the page.
 - [ ] H3: per-type Activity Overviews (TV, anime, movies, games, music,
       podcasts, books, comics, manga), board games Most Played, the talent
       section (Featured Repeat Player, Role Leaders, Studio Footprint, Taste
@@ -587,3 +590,9 @@ database-error fallback) for the page's `start-date`, `end-date`, `compare`;
 fit the 110 kB budget). The bar chart and the preferences sheet load on first
 use: with them static the page put the Library and Discover over budget
 (shared chunks re-split), not only itself.
+
+H2 (2026-11-23): the screen's `charts` (rhythm, hours by type, top genres,
+combined hours, consumption, status, ratings) drawn as plain SVG
+(`ChartsTop`, `ChartsRest`, `Donut`, `Rhythm`) and loaded after the page with
+their own CSS and strings (`charts.css`, `chart-strings.ts`), so the page
+stays under its budget.

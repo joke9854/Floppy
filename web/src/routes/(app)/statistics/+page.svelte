@@ -61,6 +61,9 @@
 	let preferencesLoaded = $state(false);
 	const loadPreferences = () => import('#lib/statistics/PreferencesDialog.svelte');
 	const loadBars = () => import('#lib/statistics/StackedBars.svelte');
+	// H2's charts sit below the cards: loaded after the page, as their own chunks.
+	const chartsTop = import.meta.env.SSR ? null : import('#lib/statistics/ChartsTop.svelte');
+	const chartsRest = import.meta.env.SSR ? null : import('#lib/statistics/ChartsRest.svelte');
 	let failed = $state('');
 	let watchGeneration = 0;
 
@@ -307,8 +310,16 @@
 
 		<SummaryCards {summary} activity={screen.activity} scaleMax={screen.rating_scale_max} />
 
+		{#if chartsTop}
+			{#await chartsTop then { default: ChartsTop }}<ChartsTop {screen} {mediaType} />{/await}
+		{/if}
+
 		{#if screen.preferences.activity_history_view !== 'stacked' && screen.heatmap}
 			<Heatmap heatmap={screen.heatmap} />
+		{/if}
+
+		{#if chartsRest}
+			{#await chartsRest then { default: ChartsRest }}<ChartsRest {screen} {mediaType} />{/await}
 		{/if}
 
 		{#if screen.preferences.activity_history_view !== 'heatmap'}

@@ -8291,6 +8291,7 @@ export interface components {
             heatmap: components["schemas"]["StatisticsScreenHeatmap"] | null;
             played_hours: components["schemas"]["StatisticsScreenPlayedHours"];
             preferences: components["schemas"]["StatisticsScreenPreferences"];
+            charts: components["schemas"]["StatisticsScreenCharts"];
             urls: components["schemas"]["StatisticsScreenUrls"];
         };
         /** @description The Activity card (all types): the badge and "vs {period}". */
@@ -8301,16 +8302,74 @@ export interface components {
             period_label: string;
             tooltip: components["schemas"]["StatisticsScreenTooltip"] | null;
         };
+        /** @description A chart series (a type, or a status). */
+        StatisticsScreenBarSeries: {
+            label: string;
+            media_type: string;
+            color: string;
+            values: number[];
+        };
+        /** @description A consumption bonus tile (playtime, length, ...). */
+        StatisticsScreenBonus: {
+            kind: string;
+            label: string;
+            unit: string;
+            /** Format: double */
+            value: number;
+        };
+        /** @description Labels and series, as the page's Chart.js payloads. */
+        StatisticsScreenChart: {
+            labels: string[];
+            series: components["schemas"]["StatisticsScreenBarSeries"][];
+        };
+        /** @description H2: the charts that follow the media-type switch. */
+        StatisticsScreenCharts: {
+            /** @description Per type key: 7 weekday rows (Monday first) of 24 hours. */
+            rhythm: {
+                [key: string]: number[][];
+            };
+            hours_by_type: components["schemas"]["StatisticsScreenHoursByType"];
+            top_genres: {
+                [key: string]: components["schemas"]["StatisticsScreenGenre"][];
+            };
+            combined: components["schemas"]["StatisticsScreenCombined"];
+            consumption: {
+                [key: string]: components["schemas"]["StatisticsScreenConsumption"];
+            };
+            /** @description Labels are types; a series per status. */
+            status: components["schemas"]["StatisticsScreenChart"];
+            /** @description Labels are scores; a series per type. */
+            ratings: components["schemas"]["StatisticsScreenChart"];
+        };
         /** @description A compare option (with the compared dates) or a media type. */
         StatisticsScreenChoice: {
             value: string;
             label: string;
             dates?: string;
         };
+        /** @description Hours by Month, Day of Week and Time of Day, per type key. */
+        StatisticsScreenCombined: {
+            by_month: {
+                [key: string]: components["schemas"]["StatisticsScreenChart"];
+            };
+            by_weekday: {
+                [key: string]: components["schemas"]["StatisticsScreenChart"];
+            };
+            by_time_of_day: {
+                [key: string]: components["schemas"]["StatisticsScreenChart"];
+            };
+        };
         /** @description Compare to: the saved mode and its options. */
         StatisticsScreenCompare: {
             mode: string;
             options: components["schemas"]["StatisticsScreenChoice"][];
+        };
+        /** @description A type's consumption tiles. */
+        StatisticsScreenConsumption: {
+            has_data: boolean;
+            primary: components["schemas"]["StatisticsScreenMetric"] | null;
+            secondary: components["schemas"]["StatisticsScreenMetric"] | null;
+            bonuses: components["schemas"]["StatisticsScreenBonus"][];
         };
         /** @description A heatmap cell (level 0-4). */
         StatisticsScreenDay: {
@@ -8318,6 +8377,12 @@ export interface components {
             count: number;
             level: number;
             future: boolean;
+        };
+        /** @description A Top Genres slice. */
+        StatisticsScreenGenre: {
+            name: string;
+            /** Format: double */
+            hours: number;
         };
         /** @description Activity History: one column per week. */
         StatisticsScreenHeatmap: {
@@ -8331,6 +8396,23 @@ export interface components {
             last_play: components["schemas"]["StatisticsScreenPlay"] | null;
             today_label: string;
             today: components["schemas"]["StatisticsScreenPlay"] | null;
+        };
+        /** @description Hours by Media Type: one slice per type. */
+        StatisticsScreenHoursByType: {
+            labels: string[];
+            values: number[];
+            colors: string[];
+        };
+        /** @description A consumption metric per year, month and day. */
+        StatisticsScreenMetric: {
+            label: string;
+            unit: string;
+            /** Format: double */
+            per_year: number;
+            /** Format: double */
+            per_month: number;
+            /** Format: double */
+            per_day: number;
         };
         /** @description A heatmap month label spanning `weeks` columns. */
         StatisticsScreenMonth: {

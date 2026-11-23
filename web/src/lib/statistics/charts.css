@@ -1,0 +1,264 @@
+/* Statistics H2 charts (loaded with ChartsTop and ChartsRest). */
+
+/* H2 layout */
+.ct-stats-grid2,
+.ct-stats-grid3 {
+	display: grid;
+	gap: 16px;
+}
+
+@media (min-width: 1024px) {
+	.ct-stats-grid2 {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.ct-stats-grid3 {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.ct-stats-grid3.is-wide-first > :first-child {
+		grid-column: span 2;
+	}
+}
+
+.ct-stats-card__title.is-spaced,
+.ct-stats-card__sub.is-spaced {
+	margin-bottom: 12px;
+}
+
+.ct-stats-none {
+	padding: 24px 0;
+	color: var(--color-text-muted);
+	font-size: 14px;
+	text-align: center;
+}
+
+.ct-stats-info {
+	display: grid;
+	width: 20px;
+	height: 20px;
+	flex: none;
+	place-items: center;
+	border: 1px solid var(--color-text-muted);
+	border-radius: 999px;
+	color: var(--color-text-muted);
+	cursor: help;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.ct-stats-tiles {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+@media (min-width: 768px) {
+	.ct-stats-tiles {
+		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	}
+}
+
+.ct-stat-card.is-bonus .ct-stat-card__value {
+	color: rgb(52 211 153);
+}
+
+/* Donut */
+.ct-donut {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+}
+
+.ct-donut__chart {
+	position: relative;
+	width: 150px;
+	height: 150px;
+	flex: none;
+}
+
+.ct-donut__chart svg {
+	width: 100%;
+	height: 100%;
+}
+
+.ct-donut__track {
+	fill: none;
+	stroke: rgb(255 255 255 / 5%);
+	stroke-width: 20;
+}
+
+.ct-donut__center {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.ct-donut__center strong {
+	color: var(--color-text);
+	font-size: 17px;
+	line-height: 1.2;
+}
+
+.ct-donut__center small {
+	color: var(--color-text-muted);
+	font-size: 11px;
+}
+
+.ct-donut__legend {
+	display: flex;
+	min-width: 0;
+	max-height: 150px;
+	flex: 1;
+	flex-direction: column;
+	gap: 6px;
+	overflow-y: auto;
+	font-size: 13px;
+}
+
+.ct-donut__legend li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-donut__dot {
+	width: 10px;
+	height: 10px;
+	flex: none;
+	border-radius: 999px;
+}
+
+.ct-donut__name {
+	min-width: 0;
+	flex: 1;
+	overflow: hidden;
+	color: var(--color-text-secondary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-donut__value {
+	color: var(--color-text);
+	font-variant-numeric: tabular-nums;
+}
+
+.ct-donut__pct {
+	width: 38px;
+	color: var(--color-text-muted);
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Rhythm */
+.ct-rhythm {
+	display: block;
+	overflow: visible;
+}
+
+.ct-rhythm text {
+	fill: #6b7280;
+	font-size: 9px;
+}
+
+.ct-rhythm__legend {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	margin-top: 8px;
+	color: #6b7280;
+	font-size: 9px;
+}
+
+.ct-rhythm__legend i {
+	display: inline-block;
+	border-radius: 999px;
+}
+
+/* Status Breakdown */
+.ct-stats-table-scroll {
+	overflow-x: auto;
+}
+
+.ct-stats-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.ct-stats-table th,
+.ct-stats-table td {
+	padding: 8px 10px;
+	border-bottom: 1px solid rgb(255 255 255 / 6%);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.ct-stats-table thead th {
+	color: var(--color-text-muted);
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.ct-stats-table tbody th {
+	color: var(--color-text);
+	font-weight: 600;
+	text-align: left;
+}
+
+.ct-stats-table td.is-zero {
+	color: var(--color-text-muted);
+}
+
+.ct-stats-table td.is-total {
+	color: var(--color-text);
+	font-weight: 700;
+}
+
+/* Average Rating */
+.ct-stats-avg {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.ct-stats-avg li {
+	display: grid;
+	grid-template-columns: 96px minmax(0, 1fr) 36px;
+	align-items: center;
+	gap: 10px;
+	font-size: 13px;
+}
+
+.ct-stats-avg__label {
+	overflow: hidden;
+	color: var(--color-text-secondary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-stats-avg__bar {
+	height: 8px;
+	overflow: hidden;
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 6%);
+}
+
+.ct-stats-avg__bar i {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+}
+
+.ct-stats-avg__score {
+	color: var(--color-text);
+	font-weight: 700;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}

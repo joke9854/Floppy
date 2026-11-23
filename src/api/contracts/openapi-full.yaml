@@ -27305,10 +27305,13 @@ components:
           $ref: '#/components/schemas/StatisticsScreenPlayedHours'
         preferences:
           $ref: '#/components/schemas/StatisticsScreenPreferences'
+        charts:
+          $ref: '#/components/schemas/StatisticsScreenCharts'
         urls:
           $ref: '#/components/schemas/StatisticsScreenUrls'
       required:
       - activity
+      - charts
       - compare
       - database_error
       - heatmap
@@ -27343,6 +27346,103 @@ components:
       - period_label
       - state
       - tooltip
+    StatisticsScreenBarSeries:
+      type: object
+      description: A chart series (a type, or a status).
+      properties:
+        label:
+          type: string
+        media_type:
+          type: string
+        color:
+          type: string
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+      required:
+      - color
+      - label
+      - media_type
+      - values
+    StatisticsScreenBonus:
+      type: object
+      description: A consumption bonus tile (playtime, length, ...).
+      properties:
+        kind:
+          type: string
+        label:
+          type: string
+        unit:
+          type: string
+        value:
+          type: number
+          format: double
+      required:
+      - kind
+      - label
+      - unit
+      - value
+    StatisticsScreenChart:
+      type: object
+      description: Labels and series, as the page's Chart.js payloads.
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenBarSeries'
+      required:
+      - labels
+      - series
+    StatisticsScreenCharts:
+      type: object
+      description: 'H2: the charts that follow the media-type switch.'
+      properties:
+        rhythm:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+                format: double
+          description: 'Per type key: 7 weekday rows (Monday first) of 24 hours.'
+        hours_by_type:
+          $ref: '#/components/schemas/StatisticsScreenHoursByType'
+        top_genres:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/StatisticsScreenGenre'
+        combined:
+          $ref: '#/components/schemas/StatisticsScreenCombined'
+        consumption:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenConsumption'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenChart'
+          description: Labels are types; a series per status.
+        ratings:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenChart'
+          description: Labels are scores; a series per type.
+      required:
+      - combined
+      - consumption
+      - hours_by_type
+      - ratings
+      - rhythm
+      - status
+      - top_genres
     StatisticsScreenChoice:
       type: object
       description: A compare option (with the compared dates) or a media type.
@@ -27356,6 +27456,26 @@ components:
       required:
       - label
       - value
+    StatisticsScreenCombined:
+      type: object
+      description: Hours by Month, Day of Week and Time of Day, per type key.
+      properties:
+        by_month:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenChart'
+        by_weekday:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenChart'
+        by_time_of_day:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StatisticsScreenChart'
+      required:
+      - by_month
+      - by_time_of_day
+      - by_weekday
     StatisticsScreenCompare:
       type: object
       description: 'Compare to: the saved mode and its options.'
@@ -27369,6 +27489,29 @@ components:
       required:
       - mode
       - options
+    StatisticsScreenConsumption:
+      type: object
+      description: A type's consumption tiles.
+      properties:
+        has_data:
+          type: boolean
+        primary:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenMetric'
+          nullable: true
+        secondary:
+          allOf:
+          - $ref: '#/components/schemas/StatisticsScreenMetric'
+          nullable: true
+        bonuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsScreenBonus'
+      required:
+      - bonuses
+      - has_data
+      - primary
+      - secondary
     StatisticsScreenDay:
       type: object
       description: A heatmap cell (level 0-4).
@@ -27386,6 +27529,18 @@ components:
       - date
       - future
       - level
+    StatisticsScreenGenre:
+      type: object
+      description: A Top Genres slice.
+      properties:
+        name:
+          type: string
+        hours:
+          type: number
+          format: double
+      required:
+      - hours
+      - name
     StatisticsScreenHeatmap:
       type: object
       description: 'Activity History: one column per week.'
@@ -27431,6 +27586,50 @@ components:
       - last_play
       - today
       - today_label
+    StatisticsScreenHoursByType:
+      type: object
+      description: 'Hours by Media Type: one slice per type.'
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+        colors:
+          type: array
+          items:
+            type: string
+      required:
+      - colors
+      - labels
+      - values
+    StatisticsScreenMetric:
+      type: object
+      description: A consumption metric per year, month and day.
+      properties:
+        label:
+          type: string
+        unit:
+          type: string
+        per_year:
+          type: number
+          format: double
+        per_month:
+          type: number
+          format: double
+        per_day:
+          type: number
+          format: double
+      required:
+      - label
+      - per_day
+      - per_month
+      - per_year
+      - unit
     StatisticsScreenMonth:
       type: object
       description: A heatmap month label spanning `weeks` columns.

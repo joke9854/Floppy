@@ -223,6 +223,94 @@ def _played_hours(daily) -> dict:
     }
 
 
+_GENRE_TYPES = ("tv", "movie", "anime", "music", "game")
+
+
+def _series(chart) -> dict:
+    """Return a Chart.js-shaped {labels, datasets} as {labels, series}."""
+    chart = chart or {}
+    return {
+        "labels": [str(label) for label in chart.get("labels") or []],
+        "series": [
+            {
+                "label": str(dataset.get("label") or ""),
+                "media_type": str(dataset.get("media_type") or ""),
+                "color": str(dataset.get("background_color") or dataset.get("backgroundColor") or ""),
+                "values": [float(value or 0) for value in dataset.get("data") or []],
+            }
+            for dataset in chart.get("datasets") or []
+        ],
+    }
+
+
+def _number_list(values) -> list[float]:
+    return [float(value or 0) for value in values or []]
+
+
+def _consumption_metric(metric) -> dict | None:
+    if not metric:
+        return None
+    return {
+        "label": str(metric.get("label") or ""),
+        "unit": str(metric.get("unit") or ""),
+        "per_year": float(metric.get("per_year") or 0),
+        "per_month": float(metric.get("per_month") or 0),
+        "per_day": float(metric.get("per_day") or 0),
+    }
+
+
+def _charts(context) -> dict:
+    """Return the H2 charts that follow the media-type switch (statistics-charts.js)."""
+    distribution = context.get("media_type_distribution") or {}
+    dataset = (distribution.get("datasets") or [{}])[0]
+    colors = dataset.get("backgroundColor") or dataset.get("background_color") or []
+    combined = context.get("combined_plays_charts") or {}
+    status = context.get("status_distribution") or {}
+    scores = context.get("score_distribution") or {}
+    return {
+        "rhythm": {
+            key: [[float(value or 0) for value in row] for row in matrix or []]
+            for key, matrix in (context.get("weekday_hour_chart_data") or {}).items()
+        },
+        "hours_by_type": {
+            "labels": [_(str(label)) for label in distribution.get("labels") or []],
+            "values": _number_list(dataset.get("data")),
+            "colors": [str(color) for color in colors] if isinstance(colors, list) else [],
+        },
+        "top_genres": {
+            media_type: [
+                {"name": str(genre.get("name") or ""), "hours": round(float(genre.get("minutes") or 0) / 60, 2)}
+                for genre in (context.get(f"{media_type}_consumption") or {}).get("top_genres") or []
+            ]
+            for media_type in _GENRE_TYPES
+        },
+        "combined": {
+            chart: {key: _series(value) for key, value in (combined.get(chart) or {}).items()}
+            for chart in ("by_month", "by_weekday", "by_time_of_day")
+        },
+        "consumption": {
+            media_type: {
+                "has_data": bool(stats.get("has_data")),
+                "primary": _consumption_metric(stats.get("primary")),
+                "secondary": _consumption_metric(stats.get("secondary")),
+                "bonuses": [
+                    {
+                        "kind": str(bonus.get("kind") or ""),
+                        "label": str(bonus.get("label") or ""),
+                        "unit": str(bonus.get("unit") or ""),
+                        "value": float(bonus.get("value") or 0),
+                    }
+                    for bonus in stats.get("bonuses") or []
+                ],
+            }
+            for media_type, stats in (context.get("consumption_stats_by_type") or {}).items()
+            if isinstance(stats, dict)
+        },
+        "status": _series(status),
+        "ratings": _series(scores),
+    }
+
+
 def _preferences(user) -> dict:
     from app.providers import tvdb
 
@@ -286,6 +374,7 @@ def build_statistics_screen(request) -> dict:
         "heatmap": _heatmap(context.get("activity_data")),
         "played_hours": _played_hours(context.get("daily_hours_by_media_type")),
         "preferences": _preferences(user),
+        "charts": _charts(context),
         "urls": {
             "refresh": reverse("refresh_statistics"),
             "compare": reverse("update_statistics_compare_mode"),
@@ -426,6 +515,88 @@ class StatisticsScreenPlayedHoursSerializer(serializers.Serializer):
     series = StatisticsScreenSeriesSerializer(many=True)
 
 
+class StatisticsScreenBarSeriesSerializer(serializers.Serializer):
+    """A chart series (a type, or a status)."""
+
+    label = serializers.CharField(allow_blank=True)
+    media_type = serializers.CharField(allow_blank=True)
+    color = serializers.CharField(allow_blank=True)
+    values = serializers.ListField(child=serializers.FloatField())
+
+
+class StatisticsScreenChartSerializer(serializers.Serializer):
+    """Labels and series, as the page's Chart.js payloads."""
+
+    labels = serializers.ListField(child=serializers.CharField())
+    series = StatisticsScreenBarSeriesSerializer(many=True)
+
+
+class StatisticsScreenHoursByTypeSerializer(serializers.Serializer):
+    """Hours by Media Type: one slice per type."""
+
+    labels = serializers.ListField(child=serializers.CharField())
+    values = serializers.ListField(child=serializers.FloatField())
+    colors = serializers.ListField(child=serializers.CharField())
+
+
+class StatisticsScreenGenreSerializer(serializers.Serializer):
+    """A Top Genres slice."""
+
+    name = serializers.CharField()
+    hours = serializers.FloatField()
+
+
+class StatisticsScreenMetricSerializer(serializers.Serializer):
+    """A consumption metric per year, month and day."""
+
+    label = serializers.CharField(allow_blank=True)
+    unit = serializers.CharField(allow_blank=True)
+    per_year = serializers.FloatField()
+    per_month = serializers.FloatField()
+    per_day = serializers.FloatField()
+
+
+class StatisticsScreenBonusSerializer(serializers.Serializer):
+    """A consumption bonus tile (playtime, length, ...)."""
+
+    kind = serializers.CharField(allow_blank=True)
+    label = serializers.CharField(allow_blank=True)
+    unit = serializers.CharField(allow_blank=True)
+    value = serializers.FloatField()
+
+
+class StatisticsScreenConsumptionSerializer(serializers.Serializer):
+    """A type's consumption tiles."""
+
+    has_data = serializers.BooleanField()
+    primary = StatisticsScreenMetricSerializer(allow_null=True)
+    secondary = StatisticsScreenMetricSerializer(allow_null=True)
+    bonuses = StatisticsScreenBonusSerializer(many=True)
+
+
+class StatisticsScreenCombinedSerializer(serializers.Serializer):
+    """Hours by Month, Day of Week and Time of Day, per type key."""
+
+    by_month = serializers.DictField(child=StatisticsScreenChartSerializer())
+    by_weekday = serializers.DictField(child=StatisticsScreenChartSerializer())
+    by_time_of_day = serializers.DictField(child=StatisticsScreenChartSerializer())
+
+
+class StatisticsScreenChartsSerializer(serializers.Serializer):
+    """H2: the charts that follow the media-type switch."""
+
+    rhythm = serializers.DictField(
+        child=serializers.ListField(child=serializers.ListField(child=serializers.FloatField())),
+        help_text="Per type key: 7 weekday rows (Monday first) of 24 hours.",
+    )
+    hours_by_type = StatisticsScreenHoursByTypeSerializer()
+    top_genres = serializers.DictField(child=StatisticsScreenGenreSerializer(many=True))
+    combined = StatisticsScreenCombinedSerializer()
+    consumption = serializers.DictField(child=StatisticsScreenConsumptionSerializer())
+    status = StatisticsScreenChartSerializer(help_text="Labels are types; a series per status.")
+    ratings = StatisticsScreenChartSerializer(help_text="Labels are scores; a series per type.")
+
+
 class StatisticsScreenPreferencesSerializer(serializers.Serializer):
     """Statistics Preferences (posted to `urls.preferences`)."""
 
@@ -462,5 +633,6 @@ class StatisticsScreenSerializer(serializers.Serializer):
     heatmap = StatisticsScreenHeatmapSerializer(allow_null=True)
     played_hours = StatisticsScreenPlayedHoursSerializer()
     preferences = StatisticsScreenPreferencesSerializer()
+    charts = StatisticsScreenChartsSerializer()
     urls = StatisticsScreenUrlsSerializer()
 

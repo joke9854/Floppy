@@ -76,6 +76,23 @@ class StatisticsScreenTests(TestCase):
         self.assertEqual(screen["urls"]["refresh"], reverse("refresh_statistics"))
         self.assertEqual(screen["rating_scale_max"], 10)
 
+    def test_charts_follow_the_page(self, _metadata):
+        query = "?start-date=all&end-date=all"
+        page = self.client.get(reverse("statistics") + query)
+        charts = self._screen(query)["charts"]
+
+        self.assertEqual(len(charts["rhythm"]["all"]), 7)
+        self.assertEqual(len(charts["rhythm"]["all"][0]), 24)
+        self.assertEqual(sum(map(sum, charts["rhythm"]["movie"])), sum(map(sum, page.context["weekday_hour_chart_data"]["movie"])))
+        self.assertEqual(charts["hours_by_type"]["labels"], list(page.context["media_type_distribution"]["labels"]))
+        self.assertEqual(charts["status"]["labels"], list(page.context["status_distribution"]["labels"]))
+        self.assertEqual(
+            [series["label"] for series in charts["ratings"]["series"]],
+            [dataset["label"] for dataset in page.context["score_distribution"]["datasets"]],
+        )
+        self.assertTrue(charts["consumption"]["movie"]["has_data"])
+        self.assertIn("all", charts["combined"]["by_month"])
+
     def test_a_finite_range_offers_its_comparisons(self, _metadata):
         today = timezone.localdate()
         start = (today - datetime.timedelta(days=29)).isoformat()

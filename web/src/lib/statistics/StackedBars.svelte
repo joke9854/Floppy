@@ -6,14 +6,19 @@
 	 * which the web budget cannot carry): one bar per label, a segment per
 	 * series in its colour, a y axis in `unit`, and the values on hover.
 	 */
-	let { bars, unit, label }: { bars: Bars; unit: string; label: string } = $props();
+	let {
+		bars,
+		unit,
+		label,
+		width = 720
+	}: { bars: Bars; unit: string; label: string; width?: number } = $props();
 
 	const HEIGHT = 220;
 	const AXIS = 40;
 	const BOTTOM = 28;
 
-	// A fixed drawing width that scales with the card (no resize observer).
-	const width = 720;
+	// `width` is the drawing width; the SVG scales to its card (no resize
+	// observer), so narrow cards pass a smaller one to keep the text legible.
 	const totals = $derived(bars.labels.map((_, index) => bars.series.reduce((sum, series) => sum + (series.values[index] || 0), 0)));
 	const max = $derived(niceMax(Math.max(0, ...totals)));
 	const plot = $derived(Math.max(1, width - AXIS));
