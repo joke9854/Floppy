@@ -17,13 +17,15 @@
 	import type { PageProps } from './$types';
 
 	/**
-	 * A manual list's page (P4-I2), as the Django page (lists/list_detail.html)
-	 * for its editors: the header with completion, the Public chip and Links,
+	 * A list's page, as the Django page (lists/list_detail.html, P4-I2) for its
+	 * editors: the header with completion, the Public chip and Links,
 	 * collaborators, the type breakdown; Add New Item and the list menu; search,
 	 * type, status, sort, grid or table with its columns, custom order with
 	 * the move buttons, select mode with the Library's bulk bar, and more items
-	 * on scroll. Add item, recommendations, activity and export are the Django
-	 * pages.
+	 * on scroll. A smart list (smart_list_detail.html, P4-I3) shows its rules
+	 * summary, and Edit Smart Rules opens the builder, which saves as it goes.
+	 * Recommendations and Activity History open as dialogs; Add New Item, Add
+	 * Recommendation and Export are the Django pages.
 	 */
 	let { data }: PageProps = $props();
 	const screen = $derived(data.page);
@@ -63,6 +65,11 @@
 	let selected = $state<number[]>([]);
 	let formOpen = $state(false);
 	let formLoaded = $state(false);
+	let editingRules = $state(false);
+	let recommendationsOpen = $state(false);
+	let recommendationsLoaded = $state(false);
+	let activityOpen = $state(false);
+	let activityLoaded = $state(false);
 	const listForm = () => import('#lib/lists/ListForm.svelte');
 
 
@@ -137,6 +144,17 @@
 		moving = null;
 	}
 
+	function openDialog(which: 'activity' | 'recommendations') {
+		if (actionsMenu) actionsMenu.open = false;
+		if (which === 'activity') {
+			activityLoaded = true;
+			activityOpen = true;
+		} else {
+			recommendationsLoaded = true;
+			recommendationsOpen = true;
+		}
+	}
+
 	function toggleSelected(key: number) {
 		selected = selected.includes(key) ? selected.filter((id) => id !== key) : [...selected, key];
 	}
@@ -191,6 +209,7 @@
 				{/if}
 			</p>
 			<div class="ct-list-page__chips">
+				{#if screen.smart}<span class="ct-chip is-static">{ld.smartList}</span>{/if}
 				{#if list.is_public}
 					<details class="ct-lists-menu">
 						<summary class="ct-chip is-static">{ld.public} · {ld.links} <ChevronDown class="size-3" aria-hidden="true" /></summary>
@@ -214,13 +233,19 @@
 			{#if list.description}<p class="ct-list-page__description">{list.description}</p>{/if}
 		</div>
 		<div class="ct-lists-split">
-			<a class="ct-lists-button is-primary" href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>
+			{#if screen.smart}
+				<button type="button" class="ct-lists-button is-primary" aria-pressed={editingRules} onclick={() => (editingRules = !editingRules)}>
+					{editingRules ? ld.doneEditing : ld.editRules}
+				</button>
+			{:else}
+				<a class="ct-lists-button is-primary" href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>
+			{/if}
 			<details class="ct-lists-menu" bind:this={actionsMenu}>
 				<summary class="ct-lists-button is-primary is-icon" aria-label={ld.moreActions} title={ld.moreActions}>
 					<ChevronDown class="size-4" aria-hidden="true" />
 				</summary>
 				<div class="ct-lists-menu__panel">
-					<a href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>
+					{#if !screen.smart}<a href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>{/if}
 					{#if list.can_recommend}<a href={screen.urls!.recommend} data-sveltekit-reload>{ld.addRecommendation}</a>{/if}
 					<button
 						type="button"
@@ -230,9 +255,9 @@
 							formOpen = true;
 						}}>{ld.editList}</button
 					>
-					<a href={screen.urls!.activity} data-sveltekit-reload>{ld.activity}</a>
+					<button type="button" onclick={() => openDialog('activity')}>{ld.activity}</button>
 					{#if list.can_recommend && list.recommendation_count > 0}
-						<a href={screen.urls!.recommendations} data-sveltekit-reload>{ld.recommendations}</a>
+						<button type="button" onclick={() => openDialog('recommendations')}>{ld.recommendations}</button>
 					{/if}
 					<a href={screen.urls!.export} data-sveltekit-reload>{ld.exportCsv}</a>
 				</div>
@@ -240,7 +265,19 @@
 		</div>
 	</header>
 
+	{#if screen.smart && editingRules}
+		{#await import('#lib/lists/SmartRules.svelte') then { default: SmartRules }}
+			<SmartRules smart={screen.smart} sort={screen.sort ?? ''} direction={screen.direction ?? ''} onsaved={refresh} />
+		{/await}
+	{:else if screen.smart}
+		<div class="ct-smart-summary">
+			<h2>{ld.smartRules}</h2>
+			{#each screen.smart.summary as chip (chip.label)}<span><b>{chip.label}</b>{chip.value}</span>{/each}
+		</div>
+	{/if}
+
 	<div class="ct-lists-toolbar">
+		{#if !screen.smart}
 		<label class="ct-lists-search">
 			<input type="search" placeholder={ld.search} aria-label={ld.search} bind:value={search} oninput={(event) => onSearch(event.currentTarget.value)} />
 		</label>
@@ -269,6 +306,7 @@
 				{/each}
 			</div>
 		</details>
+		{/if}
 		<details class="ct-lists-menu" bind:this={sortMenu}>
 			<summary class="ct-lists-button">{sortLabel} <span aria-hidden="true">{screen.direction === 'asc' ? '↑' : '↓'}</span></summary>
 			<div class="ct-lists-menu__panel">
@@ -378,12 +416,31 @@
 	{:else}
 		<section class="ct-lists-empty">
 			<h2>{ld.empty}</h2>
-			<a class="ct-lists-button is-primary" href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>
+			{#if !screen.smart}<a class="ct-lists-button is-primary" href={withNext(screen.urls!.add_item)} data-sveltekit-reload>{ld.addItem}</a>{/if}
 		</section>
 	{/if}
 </main>
 
 {#if notice}<p class="ct-list-page__notice" role="status">{notice}</p>{/if}
+
+{#if recommendationsLoaded}
+	{#await import('#lib/lists/ListRecommendations.svelte') then { default: ListRecommendations }}
+		<ListRecommendations
+			bind:open={recommendationsOpen}
+			url={screen.urls!.recommendations}
+			ondone={(message) => {
+				notice = message;
+				void refresh();
+			}}
+		/>
+	{/await}
+{/if}
+
+{#if activityLoaded}
+	{#await import('#lib/lists/ListActivity.svelte') then { default: ListActivity }}
+		<ListActivity bind:open={activityOpen} url={screen.urls!.activity} />
+	{/await}
+{/if}
 
 {#if formLoaded}
 	{#await listForm() then { default: ListForm }}

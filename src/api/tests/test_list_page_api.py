@@ -1,12 +1,15 @@
-"""A manual list's page for the web (v2 P4-I2).
+"""A list's page for the web (v2 P4-I2, smart lists P4-I3).
 
 GET /api/v1/lists/page/<reference>/ reads the list page's own context; it
-hands smart lists, read-only visitors and missing lists back to Django.
-Moving an item (the page's move buttons) reorders the whole list, so the
-items beyond the loaded page keep their order.
+hands read-only visitors and missing lists back to Django. Moving an item
+(the page's move buttons) reorders the whole list, so the items beyond the
+loaded page keep their order. A smart list carries its saved rules, which
+the web posts back whole; recommendations and activity answer JSON for the
+page's dialogs.
 """
 
 import datetime
+import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -15,7 +18,13 @@ from django.utils import timezone
 
 import events.tasks
 from app.models import Item, MediaTypes, Movie, Sources, Status
-from lists.models import CustomList, CustomListItem
+from lists.models import (
+    CustomList,
+    CustomListItem,
+    ListActivity,
+    ListActivityType,
+    ListRecommendation,
+)
 
 
 class ListPageTests(TestCase):
@@ -88,9 +97,7 @@ class ListPageTests(TestCase):
         self.assertTrue(screen["columns"])
         self.assertTrue(screen["cards"][0]["cells"])
 
-    def test_smart_read_only_and_missing_lists_go_to_django(self):
-        smart = CustomList.objects.create(name="Smart", owner=self.user, is_smart=True)
-        self.assertFalse(self._page(smart.id)["handled"])
+    def test_read_only_and_missing_lists_go_to_django(self):
         other = get_user_model().objects.create_user(username="i2-other", password="12345")
         theirs = CustomList.objects.create(name="Theirs", owner=other, visibility="public")
         screen = self._page(theirs.id)
@@ -119,3 +126,100 @@ class ListPageTests(TestCase):
         self.assertEqual(after[1:], [item_id for item_id in before if item_id != moved])
         # Beyond the first page (16), nothing moved.
         self.assertEqual(after[16:], before[16:])
+
+    def _smart_list(self):
+        smart = CustomList.objects.create(
+            name="Smart",
+            owner=self.user,
+            is_smart=True,
+            smart_media_types=[MediaTypes.MOVIE.value],
+            smart_filters={"status": [Status.COMPLETED.value], "rating": "rated", "search": "Movie"},
+        )
+        smart.sync_smart_items()
+        return smart
+
+    def test_smart_list_carries_its_rules_and_items(self):
+        smart = self._smart_list()
+        page = self.client.get(reverse("list_detail", args=[smart.id]))
+        screen = self._page(smart.id)
+
+        self.assertTrue(screen["handled"])
+        self.assertEqual(screen["list"]["items_count"], page.context["items_count"])
+        self.assertEqual(screen["list"]["items_count"], 10)
+        self.assertEqual(
+            [card["key"] for card in screen["cards"]],
+            [item.id for item in page.context["items"]],
+        )
+        rules = screen["smart"]["rules"]
+        self.assertEqual(rules["media_types"], [MediaTypes.MOVIE.value])
+        self.assertEqual(rules["status"], [Status.COMPLETED.value])
+        self.assertEqual(rules["rating"], "rated")
+        summary = {chip["label"]: chip["value"] for chip in screen["smart"]["summary"]}
+        self.assertEqual(summary["Types:"], "Movie")
+        self.assertEqual(summary["Rating:"], "Rated")
+        self.assertEqual(summary["Search:"], "\u201cMovie\u201d")
+        self.assertEqual(screen["urls"]["add_item"], "")
+        self.assertFalse(any(row["value"] == str(smart.id) for row in screen["smart"]["lists"]))
+
+    def test_posting_the_rules_back_changes_nothing(self):
+        from lists import smart_rules
+
+        def rules(custom_list):
+            # What the rules mean: a save writes every key, with its default.
+            return smart_rules.normalize_rule_payload(
+                {"media_types": custom_list.smart_media_types, **custom_list.smart_filters},
+                custom_list.owner,
+            )
+
+        smart = self._smart_list()
+        before = (rules(smart), list(smart.smart_media_types), set(smart.items.values_list("id", flat=True)))
+        screen = self._page(smart.id)
+        response = self.client.post(
+            screen["smart"]["save_url"],
+            data=json.dumps(screen["smart"]["rules"]),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        smart.refresh_from_db()
+        self.assertEqual(rules(smart), before[0])
+        self.assertEqual(smart.smart_media_types, before[1])
+        self.assertEqual(set(smart.items.values_list("id", flat=True)), before[2])
+
+    def test_recommendations_and_activity_answer_json(self):
+        self.custom_list.visibility = "public"
+        self.custom_list.allow_recommendations = True
+        self.custom_list.save(update_fields=["visibility", "allow_recommendations"])
+        extra = Item.objects.create(
+            media_id="i3-rec",
+            source=Sources.MANUAL.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Recommended",
+        )
+        approve = ListRecommendation.objects.create(custom_list=self.custom_list, item=extra, anonymous_name="Kim")
+        deny = ListRecommendation.objects.create(custom_list=self.custom_list, item=self.items[0], note="Again")
+        json_headers = {"HTTP_ACCEPT": "application/json"}
+
+        listed = self.client.get(reverse("list_recommendations", args=[self.custom_list.id]), **json_headers)
+        rows = {row["id"]: row for row in listed.json()["recommendations"]}
+        self.assertEqual(rows[approve.id]["recommender"], "Kim")
+        self.assertEqual(rows[deny.id]["note"], "Again")
+
+        approved = self.client.post(rows[approve.id]["approve_url"], **json_headers)
+        self.assertEqual(approved.json()["added"], True)
+        self.assertTrue(self.custom_list.items.filter(id=extra.id).exists())
+        denied = self.client.post(rows[deny.id]["deny_url"], **json_headers)
+        self.assertTrue(denied.json()["done"])
+        self.assertFalse(ListRecommendation.objects.filter(custom_list=self.custom_list).exists())
+
+        activity = self.client.get(reverse("list_activity", args=[self.custom_list.id]), **json_headers)
+        types = [row["type"] for row in activity.json()["activities"]]
+        self.assertIn(ListActivityType.RECOMMENDATION_APPROVED, types)
+        self.assertIn(ListActivityType.RECOMMENDATION_DENIED, types)
+        self.assertEqual(
+            len(types), ListActivity.objects.filter(custom_list=self.custom_list).count()
+        )
+        # The pages still answer HTML.
+        self.assertEqual(
+            self.client.get(reverse("list_activity", args=[self.custom_list.id]))["Content-Type"].split(";")[0],
+            "text/html",
+        )

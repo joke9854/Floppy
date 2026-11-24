@@ -24306,8 +24306,7 @@ components:
           type: string
     ListPage:
       type: object
-      description: 'A manual list''s page for the web app (`handled: false`: open
-        `django_url`).'
+      description: 'A list''s page for the web app (`handled: false`: open `django_url`).'
       properties:
         handled:
           type: boolean
@@ -24374,6 +24373,10 @@ components:
         bulk:
           allOf:
           - $ref: '#/components/schemas/LibraryBulk'
+          nullable: true
+        smart:
+          allOf:
+          - $ref: '#/components/schemas/ListPageSmart'
           nullable: true
         urls:
           $ref: '#/components/schemas/ListPageUrls'
@@ -24469,6 +24472,177 @@ components:
       - name
       - recommendation_count
       - reference
+    ListPageSmart:
+      type: object
+      description: A smart list's rules, summary and builder options.
+      properties:
+        rules:
+          $ref: '#/components/schemas/ListPageSmartRules'
+        summary:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageSummary'
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        granular_media_types:
+          type: array
+          items:
+            type: string
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        filter_options:
+          $ref: '#/components/schemas/LibraryFilterOptions'
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListPageChoice'
+        save_url:
+          type: string
+      required:
+      - filter_options
+      - granular_media_types
+      - lists
+      - media_types
+      - rules
+      - save_url
+      - statuses
+      - summary
+    ListPageSmartRules:
+      type: object
+      description: 'Every saved smart rule (post them all back: one left out is cleared).'
+      properties:
+        media_types:
+          type: array
+          items:
+            type: string
+        status:
+          type: array
+          items:
+            type: string
+        rating:
+          type: string
+        rating_min:
+          type: string
+        rating_max:
+          type: string
+        collection:
+          type: string
+        genre:
+          type: string
+        implied_genre:
+          type: string
+        year:
+          type: string
+        completed_date_from:
+          type: string
+        completed_date_to:
+          type: string
+        completed_date_within:
+          type: string
+        completed_date_within_unit:
+          type: string
+        release:
+          type: string
+        release_date_from:
+          type: string
+        release_date_to:
+          type: string
+        release_date_within:
+          type: string
+        release_date_within_unit:
+          type: string
+        date_added_from:
+          type: string
+        date_added_to:
+          type: string
+        date_added_within:
+          type: string
+        date_added_within_unit:
+          type: string
+        source:
+          type: string
+        search:
+          type: string
+        sort:
+          type: string
+        sort_direction:
+          type: string
+        language:
+          type: string
+        country:
+          type: string
+        platform:
+          type: string
+        origin:
+          type: string
+        format:
+          type: string
+        author:
+          type: string
+        provider:
+          type: string
+        tag:
+          type: array
+          items:
+            type: string
+        tag_mode:
+          type: string
+        list:
+          type: array
+          items:
+            type: integer
+      required:
+      - author
+      - collection
+      - completed_date_from
+      - completed_date_to
+      - completed_date_within
+      - completed_date_within_unit
+      - country
+      - date_added_from
+      - date_added_to
+      - date_added_within
+      - date_added_within_unit
+      - format
+      - genre
+      - implied_genre
+      - language
+      - list
+      - media_types
+      - origin
+      - platform
+      - provider
+      - rating
+      - rating_max
+      - rating_min
+      - release
+      - release_date_from
+      - release_date_to
+      - release_date_within
+      - release_date_within_unit
+      - search
+      - sort
+      - sort_direction
+      - source
+      - status
+      - tag
+      - tag_mode
+      - year
+    ListPageSummary:
+      type: object
+      description: A smart rules summary chip.
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+      required:
+      - label
+      - value
     ListPageUrls:
       type: object
       description: 'The page''s actions: Django pages, and where the web posts.'

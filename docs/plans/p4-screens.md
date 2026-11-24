@@ -58,7 +58,7 @@ adds a web test for its flow:
 | P4-F | Calendar | F1 (2026-11-22): the month as a grid (phones: Agenda or Month) or a list, the type and status filter, Fetch New Releases, Download Calendar, the iCal export link |
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
-| P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3: smart lists, recommendations, activity |
+| P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | Not started |
 | P4-K | Imports | Not started |
 
@@ -646,9 +646,16 @@ Parity checklist:
       status filters, sort, grid and table with the Library's columns, custom
       order (Edit Item Order moves), bulk select, Edit List, more on scroll.
       Add New Item, Add Recommendation, Activity History, Recommendations and
-      Export open the Django pages; smart lists (until I3) and lists the user
-      can only view (no slice yet) open the Django page too.
-- [ ] I3: smart lists (rules summary and builder), recommendations, activity.
+      Export open the Django pages; lists the user can only view open the
+      Django page too.
+- [x] I3: smart lists: the Smart List chip, the rules summary, Edit Smart
+      Rules with the builder (search, types with season and episode kept out
+      of "all", statuses, the Library's filter menu, rating range, release
+      and date added ranges and windows, linked lists, sort), saving as it
+      goes ("Saving…", "Save failed").
+- [x] I3: Recommendations (Approve and add, Deny) and Activity History as
+      dialogs on the list page, for manual and smart lists.
+- [ ] Add Recommendation stays the Django search page, like Add New Item.
 - [ ] Lists the user can only view (shared read-only, others' public lists)
       still open the Django page.
 - [ ] The collaborator field takes exact usernames: the page's select2 user
@@ -674,6 +681,21 @@ list, so paging stays right. Fixed in passing: the Django list page's
 `bulk_action_data` was a one-element tuple (a trailing comma), so its bulk
 menus read a JSON array and showed no options. The grid's card loads with
 the grid to keep the page within its budget.
+
+I3 (2026-11-23): the same endpoint reads a smart list's page context
+(`build_smart_list_detail_context`, split from `_smart_list_detail_response`)
+and adds `smart`: every saved rule, the summary chips, and the builder's
+options (the Library's filter options from `smart_filter_data`, the types,
+statuses and linked lists). `list_smart_rules_update` rebuilds the whole
+rule set from what it is sent, so the builder posts every rule back (a test
+posts the screen's rules unchanged and checks nothing moves). Saves run one
+at a time and only the latest pending is sent, so a slow save never lands
+after a newer one; the edit state is the page's, not the URL's.
+`list_recommendations`, `list_activity`, `approve_recommendation` and
+`deny_recommendation` answer JSON for `Accept: application/json`. Fixed in
+passing: `can_recommend` is a model method, so every list offered Add
+Recommendation. The builder's and dialogs' styles load with them
+(`list-extras.css`).
 
 Page budgets went from 110 to 115 kB with I1 (the user's call, 2026-11-23):
 each new route grows the shared route table and re-splits shared code, and

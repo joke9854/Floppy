@@ -51,7 +51,10 @@ from lists.views_helpers import (
     _resolve_list_table_media_type,
     _status_value,
 )
-from lists.views_smart_list import _smart_list_detail_response
+from lists.views_smart_list import (
+    _smart_list_detail_response,
+    build_smart_list_detail_context,
+)
 from users.models import ListDetailSortChoices, MediaStatusChoices
 
 logger = logging.getLogger(__name__)
@@ -95,11 +98,12 @@ def list_detail(request, list_reference):
     return response
 
 
-def build_list_detail_context(request, list_reference):
+def build_list_detail_context(request, list_reference, *, smart_context=False):
     """Return a manual list page's context, or the response it answers with.
 
     Shared by the page and the web screen (v2 P4-I2). A missing list
-    redirects or 404s, and a smart list answers with its own page, as before.
+    redirects or 404s, and a smart list answers with its own page, as before,
+    or with that page's context when `smart_context` asks (the web, P4-I3).
     """
     reference = str(list_reference or "").strip()
     custom_list = CustomList.objects.get_by_reference(reference)
@@ -172,6 +176,15 @@ def build_list_detail_context(request, list_reference):
     # For public views, use owner's data; otherwise use request.user
     media_user = custom_list.owner if is_public_view else request.user
 
+    if custom_list.is_smart and smart_context:
+        return build_smart_list_detail_context(
+            request=request,
+            custom_list=custom_list,
+            can_edit=can_edit,
+            is_public_view=is_public_view,
+            public_view=public_view,
+            media_user=media_user,
+        )
     if custom_list.is_smart:
         return _smart_list_detail_response(
             request=request,

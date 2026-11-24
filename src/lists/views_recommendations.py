@@ -22,6 +22,7 @@ from app import helpers
 from app.discover import tab_cache as discover_tab_cache
 from app.models import Item, MediaTypes
 from app.providers import services
+from app.templatetags import app_tags
 from lists.models import (
     CustomList,
     CustomListItem,
@@ -34,6 +35,7 @@ from lists.views_helpers import (
     _list_item_title_fields_from_metadata,
     _maybe_backfill_episode_title,
 )
+from users.templatetags import user_tags
 
 logger = logging.getLogger(__name__)
 
@@ -392,6 +394,29 @@ def list_recommendations(request, list_id):
         "recommended_by",
     ).order_by("-date_recommended")
 
+    if helpers.wants_json(request):
+        # The web list page's Recommendations dialog (v2 P4-I3).
+        return JsonResponse(
+            {
+                "recommendations": [
+                    {
+                        "id": rec.id,
+                        "title": rec.item.title,
+                        "media_type": str(app_tags.media_type_readable(rec.item.media_type)),
+                        "href": app_tags.media_url(rec.item),
+                        "image": app_tags.image_url(rec.item.image),
+                        "recommender": rec.recommender_display_name,
+                        "note": rec.note or "",
+                        "approve_url": reverse(
+                            "approve_recommendation", args=[custom_list.id, rec.id]
+                        ),
+                        "deny_url": reverse("deny_recommendation", args=[custom_list.id, rec.id]),
+                    }
+                    for rec in recommendations
+                ],
+            },
+        )
+
     context = {
         "custom_list": custom_list,
         "recommendations": recommendations,
@@ -417,6 +442,31 @@ def list_activity(request, list_id):
         "item",
     ).order_by("-timestamp")[:100]
 
+    if helpers.wants_json(request):
+        # The web list page's Activity History dialog (v2 P4-I3).
+        return JsonResponse(
+            {
+                "activities": [
+                    {
+                        "id": activity.id,
+                        "type": activity.activity_type,
+                        "description": activity.description,
+                        "timestamp": user_tags.user_datetime_format(
+                            activity.timestamp, request.user
+                        ),
+                        "item": {
+                            "title": activity.item.title,
+                            "href": app_tags.media_url(activity.item),
+                            "image": app_tags.image_url(activity.item.image),
+                        }
+                        if activity.item
+                        else None,
+                    }
+                    for activity in activities
+                ],
+            },
+        )
+
     context = {
         "custom_list": custom_list,
         "activities": activities,
@@ -431,9 +481,10 @@ def approve_recommendation(request, list_id, recommendation_id):
     custom_list = get_object_or_404(CustomList, id=list_id)
 
     if not custom_list.user_can_edit(request.user):
-        messages.error(
-            request, gettext("You do not have permission to manage recommendations.")
-        )
+        message = gettext("You do not have permission to manage recommendations.")
+        if helpers.wants_json(request):
+            return JsonResponse({"done": False, "message": message}, status=403)
+        messages.error(request, message)
         return helpers.redirect_back(request)
 
     recommendation = get_object_or_404(
@@ -447,7 +498,8 @@ def approve_recommendation(request, list_id, recommendation_id):
     )
 
     # Add item to the list if not already there
-    if not custom_list.items.filter(id=recommendation.item.id).exists():
+    added = not custom_list.items.filter(id=recommendation.item.id).exists()
+    if added:
         CustomListItem.objects.create(
             custom_list=custom_list,
             item=recommendation.item,
@@ -458,11 +510,9 @@ def approve_recommendation(request, list_id, recommendation_id):
             recommendation.item.title,
             custom_list.name,
         )
-        messages.success(
-            request,
-            gettext('"%(value_1)s" has been added to the list.')
-            % {"value_1": recommendation.item.title},
-        )
+        message = gettext('"%(value_1)s" has been added to the list.') % {
+            "value_1": recommendation.item.title,
+        }
         ListActivity.objects.create(
             custom_list=custom_list,
             user=request.user,
@@ -471,14 +521,18 @@ def approve_recommendation(request, list_id, recommendation_id):
             details=f"Recommended by {recommendation.recommender_display_name}",
         )
     else:
-        messages.info(
-            request,
-            gettext('"%(value_1)s" is already in the list.')
-            % {"value_1": recommendation.item.title},
-        )
+        message = gettext('"%(value_1)s" is already in the list.') % {
+            "value_1": recommendation.item.title,
+        }
 
     recommendation.delete()
 
+    if helpers.wants_json(request):
+        return JsonResponse({"done": True, "added": added, "message": message})
+    if added:
+        messages.success(request, message)
+    else:
+        messages.info(request, message)
     return helpers.redirect_back(request)
 
 
@@ -488,9 +542,10 @@ def deny_recommendation(request, list_id, recommendation_id):
     custom_list = get_object_or_404(CustomList, id=list_id)
 
     if not custom_list.user_can_edit(request.user):
-        messages.error(
-            request, gettext("You do not have permission to manage recommendations.")
-        )
+        message = gettext("You do not have permission to manage recommendations.")
+        if helpers.wants_json(request):
+            return JsonResponse({"done": False, "message": message}, status=403)
+        messages.error(request, message)
         return helpers.redirect_back(request)
 
     recommendation = get_object_or_404(
@@ -517,10 +572,11 @@ def deny_recommendation(request, list_id, recommendation_id):
     )
 
     logger.info("Recommendation denied: %s for %s", item_title, custom_list.name)
-    messages.success(
-        request,
-        gettext('Recommendation for "%(value_1)s" has been removed.')
-        % {"value_1": item_title},
-    )
+    message = gettext('Recommendation for "%(value_1)s" has been removed.') % {
+        "value_1": item_title,
+    }
+    if helpers.wants_json(request):
+        return JsonResponse({"done": True, "message": message})
+    messages.success(request, message)
 
     return helpers.redirect_back(request)

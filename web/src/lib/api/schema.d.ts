@@ -6940,7 +6940,7 @@ export interface components {
         ListMembershipRequest: {
             library_media_type?: string;
         };
-        /** @description A manual list's page for the web app (`handled: false`: open `django_url`). */
+        /** @description A list's page for the web app (`handled: false`: open `django_url`). */
         ListPage: {
             handled: boolean;
             django_url: string;
@@ -6964,6 +6964,7 @@ export interface components {
             column_media_type?: string;
             cards?: components["schemas"]["LibraryCard"][];
             bulk?: components["schemas"]["LibraryBulk"] | null;
+            smart?: components["schemas"]["ListPageSmart"] | null;
             urls?: components["schemas"]["ListPageUrls"];
         };
         /** @description A slice of the media type breakdown. */
@@ -6999,6 +7000,61 @@ export interface components {
             links: components["schemas"]["ListPageLink"][];
             can_recommend: boolean;
             recommendation_count: number;
+        };
+        /** @description A smart list's rules, summary and builder options. */
+        ListPageSmart: {
+            rules: components["schemas"]["ListPageSmartRules"];
+            summary: components["schemas"]["ListPageSummary"][];
+            media_types: components["schemas"]["ListPageChoice"][];
+            granular_media_types: string[];
+            statuses: components["schemas"]["ListPageChoice"][];
+            filter_options: components["schemas"]["LibraryFilterOptions"];
+            lists: components["schemas"]["ListPageChoice"][];
+            save_url: string;
+        };
+        /** @description Every saved smart rule (post them all back: one left out is cleared). */
+        ListPageSmartRules: {
+            media_types: string[];
+            status: string[];
+            rating: string;
+            rating_min: string;
+            rating_max: string;
+            collection: string;
+            genre: string;
+            implied_genre: string;
+            year: string;
+            completed_date_from: string;
+            completed_date_to: string;
+            completed_date_within: string;
+            completed_date_within_unit: string;
+            release: string;
+            release_date_from: string;
+            release_date_to: string;
+            release_date_within: string;
+            release_date_within_unit: string;
+            date_added_from: string;
+            date_added_to: string;
+            date_added_within: string;
+            date_added_within_unit: string;
+            source: string;
+            search: string;
+            sort: string;
+            sort_direction: string;
+            language: string;
+            country: string;
+            platform: string;
+            origin: string;
+            format: string;
+            author: string;
+            provider: string;
+            tag: string[];
+            tag_mode: string;
+            list: number[];
+        };
+        /** @description A smart rules summary chip. */
+        ListPageSummary: {
+            label: string;
+            value: string;
         };
         /** @description The page's actions: Django pages, and where the web posts. */
         ListPageUrls: {

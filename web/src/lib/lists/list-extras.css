@@ -1,0 +1,207 @@
+/* The smart rule builder and the Recommendations and Activity dialogs (P4-I3),
+   loaded with them. */
+
+.ct-smart {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	background-color: var(--color-surface);
+}
+
+.ct-smart__head {
+	display: flex;
+	flex-flow: row wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-smart__head h2 {
+	margin-right: 4px;
+	color: var(--color-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.ct-smart__state {
+	margin-left: auto;
+	color: var(--color-link);
+	font-size: 12px;
+}
+
+.ct-smart__state.is-saving {
+	color: rgb(253 224 71);
+}
+
+.ct-smart__state.is-error {
+	color: rgb(248 113 113);
+}
+
+.ct-smart__ranges {
+	min-width: min(92vw, 320px);
+	gap: 12px;
+	padding: 12px;
+}
+
+.ct-smart__ranges fieldset {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.ct-smart__ranges legend {
+	margin-bottom: 6px;
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.ct-smart__ranges input,
+.ct-smart__ranges select {
+	min-width: 0;
+	height: 34px;
+	flex: 1;
+	padding: 0 8px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 8px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+	color-scheme: dark;
+}
+
+.ct-smart__within {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 6px;
+	color: var(--color-text-muted);
+	font-size: 12px;
+}
+
+.ct-smart__within input {
+	max-width: 72px;
+}
+
+.ct-smart__lists {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.ct-smart__lists button {
+	padding: 5px 10px;
+	border-radius: 999px;
+	background-color: var(--color-surface-hover);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.ct-smart__lists button[aria-pressed='true'] {
+	background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+	color: var(--color-text);
+}
+
+/* On a phone the builder's menus open across the section, not off its edge. */
+@media (max-width: 639.98px) {
+	.ct-smart .ct-lists-menu {
+		position: static;
+	}
+
+	.ct-smart .ct-lists-menu__panel {
+		right: 12px;
+		left: 12px;
+		min-width: 0;
+	}
+}
+
+/* Recommendations and Activity History dialogs (P4-I3) */
+.ct-list-dialog__rows {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.ct-list-dialog__rows li {
+	display: flex;
+	gap: 12px;
+}
+
+.ct-list-dialog__rows li.is-busy {
+	opacity: 0.5;
+}
+
+.ct-list-dialog__poster {
+	width: 64px;
+	flex: none;
+	overflow: hidden;
+	aspect-ratio: 2 / 3;
+	border-radius: 8px;
+	background-color: var(--color-surface);
+}
+
+.ct-list-dialog__poster.is-small {
+	width: 40px;
+}
+
+.ct-list-dialog__poster img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.ct-list-dialog__body {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ct-list-dialog__title,
+.ct-list-dialog__text {
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.ct-list-dialog__text {
+	font-weight: 400;
+}
+
+.ct-list-dialog__meta,
+.ct-list-dialog__note {
+	color: var(--color-text-muted);
+	font-size: 12px;
+}
+
+.ct-list-dialog__quote {
+	padding-left: 10px;
+	border-left: 2px solid var(--color-surface-hover);
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	white-space: pre-line;
+}
+
+.ct-list-dialog__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 24px 8px;
+	text-align: center;
+}
+
+.ct-list-dialog__empty h3 {
+	color: var(--color-text);
+	font-weight: 600;
+}
+
+.ct-list-dialog__empty p {
+	color: var(--color-text-muted);
+	font-size: 14px;
+}

@@ -546,3 +546,38 @@
 	font-size: 14px;
 	transform: translateX(-50%);
 }
+
+/* Smart lists (P4-I3): the rules summary; the builder's and the dialogs'
+   styles load with them (list-extras.css). */
+.ct-smart-summary {
+	display: flex;
+	flex-flow: row wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	background-color: var(--color-surface);
+}
+
+.ct-smart-summary h2 {
+	margin-right: 4px;
+	color: var(--color-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.ct-smart-summary span {
+	padding: 4px 8px;
+	border-radius: 8px;
+	background-color: var(--color-surface-strong);
+	color: var(--color-text-secondary);
+	font-size: 12px;
+}
+
+.ct-smart-summary span b {
+	margin-right: 4px;
+	color: var(--color-text-muted);
+	font-weight: 400;
+}

@@ -52,7 +52,7 @@ from users.models import ListDetailSortChoices, MediaStatusChoices
 logger = logging.getLogger(__name__)
 
 
-def _smart_list_detail_response(
+def build_smart_list_detail_context(
     request,
     custom_list,
     can_edit,
@@ -60,7 +60,7 @@ def _smart_list_detail_response(
     public_view,
     media_user,
 ):
-    """Render smart-list detail page and HTMX partial responses."""
+    """Return a smart list page's context (the page and the web screen, v2 P4-I3)."""
     valid_sorts = [choice[0] for choice in ListDetailSortChoices.choices]
     saved_sort = (custom_list.smart_filters or {}).get(
         "sort"
@@ -491,6 +491,31 @@ def _smart_list_detail_response(
                 "table_include_selector": "#smart-filter-form",
             },
         )
+
+    return context
+
+
+def _smart_list_detail_response(
+    request,
+    custom_list,
+    can_edit,
+    is_public_view,
+    public_view,
+    media_user,
+):
+    """Render smart-list detail page and HTMX partial responses."""
+    context = build_smart_list_detail_context(
+        request,
+        custom_list,
+        can_edit,
+        is_public_view,
+        public_view,
+        media_user,
+    )
+    layout = context["current_layout"]
+    is_partial = context["is_partial"]
+    is_pagination = context["is_pagination"]
+    total_items_count = context["items_count"]
 
     if is_partial:
         if layout == "table":
