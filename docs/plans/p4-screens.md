@@ -59,7 +59,7 @@ adds a web test for its flow:
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
-| P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3: Integrations and RSS |
+| P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
 | P4-K | Imports | Not started |
 
 ### P4-A: Home
@@ -748,7 +748,16 @@ back change nothing.
       back; Save off when blank, Remove separate).
 - [x] J2: Connected apps: signed-in installs (Sign out), sync connections,
       crash reports (newest 50, Export JSON).
-- [ ] J3: Integrations and RSS.
+- [x] J3: Integrations: the card grid (?open= per panel, Back), matching
+      review, onboarding banner, watched-state sync, legacy key (regenerate
+      behind a confirm), app tokens (the new secret comes back once in the
+      create answer, never the session), connected apps, Jellyfin (official,
+      unofficial with webhook events, Floppy → Jellyfin: connect, settings,
+      push, pull, TSV upload), Plex (usernames, libraries, shares, status),
+      Emby, Kodi, Stremio (install credentials, catalog status), Seerr, Nuvio.
+      Forms that clear a missing field always post every field.
+- [x] J3: RSS: media type, row, skip options, the feed URL, a JSON preview.
+      Reached from Notifications, not the nav.
 - [ ] Import stays P4-K.
 
 Fixed in J1: the notifications API (`PATCH /api/v1/user/notifications/`)
@@ -764,6 +773,19 @@ Fixed in J2:
 - The settings route could hand a page the next page's screen for one
   update while moving between pages (a crash in the old page); the page
   component and its screen are now set together.
+
+Decided in J3: the screen returns the account's legacy key and the webhook
+URLs built on it, as the Django page renders them. The settings screen is
+`NEVER`-scoped, so only the signed-in browser session reads it; a test
+checks an API token is refused.
+
+Fixed in J3: after a save the Integrations page fell back to the card grid
+(a refresh resets SvelteKit's shallow-routing state); the open panel now
+lives in the component and follows ?open= links and Back/Forward.
+
+Not verifiable locally (J3): a filled RSS preview (the Django preview is
+empty here too); connecting a real Jellyfin; Plex libraries and shares
+(need a connected Plex).
 
 Not verifiable locally: clearing caches and deleting a media type need
 Redis (`delete_pattern`); the local server has none, so both answered 500

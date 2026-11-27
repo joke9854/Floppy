@@ -18,7 +18,8 @@
 	/**
 	 * Integrations (integrations.html): the card grid, one panel per service,
 	 * matching review and the onboarding banner. The open panel is a tag kept in
-	 * the URL with shallow routing, so no data reloads when it changes.
+	 * the URL (?open=) and in this component: a save refreshes the screen, which
+	 * resets SvelteKit's shallow-routing state, so page.state cannot hold it.
 	 */
 	let { screen }: { screen: SettingsScreen } = $props();
 	const integrations = $derived(screen.integrations!);
@@ -42,9 +43,17 @@
 	};
 	const tags = ['grid', 'api', 'jellyfin', 'plex', 'emby', 'kodi', 'stremio', 'seerr', 'nuvio', 'sync', 'all'];
 
-	const open = $derived.by(() => {
-		const tag = page.state.open ?? page.url.searchParams.get('open') ?? 'grid';
+	const tagOf = (url: { searchParams: { get(name: string): string | null } }) => {
+		const tag = url.searchParams.get('open') ?? 'grid';
 		return tags.includes(tag) ? tag : 'grid';
+	};
+	// svelte-ignore state_referenced_locally
+	let open = $state(tagOf(page.url));
+	// A link to ?open= (Nuvio's "app tokens") navigates; follow it. A refresh
+	// after a save keeps the same search, so it does not reset the panel.
+	const search = $derived(page.url.search);
+	$effect(() => {
+		open = tagOf(new URL(search, window.location.origin));
 	});
 	const onboarding = $derived(Boolean(page.url.searchParams.get('onboarding')));
 	const show = (...panels: string[]) => panels.includes(open);
@@ -57,6 +66,7 @@
 		if (tag === 'grid') url.searchParams.delete('open');
 		else url.searchParams.set('open', tag);
 		url.hash = '';
+		open = tag;
 		pushState(url, { open: tag });
 		window.scrollTo(0, 0);
 	}
@@ -88,6 +98,8 @@
 		}
 	}
 </script>
+
+<svelte:window onpopstate={() => (open = tagOf(new URL(window.location.href)))} />
 
 {#snippet group(title: string, section: string)}
 	<section class="ct-settings-section">
