@@ -11,6 +11,11 @@
  * - `hardcover`: an optional API key (`hardcover_api_key`) and/or a CSV.
  * - `simkl`: leaves for Simkl's sign-in (a real form submit, not fetch),
  *   with `next` set so it comes back to the web Import page.
+ * - `trakt`, `anilist` (K2): a public username import, or OAuth (a real
+ *   form submit like Simkl); Trakt also takes a data export (`trakt_export`,
+ *   several files, frequency "once" only, not mode-gated).
+ * - `account` (K2): connect once, then Sync now / full history / Disconnect
+ *   (see `ImportAccount`). None of these is mode-gated.
  */
 export type ImportUrlKey =
 	| 'yamtrack'
@@ -25,14 +30,61 @@ export type ImportUrlKey =
 	| 'mal'
 	| 'kitsu'
 	| 'mdblist'
-	| 'simkl';
+	| 'simkl'
+	| 'steam';
+
+/** The K2 accounts on the screen (`accounts.<key>`) and their `urls.<key>_connect|_disconnect|_sync|_history`. */
+export type ImportAccountKey = 'lastfm' | 'koito' | 'xbox' | 'psn' | 'pocketcasts' | 'gpodder';
+
+export type ImportConnectField = {
+	name: string;
+	label: string;
+	type: 'text' | 'url' | 'email' | 'password';
+	placeholder: string;
+	required: boolean;
+	/** The field's starting value (GPodder's server). */
+	value?: string;
+};
+
+export type ImportLink = { label: string; href: string };
+
+/** What a page-level value the account texts depend on. */
+export type ImportAccountContext = { frequency: string; pollInterval: number };
+
+/**
+ * An account source (import_data.html's Last.fm, Koito, Xbox, PSN, Pocket
+ * Casts and GPodder dialogs). Connect posts `connectFields` (plus the page's
+ * frequency/time/mode when `connectPostsShared`); Sync posts the trio when
+ * `syncPostsShared`. The connect views call the provider before answering.
+ */
+export type ImportAccount = {
+	key: ImportAccountKey;
+	connectFields: ImportConnectField[];
+	connectButton: string;
+	connectPostsShared: boolean;
+	syncPostsShared: boolean;
+	/** The text when no account is saved. */
+	disconnected: (context: ImportAccountContext) => string;
+	/** The text when an account is saved. */
+	connected: (context: ImportAccountContext) => string;
+	syncLabel: (context: ImportAccountContext) => string;
+	/** The label before `accounts.<key>.name` (Koito's server, gamertag, online ID). */
+	nameLabel?: string;
+	/** Links shown under the not-connected text. */
+	links?: ImportLink[];
+	/** A note under the connect form, or under both branches with `footnoteAlways`. */
+	footnote?: string;
+	footnoteAlways?: boolean;
+	history?: boolean;
+};
 
 export type ImportFileField = { name: string; label: string; accept: string; title?: string };
 
 export type ImportSource = {
 	key: string;
-	url: ImportUrlKey;
-	kind: 'file' | 'files' | 'username' | 'mdblist' | 'hardcover' | 'simkl';
+	/** Where the file and username kinds post. */
+	url?: ImportUrlKey;
+	kind: 'file' | 'files' | 'username' | 'mdblist' | 'hardcover' | 'simkl' | 'trakt' | 'anilist' | 'account';
 	/** The text above the form when the frequency is "once" (uploads) or always. */
 	description: string;
 	files?: ImportFileField[];
@@ -41,7 +93,16 @@ export type ImportSource = {
 	hint?: string;
 	button?: string;
 	docs?: boolean;
+	account?: ImportAccount;
 };
+
+const consoleSync = ({ frequency }: ImportAccountContext) => (frequency === 'once' ? 'Sync Now' : 'Schedule Sync');
+const consoleText =
+	(name: string) =>
+	({ frequency }: ImportAccountContext) =>
+		frequency === 'once'
+			? `Sync played games and hours played from your ${name} account now.`
+			: `Sync played games and hours played from your ${name} account on a schedule.`;
 
 export const PERIODIC_UPLOAD_NOTE = 'File uploads are not available for periodic imports';
 
@@ -149,6 +210,147 @@ export const IMPORT_SOURCES: Record<string, ImportSource> = {
 		kind: 'simkl',
 		description: 'Import TV shows, movies and anime',
 		button: 'Connect with Simkl & Import'
+	},
+	steam: {
+		key: 'steam',
+		url: 'steam',
+		kind: 'username',
+		description: 'Import games from your Steam library',
+		placeholder: 'Steam 64-bit ID',
+		hint: 'Find it on your Steam account details page under your username. Your profile must be public if the API key you are using is not linked to the steamid you are requesting.',
+		button: 'Import'
+	},
+	trakt: {
+		key: 'trakt',
+		kind: 'trakt',
+		description: 'Import TV shows and movies, including your collection'
+	},
+	anilist: {
+		key: 'anilist',
+		kind: 'anilist',
+		description: 'Import anime and manga'
+	},
+	lastfm: {
+		key: 'lastfm',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'lastfm',
+			connectFields: [{ name: 'lastfm_username', label: 'Last.fm Username', type: 'text', placeholder: 'your_username', required: true }],
+			connectButton: 'Connect Last.fm',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			disconnected: ({ pollInterval }) =>
+				`Connect Last.fm to enable recurring syncs every ${pollInterval} minutes and import your full listening history. Your scrobbles must be public.`,
+			connected: ({ pollInterval }) => `Import your Last.fm listening history automatically every ${pollInterval} minutes.`,
+			syncLabel: () => 'Sync now',
+			history: true
+		}
+	},
+	koito: {
+		key: 'koito',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'koito',
+			connectFields: [
+				{ name: 'base_url', label: 'Koito Server URL', type: 'url', placeholder: 'https://koito.example.com', required: true },
+				{ name: 'api_key', label: 'API Key', type: 'password', placeholder: 'Koito API key', required: true }
+			],
+			connectButton: 'Connect Koito',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			disconnected: () =>
+				'Connect a self-hosted Koito server to import your full listening history and sync new listens every 15 minutes. Generate an API key in Koito under Settings → API Keys. Floppy only reads from Koito and never sends listens back.',
+			connected: () =>
+				'Import your Koito listening history automatically every 15 minutes. Floppy only reads from Koito and never sends listens back.',
+			syncLabel: () => 'Sync now',
+			nameLabel: 'Server',
+			history: true
+		}
+	},
+	xbox: {
+		key: 'xbox',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'xbox',
+			connectFields: [{ name: 'api_key', label: 'OpenXBL API key', type: 'password', placeholder: 'OpenXBL API key', required: true }],
+			connectButton: 'Connect Xbox',
+			connectPostsShared: true,
+			syncPostsShared: true,
+			disconnected: () =>
+				'Xbox has no public API, so Floppy connects through OpenXBL. Sign in at xbl.io with your Microsoft account and paste the API key it gives you.',
+			connected: consoleText('Xbox'),
+			syncLabel: consoleSync,
+			nameLabel: 'Gamertag',
+			links: [{ label: 'xbl.io', href: 'https://xbl.io' }],
+			footnote: 'Xbox only reports games you have played, not everything you own, and not every title reports hours played.',
+			footnoteAlways: true
+		}
+	},
+	psn: {
+		key: 'psn',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'psn',
+			connectFields: [{ name: 'npsso', label: 'PSN NPSSO token', type: 'password', placeholder: 'PSN NPSSO token', required: true }],
+			connectButton: 'Connect PlayStation',
+			connectPostsShared: true,
+			syncPostsShared: true,
+			disconnected: () =>
+				"PSN has no public API, so Floppy signs in with your NPSSO token. Log in at playstation.com, then open Sony's SSO cookie page and paste the npsso value it shows. Don't log out of that browser afterwards, or the token stops working.",
+			connected: consoleText('PlayStation'),
+			syncLabel: consoleSync,
+			nameLabel: 'Online ID',
+			links: [
+				{ label: 'playstation.com', href: 'https://www.playstation.com' },
+				{ label: "Sony's SSO cookie page", href: 'https://ca.account.sony.com/api/v1/ssocookie' }
+			],
+			footnote:
+				'PSN only reports games you have played, not everything you own. The NPSSO token expires after about two months and then has to be pasted again.',
+			footnoteAlways: true
+		}
+	},
+	pocketcasts: {
+		key: 'pocketcasts',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'pocketcasts',
+			connectFields: [
+				{ name: 'email', label: 'Email', type: 'email', placeholder: 'your.email@example.com', required: true },
+				{ name: 'password', label: 'Password', type: 'password', placeholder: 'Your Pocket Casts password', required: true }
+			],
+			connectButton: 'Connect Pocket Casts',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			disconnected: () => 'Import podcasts every 2 hours (to estimate completion time)',
+			connected: () => 'Import podcasts every 2 hours (to estimate completion time)',
+			syncLabel: () => 'Sync now',
+			footnote: 'For Apple or Google sign-ins, set a password via Forgot Password first, then enter your credentials here.'
+		}
+	},
+	gpodder: {
+		key: 'gpodder',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'gpodder',
+			connectFields: [
+				{ name: 'server_url', label: 'Server URL', type: 'url', placeholder: 'https://gpodder.net', required: true, value: 'https://gpodder.net' },
+				{ name: 'username', label: 'Username', type: 'text', placeholder: 'Your GPodder username', required: true },
+				{ name: 'password', label: 'Password / App Password', type: 'password', placeholder: 'Your password or app password', required: true },
+				{ name: 'device_filter', label: 'Optional Device Filter', type: 'text', placeholder: 'antenna-pod-device', required: false }
+			],
+			connectButton: 'Connect GPodder',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			disconnected: () => 'Recurring podcast history sync for GPodder, AntennaPod, and self-hosted compatible servers every 2 hours.',
+			connected: () => 'Recurring podcast history sync for GPodder, AntennaPod, and self-hosted compatible servers every 2 hours.',
+			syncLabel: () => 'Sync now'
+		}
 	},
 	mdblist: {
 		key: 'mdblist',

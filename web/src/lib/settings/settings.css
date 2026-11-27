@@ -692,6 +692,13 @@
 	color: rgb(110 231 183);
 }
 
+/* The Import dialog's blocks (head, texts, forms, panels) one under another. */
+.ct-import-dialog[open] {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
 .ct-import-dialog-head {
 	display: flex;
 	align-items: center;
@@ -759,4 +766,33 @@
 	font-size: 12px;
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+/* Import dialogs (K2): info boxes and history status */
+.ct-import-info {
+	display: grid;
+	gap: 8px;
+	padding: 12px;
+	border: 1px solid rgb(99 102 241 / 30%);
+	border-radius: 8px;
+	background-color: rgb(99 102 241 / 10%);
+	color: var(--color-text-secondary);
+	font-size: 13px;
+}
+
+.ct-import-info ol {
+	margin: 0;
+	padding-left: 20px;
+}
+
+.ct-import-history.is-done {
+	color: rgb(110 231 183);
+}
+
+.ct-import-history.is-error {
+	color: rgb(254 205 211);
+}
+
+.ct-import-history.is-active {
+	color: rgb(252 211 77);
 }

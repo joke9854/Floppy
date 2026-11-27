@@ -60,7 +60,7 @@ adds a web test for its flow:
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
-| P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2: Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3: Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Until then those tiles open the Django page's dialog |
+| P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2 (2026-11-27): Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3: Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Until then those tiles open the Django page's dialog |
 
 ### P4-A: Home
 
@@ -804,8 +804,11 @@ check (as on the Django page).
       files), MyAnimeList, Kitsu, MDBList, and Simkl (a real form submit to
       Simkl's sign-in, `next` back to the web page). Every form posts the
       page's frequency, time and mode (several views fail without them).
-- [ ] K2: Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket
-      Casts, GPodder.
+- [x] K2: Trakt (public username, OAuth as a real form submit with `next`,
+      data export with several files), AniList (public or OAuth), Steam,
+      and the accounts: Last.fm, Koito, Xbox, PlayStation, Pocket Casts,
+      GPodder (connect, Sync now, full history, Disconnect). The screen
+      carries each account's state, never a key, token or password.
 - [ ] K3: Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller,
       KOReader.
 
@@ -814,4 +817,11 @@ Celery result-store outage leaves it null instead of failing the page (the
 panel keeps polling). Locally, with no Redis, reading a queued task's status
 fails, so the activity answers 500 there once an import is queued; the
 Django panel fails the same way.
+
+Decided in K2: after any account action the page reloads its data whether
+the answer saved or failed (Xbox and PSN connects can save the account and
+then fail to schedule). The connect views call the provider before
+answering, so the dialog says it is checking. None of the K2 controls is
+mode- or demo-gated, as in Django; the Trakt export is gated only on a
+one-time import.
 

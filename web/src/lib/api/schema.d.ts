@@ -8917,7 +8917,7 @@ export interface components {
             count: number;
             size: string;
         };
-        /** @description Import: settings, tiles, and the K1 sources' state. */
+        /** @description Import: settings, tiles, and the web sources' state. */
         SettingsImport: {
             is_demo: boolean;
             settings: components["schemas"]["SettingsImportSettings"];
@@ -8925,8 +8925,31 @@ export interface components {
             tiles: components["schemas"]["SettingsImportTile"][];
             mdblist_connected: boolean;
             hardcover_key_saved: boolean;
+            trakt: components["schemas"]["SettingsImportTrakt"];
+            lastfm_poll_interval: number;
+            lastfm_recurring_every: number | null;
+            accounts: components["schemas"]["SettingsImportAccounts"];
             activity: components["schemas"]["SettingsImportActivity"] | null;
             urls: components["schemas"]["SettingsImportUrls"];
+        };
+        /** @description A connected account (`name`: Koito's server, the gamertag or the PSN online ID). */
+        SettingsImportAccount: {
+            connected: boolean;
+            broken: boolean;
+            name: string;
+            /** Format: date-time */
+            last_sync: string | null;
+            error: string;
+            history: components["schemas"]["SettingsImportHistory"] | null;
+        };
+        /** @description The K2 accounts (null: not connected). */
+        SettingsImportAccounts: {
+            lastfm: components["schemas"]["SettingsImportAccount"] | null;
+            koito: components["schemas"]["SettingsImportAccount"] | null;
+            xbox: components["schemas"]["SettingsImportAccount"] | null;
+            psn: components["schemas"]["SettingsImportAccount"] | null;
+            pocketcasts: components["schemas"]["SettingsImportAccount"] | null;
+            gpodder: components["schemas"]["SettingsImportAccount"] | null;
         };
         /** @description The Import page's activity panel (import_data_activity as JSON). */
         SettingsImportActivity: {
@@ -8941,6 +8964,18 @@ export interface components {
             value: string;
             label: string;
             hint: string;
+        };
+        /** @description A full-history import (`can_start`: show `button`). */
+        SettingsImportHistory: {
+            status: string;
+            label: string;
+            current_page: number | null;
+            total_pages: number | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            error: string;
+            can_start: boolean;
+            button: string;
         };
         /** @description An import task from the last 7 days. */
         SettingsImportResult: {
@@ -9022,6 +9057,12 @@ export interface components {
             web: boolean;
             django_url: string;
         };
+        /** @description Trakt: username and OAuth imports need the instance's Trakt app. */
+        SettingsImportTrakt: {
+            configured: boolean;
+            redirect_uri: string;
+            redirect_capable: boolean;
+        };
         /** @description Where the Import forms post (`simkl` leaves for Simkl's sign-in). */
         SettingsImportUrls: {
             template: string;
@@ -9043,6 +9084,32 @@ export interface components {
             kitsu: string;
             mdblist: string;
             simkl: string;
+            trakt_public: string;
+            trakt_oauth: string;
+            trakt_export: string;
+            anilist_public: string;
+            anilist_oauth: string;
+            steam: string;
+            lastfm_connect: string;
+            lastfm_disconnect: string;
+            lastfm_sync: string;
+            lastfm_history: string;
+            koito_connect: string;
+            koito_disconnect: string;
+            koito_sync: string;
+            koito_history: string;
+            xbox_connect: string;
+            xbox_disconnect: string;
+            xbox_sync: string;
+            psn_connect: string;
+            psn_disconnect: string;
+            psn_sync: string;
+            pocketcasts_connect: string;
+            pocketcasts_disconnect: string;
+            pocketcasts_sync: string;
+            gpodder_connect: string;
+            gpodder_disconnect: string;
+            gpodder_sync: string;
         };
         /** @description Integrations (session only: carries the legacy key and URLs built on it). */
         SettingsIntegrations: {

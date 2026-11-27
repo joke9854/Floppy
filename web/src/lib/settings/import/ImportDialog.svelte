@@ -2,13 +2,16 @@
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import FileUp from '@lucide/svelte/icons/file-up';
 	import X from '@lucide/svelte/icons/x';
+	import { invalidate } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { csrfToken } from '#lib/csrf.ts';
-	import { BASE } from '#lib/paths.ts';
 	import { postForm } from '../integrations/actions.ts';
 	import { st } from '../strings.ts';
 	import type { SavedAnswer, SettingsImport } from '../types.ts';
 	import { IMPORT_SOURCES, PERIODIC_UPLOAD_NOTE, sharedFields, standardImportsDisabled } from './sources.ts';
+	import AccountPanel from './AccountPanel.svelte';
+	import AniListPanel from './AniListPanel.svelte';
+	import OAuthForm from './OAuthForm.svelte';
+	import TraktPanel from './TraktPanel.svelte';
 	import { postUpload } from './upload.ts';
 
 	/**
@@ -50,8 +53,6 @@
 	let user = $state('');
 	let apiKey = $state('');
 	let hardcoverKey = $state('');
-	let simklForm = $state<HTMLFormElement>();
-	let simklToken = $state('');
 
 	onMount(() => {
 		dialog?.showModal();
@@ -86,6 +87,27 @@
 		}
 	}
 
+	/** A K2 action: refresh the page and the activity whether it saved or failed (connect can create the account and still fail). */
+	async function runRemote(send: () => Promise<SavedAnswer>): Promise<SavedAnswer | null> {
+		busy = true;
+		notice = null;
+		let answer: SavedAnswer | null = null;
+		try {
+			answer = await send();
+			notice = { text: answer.saved ? answer.message || st.saved : (answer.message ?? st.failed), failed: !answer.saved };
+		} catch {
+			notice = { text: st.failed, failed: true };
+		}
+		try {
+			await invalidate('floppy:settings');
+		} catch {
+			// The answer above is what the user needs; the next load refreshes the page.
+		}
+		onsaved();
+		busy = false;
+		return answer;
+	}
+
 	function chosenFiles(): Record<string, File | null> {
 		const picked: Record<string, File | null> = {};
 		for (const field of source.files ?? []) picked[field.name] = files[field.name] ?? null;
@@ -98,27 +120,14 @@
 		event.preventDefault();
 		if (busy) return;
 		if (source.kind === 'file' || source.kind === 'files') {
-			void run(() => postUpload(urls[source.url], shared, chosenFiles()));
+			void run(() => postUpload(urls[source.url!], shared, chosenFiles()));
 		} else if (source.kind === 'username') {
-			void run(() => postForm(urls[source.url], { ...shared, user: user.trim() }));
+			void run(() => postForm(urls[source.url!], { ...shared, user: user.trim() }));
 		} else if (source.kind === 'mdblist') {
-			void run(() => postForm(urls[source.url], data.mdblist_connected ? shared : { ...shared, api_key: apiKey.trim() }));
+			void run(() => postForm(urls[source.url!], data.mdblist_connected ? shared : { ...shared, api_key: apiKey.trim() }));
 		} else if (source.kind === 'hardcover') {
 			const fields = hardcoverKey.trim() ? { ...shared, hardcover_api_key: hardcoverKey.trim() } : shared;
 			void run(() => postUpload(urls.hardcover, fields, chosenFiles()));
-		}
-	}
-
-	async function submitSimkl(event: SubmitEvent) {
-		event.preventDefault();
-		if (busy) return;
-		busy = true;
-		try {
-			simklToken = await csrfToken();
-			simklForm?.submit();
-		} catch {
-			notice = { text: st.failed, failed: true };
-			busy = false;
 		}
 	}
 
@@ -127,7 +136,7 @@
 	}
 </script>
 
-<dialog class="ct-settings-dialog" bind:this={dialog} aria-labelledby="ct-import-title" {onclose} onclick={backdrop}>
+<dialog class="ct-settings-dialog ct-import-dialog" bind:this={dialog} aria-labelledby="ct-import-title" {onclose} onclick={backdrop}>
 	{#if source}
 		<div class="ct-import-dialog-head">
 			{#if tile?.logo}<img src={tile.logo} alt="" class="ct-import-logo" />{:else}<FileUp class="size-6" aria-hidden="true" />{/if}
@@ -139,18 +148,16 @@
 				>View CSV format documentation <ExternalLink class="inline size-4" aria-hidden="true" /><span class="sr-only">{st.newTab}</span></a
 			>
 		{/if}
-		<p class="ct-settings-note">{description}</p>
+		{#if description}<p class="ct-settings-note">{description}</p>{/if}
 
 		{#if source.kind === 'simkl'}
-			<form bind:this={simklForm} method="post" action={urls.simkl} onsubmit={submitSimkl}>
-				<input type="hidden" name="frequency" value={frequency} />
-				<input type="hidden" name="time" value={time} />
-				<input type="hidden" name="mode" value={mode} />
-				<input type="hidden" name="next" value={`${BASE}/settings/import`} />
-				<input type="hidden" name="csrfmiddlewaretoken" value={simklToken} />
-				<button type="submit" class="ct-settings-button is-primary" disabled={busy || standardOff || data.is_demo}>{source.button}</button>
-				<p class="ct-settings-note">You will sign in on Simkl and come back here.</p>
-			</form>
+			<OAuthForm action={urls.simkl} button={source.button ?? ''} disabled={standardOff || data.is_demo} note="You will sign in on Simkl and come back here." {frequency} {time} {mode} />
+		{:else if source.kind === 'trakt'}
+			<TraktPanel {data} {frequency} {time} {mode} {busy} run={runRemote} />
+		{:else if source.kind === 'anilist'}
+			<AniListPanel {data} {frequency} {time} {mode} {busy} run={runRemote} />
+		{:else if source.kind === 'account' && source.account}
+			<AccountPanel account={source.account} {data} {frequency} {time} {mode} {busy} run={runRemote} />
 		{:else}
 			{#key nonce}
 				<form onsubmit={submit}>

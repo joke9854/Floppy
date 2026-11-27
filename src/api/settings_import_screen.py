@@ -12,9 +12,18 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
-# Sources the web draws (K1); the rest open the Django page's dialog.
+# Sources the web draws (K1, K2); the rest open the Django page's dialog.
 WEB_SOURCES = frozenset(
     {
+        "trakt",
+        "anilist",
+        "lastfm",
+        "koito",
+        "steam",
+        "xbox",
+        "psn",
+        "pocketcasts",
+        "gpodder",
         "yamtrack",
         "yamtrack_native",
         "clz",
@@ -180,6 +189,9 @@ def build_import(request) -> dict:
         ],
         "mdblist_connected": connected["mdblist"],
         "hardcover_key_saved": connected["hardcover"],
+        "trakt": _trakt(request),
+        **_lastfm_poll(user),
+        "accounts": _accounts(user),
         "activity": _activity_or_none(user),
         "urls": {
             "template": reverse("import_template_csv"),
@@ -201,7 +213,117 @@ def build_import(request) -> dict:
             "kitsu": reverse("import_kitsu"),
             "mdblist": reverse("import_mdblist"),
             "simkl": reverse("simkl_oauth"),
+            "trakt_public": reverse("import_trakt_public"),
+            "trakt_oauth": reverse("trakt_oauth"),
+            "trakt_export": reverse("import_trakt_export_file"),
+            "anilist_public": reverse("import_anilist_public"),
+            "anilist_oauth": reverse("import_anilist_oauth"),
+            "steam": reverse("import_steam"),
+            "lastfm_connect": reverse("lastfm_connect"),
+            "lastfm_disconnect": reverse("lastfm_disconnect"),
+            "lastfm_sync": reverse("poll_lastfm_manual"),
+            "lastfm_history": reverse("import_lastfm_history"),
+            "koito_connect": reverse("koito_connect"),
+            "koito_disconnect": reverse("koito_disconnect"),
+            "koito_sync": reverse("poll_koito_manual"),
+            "koito_history": reverse("import_koito_history"),
+            "xbox_connect": reverse("xbox_connect"),
+            "xbox_disconnect": reverse("xbox_disconnect"),
+            "xbox_sync": reverse("import_xbox"),
+            "psn_connect": reverse("psn_connect"),
+            "psn_disconnect": reverse("psn_disconnect"),
+            "psn_sync": reverse("import_psn"),
+            "pocketcasts_connect": reverse("pocketcasts_connect"),
+            "pocketcasts_disconnect": reverse("pocketcasts_disconnect"),
+            "pocketcasts_sync": reverse("import_pocketcasts"),
+            "gpodder_connect": reverse("gpodder_connect"),
+            "gpodder_disconnect": reverse("gpodder_disconnect"),
+            "gpodder_sync": reverse("import_gpodder"),
         },
+    }
+
+
+def _trakt(request) -> dict:
+    """Trakt: whether username and OAuth imports are possible, and the callback to register.
+
+    Trakt refuses non-HTTPS redirect URIs, so such instances use the device
+    code flow (as import_data).
+    """
+    from app import helpers
+    from app.providers import credentials
+    from integrations.imports import trakt as trakt_imports
+
+    redirect_uri = helpers.build_absolute_app_url(request, reverse("import_trakt_private"))
+    capable = helpers.supports_oauth_redirect(redirect_uri)
+    return {
+        "configured": bool(credentials.get("trakt", "client_id") and credentials.get("trakt", "client_secret")),
+        "redirect_uri": redirect_uri if capable else trakt_imports.TRAKT_OOB_REDIRECT_URI,
+        "redirect_capable": capable,
+    }
+
+
+def _lastfm_poll(user) -> dict:
+    """Last.fm: the poll interval in minutes and the recurring task's, when it runs."""
+    from django.conf import settings
+
+    interval = getattr(settings, "LASTFM_POLL_INTERVAL_MINUTES", 15)
+    every = None
+    if getattr(user, "lastfm_account", None):
+        from django_celery_beat.models import PeriodicTask
+
+        task = PeriodicTask.objects.filter(task="Poll Last.fm for all users", enabled=True).first()
+        if task and task.interval:
+            interval = every = task.interval.every
+    return {"lastfm_poll_interval": interval, "lastfm_recurring_every": every}
+
+
+def history_state(account, *, pages: bool = False) -> dict:
+    """Return a full-history import (Last.fm, Koito), labelled as import_data does."""
+    status = account.history_import_status
+    current = total = None
+    if pages and account.history_import_total_pages:
+        total = account.history_import_total_pages
+        if status == "completed":
+            current = total
+        elif account.history_import_next_page:
+            current = min(account.history_import_next_page, total)
+    return {
+        "status": status,
+        "label": "Not started" if status == "idle" else str(account.get_history_import_status_display()),
+        "current_page": current,
+        "total_pages": total,
+        "completed_at": _when(account.history_import_completed_at),
+        "error": (account.history_import_last_error_message or "") if status == "failed" else "",
+        "can_start": bool(account.history_import_can_start),
+        "button": "Reimport full history" if status in {"completed", "failed"} else "Import full history",
+    }
+
+
+def _accounts(user) -> dict:
+    """Return the K2 accounts as their dialogs show them; never a key, token or password."""
+
+    def account(attr, *, name="", error_when_broken=True, history=False, pages=False):
+        row = getattr(user, attr, None)
+        if not row:
+            return None
+        broken = bool(getattr(row, "connection_broken", False))
+        error = getattr(row, "last_error_message", "") or ""
+        return {
+            "connected": bool(row.is_connected),
+            "broken": broken,
+            "name": str(getattr(row, name, "") or "") if name else "",
+            "last_sync": _when(row.last_sync_at),
+            "error": error if (broken or not error_when_broken) else "",
+            "history": history_state(row, pages=pages) if history else None,
+        }
+
+    return {
+        "lastfm": account("lastfm_account", history=True, pages=True),
+        "koito": account("koito_account", name="base_url", history=True),
+        "xbox": account("xbox_account", name="gamertag", error_when_broken=False),
+        "psn": account("psn_account", name="online_id", error_when_broken=False),
+        "pocketcasts": account("pocketcasts_account"),
+        "gpodder": account("gpodder_account"),
     }
 
 
@@ -364,6 +486,75 @@ class SettingsImportUrlsSerializer(serializers.Serializer):
     kitsu = serializers.CharField()
     mdblist = serializers.CharField()
     simkl = serializers.CharField()
+    trakt_public = serializers.CharField()
+    trakt_oauth = serializers.CharField()
+    trakt_export = serializers.CharField()
+    anilist_public = serializers.CharField()
+    anilist_oauth = serializers.CharField()
+    steam = serializers.CharField()
+    lastfm_connect = serializers.CharField()
+    lastfm_disconnect = serializers.CharField()
+    lastfm_sync = serializers.CharField()
+    lastfm_history = serializers.CharField()
+    koito_connect = serializers.CharField()
+    koito_disconnect = serializers.CharField()
+    koito_sync = serializers.CharField()
+    koito_history = serializers.CharField()
+    xbox_connect = serializers.CharField()
+    xbox_disconnect = serializers.CharField()
+    xbox_sync = serializers.CharField()
+    psn_connect = serializers.CharField()
+    psn_disconnect = serializers.CharField()
+    psn_sync = serializers.CharField()
+    pocketcasts_connect = serializers.CharField()
+    pocketcasts_disconnect = serializers.CharField()
+    pocketcasts_sync = serializers.CharField()
+    gpodder_connect = serializers.CharField()
+    gpodder_disconnect = serializers.CharField()
+    gpodder_sync = serializers.CharField()
+
+
+class SettingsImportTraktSerializer(serializers.Serializer):
+    """Trakt: username and OAuth imports need the instance's Trakt app."""
+
+    configured = serializers.BooleanField()
+    redirect_uri = serializers.CharField()
+    redirect_capable = serializers.BooleanField()
+
+
+class SettingsImportHistorySerializer(serializers.Serializer):
+    """A full-history import (`can_start`: show `button`)."""
+
+    status = serializers.CharField()
+    label = serializers.CharField()
+    current_page = serializers.IntegerField(allow_null=True)
+    total_pages = serializers.IntegerField(allow_null=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    error = serializers.CharField(allow_blank=True)
+    can_start = serializers.BooleanField()
+    button = serializers.CharField()
+
+
+class SettingsImportAccountSerializer(serializers.Serializer):
+    """A connected account (`name`: Koito's server, the gamertag or the PSN online ID)."""
+
+    connected = serializers.BooleanField()
+    broken = serializers.BooleanField()
+    name = serializers.CharField(allow_blank=True)
+    last_sync = serializers.DateTimeField(allow_null=True)
+    error = serializers.CharField(allow_blank=True)
+    history = SettingsImportHistorySerializer(allow_null=True)
+
+
+class SettingsImportAccountsSerializer(serializers.Serializer):
+    """The K2 accounts (null: not connected)."""
+
+    lastfm = SettingsImportAccountSerializer(allow_null=True)
+    koito = SettingsImportAccountSerializer(allow_null=True)
+    xbox = SettingsImportAccountSerializer(allow_null=True)
+    psn = SettingsImportAccountSerializer(allow_null=True)
+    pocketcasts = SettingsImportAccountSerializer(allow_null=True)
+    gpodder = SettingsImportAccountSerializer(allow_null=True)
 
 
 class SettingsImportSourceSerializer(serializers.Serializer):
@@ -436,7 +627,7 @@ class SettingsImportActivitySerializer(serializers.Serializer):
 
 
 class SettingsImportSerializer(serializers.Serializer):
-    """Import: settings, tiles, and the K1 sources' state."""
+    """Import: settings, tiles, and the web sources' state."""
 
     is_demo = serializers.BooleanField()
     settings = SettingsImportSettingsSerializer()
@@ -444,5 +635,9 @@ class SettingsImportSerializer(serializers.Serializer):
     tiles = SettingsImportTileSerializer(many=True)
     mdblist_connected = serializers.BooleanField()
     hardcover_key_saved = serializers.BooleanField()
+    trakt = SettingsImportTraktSerializer()
+    lastfm_poll_interval = serializers.IntegerField()
+    lastfm_recurring_every = serializers.IntegerField(allow_null=True)
+    accounts = SettingsImportAccountsSerializer()
     activity = SettingsImportActivitySerializer(allow_null=True)
     urls = SettingsImportUrlsSerializer()

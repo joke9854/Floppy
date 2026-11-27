@@ -95,3 +95,124 @@ class ImportScreenTests(TestCase):
             screen = self._screen()
         self.assertIsNone(screen["activity"])
 
+
+class ImportK2Tests(TestCase):
+    """K2: account-based sources (connect, sync, history, disconnect) answer JSON."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="k2", password="k2-password-1")
+        self.client.login(username="k2", password="k2-password-1")
+
+    def _screen(self):
+        response = self.client.get(reverse("api_settings_screen", args=["import"]))
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        return response
+
+    def test_screen_without_accounts(self):
+        screen = self._screen().json()["import_"]
+        tiles = {tile["key"]: tile["web"] for tile in screen["tiles"]}
+        for key in ("trakt", "anilist", "lastfm", "koito", "steam", "xbox", "psn", "pocketcasts", "gpodder"):
+            self.assertTrue(tiles[key], key)
+        self.assertEqual(set(screen["accounts"].values()), {None})
+        self.assertEqual(screen["lastfm_poll_interval"], 15)
+        self.assertIsNone(screen["lastfm_recurring_every"])
+        # The test client is plain http on a non-loopback host: Trakt's device flow.
+        self.assertFalse(screen["trakt"]["redirect_capable"])
+        self.assertEqual(screen["trakt"]["redirect_uri"], "urn:ietf:wg:oauth:2.0:oob")
+
+    def test_screen_accounts_never_carry_secrets(self):
+        from integrations.models import (
+            GPodderAccount,
+            KoitoAccount,
+            LastFMAccount,
+            PocketCastsAccount,
+            PSNAccount,
+            XboxAccount,
+        )
+
+        LastFMAccount.objects.create(
+            user=self.user,
+            lastfm_username="listener",
+            history_import_status="failed",
+            history_import_last_error_message="rate limited",
+            history_import_total_pages=10,
+            history_import_next_page=4,
+        )
+        KoitoAccount.objects.create(
+            user=self.user, base_url="http://koito.test", api_key="koito-secret-1", connection_broken=True, last_error_message="bad key"
+        )
+        XboxAccount.objects.create(user=self.user, api_key="xbox-secret-1", gamertag="Player One")
+        PSNAccount.objects.create(user=self.user, npsso="psn-secret-1", online_id="player_one")
+        PocketCastsAccount.objects.create(
+            user=self.user, email="pc@example.test", password="pc-secret-1", access_token="pc-token-1", refresh_token="pc-refresh-1"
+        )
+        GPodderAccount.objects.create(user=self.user, server_url="http://gpodder.test", username="gp-user", password="gp-secret-1")
+        response = self._screen()
+        for secret in (b"koito-secret-1", b"xbox-secret-1", b"psn-secret-1", b"pc-secret-1", b"pc-token-1", b"pc-refresh-1", b"gp-secret-1", b"pc@example.test"):
+            self.assertNotIn(secret, response.content)
+        accounts = response.json()["import_"]["accounts"]
+        lastfm = accounts["lastfm"]["history"]
+        self.assertEqual((lastfm["label"], lastfm["current_page"], lastfm["total_pages"]), ("Failed", 4, 10))
+        self.assertEqual((lastfm["error"], lastfm["button"], lastfm["can_start"]), ("rate limited", "Reimport full history", True))
+        self.assertEqual(accounts["koito"]["name"], "http://koito.test")
+        self.assertEqual(accounts["koito"]["error"], "bad key")
+        self.assertEqual(accounts["xbox"]["name"], "Player One")
+        self.assertEqual(accounts["psn"]["name"], "player_one")
+        self.assertIsNone(accounts["pocketcasts"]["history"])
+
+    def test_connect_errors_answer_json(self):
+        urls = self._screen().json()["import_"]["urls"]
+        cases = {
+            "lastfm_connect": ({}, "Last.fm username is required."),
+            "koito_connect": ({}, "Koito server URL and API key are required."),
+            "xbox_connect": ({}, "An OpenXBL API key is required."),
+            "psn_connect": ({}, "A PSN NPSSO token is required."),
+            "pocketcasts_connect": ({"password": "x"}, "Email is required."),
+            "gpodder_connect": ({"server_url": "http://gpodder.test", "password": "x"}, "Username is required."),
+        }
+        for key, (fields, error) in cases.items():
+            response = self.client.post(urls[key], fields, **JSON)
+            self.assertEqual(response.status_code, 400, key)
+            self.assertEqual(response.json()["error"], error, key)
+
+    def test_actions_without_an_account_answer_json(self):
+        urls = self._screen().json()["import_"]["urls"]
+        for key in ("lastfm_sync", "lastfm_history", "koito_sync", "koito_history", "xbox_sync", "psn_sync", "pocketcasts_sync", "gpodder_sync"):
+            response = self.client.post(urls[key], SHARED, **JSON)
+            self.assertEqual(response.status_code, 400, key)
+            self.assertTrue(response.json()["error"], key)
+        for key in ("lastfm_disconnect", "koito_disconnect", "xbox_disconnect", "psn_disconnect", "pocketcasts_disconnect", "gpodder_disconnect"):
+            response = self.client.post(urls[key], **JSON)
+            self.assertEqual(response.status_code, 200, key)
+            self.assertTrue(response.json()["saved"], key)
+
+    def test_koito_connect_queues(self):
+        url = self._screen().json()["import_"]["urls"]["koito_connect"]
+        with mock.patch("integrations.views.connections.connect_koito") as connect:
+            response = self.client.post(url, {"base_url": "http://koito.test", "api_key": "k"}, **JSON)
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        self.assertTrue(response.json()["saved"])
+        connect.assert_called_once()
+
+    def test_username_imports_queue(self):
+        urls = self._screen().json()["import_"]["urls"]
+        for key, task in (("trakt_public", "import_trakt"), ("anilist_public", "import_anilist"), ("steam", "import_steam")):
+            with mock.patch(f"integrations.views.tasks.{task}.delay") as delay:
+                response = self.client.post(urls[key], {**SHARED, "user": "someone"}, **JSON)
+            self.assertEqual(response.status_code, 200, (key, response.content[:300]))
+            self.assertTrue(response.json()["saved"], key)
+            delay.assert_called_once()
+            missing = self.client.post(urls[key], SHARED, **JSON)
+            self.assertEqual(missing.status_code, 400, key)
+
+    def test_trakt_export_needs_a_file(self):
+        url = self._screen().json()["import_"]["urls"]["trakt_export"]
+        response = self.client.post(url, {"mode": "new"}, **JSON)
+        self.assertEqual(response.json()["error"], "A Trakt export file is required.")
+
+    def test_oauth_starts_stay_redirects(self):
+        url = self._screen().json()["import_"]["urls"]["anilist_oauth"]
+        response = self.client.post(url, {**SHARED, "next": "/next/settings/import"})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("https://anilist.co/"))
+

@@ -29097,7 +29097,7 @@ components:
       - size
     SettingsImport:
       type: object
-      description: 'Import: settings, tiles, and the K1 sources'' state.'
+      description: 'Import: settings, tiles, and the web sources'' state.'
       properties:
         is_demo:
           type: boolean
@@ -29115,6 +29115,15 @@ components:
           type: boolean
         hardcover_key_saved:
           type: boolean
+        trakt:
+          $ref: '#/components/schemas/SettingsImportTrakt'
+        lastfm_poll_interval:
+          type: integer
+        lastfm_recurring_every:
+          type: integer
+          nullable: true
+        accounts:
+          $ref: '#/components/schemas/SettingsImportAccounts'
         activity:
           allOf:
           - $ref: '#/components/schemas/SettingsImportActivity'
@@ -29122,14 +29131,81 @@ components:
         urls:
           $ref: '#/components/schemas/SettingsImportUrls'
       required:
+      - accounts
       - activity
       - hardcover_key_saved
       - is_demo
+      - lastfm_poll_interval
+      - lastfm_recurring_every
       - mdblist_connected
       - media_tags
       - settings
       - tiles
+      - trakt
       - urls
+    SettingsImportAccount:
+      type: object
+      description: 'A connected account (`name`: Koito''s server, the gamertag or
+        the PSN online ID).'
+      properties:
+        connected:
+          type: boolean
+        broken:
+          type: boolean
+        name:
+          type: string
+        last_sync:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+        history:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportHistory'
+          nullable: true
+      required:
+      - broken
+      - connected
+      - error
+      - history
+      - last_sync
+      - name
+    SettingsImportAccounts:
+      type: object
+      description: 'The K2 accounts (null: not connected).'
+      properties:
+        lastfm:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        koito:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        xbox:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        psn:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        pocketcasts:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        gpodder:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+      required:
+      - gpodder
+      - koito
+      - lastfm
+      - pocketcasts
+      - psn
+      - xbox
     SettingsImportActivity:
       type: object
       description: The Import page's activity panel (import_data_activity as JSON).
@@ -29172,6 +29248,39 @@ components:
       - hint
       - label
       - value
+    SettingsImportHistory:
+      type: object
+      description: 'A full-history import (`can_start`: show `button`).'
+      properties:
+        status:
+          type: string
+        label:
+          type: string
+        current_page:
+          type: integer
+          nullable: true
+        total_pages:
+          type: integer
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+        can_start:
+          type: boolean
+        button:
+          type: string
+      required:
+      - button
+      - can_start
+      - completed_at
+      - current_page
+      - error
+      - label
+      - status
+      - total_pages
     SettingsImportResult:
       type: object
       description: An import task from the last 7 days.
@@ -29381,6 +29490,20 @@ components:
       - name
       - tags
       - web
+    SettingsImportTrakt:
+      type: object
+      description: 'Trakt: username and OAuth imports need the instance''s Trakt app.'
+      properties:
+        configured:
+          type: boolean
+        redirect_uri:
+          type: string
+        redirect_capable:
+          type: boolean
+      required:
+      - configured
+      - redirect_capable
+      - redirect_uri
     SettingsImportUrls:
       type: object
       description: Where the Import forms post (`simkl` leaves for Simkl's sign-in).
@@ -29423,25 +29546,103 @@ components:
           type: string
         simkl:
           type: string
+        trakt_public:
+          type: string
+        trakt_oauth:
+          type: string
+        trakt_export:
+          type: string
+        anilist_public:
+          type: string
+        anilist_oauth:
+          type: string
+        steam:
+          type: string
+        lastfm_connect:
+          type: string
+        lastfm_disconnect:
+          type: string
+        lastfm_sync:
+          type: string
+        lastfm_history:
+          type: string
+        koito_connect:
+          type: string
+        koito_disconnect:
+          type: string
+        koito_sync:
+          type: string
+        koito_history:
+          type: string
+        xbox_connect:
+          type: string
+        xbox_disconnect:
+          type: string
+        xbox_sync:
+          type: string
+        psn_connect:
+          type: string
+        psn_disconnect:
+          type: string
+        psn_sync:
+          type: string
+        pocketcasts_connect:
+          type: string
+        pocketcasts_disconnect:
+          type: string
+        pocketcasts_sync:
+          type: string
+        gpodder_connect:
+          type: string
+        gpodder_disconnect:
+          type: string
+        gpodder_sync:
+          type: string
       required:
       - activity
+      - anilist_oauth
+      - anilist_public
       - clz
       - csv_docs
       - goodreads
+      - gpodder_connect
+      - gpodder_disconnect
+      - gpodder_sync
       - grouvee
       - guide
       - hardcover
       - hltb
       - imdb
       - kitsu
+      - koito_connect
+      - koito_disconnect
+      - koito_history
+      - koito_sync
+      - lastfm_connect
+      - lastfm_disconnect
+      - lastfm_history
+      - lastfm_sync
       - mal
       - mdblist
       - onboarding
+      - pocketcasts_connect
+      - pocketcasts_disconnect
+      - pocketcasts_sync
+      - psn_connect
+      - psn_disconnect
+      - psn_sync
       - restart_setup
       - simkl
+      - steam
       - storygraph
       - template
+      - trakt_export
+      - trakt_oauth
+      - trakt_public
       - tvtime
+      - xbox_connect
+      - xbox_disconnect
+      - xbox_sync
       - yamtrack
     SettingsIntegrations:
       type: object

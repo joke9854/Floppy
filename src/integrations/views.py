@@ -395,6 +395,7 @@ def import_trakt_private(request):
     )
 
 
+@app_helpers.answers_json
 @require_POST
 def import_trakt_public(request):
     """View for importing Trakt data using public username."""
@@ -844,6 +845,7 @@ def import_anilist_private(request):
     return _integration_redirect(request, connected_slug="anilist", next_url=return_to)
 
 
+@app_helpers.answers_json
 @require_POST
 def import_anilist_public(request):
     """View for importing anime and manga data from AniList."""
@@ -971,6 +973,7 @@ def import_clz(request):
     return _integration_redirect(request, connected_slug="clz")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_trakt_export_file(request):
     """View for importing a Trakt data export: a .zip, loose .json files, or a .csv.
@@ -1114,6 +1117,7 @@ def import_grouvee(request):
     return _integration_redirect(request, connected_slug="grouvee")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_steam(request):
     """View for importing game data from Steam."""
@@ -2034,6 +2038,7 @@ def _schedule_console_import(request, source, task, recurring_task_name):
     _report_console_import(request, source, queued)
 
 
+@app_helpers.answers_json
 @require_POST
 def xbox_connect(request):
     """Connect an Xbox account using an OpenXBL API key."""
@@ -2050,6 +2055,7 @@ def xbox_connect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def xbox_disconnect(request):
     """Disconnect the Xbox integration."""
@@ -2058,6 +2064,7 @@ def xbox_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_xbox(request):
     """Queue a one-off Xbox import or schedule a recurring one."""
@@ -2073,6 +2080,7 @@ def import_xbox(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def psn_connect(request):
     """Connect a PlayStation Network account using an NPSSO token."""
@@ -2092,6 +2100,7 @@ def psn_connect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def psn_disconnect(request):
     """Disconnect the PlayStation Network integration."""
@@ -2100,6 +2109,7 @@ def psn_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_psn(request):
     """Queue a one-off PSN import or schedule a recurring one."""
@@ -2115,6 +2125,7 @@ def import_psn(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def pocketcasts_connect(request):
     """Connect Pocket Casts account using email and password."""
@@ -2138,6 +2149,7 @@ def pocketcasts_connect(request):
     return _integration_redirect(request, connected_slug="pocketcasts")
 
 
+@app_helpers.answers_json
 @require_POST
 def pocketcasts_disconnect(request):
     """Remove stored Pocket Casts credentials and delete periodic import task."""
@@ -2146,6 +2158,7 @@ def pocketcasts_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def gpodder_connect(request):
     """Connect a GPodder-compatible account using Basic Auth credentials."""
@@ -2171,6 +2184,7 @@ def gpodder_connect(request):
     return _integration_redirect(request, connected_slug="gpodder")
 
 
+@app_helpers.answers_json
 @require_POST
 def gpodder_disconnect(request):
     """Remove stored GPodder credentials and scheduled imports."""
@@ -2179,6 +2193,7 @@ def gpodder_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def lastfm_connect(request):
     """Connect Last.fm account using username."""
@@ -2199,6 +2214,7 @@ def lastfm_connect(request):
     return _integration_redirect(request, connected_slug="lastfm")
 
 
+@app_helpers.answers_json
 @require_POST
 def lastfm_disconnect(request):
     """Remove Last.fm connection."""
@@ -2207,6 +2223,7 @@ def lastfm_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def poll_lastfm_manual(request):
     """Manually trigger Last.fm polling for the current user."""
@@ -2220,6 +2237,7 @@ def poll_lastfm_manual(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_lastfm_history_manual(request):
     """Queue or rerun a full Last.fm history import for the current user."""
@@ -2236,6 +2254,7 @@ def import_lastfm_history_manual(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def koito_connect(request):
     """Connect a Koito account using base URL + API key."""
@@ -2253,6 +2272,7 @@ def koito_connect(request):
     return _integration_redirect(request, connected_slug="koito")
 
 
+@app_helpers.answers_json
 @require_POST
 def koito_disconnect(request):
     """Disconnect the Koito integration."""
@@ -2261,6 +2281,7 @@ def koito_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def poll_koito_manual(request):
     """Manually trigger a Koito sync for the current user."""
@@ -2274,6 +2295,7 @@ def poll_koito_manual(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_koito_history_manual(request):
     """Queue or rerun a full Koito history import for the current user."""
@@ -2290,6 +2312,7 @@ def import_koito_history_manual(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_pocketcasts(request):
     """Queue a Pocket Casts history import for the current user.
@@ -2314,6 +2337,7 @@ def import_pocketcasts(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_gpodder(request):
     """Queue a GPodder podcast history sync for the current user."""
