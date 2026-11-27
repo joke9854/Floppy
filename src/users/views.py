@@ -1628,6 +1628,11 @@ def save_import_settings(request):
 def import_data_activity(request):
     """Render import schedules and history after the page loads."""
     user = _get_import_data_user(request.user)
+    if app_helpers.wants_json(request):
+        # The web app's activity panel polls this.
+        from api.settings_import_screen import build_import_activity
+
+        return JsonResponse(build_import_activity(user))
     context = {
         "user": user,
         "import_tasks": user.get_import_tasks(),
@@ -1897,6 +1902,7 @@ def _import_source_media_summary(user):
     return summary
 
 
+@app_helpers.answers_json
 @require_POST
 def bulk_delete_by_import_source(request, media_type, source):
     """Permanently delete all of the user's media of one type from one import source.
@@ -2273,6 +2279,7 @@ def _delete_orphaned_music_catalog():
     return album_count + artist_count
 
 
+@app_helpers.answers_json
 @require_POST
 def cancel_import_run(request, run_id):
     """Cancel a running import."""
@@ -2286,6 +2293,7 @@ def cancel_import_run(request, run_id):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def rollback_import_run(request, run_id):
     """Undo the media rows created or touched by one import run."""
@@ -2310,6 +2318,7 @@ def rollback_import_run(request, run_id):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def delete_import_schedule(request):
     """Delete an import schedule."""

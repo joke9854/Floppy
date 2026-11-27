@@ -8917,6 +8917,133 @@ export interface components {
             count: number;
             size: string;
         };
+        /** @description Import: settings, tiles, and the K1 sources' state. */
+        SettingsImport: {
+            is_demo: boolean;
+            settings: components["schemas"]["SettingsImportSettings"];
+            media_tags: components["schemas"]["SettingsImportTag"][];
+            tiles: components["schemas"]["SettingsImportTile"][];
+            mdblist_connected: boolean;
+            hardcover_key_saved: boolean;
+            activity: components["schemas"]["SettingsImportActivity"] | null;
+            urls: components["schemas"]["SettingsImportUrls"];
+        };
+        /** @description The Import page's activity panel (import_data_activity as JSON). */
+        SettingsImportActivity: {
+            schedules: components["schemas"]["SettingsImportSchedule"][];
+            results: components["schemas"]["SettingsImportResult"][];
+            runs: components["schemas"]["SettingsImportRun"][];
+            source_media: components["schemas"]["SettingsImportSourceMedia"][];
+            delete_schedule_url: string;
+        };
+        /** @description An option (`hint`: its tooltip). */
+        SettingsImportChoice: {
+            value: string;
+            label: string;
+            hint: string;
+        };
+        /** @description An import task from the last 7 days. */
+        SettingsImportResult: {
+            source: components["schemas"]["SettingsImportSource"];
+            /** Format: date-time */
+            date: string | null;
+            status: string;
+            summary: string;
+            errors: string;
+            progress_current: number;
+            progress_total: number;
+            progress_label: string;
+            /** Format: double */
+            progress_percent: number;
+        };
+        /** @description A tracked import run (cancel while running, undo after). */
+        SettingsImportRun: {
+            id: number;
+            source: components["schemas"]["SettingsImportSource"];
+            status: string;
+            /** Format: date-time */
+            started_at: string | null;
+            created: number;
+            updated: number;
+            skipped: number;
+            failed: number;
+            remaining: number | null;
+            cancel_url: string;
+            rollback_url: string;
+        };
+        /** @description A periodic import. */
+        SettingsImportSchedule: {
+            task_name: string;
+            source: components["schemas"]["SettingsImportSource"];
+            schedule: string;
+            username: string;
+            mode: string;
+            /** Format: date-time */
+            last_run: string | null;
+            /** Format: date-time */
+            next_run: string | null;
+        };
+        /** @description Import Settings: each change posts all three to `save_url` (204). */
+        SettingsImportSettings: {
+            frequency: string;
+            time: string;
+            mode: string;
+            frequency_choices: components["schemas"]["SettingsImportChoice"][];
+            mode_choices: components["schemas"]["SettingsImportChoice"][];
+            save_url: string;
+        };
+        /** @description A source's name and logo. */
+        SettingsImportSource: {
+            key: string;
+            name: string;
+            logo: string;
+        };
+        /** @description Items of one media type imported from one source. */
+        SettingsImportSourceMedia: {
+            media_type: string;
+            source: components["schemas"]["SettingsImportSource"];
+            count: number;
+            delete_url: string;
+        };
+        /** @description A media-type filter. */
+        SettingsImportTag: {
+            value: string;
+            label: string;
+        };
+        /** @description A source tile (`web`: the web draws its dialog; else open `django_url`). */
+        SettingsImportTile: {
+            key: string;
+            name: string;
+            tags: string[];
+            logo: string;
+            description: string;
+            connected: boolean;
+            badge: string;
+            web: boolean;
+            django_url: string;
+        };
+        /** @description Where the Import forms post (`simkl` leaves for Simkl's sign-in). */
+        SettingsImportUrls: {
+            template: string;
+            activity: string;
+            onboarding: string;
+            restart_setup: string;
+            guide: string;
+            csv_docs: string;
+            yamtrack: string;
+            clz: string;
+            hltb: string;
+            grouvee: string;
+            imdb: string;
+            goodreads: string;
+            hardcover: string;
+            storygraph: string;
+            tvtime: string;
+            mal: string;
+            kitsu: string;
+            mdblist: string;
+            simkl: string;
+        };
         /** @description Integrations (session only: carries the legacy key and URLs built on it). */
         SettingsIntegrations: {
             is_demo: boolean;
@@ -9101,6 +9228,8 @@ export interface components {
             connected_apps?: components["schemas"]["SettingsConnectedApps"];
             integrations?: components["schemas"]["SettingsIntegrations"];
             rss?: components["schemas"]["SettingsRss"];
+            /** Import */
+            import_?: components["schemas"]["SettingsImport"];
         };
         /** @description A library this provider can be the default for. */
         SettingsSettableType: {

@@ -426,6 +426,7 @@ def import_trakt_public(request):
     return _integration_redirect(request, connected_slug="trakt")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_mdblist(request):
     """View for importing MDBList tracking data (watched, ratings, etc.)."""
@@ -746,6 +747,7 @@ def import_simkl_private(request):
     return _integration_redirect(request, connected_slug="simkl", next_url=return_to)
 
 
+@app_helpers.answers_json
 @require_POST
 def import_mal(request):
     """View for importing anime and manga data from MyAnimeList."""
@@ -873,6 +875,7 @@ def import_anilist_public(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_kitsu(request):
     """View for importing anime and manga data from Kitsu by user ID."""
@@ -900,6 +903,7 @@ def import_kitsu(request):
     return _integration_redirect(request, connected_slug="kitsu")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_yamtrack(request):
     """View for importing a Floppy backup or an upstream Yamtrack CSV."""
@@ -930,6 +934,7 @@ def import_yamtrack(request):
     return _integration_redirect(request, connected_slug="yamtrack")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_clz(request):
     """View for importing a CLZ (Collectorz) CSV or XML export."""
@@ -1047,6 +1052,7 @@ def _is_trakt_export_payload(name, path):
     return name.lower().endswith((".zip", ".json")) or staged_payload_is_zip(path)
 
 
+@app_helpers.answers_json
 @require_POST
 def import_hltb(request):
     """View for importing game date from HowLongToBeat."""
@@ -1077,6 +1083,7 @@ def import_hltb(request):
     return _integration_redirect(request, connected_slug="hltb")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_grouvee(request):
     """View for importing game data from a Grouvee export (JSON or zip)."""
@@ -2326,6 +2333,7 @@ def import_gpodder(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 def import_imdb(request):
     """View for importing data from IMDB."""
     file = request.FILES.get("imdb_csv")
@@ -2355,6 +2363,7 @@ def import_imdb(request):
     return _integration_redirect(request, connected_slug="imdb")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_goodreads(request):
     """View for importing books data from Goodreads CSV."""
@@ -2385,6 +2394,7 @@ def import_goodreads(request):
     return _integration_redirect(request, connected_slug="goodreads")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_hardcover(request):
     """View for importing books data from Hardcover CSV and/or saving a personal API key."""
@@ -2422,6 +2432,7 @@ def import_hardcover(request):
     return _integration_redirect(request, connected_slug="hardcover")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_storygraph(request):
     """View for importing books data from StoryGraph CSV."""
@@ -2452,6 +2463,7 @@ def import_storygraph(request):
     return _integration_redirect(request, connected_slug="storygraph")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_tvtime(request):
     """View for importing watch history from TV Time's GDPR export CSVs."""

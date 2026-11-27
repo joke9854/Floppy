@@ -16,6 +16,7 @@ from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from api import settings_data_screen as data_screen
+from api import settings_import_screen as import_screen
 from api import settings_integrations_screen as integrations_screen
 from api import settings_preferences_screen as preferences_screen
 from app.templatetags import app_tags
@@ -68,6 +69,7 @@ WEB_PAGES = frozenset(
         "about",
         "integrations",
         "rss",
+        "import",
     }
 )
 
@@ -218,6 +220,7 @@ _BUILDERS = {
     "connected-apps": data_screen.build_connected_apps,
     "integrations": integrations_screen.build_integrations,
     "rss": integrations_screen.build_rss,
+    "import": import_screen.build_import,
 }
 
 
@@ -371,3 +374,4 @@ class SettingsScreenSerializer(serializers.Serializer):
     connected_apps = data_screen.SettingsConnectedAppsSerializer(required=False)
     integrations = integrations_screen.SettingsIntegrationsSerializer(required=False)
     rss = integrations_screen.SettingsRssSerializer(required=False)
+    import_ = import_screen.SettingsImportSerializer(required=False, source="import")

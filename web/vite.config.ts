@@ -99,7 +99,13 @@ export default defineConfig({
 				'/jellyfin/',
 				'/sync/',
 				'/matches/',
-				'/rss/preview'
+				'/rss/preview',
+				// Import (P4-K): the import forms and the run/schedule actions.
+				'/import/',
+				'/delete_import_schedule',
+				'/cancel_import_run/',
+				'/rollback_import_run/',
+				'/bulk_delete_by_import_source/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

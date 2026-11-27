@@ -606,3 +606,157 @@
 .ct-settings-steps strong {
 	color: var(--color-text);
 }
+
+/* K1 import */
+.ct-import-filter {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ct-import-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+@media (min-width: 768px) {
+	.ct-import-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (min-width: 1024px) {
+	.ct-import-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+
+.ct-import-tile {
+	display: flex;
+	height: 100%;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 12px;
+	border: 1px solid rgb(255 255 255 / 8%);
+	border-radius: 12px;
+	background-color: rgb(255 255 255 / 4%);
+	color: var(--color-text);
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	text-align: start;
+}
+
+.ct-import-tile:hover {
+	background-color: rgb(255 255 255 / 8%);
+}
+
+.ct-import-tile small {
+	color: var(--color-text-muted);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+}
+
+.ct-import-tile-logo {
+	display: grid;
+	width: 40px;
+	height: 40px;
+	place-items: center;
+	color: var(--color-text-muted);
+}
+
+.ct-import-tile-logo img,
+.ct-import-logo,
+.ct-import-row-logo {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+.ct-import-tile-name {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.ct-import-check {
+	display: inline-grid;
+	width: 16px;
+	height: 16px;
+	place-items: center;
+	border-radius: 999px;
+	background-color: rgb(16 185 129 / 30%);
+	color: rgb(110 231 183);
+}
+
+.ct-import-dialog-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.ct-import-dialog-head h2 {
+	flex: 1;
+	font-size: 17px;
+	font-weight: 700;
+}
+
+.ct-import-logo {
+	width: 32px;
+	height: 32px;
+}
+
+.ct-import-close {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: 8px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+
+.ct-import-close:hover {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-settings-row.ct-import-activity-row .ct-import-row-logo {
+	width: 32px;
+	height: 32px;
+}
+
+.ct-import-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.ct-import-bar {
+	display: block;
+	height: 6px;
+	overflow: hidden;
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 10%);
+}
+
+.ct-import-bar > span {
+	display: block;
+	height: 100%;
+	background-color: var(--color-accent);
+}
+
+.ct-import-errors,
+.ct-import-trace {
+	max-height: 14rem;
+	overflow: auto;
+	color: var(--color-text-muted);
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}

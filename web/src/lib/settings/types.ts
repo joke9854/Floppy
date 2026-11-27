@@ -96,3 +96,6 @@ export function downloadName(response: Response, fallback: string): string {
 
 export type SettingsIntegrations = components['schemas']['SettingsIntegrations'];
 export type SettingsRss = components['schemas']['SettingsRss'];
+
+export type SettingsImport = components['schemas']['SettingsImport'];
+export type SettingsImportActivity = components['schemas']['SettingsImportActivity'];

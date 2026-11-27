@@ -42,11 +42,9 @@ class SettingsScreenTests(TestCase):
         items = {item["slug"]: item for section in screen["nav"] for item in section["items"]}
         self.assertTrue(items["notifications"]["web"])
         self.assertTrue(items["preferences"]["web"])
-        self.assertFalse(items["import"]["web"])
+        # Every settings page is drawn by the web now (P4-K).
+        self.assertTrue(all(item["web"] for item in items.values()))
         self.assertEqual(items["metadata"]["href"], reverse("metadata_settings"))
-        imports = self._screen("import")
-        self.assertFalse(imports["handled"])
-        self.assertEqual(imports["django_url"], reverse("import_data"))
         self.assertFalse(self._screen("nope")["handled"])
 
     def test_account_username_and_password(self):

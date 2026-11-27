@@ -29095,6 +29095,354 @@ components:
       - days
       - enabled
       - size
+    SettingsImport:
+      type: object
+      description: 'Import: settings, tiles, and the K1 sources'' state.'
+      properties:
+        is_demo:
+          type: boolean
+        settings:
+          $ref: '#/components/schemas/SettingsImportSettings'
+        media_tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportTag'
+        tiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportTile'
+        mdblist_connected:
+          type: boolean
+        hardcover_key_saved:
+          type: boolean
+        activity:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportActivity'
+          nullable: true
+        urls:
+          $ref: '#/components/schemas/SettingsImportUrls'
+      required:
+      - activity
+      - hardcover_key_saved
+      - is_demo
+      - mdblist_connected
+      - media_tags
+      - settings
+      - tiles
+      - urls
+    SettingsImportActivity:
+      type: object
+      description: The Import page's activity panel (import_data_activity as JSON).
+      properties:
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportSchedule'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportResult'
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportRun'
+        source_media:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportSourceMedia'
+        delete_schedule_url:
+          type: string
+      required:
+      - delete_schedule_url
+      - results
+      - runs
+      - schedules
+      - source_media
+    SettingsImportChoice:
+      type: object
+      description: 'An option (`hint`: its tooltip).'
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        hint:
+          type: string
+      required:
+      - hint
+      - label
+      - value
+    SettingsImportResult:
+      type: object
+      description: An import task from the last 7 days.
+      properties:
+        source:
+          $ref: '#/components/schemas/SettingsImportSource'
+        date:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+        summary:
+          type: string
+        errors:
+          type: string
+        progress_current:
+          type: integer
+        progress_total:
+          type: integer
+        progress_label:
+          type: string
+        progress_percent:
+          type: number
+          format: double
+      required:
+      - date
+      - errors
+      - progress_current
+      - progress_label
+      - progress_percent
+      - progress_total
+      - source
+      - status
+      - summary
+    SettingsImportRun:
+      type: object
+      description: A tracked import run (cancel while running, undo after).
+      properties:
+        id:
+          type: integer
+        source:
+          $ref: '#/components/schemas/SettingsImportSource'
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        failed:
+          type: integer
+        remaining:
+          type: integer
+          nullable: true
+        cancel_url:
+          type: string
+        rollback_url:
+          type: string
+      required:
+      - cancel_url
+      - created
+      - failed
+      - id
+      - remaining
+      - rollback_url
+      - skipped
+      - source
+      - started_at
+      - status
+      - updated
+    SettingsImportSchedule:
+      type: object
+      description: A periodic import.
+      properties:
+        task_name:
+          type: string
+        source:
+          $ref: '#/components/schemas/SettingsImportSource'
+        schedule:
+          type: string
+        username:
+          type: string
+        mode:
+          type: string
+        last_run:
+          type: string
+          format: date-time
+          nullable: true
+        next_run:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - last_run
+      - mode
+      - next_run
+      - schedule
+      - source
+      - task_name
+      - username
+    SettingsImportSettings:
+      type: object
+      description: 'Import Settings: each change posts all three to `save_url` (204).'
+      properties:
+        frequency:
+          type: string
+        time:
+          type: string
+        mode:
+          type: string
+        frequency_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportChoice'
+        mode_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportChoice'
+        save_url:
+          type: string
+      required:
+      - frequency
+      - frequency_choices
+      - mode
+      - mode_choices
+      - save_url
+      - time
+    SettingsImportSource:
+      type: object
+      description: A source's name and logo.
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        logo:
+          type: string
+      required:
+      - key
+      - logo
+      - name
+    SettingsImportSourceMedia:
+      type: object
+      description: Items of one media type imported from one source.
+      properties:
+        media_type:
+          type: string
+        source:
+          $ref: '#/components/schemas/SettingsImportSource'
+        count:
+          type: integer
+        delete_url:
+          type: string
+      required:
+      - count
+      - delete_url
+      - media_type
+      - source
+    SettingsImportTag:
+      type: object
+      description: A media-type filter.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    SettingsImportTile:
+      type: object
+      description: 'A source tile (`web`: the web draws its dialog; else open `django_url`).'
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        logo:
+          type: string
+        description:
+          type: string
+        connected:
+          type: boolean
+        badge:
+          type: string
+        web:
+          type: boolean
+        django_url:
+          type: string
+      required:
+      - badge
+      - connected
+      - description
+      - django_url
+      - key
+      - logo
+      - name
+      - tags
+      - web
+    SettingsImportUrls:
+      type: object
+      description: Where the Import forms post (`simkl` leaves for Simkl's sign-in).
+      properties:
+        template:
+          type: string
+        activity:
+          type: string
+        onboarding:
+          type: string
+        restart_setup:
+          type: string
+        guide:
+          type: string
+        csv_docs:
+          type: string
+        yamtrack:
+          type: string
+        clz:
+          type: string
+        hltb:
+          type: string
+        grouvee:
+          type: string
+        imdb:
+          type: string
+        goodreads:
+          type: string
+        hardcover:
+          type: string
+        storygraph:
+          type: string
+        tvtime:
+          type: string
+        mal:
+          type: string
+        kitsu:
+          type: string
+        mdblist:
+          type: string
+        simkl:
+          type: string
+      required:
+      - activity
+      - clz
+      - csv_docs
+      - goodreads
+      - grouvee
+      - guide
+      - hardcover
+      - hltb
+      - imdb
+      - kitsu
+      - mal
+      - mdblist
+      - onboarding
+      - restart_setup
+      - simkl
+      - storygraph
+      - template
+      - tvtime
+      - yamtrack
     SettingsIntegrations:
       type: object
       description: 'Integrations (session only: carries the legacy key and URLs built
@@ -29578,6 +29926,10 @@ components:
           $ref: '#/components/schemas/SettingsIntegrations'
         rss:
           $ref: '#/components/schemas/SettingsRss'
+        import_:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImport'
+          title: 'Import '
       required:
       - django_url
       - handled

@@ -104,7 +104,7 @@ describe('detail links', () => {
 		expect(detailHref('/settings/connected-apps', '/next')).toBe('/next/settings/connected-apps');
 		expect(detailHref('/settings/integrations', '/next')).toBe('/next/settings/integrations');
 		expect(detailHref('/settings/rss', '/next')).toBe('/next/settings/rss');
-		expect(detailHref('/settings/import', '/next')).toBe('/settings/import');
+		expect(detailHref('/settings/import', '/next')).toBe('/next/settings/import');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);
