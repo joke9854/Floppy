@@ -319,7 +319,9 @@
 										type="button"
 										class="ct-settings-button"
 										disabled={busy !== '' || !provider.configured}
-										onclick={() => post(`${provider.slug}:default`, type.url, { source: provider.slug })}>{local.setDefault} {type.label}</button
+										onclick={() =>
+											post(`${provider.slug}:default`, type.url, { source: provider.slug }, () => (picked[type.value] = provider.slug))}
+										>{local.setDefault} {type.label}</button
 									>
 								{/each}
 							</div>

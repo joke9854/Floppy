@@ -212,6 +212,74 @@ class MetadataScreenTests(SettingsJ2Base):
         self.assertIn("isn't available", response.json()["error"])
 
 
+class MetadataSuperuserTests(SettingsJ2Base):
+    """Instance keys: a blank field deletes, an environment value is never overwritten."""
+
+    def setUp(self):
+        super().setUp()
+        self.user.is_superuser = True
+        self.user.save()
+        probe = mock.patch("app.providers.credentials._probe", return_value=None)
+        probe.start()
+        self.addCleanup(probe.stop)
+
+    def _tmdb(self):
+        metadata = self._screen("metadata")["metadata"]
+        self.assertTrue(metadata["can_edit_instance"])
+        self.assertIsNone(metadata["promote"])
+        return {p["slug"]: p for g in metadata["groups"] for p in g["providers"]}["tmdb"]
+
+    @override_settings(TMDB_API="")
+    def test_instance_key_save_and_clear(self):
+        tmdb = self._tmdb()
+        saved = self.client.post(tmdb["urls"]["save"], {"api_key": "instance-key-5678"}, **JSON)
+        self.assertTrue(saved.json()["saved"])
+        self.assertEqual(credentials.instance_value("tmdb", "api_key"), "instance-key-5678")
+        response = self.client.get(reverse("api_settings_screen", args=["metadata"]))
+        self.assertNotIn(b"instance-key", response.content)
+        field = {p["slug"]: p for g in response.json()["metadata"]["groups"] for p in g["providers"]}["tmdb"]["fields"][0]
+        self.assertTrue(field["has_instance_value"])
+        self.assertTrue(field["preview"].endswith("5678"))
+
+        cleared = self.client.post(tmdb["urls"]["clear"], **JSON)
+        self.assertTrue(cleared.json()["saved"])
+        credentials.invalidate_cache()
+        self.assertFalse(credentials.instance_value("tmdb", "api_key"))
+
+    @override_settings(TMDB_API="environment-key-1")
+    def test_an_environment_value_is_never_overwritten(self):
+        tmdb = self._tmdb()
+        self.assertTrue(tmdb["fields"][0]["locked"])
+        self.client.post(tmdb["urls"]["save"], {"api_key": "posted-anyway"}, **JSON)
+        self.assertFalse(credentials.instance_value("tmdb", "api_key"))
+
+
+class AnimePromptTests(SettingsJ2Base):
+    """The conversion prompt comes back in the POST answer, not the session."""
+
+    def test_provider_change_returns_the_count(self):
+        from app.services import metadata_resolution
+
+        sources = [source.value for source in metadata_resolution.available_metadata_sources("anime")]
+        current = metadata_resolution.metadata_default_source(self.user, "anime")
+        other = next((source for source in sources if source != current), None)
+        if other is None:
+            self.skipTest("only one anime source is configured here")
+        with mock.patch(
+            "app.tasks_anime_library_repair.anime_rows_needing_conversion", return_value=[object(), object()]
+        ):
+            response = self.client.post(reverse("set_media_type_provider", args=["anime"]), {"source": other}, **JSON)
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        self.assertEqual(response.json()["anime_shape_prompt_count"], 2)
+        self.assertNotIn("anime_shape_prompt_count", self.client.session)
+
+    def test_convert_answers_json(self):
+        with mock.patch("app.tasks_anime_library_repair.convert_anime_library_shape_task.delay") as delay:
+            response = self.client.post(reverse("convert_anime_library"), **JSON)
+        self.assertTrue(response.json()["saved"])
+        delay.assert_called_once_with(self.user.id)
+
+
 class ExportScreenTests(SettingsJ2Base):
     def test_screen(self):
         export = self._screen("export")["export"]

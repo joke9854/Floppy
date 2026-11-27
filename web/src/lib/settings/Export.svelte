@@ -25,7 +25,7 @@
 			`${count} ${count === 1 ? 'snapshot' : 'snapshots'} there now. This is the file to restore from if the database itself is damaged.`,
 		snapshotOff: 'Disabled — set DB_SNAPSHOT_ENABLED=true to turn database snapshots on.',
 		frequency: 'Export Frequency',
-		time: 'Export Time',
+		time: 'Export Time (server time)',
 		content: 'Export Content',
 		contentNote:
 			'Keep at least one media type, Custom Lists, or Collection enabled. Keep every media type and both additional content options enabled for a full export.',
