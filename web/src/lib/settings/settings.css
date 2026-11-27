@@ -1,0 +1,361 @@
+/* Settings (P4-J), from the Django pages' preferences-section rules. */
+
+.ct-settings {
+	display: grid;
+	gap: 24px;
+	padding-bottom: 96px;
+}
+
+@media (min-width: 1024px) {
+	.ct-settings {
+		grid-template-columns: 220px minmax(0, 1fr);
+		align-items: start;
+	}
+}
+
+.ct-settings-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+@media (min-width: 1024px) {
+	.ct-settings-nav {
+		position: sticky;
+		top: 24px;
+	}
+}
+
+.ct-settings-nav h2 {
+	margin-bottom: 4px;
+	padding-inline: 10px;
+	color: var(--color-text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.ct-settings-nav a {
+	display: block;
+	padding: 7px 10px;
+	border-radius: 10px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-settings-nav a:hover,
+.ct-settings-nav a[aria-current='page'] {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+/* Phones: the nav is a select above the page. */
+.ct-settings-picker {
+	height: 42px;
+	padding-inline: 12px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 10px;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+}
+
+@media (max-width: 1023.98px) {
+	.ct-settings-nav {
+		display: none;
+	}
+}
+
+@media (min-width: 1024px) {
+	.ct-settings-picker {
+		display: none;
+	}
+}
+
+.ct-settings-page {
+	display: flex;
+	min-width: 0;
+	max-width: 760px;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.ct-settings-section {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 20px;
+	border-radius: 16px;
+	background-color: var(--color-surface);
+}
+
+.ct-settings-section h2 {
+	color: var(--color-text);
+	font-size: 17px;
+	font-weight: 700;
+}
+
+.ct-settings-section h3 {
+	color: var(--color-text);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.ct-settings-note {
+	color: var(--color-text-muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.ct-settings-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.ct-settings-field input,
+.ct-settings-field textarea,
+.ct-settings-search input {
+	min-height: 40px;
+	padding: 8px 12px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 10px;
+	background-color: var(--color-bg, rgb(0 0 0 / 20%));
+	color: var(--color-text);
+	color-scheme: dark;
+	font-weight: 400;
+}
+
+.ct-settings-field textarea {
+	font-family: ui-monospace, monospace;
+	font-size: 13px;
+	white-space: pre;
+}
+
+.ct-settings-error {
+	color: rgb(254 205 211);
+	font-size: 13px;
+	font-weight: 400;
+}
+
+.ct-settings-check {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	cursor: pointer;
+}
+
+.ct-settings-check input {
+	width: 18px;
+	height: 18px;
+	flex: none;
+	margin-top: 2px;
+	accent-color: var(--color-accent);
+}
+
+.ct-settings-check span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.ct-settings-check small {
+	color: var(--color-text-muted);
+	font-size: 13px;
+	font-weight: 400;
+}
+
+.ct-settings-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 10px;
+}
+
+.ct-settings-actions.is-split {
+	justify-content: space-between;
+}
+
+.ct-settings-button {
+	display: inline-flex;
+	height: 40px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding-inline: 16px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 10px;
+	background-color: var(--color-surface-hover);
+	color: var(--color-text);
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.ct-settings-button.is-primary {
+	border-color: transparent;
+	background-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+}
+
+.ct-settings-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.ct-settings-link {
+	color: var(--color-link);
+	font-size: 14px;
+}
+
+.ct-settings-status {
+	color: var(--color-text-secondary);
+	font-size: 13px;
+}
+
+.ct-settings-status.is-error {
+	color: rgb(254 205 211);
+}
+
+/* Option cards (Appearance) and segmented choices */
+.ct-settings-options {
+	display: grid;
+	gap: 12px;
+}
+
+@media (min-width: 640px) {
+	.ct-settings-options {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.ct-settings-option {
+	display: flex;
+	gap: 12px;
+	padding: 14px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 12px;
+	cursor: pointer;
+}
+
+.ct-settings-option:has(input:checked) {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.ct-settings-option input {
+	margin-top: 3px;
+	accent-color: var(--color-accent);
+}
+
+.ct-settings-segments {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 2px;
+	padding: 4px;
+	border-radius: 999px;
+	background-color: var(--color-surface-hover);
+}
+
+.ct-settings-segments label {
+	padding: 6px 14px;
+	border-radius: 999px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.ct-settings-segments label:has(input:checked) {
+	background-color: rgb(255 255 255 / 12%);
+	color: var(--color-text);
+}
+
+.ct-settings-segments input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+/* Rows: media types, exclusions, search results, resources */
+.ct-settings-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.ct-settings-row {
+	display: flex;
+	min-height: 48px;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	background-color: rgb(255 255 255 / 4%);
+	color: var(--color-text);
+	font-size: 14px;
+}
+
+.ct-settings-row img {
+	width: 32px;
+	height: 48px;
+	flex: none;
+	border-radius: 6px;
+	object-fit: cover;
+}
+
+.ct-settings-row > span {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.ct-settings-row small {
+	color: var(--color-text-muted);
+	font-size: 12px;
+}
+
+.ct-settings-row button.is-icon {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: 8px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+
+.ct-settings-row button.is-icon:hover:not(:disabled) {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+.ct-settings-row button.is-icon:disabled {
+	opacity: 0.25;
+	cursor: default;
+}
+
+.ct-settings-row.is-off {
+	color: var(--color-text-muted);
+}
+
+.ct-settings-search input {
+	width: 100%;
+}
+
+.ct-settings-code {
+	padding: 1px 5px;
+	border-radius: 6px;
+	background-color: rgb(255 255 255 / 8%);
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+}

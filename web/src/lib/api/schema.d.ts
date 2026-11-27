@@ -1631,7 +1631,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The Django list page for `reference` (id or custom URL) with its own query: `q`, repeated `type` and `status`, `sort` and `direction`, `layout` (grid, table) and `page` (16 items); sort, statuses and layout are saved as the user's, as on the page. Cards and table cells match the Library's. A smart list, a list the user cannot edit, or a missing one answers `handled: false` and its Django page. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        /** @description The Django list page for `reference` (id or custom URL) with its own query: `q`, repeated `type` and `status`, `sort` and `direction`, `layout` (grid, table) and `page` (16 items); sort, statuses and layout are saved as the user's, as on the page. Cards and table cells match the Library's. A smart list adds `smart` (its saved rules, summary and builder options). A list the user cannot edit, or a missing one, answers `handled: false` and its Django page. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
         get: operations["getListPage"];
         put?: never;
         post?: never;
@@ -3075,6 +3075,23 @@ export interface paths {
         };
         /** @description Look up an item by exactly one external id. IMDb and TVDB ids are matched against items Floppy already stores, then against TMDB; a TMDB id needs 'type' (movie or show), since TMDB reuses numbers across them. An IMDb or TVDB episode id returns the episode with its show's id and coordinates. */
         get: operations["api_v1_search_id_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/screen/{page}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The settings nav and one page (`account`, `appearance`, `notifications`, `sidebar`, `about`), read as the Django page reads it. Any other page answers `handled: false` with its Django URL. The web saves through the Django views' forms, which answer JSON for `Accept: application/json`. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getSettingsScreen"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7784,6 +7801,7 @@ export interface components {
             notification_urls?: string;
             daily_digest_enabled?: boolean;
             release_notifications_enabled?: boolean;
+            premiere_notifications_enabled?: boolean;
         };
         /** @description Body for changing preferences; send only the fields to change. */
         PatchedUserPreferencesUpdateRequest: {
@@ -8409,6 +8427,106 @@ export interface components {
         /** @description The port to use after the next restart. */
         ServerPortUpdate: {
             port: number;
+        };
+        /** @description About: the running version. */
+        SettingsAbout: {
+            version: string;
+            commit: string;
+            urls: components["schemas"]["SettingsAboutUrls"];
+        };
+        /** @description The API documents About links to. */
+        SettingsAboutUrls: {
+            docs: string;
+            openapi: string;
+            jsonld: string;
+            schema: string;
+            asyncapi: string;
+        };
+        /** @description Account: the username and password forms post to `save_url`. */
+        SettingsAccount: {
+            username: string;
+            is_demo: boolean;
+            authenticator_enabled: boolean;
+            unused_recovery_codes: number;
+            social_connections_url: string;
+            save_url: string;
+        };
+        /** @description Appearance: post `detail_layouts` back with the sidebar choices. */
+        SettingsAppearance: {
+            sidebar_style: string;
+            floating_sidebar: string;
+            sidebar_styles: components["schemas"]["SettingsChoice"][];
+            floating_choices: components["schemas"]["SettingsChoice"][];
+            detail_layouts: unknown;
+            is_demo: boolean;
+            save_url: string;
+        };
+        /** @description An appearance option. */
+        SettingsChoice: {
+            value: string;
+            label: string;
+            hint: string;
+        };
+        /** @description An item excluded from notifications, or a search result. */
+        SettingsItem: {
+            id: number;
+            title: string;
+            media_type: string;
+            image: string;
+        };
+        /** @description A media type on the Media types page, in sidebar order. */
+        SettingsMediaType: {
+            value: string;
+            label: string;
+            enabled: boolean;
+        };
+        /** @description A settings page in the nav (`web`: the web draws it). */
+        SettingsNavItem: {
+            slug: string;
+            label: string;
+            href: string;
+            web: boolean;
+        };
+        /** @description A settings nav section. */
+        SettingsNavSection: {
+            label: string;
+            items: components["schemas"]["SettingsNavItem"][];
+        };
+        /** @description Where the Notifications page saves, searches and tests. */
+        SettingsNotificationUrls: {
+            save: string;
+            search: string;
+            exclusions: string;
+            test: string;
+            rss: string;
+        };
+        /** @description Notifications: every form field posts back to `urls.save`. */
+        SettingsNotifications: {
+            notification_urls: string;
+            daily_digest_enabled: boolean;
+            release_notifications_enabled: boolean;
+            premiere_notifications_enabled: boolean;
+            excluded: components["schemas"]["SettingsItem"][];
+            urls: components["schemas"]["SettingsNotificationUrls"];
+        };
+        /** @description A settings page for the web app (`handled: false`: open `django_url`). */
+        SettingsScreen: {
+            handled: boolean;
+            django_url: string;
+            page: string;
+            title?: string;
+            nav: components["schemas"]["SettingsNavSection"][];
+            account?: components["schemas"]["SettingsAccount"];
+            notifications?: components["schemas"]["SettingsNotifications"];
+            sidebar?: components["schemas"]["SettingsSidebar"];
+            appearance?: components["schemas"]["SettingsAppearance"];
+            about?: components["schemas"]["SettingsAbout"];
+        };
+        /** @description Media types: the page posts every type (one left out is turned off). */
+        SettingsSidebar: {
+            clickable_media_cards: boolean;
+            media_types: components["schemas"]["SettingsMediaType"][];
+            save_url: string;
         };
         /**
          * @description * `poster` - poster
@@ -9802,6 +9920,7 @@ export interface components {
             notification_urls: string;
             daily_digest_enabled: boolean;
             release_notifications_enabled: boolean;
+            premiere_notifications_enabled: boolean;
         };
         /** @description Body of a 400 for an invalid preference value. */
         UserPreferencesInvalidChoice: {
@@ -23683,6 +23802,45 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getSettingsScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

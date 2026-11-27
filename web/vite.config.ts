@@ -73,7 +73,10 @@ export default defineConfig({
 				// History's Load more (P4-E).
 				'/history/day/',
 				// Calendar's Fetch New Releases (P4-F).
-				'/reload_calendar'
+				'/reload_calendar',
+				// Settings forms and the exclusion search (P4-J).
+				'/settings/',
+				'/notifications/search/'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

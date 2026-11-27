@@ -41,9 +41,9 @@
 
 	const libraryLinks = $derived(libraryItems(library));
 	const settingsLinks: NavItem[] = [
-		{ label: t.settings, href: '/settings/account', icon: Settings },
-		{ label: t.appearance, href: '/settings/appearance', icon: Palette },
-		{ label: t.notifications, href: '/settings/notifications', icon: Bell }
+		{ label: t.settings, href: `${BASE}/settings/account`, icon: Settings },
+		{ label: t.appearance, href: `${BASE}/settings/appearance`, icon: Palette },
+		{ label: t.notifications, href: `${BASE}/settings/notifications`, icon: Bell }
 	];
 	const initials = $derived(username.slice(0, 2).toUpperCase());
 

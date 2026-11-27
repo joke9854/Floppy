@@ -295,6 +295,18 @@ def _build_qr_data_uri(provisioning_uri: str) -> str:
     return f"data:image/png;base64,{encoded_png}"
 
 
+def _json_form_errors(form) -> dict:
+    """Return a form's errors as the web reads them (field: messages)."""
+    return {field: [str(error) for error in errors] for field, errors in form.errors.items()}
+
+
+def _json_saved(form=None, **extra):
+    """Answer the web's settings form (v2 P4-J): saved, or the errors."""
+    if form is not None and form.errors:
+        return JsonResponse({"saved": False, "errors": _json_form_errors(form)}, status=400)
+    return JsonResponse({"saved": True, **extra})
+
+
 @require_http_methods(["GET", "POST"])
 def account(request):
     """Update the user's account and account security settings."""
@@ -313,10 +325,12 @@ def account(request):
 
             if user_form.is_valid():
                 user_form.save()
-                messages.success(request, "Your username has been updated!")
                 logger.info(
                     "Successful username change for user: %s", request.user.username
                 )
+                if app_helpers.wants_json(request):
+                    return _json_saved(username=request.user.username)
+                messages.success(request, "Your username has been updated!")
                 return redirect("account")
 
             logger.warning(
@@ -324,6 +338,8 @@ def account(request):
                 request.user.username,
                 list(user_form.errors.keys()),
             )
+            if app_helpers.wants_json(request):
+                return _json_saved(user_form)
 
         elif any(
             key in request.POST
@@ -334,10 +350,12 @@ def account(request):
             if password_form.is_valid():
                 user = password_form.save()
                 update_session_auth_hash(request, user)
-                messages.success(request, "Your password has been updated!")
                 logger.info(
                     "Successful password change for user: %s", request.user.username
                 )
+                if app_helpers.wants_json(request):
+                    return _json_saved()
+                messages.success(request, "Your password has been updated!")
                 return redirect("account")
 
             logger.warning(
@@ -345,6 +363,8 @@ def account(request):
                 request.user.username,
                 list(password_form.errors.keys()),
             )
+            if app_helpers.wants_json(request):
+                return _json_saved(password_form)
 
         elif action == "enable_authenticator":
             show_authenticator_setup = True
@@ -461,6 +481,11 @@ def notifications(request):
     """Render the notifications settings page."""
     if request.method == "POST":
         form = NotificationSettingsForm(request.POST, instance=request.user)
+        if app_helpers.wants_json(request):
+            # The web page (v2 P4-J1) posts every field, checkboxes included.
+            if form.is_valid():
+                form.save()
+            return _json_saved(form)
         if form.is_valid():
             form.save()
             messages.success(request, "Notification settings updated successfully!")
@@ -532,6 +557,8 @@ def search_items(request):
     query = request.GET.get("q", "").strip()
 
     if not query or len(query) <= 1:
+        if app_helpers.wants_json(request):
+            return JsonResponse({"items": []})
         return render(
             request,
             "users/components/search_results.html",
@@ -550,6 +577,22 @@ def search_items(request):
         )
         .distinct()[:10]
     )
+
+    if app_helpers.wants_json(request):
+        # The web Notifications page's exclusion search (v2 P4-J1).
+        return JsonResponse(
+            {
+                "items": [
+                    {
+                        "id": item.id,
+                        "title": str(item),
+                        "media_type": str(app_tags.media_type_readable(item.media_type)),
+                        "image": app_tags.image_url(item.image),
+                    }
+                    for item in items
+                ],
+            },
+        )
 
     return render(
         request,
@@ -689,6 +732,11 @@ def sidebar(request):
     if request.method == "POST":
         # Prevent demo users from updating preferences
         if request.user.is_demo:
+            if app_helpers.wants_json(request):
+                return JsonResponse(
+                    {"saved": False, "message": "This section is view-only for demo accounts."},
+                    status=403,
+                )
             messages.error(request, "This section is view-only for demo accounts.")
             return redirect("sidebar")
 
@@ -709,6 +757,10 @@ def sidebar(request):
 
         if fields_to_update:
             request.user.save(update_fields=fields_to_update)
+        if app_helpers.wants_json(request):
+            # The web page posts every type, enabled or not, in its order.
+            return _json_saved(changed=bool(fields_to_update))
+        if fields_to_update:
             messages.success(request, "Settings updated successfully.")
         else:
             messages.info(request, "No changes to save.")
@@ -764,7 +816,13 @@ def ui_preferences(request):
 def appearance(request):
     """Configure the sidebar and detail page composition."""
     if request.method == "POST":
+        wants_json = app_helpers.wants_json(request)
         if request.user.is_demo:
+            if wants_json:
+                return JsonResponse(
+                    {"saved": False, "message": "This section is view-only for demo accounts."},
+                    status=403,
+                )
             messages.error(request, "This section is view-only for demo accounts.")
             return redirect("appearance")
 
@@ -773,6 +831,8 @@ def appearance(request):
                 request.POST.get("detail_layouts")
             )
         except ValidationError as exc:
+            if wants_json:
+                return JsonResponse({"saved": False, "message": exc.messages[0]}, status=400)
             messages.error(request, exc.messages[0])
             return redirect("appearance")
 
@@ -785,6 +845,8 @@ def appearance(request):
             sidebar_style not in SidebarStyleChoices.values
             or floating_sidebar not in FloatingSidebarChoices.values
         ):
+            if wants_json:
+                return JsonResponse({"saved": False, "message": "Unsupported sidebar option."}, status=400)
             messages.error(request, "Unsupported sidebar option.")
             return redirect("appearance")
 
@@ -798,6 +860,8 @@ def appearance(request):
                 "floating_sidebar",
             ]
         )
+        if wants_json:
+            return _json_saved()
         messages.success(request, "Appearance updated")
         return redirect("appearance")
 

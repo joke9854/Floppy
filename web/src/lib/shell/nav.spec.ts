@@ -98,6 +98,10 @@ describe('detail links', () => {
 		expect(detailHref('/list/create', '/next')).toBe('/list/create');
 		expect(detailHref('/list/7/add', '/next')).toBe('/list/7/add');
 		expect(detailHref('/list/7/rss', '/next')).toBe('/list/7/rss');
+		expect(detailHref('/settings/notifications', '/next')).toBe('/next/settings/notifications');
+		expect(detailHref('/settings/sidebar', '/next')).toBe('/next/settings/sidebar');
+		expect(detailHref('/settings/preferences', '/next')).toBe('/settings/preferences');
+		expect(detailHref('/settings/import', '/next')).toBe('/settings/import');
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1', '/next')).toBe(
 			'/details/tmdb/tv/1399/got/season/1'
 		);

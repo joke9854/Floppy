@@ -59,7 +59,7 @@ adds a web test for its flow:
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
-| P4-J | Settings and integrations | Not started |
+| P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2: Preferences, Metadata, Connected apps, Export, Advanced. J3: Integrations and RSS |
 | P4-K | Imports | Not started |
 
 ### P4-A: Home
@@ -700,3 +700,40 @@ Recommendation. The builder's and dialogs' styles load with them
 Page budgets went from 110 to 115 kB with I1 (the user's call, 2026-11-23):
 each new route grows the shared route table and re-splits shared code, and
 an empty Lists route alone tipped Discover over.
+
+### P4-J: Settings and integrations
+
+One web route, `/next/settings/<slug>` (the Django path's last segment), with
+each page loaded on its own; the empty route cost about 0.1 kB on the other
+pages. `GET /api/v1/settings/screen/<slug>/` returns the settings nav (each
+item says whether the web draws it) and the page's data, read the way the
+Django view reads it; any other page answers `handled: false` and the web
+opens its Django page. The web saves through the Django views' own forms,
+which answer JSON for `Accept: application/json`: the P1 settings endpoints
+differ from the pages in places (no media-type order, missing preference
+fields, the notifications PATCH that turned the premiere digest off), so
+they are used only where they match (notification exclusions and the test
+send). Every form page has a round-trip test: the screen's values posted
+back change nothing.
+
+- [x] J1: the settings nav (sections You, Library, Data; a select on phones);
+      the shell's Settings, Appearance and Notifications links open the web.
+- [x] J1: Account: username and password (the session stays signed in).
+      Setting up or replacing the authenticator and regenerating recovery
+      codes stay on the Django page (it shows the secret and codes once).
+- [x] J1: Appearance: sidebar style and floating behaviour; the hidden
+      detail-layout editor's layouts post back unchanged. The web shell does
+      not follow these settings yet; they shape the Django pages.
+- [x] J1: Notifications: Apprise URLs, the three switches, Test
+      Notifications, exclusions with search, the RSS link (Django).
+- [x] J1: Media types: the touch overlay switch, which types show and their
+      order (arrows instead of drag handles); saving refreshes the shell.
+- [x] J1: About: description, install, resources, API documents (open or
+      download, no inline preview), attributions, license, version.
+- [ ] J2: Preferences, Metadata, Connected apps, Export, Advanced.
+- [ ] J3: Integrations and RSS.
+- [ ] Import stays P4-K.
+
+Fixed in J1: the notifications API (`PATCH /api/v1/user/notifications/`)
+left the premiere digest out of the form, so every PATCH turned it off; it
+now reads and writes all four fields.

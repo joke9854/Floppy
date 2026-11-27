@@ -323,6 +323,7 @@ VIEW_SCOPES: dict[str, dict[str, str]] = {
     "api.fork_views_details.StatisticsScreenView": {"GET": NEVER},
     "api.fork_views_details.ListsScreenView": {"GET": NEVER},
     "api.fork_views_details.ListPageView": {"GET": NEVER},
+    "api.fork_views_details.SettingsScreenView": {"GET": NEVER},
     "api.fork_views_details.StatisticsTalentView": {"GET": NEVER},
     "api.fork_views_details.EpisodeScreenView": {"GET": NEVER},
     "api.fork_views_admin.ServerPortView": {"GET": NEVER, "PUT": NEVER, "DELETE": NEVER},

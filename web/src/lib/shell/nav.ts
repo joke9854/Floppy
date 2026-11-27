@@ -145,7 +145,9 @@ const WEB_DETAIL = [
 	// The Lists index (P4-I1); a list's own page (/list/...) stays Django until I2.
 	/^\/lists\/?(\?|$)/,
 	// A list's page (P4-I2): /list/<id or custom URL>, not the actions beside it.
-	/^\/list\/(?!(?:bulk-add|create|delete|edit|import-csv|share-view)(?:[/?#]|$))[^/?#]+\/?(?:\?.*)?$/
+	/^\/list\/(?!(?:bulk-add|create|delete|edit|import-csv|share-view)(?:[/?#]|$))[^/?#]+\/?(?:\?.*)?$/,
+	// The settings pages the web draws (P4-J1); the rest stay Django.
+	/^\/settings\/(?:account|appearance|notifications|sidebar|about)\/?$/
 ];
 
 /**

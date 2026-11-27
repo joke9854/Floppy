@@ -33,6 +33,7 @@ from .history_screen import HistoryScreenSerializer, build_history_screen
 from .list_detail_screen import ListPageSerializer, build_list_detail_screen
 from .lists_screen import ListsScreenSerializer, build_lists_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
+from .settings_screen import SettingsScreenSerializer, build_settings_screen
 from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
 from .statistics_talent_screen import StatisticsTalentSerializer, build_talent_screen
 from .track_screen import (
@@ -252,8 +253,9 @@ class ListPageView(drf_views.APIView):
             "query: `q`, repeated `type` and `status`, `sort` and `direction`, "
             "`layout` (grid, table) and `page` (16 items); sort, statuses and "
             "layout are saved as the user's, as on the page. Cards and table "
-            "cells match the Library's. A smart list, a list the user cannot "
-            "edit, or a missing one answers `handled: false` and its Django page." + _NOTE
+            "cells match the Library's. A smart list adds `smart` (its saved rules, "
+            "summary and builder options). A list the user cannot edit, or a "
+            "missing one, answers `handled: false` and its Django page." + _NOTE
         ),
         parameters=[
             OpenApiParameter("q", str, required=False),
@@ -270,6 +272,26 @@ class ListPageView(drf_views.APIView):
         """Return the list page."""
         data = build_list_detail_screen(request._request, reference)
         return Response(ListPageSerializer(data).data, status=HTTP.OK)
+
+
+class SettingsScreenView(drf_views.APIView):
+    """A settings page for the web app (v2 P4-J)."""
+
+    @extend_schema(
+        operation_id="getSettingsScreen",
+        description=(
+            "The settings nav and one page (`account`, `appearance`, "
+            "`notifications`, `sidebar`, `about`), read as the Django page reads "
+            "it. Any other page answers `handled: false` with its Django URL. "
+            "The web saves through the Django views' forms, which answer JSON "
+            "for `Accept: application/json`." + _NOTE
+        ),
+        responses={200: SettingsScreenSerializer},
+    )
+    def get(self, request, page):
+        """Return the settings page."""
+        data = build_settings_screen(request._request, page)
+        return Response(SettingsScreenSerializer(data).data, status=HTTP.OK)
 
 
 class ListsScreenView(drf_views.APIView):

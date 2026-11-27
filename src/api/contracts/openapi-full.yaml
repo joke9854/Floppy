@@ -5576,10 +5576,11 @@ paths:
         own query: `q`, repeated `type` and `status`, `sort` and `direction`, `layout`
         (grid, table) and `page` (16 items); sort, statuses and layout are saved as
         the user''s, as on the page. Cards and table cells match the Library''s. A
-        smart list, a list the user cannot edit, or a missing one answers `handled:
-        false` and its Django page. Built by the Django page''s own builder, so it
-        shows what the page shows. Like the page, the read can store metadata it resolves,
-        so integration tokens cannot call it.'
+        smart list adds `smart` (its saved rules, summary and builder options). A
+        list the user cannot edit, or a missing one, answers `handled: false` and
+        its Django page. Built by the Django page''s own builder, so it shows what
+        the page shows. Like the page, the read can store metadata it resolves, so
+        integration tokens cannot call it.'
       parameters:
       - in: query
         name: direction
@@ -14677,6 +14678,47 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: catalog:read
+  /api/v1/settings/screen/{page}/:
+    get:
+      operationId: getSettingsScreen
+      description: 'The settings nav and one page (`account`, `appearance`, `notifications`,
+        `sidebar`, `about`), read as the Django page reads it. Any other page answers
+        `handled: false` with its Django URL. The web saves through the Django views''
+        forms, which answer JSON for `Accept: application/json`. Built by the Django
+        page''s own builder, so it shows what the page shows. Like the page, the read
+        can store metadata it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: page
+        schema:
+          type: string
+          pattern: ^[a-z-]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/statistics/:
     get:
       operationId: api_v1_statistics_retrieve
@@ -26281,6 +26323,8 @@ components:
           type: boolean
         release_notifications_enabled:
           type: boolean
+        premiere_notifications_enabled:
+          type: boolean
     PatchedUserPreferencesUpdateRequest:
       type: object
       description: Body for changing preferences; send only the fields to change.
@@ -27786,6 +27830,260 @@ components:
           minimum: 1
       required:
       - port
+    SettingsAbout:
+      type: object
+      description: 'About: the running version.'
+      properties:
+        version:
+          type: string
+        commit:
+          type: string
+        urls:
+          $ref: '#/components/schemas/SettingsAboutUrls'
+      required:
+      - commit
+      - urls
+      - version
+    SettingsAboutUrls:
+      type: object
+      description: The API documents About links to.
+      properties:
+        docs:
+          type: string
+        openapi:
+          type: string
+        jsonld:
+          type: string
+        schema:
+          type: string
+        asyncapi:
+          type: string
+      required:
+      - asyncapi
+      - docs
+      - jsonld
+      - openapi
+      - schema
+    SettingsAccount:
+      type: object
+      description: 'Account: the username and password forms post to `save_url`.'
+      properties:
+        username:
+          type: string
+        is_demo:
+          type: boolean
+        authenticator_enabled:
+          type: boolean
+        unused_recovery_codes:
+          type: integer
+        social_connections_url:
+          type: string
+        save_url:
+          type: string
+      required:
+      - authenticator_enabled
+      - is_demo
+      - save_url
+      - social_connections_url
+      - unused_recovery_codes
+      - username
+    SettingsAppearance:
+      type: object
+      description: 'Appearance: post `detail_layouts` back with the sidebar choices.'
+      properties:
+        sidebar_style:
+          type: string
+        floating_sidebar:
+          type: string
+        sidebar_styles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsChoice'
+        floating_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsChoice'
+        detail_layouts: {}
+        is_demo:
+          type: boolean
+        save_url:
+          type: string
+      required:
+      - detail_layouts
+      - floating_choices
+      - floating_sidebar
+      - is_demo
+      - save_url
+      - sidebar_style
+      - sidebar_styles
+    SettingsChoice:
+      type: object
+      description: An appearance option.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        hint:
+          type: string
+      required:
+      - hint
+      - label
+      - value
+    SettingsItem:
+      type: object
+      description: An item excluded from notifications, or a search result.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        media_type:
+          type: string
+        image:
+          type: string
+      required:
+      - id
+      - image
+      - media_type
+      - title
+    SettingsMediaType:
+      type: object
+      description: A media type on the Media types page, in sidebar order.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - label
+      - value
+    SettingsNavItem:
+      type: object
+      description: 'A settings page in the nav (`web`: the web draws it).'
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+        href:
+          type: string
+        web:
+          type: boolean
+      required:
+      - href
+      - label
+      - slug
+      - web
+    SettingsNavSection:
+      type: object
+      description: A settings nav section.
+      properties:
+        label:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsNavItem'
+      required:
+      - items
+      - label
+    SettingsNotificationUrls:
+      type: object
+      description: Where the Notifications page saves, searches and tests.
+      properties:
+        save:
+          type: string
+        search:
+          type: string
+        exclusions:
+          type: string
+        test:
+          type: string
+        rss:
+          type: string
+      required:
+      - exclusions
+      - rss
+      - save
+      - search
+      - test
+    SettingsNotifications:
+      type: object
+      description: 'Notifications: every form field posts back to `urls.save`.'
+      properties:
+        notification_urls:
+          type: string
+        daily_digest_enabled:
+          type: boolean
+        release_notifications_enabled:
+          type: boolean
+        premiere_notifications_enabled:
+          type: boolean
+        excluded:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsItem'
+        urls:
+          $ref: '#/components/schemas/SettingsNotificationUrls'
+      required:
+      - daily_digest_enabled
+      - excluded
+      - notification_urls
+      - premiere_notifications_enabled
+      - release_notifications_enabled
+      - urls
+    SettingsScreen:
+      type: object
+      description: 'A settings page for the web app (`handled: false`: open `django_url`).'
+      properties:
+        handled:
+          type: boolean
+        django_url:
+          type: string
+        page:
+          type: string
+        title:
+          type: string
+        nav:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsNavSection'
+        account:
+          $ref: '#/components/schemas/SettingsAccount'
+        notifications:
+          $ref: '#/components/schemas/SettingsNotifications'
+        sidebar:
+          $ref: '#/components/schemas/SettingsSidebar'
+        appearance:
+          $ref: '#/components/schemas/SettingsAppearance'
+        about:
+          $ref: '#/components/schemas/SettingsAbout'
+      required:
+      - django_url
+      - handled
+      - nav
+      - page
+    SettingsSidebar:
+      type: object
+      description: 'Media types: the page posts every type (one left out is turned
+        off).'
+      properties:
+        clickable_media_cards:
+          type: boolean
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsMediaType'
+        save_url:
+          type: string
+      required:
+      - clickable_media_cards
+      - media_types
+      - save_url
     ShapeEnum:
       enum:
       - poster
@@ -31138,9 +31436,12 @@ components:
           type: boolean
         release_notifications_enabled:
           type: boolean
+        premiere_notifications_enabled:
+          type: boolean
       required:
       - daily_digest_enabled
       - notification_urls
+      - premiere_notifications_enabled
       - release_notifications_enabled
     UserPreferencesInvalidChoice:
       type: object

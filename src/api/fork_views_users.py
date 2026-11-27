@@ -242,6 +242,7 @@ class UserNotificationsSerializer(serializers.Serializer):
     notification_urls = serializers.CharField(allow_blank=True)
     daily_digest_enabled = serializers.BooleanField()
     release_notifications_enabled = serializers.BooleanField()
+    premiere_notifications_enabled = serializers.BooleanField()
 
 
 class UserNotificationsUpdateSerializer(UserNotificationsSerializer):
@@ -250,6 +251,7 @@ class UserNotificationsUpdateSerializer(UserNotificationsSerializer):
     notification_urls = serializers.CharField(allow_blank=True, required=False)
     daily_digest_enabled = serializers.BooleanField(required=False)
     release_notifications_enabled = serializers.BooleanField(required=False)
+    premiere_notifications_enabled = serializers.BooleanField(required=False)
 
 
 class NotificationExclusionSerializer(serializers.Serializer):
@@ -519,6 +521,9 @@ class UserNotificationsView(drf_views.APIView):
                 "release_notifications_enabled": (
                     request.user.release_notifications_enabled
                 ),
+                "premiere_notifications_enabled": (
+                    request.user.premiere_notifications_enabled
+                ),
             },
             status=HTTP.OK,
         )
@@ -541,6 +546,12 @@ class UserNotificationsView(drf_views.APIView):
             "release_notifications_enabled": request.data.get(
                 "release_notifications_enabled",
                 request.user.release_notifications_enabled,
+            ),
+            # The form saves all four fields: left out, the premiere digest
+            # was cleaned to False and turned off by every PATCH.
+            "premiere_notifications_enabled": request.data.get(
+                "premiere_notifications_enabled",
+                request.user.premiere_notifications_enabled,
             ),
         }
         form = NotificationSettingsForm(data, instance=request.user)
