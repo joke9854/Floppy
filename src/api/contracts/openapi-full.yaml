@@ -23054,6 +23054,759 @@ components:
       required:
       - results
       - scope_choices
+    IntegrationsApi:
+      type: object
+      description: The legacy key, app tokens and connected apps.
+      properties:
+        legacy_token:
+          type: string
+        regenerate_url:
+          type: string
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsToken'
+        scope_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsScope'
+        create_token_url:
+          type: string
+        connected_apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsConnectedApp'
+      required:
+      - connected_apps
+      - create_token_url
+      - legacy_token
+      - regenerate_url
+      - scope_choices
+      - tokens
+    IntegrationsBinding:
+      type: object
+      description: A watched-state sync connection.
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        badge:
+          type: string
+        active:
+          type: boolean
+        kill_switch:
+          type: boolean
+        direction:
+          type: string
+        last_reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_message:
+          type: string
+        pending_deliveries:
+          type: integer
+        failed_deliveries:
+          type: integer
+        open_conflicts:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsCapability'
+      required:
+      - active
+      - badge
+      - capabilities
+      - direction
+      - failed_deliveries
+      - id
+      - kill_switch
+      - label
+      - last_error_message
+      - last_reconciled_at
+      - open_conflicts
+      - pending_deliveries
+    IntegrationsCapability:
+      type: object
+      description: 'A sync capability (`state`: on, off, unavailable, unsupported).'
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        state:
+          $ref: '#/components/schemas/IntegrationsCapabilityStateEnum'
+      required:
+      - code
+      - label
+      - state
+    IntegrationsCapabilityStateEnum:
+      enum:
+      - 'on'
+      - 'off'
+      - unavailable
+      - unsupported
+      type: string
+      description: |-
+        * `on` - on
+        * `off` - off
+        * `unavailable` - unavailable
+        * `unsupported` - unsupported
+    IntegrationsCard:
+      type: object
+      description: 'A card on the grid (`state`: connected, broken, unknown, off;
+        `href`: opens elsewhere).'
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        method:
+          type: string
+        section:
+          $ref: '#/components/schemas/SectionEnum'
+        state:
+          $ref: '#/components/schemas/IntegrationsCardStateEnum'
+        count:
+          type: integer
+        href:
+          type: string
+        logo:
+          type: string
+      required:
+      - count
+      - href
+      - key
+      - logo
+      - method
+      - name
+      - section
+      - state
+    IntegrationsCardStateEnum:
+      enum:
+      - connected
+      - broken
+      - unknown
+      - 'off'
+      type: string
+      description: |-
+        * `connected` - connected
+        * `broken` - broken
+        * `unknown` - unknown
+        * `off` - off
+    IntegrationsChoice:
+      type: object
+      description: A value and its label.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    IntegrationsConflict:
+      type: object
+      description: An item both sides changed.
+      properties:
+        id:
+          type: integer
+        item:
+          type: string
+        kind:
+          type: string
+        remote_watched:
+          type: boolean
+        local_watched:
+          type: boolean
+      required:
+      - id
+      - item
+      - kind
+      - local_watched
+      - remote_watched
+    IntegrationsConnectedApp:
+      type: object
+      description: An app signed in with the Floppy account.
+      properties:
+        client_id:
+          type: string
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        connected_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoke_url:
+          type: string
+      required:
+      - client_id
+      - connected_at
+      - name
+      - revoke_url
+      - scopes
+    IntegrationsGrant:
+      type: object
+      description: A Stremio install credential (its token is never returned here).
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        allow_playback_start:
+          type: boolean
+        revoke_url:
+          type: string
+      required:
+      - allow_playback_start
+      - created_at
+      - id
+      - last_used_at
+      - name
+      - revoke_url
+    IntegrationsImportRun:
+      type: object
+      description: The last Playback Reporting upload.
+      properties:
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        created:
+          type: integer
+        skipped:
+          type: integer
+      required:
+      - created
+      - skipped
+      - started_at
+      - status
+    IntegrationsJellyfin:
+      type: object
+      description: Jellyfin webhooks and the Floppy → Jellyfin connection.
+      properties:
+        webhook_url:
+          type: string
+        mark_played_enabled:
+          type: boolean
+        mark_unplayed_enabled:
+          type: boolean
+        account:
+          allOf:
+          - $ref: '#/components/schemas/IntegrationsJellyfinAccount'
+          nullable: true
+        last_import:
+          allOf:
+          - $ref: '#/components/schemas/IntegrationsImportRun'
+          nullable: true
+        pull_interval_minutes:
+          type: integer
+        urls:
+          $ref: '#/components/schemas/IntegrationsJellyfinUrls'
+      required:
+      - account
+      - last_import
+      - mark_played_enabled
+      - mark_unplayed_enabled
+      - pull_interval_minutes
+      - urls
+      - webhook_url
+    IntegrationsJellyfinAccount:
+      type: object
+      description: The Floppy → Jellyfin connection.
+      properties:
+        connected:
+          type: boolean
+        base_url:
+          type: string
+        username:
+          type: string
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_message:
+          type: string
+        playback_reporting_available:
+          type: boolean
+          nullable: true
+        last_pull_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_pull_error_message:
+          type: string
+        pull_history_enabled:
+          type: boolean
+        push_watched_enabled:
+          type: boolean
+        push_unwatched_enabled:
+          type: boolean
+        scheduled_push_enabled:
+          type: boolean
+        instant_push_enabled:
+          type: boolean
+      required:
+      - base_url
+      - connected
+      - instant_push_enabled
+      - last_error_message
+      - last_pull_at
+      - last_pull_error_message
+      - last_sync_at
+      - playback_reporting_available
+      - pull_history_enabled
+      - push_unwatched_enabled
+      - push_watched_enabled
+      - scheduled_push_enabled
+      - username
+    IntegrationsJellyfinUrls:
+      type: object
+      description: Where the Jellyfin forms post.
+      properties:
+        events:
+          type: string
+        connect:
+          type: string
+        disconnect:
+          type: string
+        settings:
+          type: string
+        push:
+          type: string
+        pull:
+          type: string
+        upload:
+          type: string
+      required:
+      - connect
+      - disconnect
+      - events
+      - pull
+      - push
+      - settings
+      - upload
+    IntegrationsMatches:
+      type: object
+      description: Matching review and saved decisions (100 each at most).
+      properties:
+        review:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsReview'
+        saved:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsSavedMatch'
+      required:
+      - review
+      - saved
+    IntegrationsPlex:
+      type: object
+      description: Plex webhook filters, shares and status.
+      properties:
+        connected:
+          type: boolean
+        usernames:
+          type: string
+        libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsPlexLibrary'
+        selected_libraries:
+          type: array
+          items:
+            type: string
+        shares:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsPlexShare'
+        received:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsPlexReceived'
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsRecipient'
+        webhook:
+          $ref: '#/components/schemas/IntegrationsPlexWebhook'
+        webhook_url:
+          type: string
+        urls:
+          $ref: '#/components/schemas/IntegrationsPlexUrls'
+      required:
+      - connected
+      - libraries
+      - received
+      - recipients
+      - selected_libraries
+      - shares
+      - urls
+      - usernames
+      - webhook
+      - webhook_url
+    IntegrationsPlexLibrary:
+      type: object
+      description: 'A Plex library (`value`: machine::section).'
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        server_name:
+          type: string
+      required:
+      - label
+      - server_name
+      - value
+    IntegrationsPlexReceived:
+      type: object
+      description: 'A Plex webhook another user shared (`libraries`: all, selected,
+        none).'
+      properties:
+        id:
+          type: integer
+        owner:
+          type: string
+        plex_username:
+          type: string
+        libraries:
+          $ref: '#/components/schemas/LibrariesEnum'
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - id
+      - libraries
+      - owner
+      - plex_username
+    IntegrationsPlexShare:
+      type: object
+      description: A share of this account's Plex webhook.
+      properties:
+        id:
+          type: integer
+        recipient:
+          type: string
+        plex_username:
+          type: string
+        libraries:
+          type: array
+          items:
+            type: string
+        all_libraries:
+          type: boolean
+        recipient_enabled:
+          type: boolean
+      required:
+      - all_libraries
+      - id
+      - libraries
+      - plex_username
+      - recipient
+      - recipient_enabled
+    IntegrationsPlexUrls:
+      type: object
+      description: Where the Plex forms post.
+      properties:
+        usernames:
+          type: string
+        libraries:
+          type: string
+        share:
+          type: string
+        delete_share:
+          type: string
+        toggle_share:
+          type: string
+      required:
+      - delete_share
+      - libraries
+      - share
+      - toggle_share
+      - usernames
+    IntegrationsPlexWebhook:
+      type: object
+      description: The Plex webhook's status (needs_update, error, received, none).
+      properties:
+        status:
+          $ref: '#/components/schemas/IntegrationsPlexWebhookStatusEnum'
+        rotated_at:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+        error_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_received_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - error
+      - error_at
+      - last_received_at
+      - rotated_at
+      - status
+    IntegrationsPlexWebhookStatusEnum:
+      enum:
+      - needs_update
+      - error
+      - received
+      - none
+      type: string
+      description: |-
+        * `needs_update` - needs_update
+        * `error` - error
+        * `received` - received
+        * `none` - none
+    IntegrationsReadiness:
+      type: object
+      description: How many titles of a list Stremio can show.
+      properties:
+        noun:
+          type: string
+        list_name:
+          type: string
+        total:
+          type: integer
+        publishable:
+          type: integer
+        unresolved:
+          type: integer
+      required:
+      - list_name
+      - noun
+      - publishable
+      - total
+      - unresolved
+    IntegrationsRecipient:
+      type: object
+      description: A user a webhook can be shared with.
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+      required:
+      - id
+      - username
+    IntegrationsReview:
+      type: object
+      description: A provider identity that was not safe to match automatically.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        integration:
+          type: string
+        fix_url:
+          type: string
+        ignore_url:
+          type: string
+      required:
+      - fix_url
+      - id
+      - ignore_url
+      - integration
+      - title
+    IntegrationsSavedMatch:
+      type: object
+      description: A saved match decision.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        integration:
+          type: string
+        status:
+          type: string
+        edit_url:
+          type: string
+        remove_url:
+          type: string
+      required:
+      - edit_url
+      - id
+      - integration
+      - remove_url
+      - status
+      - title
+    IntegrationsScope:
+      type: object
+      description: 'A permission a token can have (`default`: in the tracking preset).'
+      properties:
+        value:
+          type: string
+        description:
+          type: string
+        default:
+          type: boolean
+      required:
+      - default
+      - description
+      - value
+    IntegrationsSeerr:
+      type: object
+      description: 'Seerr: the settings form and webhook URLs.'
+      properties:
+        enabled:
+          type: boolean
+        trigger_statuses:
+          type: string
+        allowed_usernames:
+          type: string
+        default_added_status:
+          type: string
+        default_status_choices:
+          type: array
+          items:
+            type: string
+        save_url:
+          type: string
+        webhook_url:
+          type: string
+        global_enabled:
+          type: boolean
+        global_webhook_url:
+          type: string
+      required:
+      - allowed_usernames
+      - default_added_status
+      - default_status_choices
+      - enabled
+      - global_enabled
+      - global_webhook_url
+      - save_url
+      - trigger_statuses
+      - webhook_url
+    IntegrationsStremio:
+      type: object
+      description: 'Stremio: the addon URL (newest install credential, else the account
+        key).'
+      properties:
+        addon_url:
+          type: string
+        configure_url:
+          type: string
+        import_url:
+          type: string
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsGrant'
+        create_grant_url:
+          type: string
+        readiness:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsReadiness'
+      required:
+      - addon_url
+      - configure_url
+      - create_grant_url
+      - grants
+      - import_url
+      - readiness
+    IntegrationsSync:
+      type: object
+      description: Watched-state sync.
+      properties:
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsBinding'
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsConflict'
+        direction_choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsChoice'
+        urls:
+          $ref: '#/components/schemas/IntegrationsSyncUrls'
+      required:
+      - bindings
+      - conflicts
+      - direction_choices
+      - urls
+    IntegrationsSyncUrls:
+      type: object
+      description: Where the sync forms post.
+      properties:
+        resolve:
+          type: string
+        pause:
+          type: string
+        direction:
+          type: string
+      required:
+      - direction
+      - pause
+      - resolve
+    IntegrationsToken:
+      type: object
+      description: A named app token (the secret is shown once, by the create answer).
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        expired:
+          type: boolean
+        revoke_url:
+          type: string
+      required:
+      - created_at
+      - expired
+      - expires_at
+      - id
+      - last_used_at
+      - name
+      - prefix
+      - revoke_url
+      - scopes
     Item:
       type: object
       description: Serializer used for item details.
@@ -23527,6 +24280,16 @@ components:
       description: |-
         * `grid` - grid
         * `table` - table
+    LibrariesEnum:
+      enum:
+      - all
+      - selected
+      - none
+      type: string
+      description: |-
+        * `all` - all
+        * `selected` - selected
+        * `none` - none
     LibraryBulk:
       type: object
       description: 'Bulk select''s menus: statuses, the user''s editable lists, their
@@ -27625,6 +28388,33 @@ components:
         * `score` - score
         * `list` - list
         * `text` - text
+    RssMediaType:
+      type: object
+      description: A media type and its feed rows.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RssRow'
+      required:
+      - label
+      - rows
+      - value
+    RssRow:
+      type: object
+      description: A Discover row that can be a feed.
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+      required:
+      - key
+      - title
     ScopeChoice:
       type: object
       description: A permission a token can hold.
@@ -27758,6 +28548,14 @@ components:
       - media_type
       - source
       - title
+    SectionEnum:
+      enum:
+      - servers
+      - apps
+      type: string
+      description: |-
+        * `servers` - servers
+        * `apps` - apps
     SeerrSettings:
       type: object
       description: Seerr webhook settings.
@@ -28297,6 +29095,53 @@ components:
       - days
       - enabled
       - size
+    SettingsIntegrations:
+      type: object
+      description: 'Integrations (session only: carries the legacy key and URLs built
+        on it).'
+      properties:
+        is_demo:
+          type: boolean
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationsCard'
+        matches:
+          $ref: '#/components/schemas/IntegrationsMatches'
+        sync:
+          $ref: '#/components/schemas/IntegrationsSync'
+        api:
+          $ref: '#/components/schemas/IntegrationsApi'
+        jellyfin:
+          $ref: '#/components/schemas/IntegrationsJellyfin'
+        plex:
+          $ref: '#/components/schemas/IntegrationsPlex'
+        emby_webhook_url:
+          type: string
+        kodi_webhook_url:
+          type: string
+        stremio:
+          $ref: '#/components/schemas/IntegrationsStremio'
+        seerr:
+          $ref: '#/components/schemas/IntegrationsSeerr'
+        nuvio_server_url:
+          type: string
+        onboarding_url:
+          type: string
+      required:
+      - api
+      - cards
+      - emby_webhook_url
+      - is_demo
+      - jellyfin
+      - kodi_webhook_url
+      - matches
+      - nuvio_server_url
+      - onboarding_url
+      - plex
+      - seerr
+      - stremio
+      - sync
     SettingsItem:
       type: object
       description: An item excluded from notifications, or a search result.
@@ -28673,6 +29518,26 @@ components:
       - clear
       - personal
       - save
+    SettingsRss:
+      type: object
+      description: 'RSS: fill MEDIA_TYPE_PLACEHOLDER and ROW_KEY_PLACEHOLDER in the
+        template.'
+      properties:
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/RssMediaType'
+        feed_url_template:
+          type: string
+        preview_url:
+          type: string
+        integrations_url:
+          type: string
+      required:
+      - feed_url_template
+      - integrations_url
+      - media_types
+      - preview_url
     SettingsScreen:
       type: object
       description: 'A settings page for the web app (`handled: false`: open `django_url`).'
@@ -28709,6 +29574,10 @@ components:
           $ref: '#/components/schemas/SettingsAdvanced'
         connected_apps:
           $ref: '#/components/schemas/SettingsConnectedApps'
+        integrations:
+          $ref: '#/components/schemas/SettingsIntegrations'
+        rss:
+          $ref: '#/components/schemas/SettingsRss'
       required:
       - django_url
       - handled

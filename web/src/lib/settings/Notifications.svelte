@@ -2,6 +2,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import { invalidate } from '$app/navigation';
 	import { djangoForm, djangoWrite } from '#lib/csrf.ts';
+	import { BASE } from '#lib/paths.ts';
 	import { st } from './strings.ts';
 	import { notificationsForm, readAnswer, type SettingsItem, type SettingsScreen } from './types.ts';
 
@@ -181,4 +182,4 @@
 	{/if}
 </section>
 
-<p><a class="ct-settings-link" href={notifications.urls.rss} data-sveltekit-reload>{st.rssFeeds}</a></p>
+<p><a class="ct-settings-link" href="{BASE}/settings/rss">{st.rssFeeds}</a></p>

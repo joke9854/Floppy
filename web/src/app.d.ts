@@ -10,6 +10,10 @@ declare global {
 			/** The signed-in user (allauth headless), or null. */
 			user: SessionUser | null;
 		}
+		interface PageState {
+			/** The open Integrations panel (shallow routing). */
+			open?: string;
+		}
 	}
 }
 

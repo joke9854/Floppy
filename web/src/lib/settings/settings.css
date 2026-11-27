@@ -543,3 +543,66 @@
 	gap: 4px;
 	margin-top: 4px;
 }
+
+/* A read-only value with Copy (Integrations, RSS) */
+.ct-settings-copy {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+}
+
+.ct-settings-copy input,
+.ct-settings-copy textarea {
+	min-width: 0;
+	min-height: 40px;
+	flex: 1;
+	padding: 8px 12px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 10px;
+	background-color: var(--color-bg, rgb(0 0 0 / 20%));
+	color: var(--color-text);
+	color-scheme: dark;
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+}
+
+.ct-settings-copy textarea {
+	white-space: pre;
+}
+
+.ct-settings-copy button.is-icon {
+	display: grid;
+	width: 40px;
+	height: 40px;
+	flex: none;
+	place-items: center;
+	border-radius: 10px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+
+.ct-settings-copy button.is-icon:hover {
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+}
+
+/* Numbered setup steps */
+.ct-settings-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-left: 1.25rem;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+	list-style: decimal;
+}
+
+.ct-settings-steps ul {
+	margin-top: 4px;
+	padding-left: 1rem;
+	list-style: disc;
+}
+
+.ct-settings-steps strong {
+	color: var(--color-text);
+}

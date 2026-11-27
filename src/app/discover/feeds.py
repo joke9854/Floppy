@@ -5,12 +5,13 @@ from __future__ import annotations
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.syndication.views import Feed
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.feedgenerator import Rss201rev2Feed
 from django.views.decorators.http import require_GET
 
+from app import helpers
 from app.discover.filters import exclude_owned_items, get_owned_keys_by_media_type
 from app.discover.registry import get_rows
 from app.discover.service import get_live_row
@@ -165,6 +166,24 @@ def discover_row_feed_preview(request):
             skip_collected=_parse_bool_param(request, "skip_collected"),
         )
 
+    if helpers.wants_json(request):
+        # The web app draws the preview itself.
+        items = row.items if row else []
+        return JsonResponse(
+            {
+                "items": [
+                    {
+                        "title": item.title,
+                        "media_type": item.media_type,
+                        "source": item.source,
+                        "media_id": str(item.media_id),
+                        "image": item.image or "",
+                        "release_date": item.release_date or "",
+                    }
+                    for item in items
+                ]
+            }
+        )
     return render(
         request,
         "app/components/discover_row_preview.html",

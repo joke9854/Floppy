@@ -2490,6 +2490,7 @@ def integration_token_context(user):
     }
 
 
+@app_helpers.answers_json
 @require_POST
 def create_catalog_grant(request):
     """Mint a revocable add-on install credential."""
@@ -2506,6 +2507,7 @@ def create_catalog_grant(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def revoke_catalog_grant(request, grant_id):
     """Revoke one add-on install credential."""
@@ -2516,6 +2518,7 @@ def revoke_catalog_grant(request, grant_id):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def create_integration_token(request):
     """Mint a named, scoped API token and show its secret once."""
@@ -2536,15 +2539,20 @@ def create_integration_token(request):
     except user_credentials.CredentialError as error:
         messages.error(request, str(error))
         return redirect("integrations")
-    # Never logged and never stored: the session is the one delivery channel.
-    request.session[NEW_TOKEN_SESSION_KEY] = {
-        "name": token.name,
-        "secret": raw_token,
-    }
+    # Never logged and never stored: the answer (web) or the session (Django
+    # page) is the one delivery channel.
+    if app_helpers.wants_json(request):
+        request.answer_extra = {"new_token": {"name": token.name, "secret": raw_token}}
+    else:
+        request.session[NEW_TOKEN_SESSION_KEY] = {
+            "name": token.name,
+            "secret": raw_token,
+        }
     messages.success(request, f"Created token '{token.name}'.")
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def revoke_integration_token(request, token_id):
     """Revoke one of the user's named tokens."""
@@ -2555,6 +2563,7 @@ def revoke_integration_token(request, token_id):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def revoke_connected_app(request, client_id):
     """Revoke every OAuth token and grant the user has issued to one app."""
@@ -2667,6 +2676,7 @@ def revoke_app_session(request, session_id):
     return redirect("connected_apps")
 
 
+@app_helpers.answers_json
 @require_POST
 def regenerate_token(request):
     """Regenerate the token for the user."""
@@ -2680,6 +2690,7 @@ def regenerate_token(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def update_plex_usernames(request):
     """Update the Plex usernames for the user."""
@@ -2704,6 +2715,7 @@ def update_plex_usernames(request):
     return redirect(redirect_target)
 
 
+@app_helpers.answers_json
 @require_POST
 def update_jellyfin_webhook_events(request):
     """Update optional Jellyfin webhook event handling for the user."""
@@ -2724,6 +2736,7 @@ def update_jellyfin_webhook_events(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def update_plex_webhook_share(request):
     """Create or update one owner-managed Plex webhook share."""
@@ -2755,6 +2768,7 @@ def update_plex_webhook_share(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def toggle_plex_webhook_share(request):
     """Enable or disable a received Plex webhook share."""
@@ -2777,6 +2791,7 @@ def toggle_plex_webhook_share(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def delete_plex_webhook_share(request):
     """Revoke one owner-managed Plex webhook share."""
@@ -2790,6 +2805,7 @@ def delete_plex_webhook_share(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def update_plex_webhook_libraries(request):
     """Update selected Plex libraries allowed for webhook events."""
@@ -2802,6 +2818,7 @@ def update_plex_webhook_libraries(request):
 
 
 # kept: URL name, matches urls.py route (see plan)
+@app_helpers.answers_json
 @login_required
 @require_POST
 def update_jellyseerr_settings(request):

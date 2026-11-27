@@ -16,6 +16,7 @@ from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from api import settings_data_screen as data_screen
+from api import settings_integrations_screen as integrations_screen
 from api import settings_preferences_screen as preferences_screen
 from app.templatetags import app_tags
 
@@ -65,6 +66,8 @@ WEB_PAGES = frozenset(
         "connected-apps",
         "advanced",
         "about",
+        "integrations",
+        "rss",
     }
 )
 
@@ -80,7 +83,10 @@ _STYLE_HINTS = {
 
 
 def _pages() -> dict[str, tuple[str, str]]:
-    return {slug: (url_name, label) for _section, items in NAV for slug, url_name, label in items}
+    pages = {slug: (url_name, label) for _section, items in NAV for slug, url_name, label in items}
+    # RSS is reached from Notifications, not the nav (as on the Django pages).
+    pages["rss"] = ("rss_settings", "RSS")
+    return pages
 
 
 def _nav() -> list[dict]:
@@ -210,6 +216,8 @@ _BUILDERS = {
     "export": data_screen.build_export,
     "advanced": data_screen.build_advanced,
     "connected-apps": data_screen.build_connected_apps,
+    "integrations": integrations_screen.build_integrations,
+    "rss": integrations_screen.build_rss,
 }
 
 
@@ -361,3 +369,5 @@ class SettingsScreenSerializer(serializers.Serializer):
     export = data_screen.SettingsExportSerializer(required=False)
     advanced = data_screen.SettingsAdvancedSerializer(required=False)
     connected_apps = data_screen.SettingsConnectedAppsSerializer(required=False)
+    integrations = integrations_screen.SettingsIntegrationsSerializer(required=False)
+    rss = integrations_screen.SettingsRssSerializer(required=False)

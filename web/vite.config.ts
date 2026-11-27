@@ -87,7 +87,19 @@ export default defineConfig({
 				'/clear_statistics_cache',
 				'/clear_discover_cache',
 				'/clear_all_caches',
-				'/update_tmdb_proxy'
+				'/update_tmdb_proxy',
+				// Integrations and the RSS preview (P4-J3).
+				'/regenerate_token',
+				'/update_plex_usernames',
+				'/update_plex_webhook_libraries',
+				'/update_plex_webhook_share',
+				'/toggle_plex_webhook_share',
+				'/delete_plex_webhook_share',
+				'/update_jellyfin_webhook_events',
+				'/jellyfin/',
+				'/sync/',
+				'/matches/',
+				'/rss/preview'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

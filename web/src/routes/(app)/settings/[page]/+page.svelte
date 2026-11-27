@@ -26,6 +26,8 @@
 		export: () => import('#lib/settings/Export.svelte'),
 		'connected-apps': () => import('#lib/settings/ConnectedApps.svelte'),
 		advanced: () => import('#lib/settings/Advanced.svelte'),
+		integrations: () => import('#lib/settings/Integrations.svelte'),
+		rss: () => import('#lib/settings/Rss.svelte'),
 		about: () => import('#lib/settings/About.svelte')
 	} as const;
 	type PageModule = { default: Component<{ screen: SettingsScreen }> };

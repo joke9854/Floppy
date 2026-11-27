@@ -6322,6 +6322,296 @@ export interface components {
             results: components["schemas"]["IntegrationToken"][];
             scope_choices: components["schemas"]["ScopeChoice"][];
         };
+        /** @description The legacy key, app tokens and connected apps. */
+        IntegrationsApi: {
+            legacy_token: string;
+            regenerate_url: string;
+            tokens: components["schemas"]["IntegrationsToken"][];
+            scope_choices: components["schemas"]["IntegrationsScope"][];
+            create_token_url: string;
+            connected_apps: components["schemas"]["IntegrationsConnectedApp"][];
+        };
+        /** @description A watched-state sync connection. */
+        IntegrationsBinding: {
+            id: number;
+            label: string;
+            badge: string;
+            active: boolean;
+            kill_switch: boolean;
+            direction: string;
+            /** Format: date-time */
+            last_reconciled_at: string | null;
+            last_error_message: string;
+            pending_deliveries: number;
+            failed_deliveries: number;
+            open_conflicts: number;
+            capabilities: components["schemas"]["IntegrationsCapability"][];
+        };
+        /** @description A sync capability (`state`: on, off, unavailable, unsupported). */
+        IntegrationsCapability: {
+            code: string;
+            label: string;
+            state: components["schemas"]["IntegrationsCapabilityStateEnum"];
+        };
+        /**
+         * @description * `on` - on
+         *     * `off` - off
+         *     * `unavailable` - unavailable
+         *     * `unsupported` - unsupported
+         * @enum {string}
+         */
+        IntegrationsCapabilityStateEnum: "on" | "off" | "unavailable" | "unsupported";
+        /** @description A card on the grid (`state`: connected, broken, unknown, off; `href`: opens elsewhere). */
+        IntegrationsCard: {
+            key: string;
+            name: string;
+            method: string;
+            section: components["schemas"]["SectionEnum"];
+            state: components["schemas"]["IntegrationsCardStateEnum"];
+            count: number;
+            href: string;
+            logo: string;
+        };
+        /**
+         * @description * `connected` - connected
+         *     * `broken` - broken
+         *     * `unknown` - unknown
+         *     * `off` - off
+         * @enum {string}
+         */
+        IntegrationsCardStateEnum: "connected" | "broken" | "unknown" | "off";
+        /** @description A value and its label. */
+        IntegrationsChoice: {
+            value: string;
+            label: string;
+        };
+        /** @description An item both sides changed. */
+        IntegrationsConflict: {
+            id: number;
+            item: string;
+            kind: string;
+            remote_watched: boolean;
+            local_watched: boolean;
+        };
+        /** @description An app signed in with the Floppy account. */
+        IntegrationsConnectedApp: {
+            client_id: string;
+            name: string;
+            scopes: string[];
+            /** Format: date-time */
+            connected_at: string | null;
+            revoke_url: string;
+        };
+        /** @description A Stremio install credential (its token is never returned here). */
+        IntegrationsGrant: {
+            id: number;
+            name: string;
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            allow_playback_start: boolean;
+            revoke_url: string;
+        };
+        /** @description The last Playback Reporting upload. */
+        IntegrationsImportRun: {
+            status: string;
+            /** Format: date-time */
+            started_at: string | null;
+            created: number;
+            skipped: number;
+        };
+        /** @description Jellyfin webhooks and the Floppy → Jellyfin connection. */
+        IntegrationsJellyfin: {
+            webhook_url: string;
+            mark_played_enabled: boolean;
+            mark_unplayed_enabled: boolean;
+            account: components["schemas"]["IntegrationsJellyfinAccount"] | null;
+            last_import: components["schemas"]["IntegrationsImportRun"] | null;
+            pull_interval_minutes: number;
+            urls: components["schemas"]["IntegrationsJellyfinUrls"];
+        };
+        /** @description The Floppy → Jellyfin connection. */
+        IntegrationsJellyfinAccount: {
+            connected: boolean;
+            base_url: string;
+            username: string;
+            /** Format: date-time */
+            last_sync_at: string | null;
+            last_error_message: string;
+            playback_reporting_available: boolean | null;
+            /** Format: date-time */
+            last_pull_at: string | null;
+            last_pull_error_message: string;
+            pull_history_enabled: boolean;
+            push_watched_enabled: boolean;
+            push_unwatched_enabled: boolean;
+            scheduled_push_enabled: boolean;
+            instant_push_enabled: boolean;
+        };
+        /** @description Where the Jellyfin forms post. */
+        IntegrationsJellyfinUrls: {
+            events: string;
+            connect: string;
+            disconnect: string;
+            settings: string;
+            push: string;
+            pull: string;
+            upload: string;
+        };
+        /** @description Matching review and saved decisions (100 each at most). */
+        IntegrationsMatches: {
+            review: components["schemas"]["IntegrationsReview"][];
+            saved: components["schemas"]["IntegrationsSavedMatch"][];
+        };
+        /** @description Plex webhook filters, shares and status. */
+        IntegrationsPlex: {
+            connected: boolean;
+            usernames: string;
+            libraries: components["schemas"]["IntegrationsPlexLibrary"][];
+            selected_libraries: string[];
+            shares: components["schemas"]["IntegrationsPlexShare"][];
+            received: components["schemas"]["IntegrationsPlexReceived"][];
+            recipients: components["schemas"]["IntegrationsRecipient"][];
+            webhook: components["schemas"]["IntegrationsPlexWebhook"];
+            webhook_url: string;
+            urls: components["schemas"]["IntegrationsPlexUrls"];
+        };
+        /** @description A Plex library (`value`: machine::section). */
+        IntegrationsPlexLibrary: {
+            value: string;
+            label: string;
+            server_name: string;
+        };
+        /** @description A Plex webhook another user shared (`libraries`: all, selected, none). */
+        IntegrationsPlexReceived: {
+            id: number;
+            owner: string;
+            plex_username: string;
+            libraries: components["schemas"]["LibrariesEnum"];
+            enabled: boolean;
+        };
+        /** @description A share of this account's Plex webhook. */
+        IntegrationsPlexShare: {
+            id: number;
+            recipient: string;
+            plex_username: string;
+            libraries: string[];
+            all_libraries: boolean;
+            recipient_enabled: boolean;
+        };
+        /** @description Where the Plex forms post. */
+        IntegrationsPlexUrls: {
+            usernames: string;
+            libraries: string;
+            share: string;
+            delete_share: string;
+            toggle_share: string;
+        };
+        /** @description The Plex webhook's status (needs_update, error, received, none). */
+        IntegrationsPlexWebhook: {
+            status: components["schemas"]["IntegrationsPlexWebhookStatusEnum"];
+            /** Format: date-time */
+            rotated_at: string | null;
+            error: string;
+            /** Format: date-time */
+            error_at: string | null;
+            /** Format: date-time */
+            last_received_at: string | null;
+        };
+        /**
+         * @description * `needs_update` - needs_update
+         *     * `error` - error
+         *     * `received` - received
+         *     * `none` - none
+         * @enum {string}
+         */
+        IntegrationsPlexWebhookStatusEnum: "needs_update" | "error" | "received" | "none";
+        /** @description How many titles of a list Stremio can show. */
+        IntegrationsReadiness: {
+            noun: string;
+            list_name: string;
+            total: number;
+            publishable: number;
+            unresolved: number;
+        };
+        /** @description A user a webhook can be shared with. */
+        IntegrationsRecipient: {
+            id: number;
+            username: string;
+        };
+        /** @description A provider identity that was not safe to match automatically. */
+        IntegrationsReview: {
+            id: number;
+            title: string;
+            integration: string;
+            fix_url: string;
+            ignore_url: string;
+        };
+        /** @description A saved match decision. */
+        IntegrationsSavedMatch: {
+            id: number;
+            title: string;
+            integration: string;
+            status: string;
+            edit_url: string;
+            remove_url: string;
+        };
+        /** @description A permission a token can have (`default`: in the tracking preset). */
+        IntegrationsScope: {
+            value: string;
+            description: string;
+            default: boolean;
+        };
+        /** @description Seerr: the settings form and webhook URLs. */
+        IntegrationsSeerr: {
+            enabled: boolean;
+            trigger_statuses: string;
+            allowed_usernames: string;
+            default_added_status: string;
+            default_status_choices: string[];
+            save_url: string;
+            webhook_url: string;
+            global_enabled: boolean;
+            global_webhook_url: string;
+        };
+        /** @description Stremio: the addon URL (newest install credential, else the account key). */
+        IntegrationsStremio: {
+            addon_url: string;
+            configure_url: string;
+            import_url: string;
+            grants: components["schemas"]["IntegrationsGrant"][];
+            create_grant_url: string;
+            readiness: components["schemas"]["IntegrationsReadiness"][];
+        };
+        /** @description Watched-state sync. */
+        IntegrationsSync: {
+            bindings: components["schemas"]["IntegrationsBinding"][];
+            conflicts: components["schemas"]["IntegrationsConflict"][];
+            direction_choices: components["schemas"]["IntegrationsChoice"][];
+            urls: components["schemas"]["IntegrationsSyncUrls"];
+        };
+        /** @description Where the sync forms post. */
+        IntegrationsSyncUrls: {
+            resolve: string;
+            pause: string;
+            direction: string;
+        };
+        /** @description A named app token (the secret is shown once, by the create answer). */
+        IntegrationsToken: {
+            id: number;
+            name: string;
+            prefix: string;
+            scopes: string[];
+            /** Format: date-time */
+            created_at: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            expired: boolean;
+            revoke_url: string;
+        };
         /** @description Serializer used for item details. */
         Item: {
             /** @description Return media_id preserving alphanumeric provider IDs. */
@@ -6625,6 +6915,13 @@ export interface components {
          * @enum {string}
          */
         LayoutEnum: "grid" | "table";
+        /**
+         * @description * `all` - all
+         *     * `selected` - selected
+         *     * `none` - none
+         * @enum {string}
+         */
+        LibrariesEnum: "all" | "selected" | "none";
         /** @description Bulk select's menus: statuses, the user's editable lists, their tags. */
         LibraryBulk: {
             statuses: components["schemas"]["LibraryChoice"][];
@@ -8351,6 +8648,17 @@ export interface components {
          * @enum {string}
          */
         RoleEnum: "image" | "title" | "score" | "list" | "text";
+        /** @description A media type and its feed rows. */
+        RssMediaType: {
+            value: string;
+            label: string;
+            rows: components["schemas"]["RssRow"][];
+        };
+        /** @description A Discover row that can be a feed. */
+        RssRow: {
+            key: string;
+            title: string;
+        };
         /** @description A permission a token can hold. */
         ScopeChoice: {
             scope: string;
@@ -8402,6 +8710,12 @@ export interface components {
             image: string | null;
             provider_game_lengths_summary?: components["schemas"]["ProviderGameLengthsSummary"];
         };
+        /**
+         * @description * `servers` - servers
+         *     * `apps` - apps
+         * @enum {string}
+         */
+        SectionEnum: "servers" | "apps";
         /** @description Seerr webhook settings. */
         SeerrSettings: {
             enabled: boolean;
@@ -8603,6 +8917,22 @@ export interface components {
             count: number;
             size: string;
         };
+        /** @description Integrations (session only: carries the legacy key and URLs built on it). */
+        SettingsIntegrations: {
+            is_demo: boolean;
+            cards: components["schemas"]["IntegrationsCard"][];
+            matches: components["schemas"]["IntegrationsMatches"];
+            sync: components["schemas"]["IntegrationsSync"];
+            api: components["schemas"]["IntegrationsApi"];
+            jellyfin: components["schemas"]["IntegrationsJellyfin"];
+            plex: components["schemas"]["IntegrationsPlex"];
+            emby_webhook_url: string;
+            kodi_webhook_url: string;
+            stremio: components["schemas"]["IntegrationsStremio"];
+            seerr: components["schemas"]["IntegrationsSeerr"];
+            nuvio_server_url: string;
+            onboarding_url: string;
+        };
         /** @description An item excluded from notifications, or a search result. */
         SettingsItem: {
             id: number;
@@ -8745,6 +9075,13 @@ export interface components {
             clear: string;
             personal: string;
         };
+        /** @description RSS: fill MEDIA_TYPE_PLACEHOLDER and ROW_KEY_PLACEHOLDER in the template. */
+        SettingsRss: {
+            media_types: components["schemas"]["RssMediaType"][];
+            feed_url_template: string;
+            preview_url: string;
+            integrations_url: string;
+        };
         /** @description A settings page for the web app (`handled: false`: open `django_url`). */
         SettingsScreen: {
             handled: boolean;
@@ -8762,6 +9099,8 @@ export interface components {
             export?: components["schemas"]["SettingsExport"];
             advanced?: components["schemas"]["SettingsAdvanced"];
             connected_apps?: components["schemas"]["SettingsConnectedApps"];
+            integrations?: components["schemas"]["SettingsIntegrations"];
+            rss?: components["schemas"]["SettingsRss"];
         };
         /** @description A library this provider can be the default for. */
         SettingsSettableType: {

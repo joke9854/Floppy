@@ -1205,6 +1205,7 @@ def import_sonarr(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_connect(request):
     """Connect a Jellyfin server using base URL + API key."""
@@ -1226,6 +1227,7 @@ def jellyfin_connect(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_disconnect(request):
     """Disconnect the Jellyfin integration."""
@@ -1234,6 +1236,7 @@ def jellyfin_disconnect(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_settings(request):
     """Update Jellyfin push-sync and history-pull toggles."""
@@ -1254,6 +1257,7 @@ def jellyfin_settings(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_push_now(request):
     """Queue an immediate Jellyfin watched-state push."""
@@ -1267,6 +1271,7 @@ def jellyfin_push_now(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_pull_now(request):
     """Queue an immediate automatic Jellyfin history pull."""
@@ -1280,6 +1285,7 @@ def jellyfin_pull_now(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def jellyfin_playback_reporting_import(request):
     """Queue a manual Playback Reporting TSV import for the connected user."""
@@ -3027,6 +3033,7 @@ def stremio_addon_subtitles(request, token, media_type, media_id, config=None):
     return _stremio_addon_response({"subtitles": []})
 
 
+@app_helpers.answers_json
 @require_POST
 def sync_direction_settings(request):
     """Set which way watched state may travel for one connection.
@@ -3084,6 +3091,7 @@ def sync_direction_settings(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def sync_kill_switch(request):
     """Stop or resume one connection without discarding its approvals."""
@@ -3108,6 +3116,7 @@ def sync_kill_switch(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def sync_resolve_conflict(request):
     """Settle one held disagreement with the state the user chose."""
@@ -3323,6 +3332,7 @@ def match_fix(request, item_id):
     return render(request, "integrations/match_fix.html", context)
 
 
+@app_helpers.answers_json
 @login_required
 @require_POST
 def match_reference_status(request, reference_id, status):

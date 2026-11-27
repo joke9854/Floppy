@@ -93,3 +93,6 @@ export function downloadName(response: Response, fallback: string): string {
 	const match = /filename="?([^";]+)"?/i.exec(response.headers.get('content-disposition') ?? '');
 	return match?.[1] ?? fallback;
 }
+
+export type SettingsIntegrations = components['schemas']['SettingsIntegrations'];
+export type SettingsRss = components['schemas']['SettingsRss'];
