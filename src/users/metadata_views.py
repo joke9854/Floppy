@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from app import config, preflight
+from app import config, helpers, preflight
 from app.models import MediaTypes, Sources
 from app.providers import credentials
 from app.services import metadata_resolution
@@ -202,6 +202,7 @@ def metadata_settings(request):
     return render(request, "users/metadata.html", context)
 
 
+@helpers.answers_json
 @require_POST
 def set_media_type_provider(request, media_type):
     """Save the current user's preferred metadata provider for one media type."""
@@ -232,7 +233,10 @@ def set_media_type_provider(request, media_type):
             from app.tasks_anime_library_repair import anime_rows_needing_conversion
 
             convertible = anime_rows_needing_conversion(request.user)
-            if convertible:
+            if convertible and helpers.wants_json(request):
+                # The web app asks right away; the page reads it from the session.
+                request.answer_extra = {"anime_shape_prompt_count": len(convertible)}
+            elif convertible:
                 request.session["anime_shape_prompt_count"] = len(convertible)
 
     if media_type == MediaTypes.ANIME.value:
@@ -253,6 +257,7 @@ def _spec_or_none(slug):
     return credentials.get_spec(slug)
 
 
+@helpers.answers_json
 @require_POST
 def save_provider_credential(request, slug):
     """Store instance-wide credentials for a provider."""
@@ -282,6 +287,7 @@ def save_provider_credential(request, slug):
     return redirect("metadata_settings")
 
 
+@helpers.answers_json
 @require_POST
 def clear_provider_credential(request, slug):
     """Remove the instance-wide credentials for a provider."""
@@ -297,6 +303,7 @@ def clear_provider_credential(request, slug):
     return redirect("metadata_settings")
 
 
+@helpers.answers_json
 @require_POST
 def save_personal_credential(request, slug):
     """Store the current user's personal credentials for a provider."""

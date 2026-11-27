@@ -15,6 +15,8 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from api import settings_data_screen as data_screen
+from api import settings_preferences_screen as preferences_screen
 from app.templatetags import app_tags
 
 # The Django settings nav (users/components/ct_settings_nav.html): section,
@@ -51,7 +53,20 @@ NAV = (
 )
 
 # Pages the web draws (P4-J1); the rest open their Django page.
-WEB_PAGES = frozenset({"account", "appearance", "notifications", "sidebar", "about"})
+WEB_PAGES = frozenset(
+    {
+        "account",
+        "appearance",
+        "notifications",
+        "sidebar",
+        "preferences",
+        "metadata",
+        "export",
+        "connected-apps",
+        "advanced",
+        "about",
+    }
+)
 
 _FLOATING_HINTS = {
     "hover": "Hover opens the labels over the page; nothing shifts.",
@@ -190,6 +205,11 @@ _BUILDERS = {
     "sidebar": _sidebar,
     "appearance": _appearance,
     "about": _about,
+    "preferences": preferences_screen.build_preferences,
+    "metadata": data_screen.build_metadata,
+    "export": data_screen.build_export,
+    "advanced": data_screen.build_advanced,
+    "connected-apps": data_screen.build_connected_apps,
 }
 
 
@@ -207,7 +227,8 @@ def build_settings_screen(request, page: str) -> dict:
         "nav": _nav(),
     }
     if page in WEB_PAGES:
-        screen[page] = _BUILDERS[page](request)
+        # connected-apps answers as `connected_apps`.
+        screen[page.replace("-", "_")] = _BUILDERS[page](request)
     return screen
 
 
@@ -335,3 +356,8 @@ class SettingsScreenSerializer(serializers.Serializer):
     sidebar = SettingsSidebarSerializer(required=False)
     appearance = SettingsAppearanceSerializer(required=False)
     about = SettingsAboutSerializer(required=False)
+    preferences = preferences_screen.SettingsPreferencesSerializer(required=False)
+    metadata = data_screen.SettingsMetadataSerializer(required=False)
+    export = data_screen.SettingsExportSerializer(required=False)
+    advanced = data_screen.SettingsAdvancedSerializer(required=False)
+    connected_apps = data_screen.SettingsConnectedAppsSerializer(required=False)

@@ -59,7 +59,7 @@ adds a web test for its flow:
 | P4-G | Discover | G1 (2026-11-22): type tabs with More, the ⋮ menu (Refresh recommendations, Hidden from Discover), the hero, rows with Add to Planning and Hide (toast with Undo), the rest of the rows at the page's end, the rebuild wait, the Hidden view with Unhide. G2: a card's Add to custom lists dialog |
 | P4-H | Statistics | H1 (2026-11-23): range, media-type and compare controls, Refresh with the cache wait, Monthly recap link, hero, highlights, summary cards, Activity History or Played Hours by Media Type, Statistics Preferences. H2 (2026-11-23): the filtered charts. H3 (2026-11-23): per-type overviews, talent section, nav |
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
-| P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2: Preferences, Metadata, Connected apps, Export, Advanced. J3: Integrations and RSS |
+| P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3: Integrations and RSS |
 | P4-K | Imports | Not started |
 
 ### P4-A: Home
@@ -730,10 +730,43 @@ back change nothing.
       order (arrows instead of drag handles); saving refreshes the shell.
 - [x] J1: About: description, install, resources, API documents (open or
       download, no inline preview), attributions, license, version.
-- [ ] J2: Preferences, Metadata, Connected apps, Export, Advanced.
+- [x] J2: Preferences: every field posts back (the view resets the
+      auto-pause rules, region and language when they are missing); labels
+      and options come from the screen, a stored value the list lacks
+      (UNSET) shows as Not set; auto-pause rules add, edit, remove.
+- [x] J2: Metadata: the provider per library (only configured sources),
+      anime library mode, the anime conversion prompt (from the POST answer,
+      not the session); provider keys with the masked preview only; instance
+      keys for superusers, personal keys for anyone; Save is off until a key
+      is typed and Remove is its own button (a blank field deletes).
+- [x] J2: Export: the CSV form answers with the file (blob download);
+      errors answer JSON; schedules (delete), the last 7 days of runs,
+      backup and snapshot folders, Letterboxd.
+- [x] J2: Advanced: logs (superusers), image caching (superusers), each
+      cache clear and Clear All behind the Django page's confirm text,
+      delete one media type behind a typed DELETE, TMDB proxy (never read
+      back; Save off when blank, Remove separate).
+- [x] J2: Connected apps: signed-in installs (Sign out), sync connections,
+      crash reports (newest 50, Export JSON).
 - [ ] J3: Integrations and RSS.
 - [ ] Import stays P4-K.
 
 Fixed in J1: the notifications API (`PATCH /api/v1/user/notifications/`)
 left the premiere digest out of the form, so every PATCH turned it off; it
 now reads and writes all four fields.
+
+Fixed in J2:
+- `helpers.answers_json` answered a bare 403/404 as `{"saved": true}` and
+  turned a JSON GET into an answer; refusals now fail with their status and
+  GET renders the page.
+- Preferences reset the provider region and metadata language to their
+  defaults whenever TMDB's lists failed to load; it now keeps them.
+- The settings route could hand a page the next page's screen for one
+  update while moving between pages (a crash in the old page); the page
+  component and its screen are now set together.
+
+Not verifiable locally: clearing caches and deleting a media type need
+Redis (`delete_pattern`); the local server has none, so both answered 500
+there (the Django page fails the same way). Server tests cover them.
+Report only: the search-cache clear is instance-wide and has no superuser
+check (as on the Django page).

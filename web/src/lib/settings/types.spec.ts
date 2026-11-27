@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mediaTypesForm, moveEntry, notificationsForm, readAnswer } from './types.ts';
+import { downloadName, mediaTypesForm, moveEntry, notificationsForm, preferencesForm, readAnswer } from './types.ts';
 
 describe('moveEntry', () => {
 	it('swaps with the neighbour and ignores the ends', () => {
@@ -50,5 +50,37 @@ describe('readAnswer', () => {
 		expect(bad.saved).toBe(false);
 		expect(bad.errors).toEqual({ username: ['Taken'] });
 		expect((await readAnswer(new Response('<html>', { status: 500 }))).saved).toBe(false);
+	});
+});
+
+describe('preferencesForm', () => {
+	it('posts every value and derives auto-pause from the rules', () => {
+		const form = preferencesForm({ rating_scale: '5', watch_provider_region: 'GB' }, [{ library: 'all', weeks: 8 }]);
+		expect(form).toEqual({
+			rating_scale: '5',
+			watch_provider_region: 'GB',
+			auto_pause_enabled: '1',
+			auto_pause_rules: '[{"library":"all","weeks":8}]'
+		});
+		expect(preferencesForm({}, []).auto_pause_enabled).toBe('0');
+		expect(preferencesForm({}, [{ library: 'tv', weeks: 0 }]).auto_pause_rules).toBe('[{"library":"tv","weeks":1}]');
+	});
+});
+
+describe('readAnswer', () => {
+	it('reads an answers_json failure', async () => {
+		const answer = await readAnswer(new Response(JSON.stringify({ saved: false, error: 'Nope.' }), { status: 400 }));
+		expect(answer).toMatchObject({ saved: false, message: 'Nope.' });
+	});
+	it('fails a bare refusal', async () => {
+		expect((await readAnswer(new Response('', { status: 403 }))).saved).toBe(false);
+	});
+});
+
+describe('downloadName', () => {
+	it('reads the attachment name', () => {
+		const response = new Response('', { headers: { 'content-disposition': 'attachment; filename="floppy_2026.csv"' } });
+		expect(downloadName(response, 'x.csv')).toBe('floppy_2026.csv');
+		expect(downloadName(new Response(''), 'x.csv')).toBe('x.csv');
 	});
 });

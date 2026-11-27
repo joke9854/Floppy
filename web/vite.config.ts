@@ -76,7 +76,18 @@ export default defineConfig({
 				'/reload_calendar',
 				// Settings forms and the exclusion search (P4-J).
 				'/settings/',
-				'/notifications/search/'
+				'/notifications/search/',
+				// Export, Advanced and the Letterboxd download (P4-J2).
+				'/create_export_schedule',
+				'/delete_export_schedule',
+				'/export/csv/letterboxd',
+				'/bulk_delete_by_media_type',
+				'/clear_search_cache',
+				'/clear_history_cache',
+				'/clear_statistics_cache',
+				'/clear_discover_cache',
+				'/clear_all_caches',
+				'/update_tmdb_proxy'
 			].map((path) => [
 				path,
 				{ target: process.env.FLOPPY_DJANGO_ORIGIN ?? 'http://127.0.0.1:8001', xfwd: true }

@@ -146,8 +146,8 @@ const WEB_DETAIL = [
 	/^\/lists\/?(\?|$)/,
 	// A list's page (P4-I2): /list/<id or custom URL>, not the actions beside it.
 	/^\/list\/(?!(?:bulk-add|create|delete|edit|import-csv|share-view)(?:[/?#]|$))[^/?#]+\/?(?:\?.*)?$/,
-	// The settings pages the web draws (P4-J1); the rest stay Django.
-	/^\/settings\/(?:account|appearance|notifications|sidebar|about)\/?$/
+	// The settings pages the web draws (P4-J1, J2); the rest stay Django.
+	/^\/settings\/(?:account|appearance|notifications|sidebar|preferences|metadata|export|connected-apps|advanced|about)\/?$/
 ];
 
 /**

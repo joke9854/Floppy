@@ -876,25 +876,28 @@ def appearance(request):
     return render(request, "users/appearance.html", context)
 
 
-@require_http_methods(["GET", "POST"])
-def preferences(request):
-    """Render the preferences settings page."""
-    media_types = [
-        mt.value for mt in MediaTypes if mt.value != MediaTypes.EPISODE.value
-    ]
+def preference_choices(user) -> dict:
+    """Return the Preferences page's library and TMDB choice lists.
+
+    `regions_loaded`/`languages_loaded` say whether TMDB answered; when it
+    did not, the lists hold only the fallback entry and a save keeps the
+    stored region and language instead of resetting them.
+    """
     active_libraries = [
         library
-        for library in request.user.get_active_media_types()
+        for library in user.get_active_media_types()
         if library in AUTO_PAUSE_MEDIA_TYPES
     ]
     library_labels = {"all": gettext("All Libraries")}
     for library in active_libraries:
         library_labels[library] = app_tags.media_type_readable_plural(library)
+    regions_loaded = languages_loaded = True
     try:
         watch_provider_regions = tmdb.watch_provider_regions()
     except Exception as exc:  # pragma: no cover - defensive provider fallback
         logger.warning("Could not load TMDB watch provider regions: %s", exc)
         watch_provider_regions = [("UNSET", "Not set")]
+        regions_loaded = False
     try:
         metadata_language_choices = tmdb.metadata_languages()
     except Exception as exc:  # pragma: no cover - defensive provider fallback
@@ -902,6 +905,7 @@ def preferences(request):
         metadata_language_choices = [
             ("", f"Server Default ({settings.TMDB_LANG})"),
         ]
+        languages_loaded = False
     # Provider results are cached across users; localize UI options only here.
     region_option_labels = {
         "UNSET": gettext("Not set"),
@@ -920,6 +924,28 @@ def preferences(request):
         )
         for code, label in metadata_language_choices
     ]
+    return {
+        "active_libraries": active_libraries,
+        "library_labels": library_labels,
+        "watch_provider_regions": watch_provider_regions,
+        "metadata_language_choices": metadata_language_choices,
+        "regions_loaded": regions_loaded,
+        "languages_loaded": languages_loaded,
+    }
+
+
+@app_helpers.answers_json
+@require_http_methods(["GET", "POST"])
+def preferences(request):
+    """Render the preferences settings page."""
+    media_types = [
+        mt.value for mt in MediaTypes if mt.value != MediaTypes.EPISODE.value
+    ]
+    choices = preference_choices(request.user)
+    active_libraries = choices["active_libraries"]
+    library_labels = choices["library_labels"]
+    watch_provider_regions = choices["watch_provider_regions"]
+    metadata_language_choices = choices["metadata_language_choices"]
     if request.method == "POST":
         # Prevent demo users from updating preferences
         if request.user.is_demo:
@@ -1150,8 +1176,12 @@ def preferences(request):
                 )
                 fields_to_update.append("book_comic_manga_progress_percentage")
 
+        # Without TMDB's lists the posted value cannot be checked; keep the
+        # stored one rather than resetting it to the fallback.
         provider_region = request.POST.get("watch_provider_region", "")
-        if provider_region in [region[0] for region in watch_provider_regions]:
+        if not choices["regions_loaded"]:
+            pass
+        elif provider_region in [region[0] for region in watch_provider_regions]:
             if request.user.watch_provider_region != provider_region:
                 request.user.watch_provider_region = provider_region
                 fields_to_update.append("watch_provider_region")
@@ -1160,7 +1190,9 @@ def preferences(request):
             fields_to_update.append("watch_provider_region")
 
         metadata_language = request.POST.get("metadata_language", "")
-        if metadata_language in {
+        if not choices["languages_loaded"]:
+            pass
+        elif metadata_language in {
             choice[0] for choice in metadata_language_choices
         }:
             if request.user.metadata_language != metadata_language:
@@ -1242,6 +1274,7 @@ def preferences(request):
     return render(request, "users/preferences.html", context)
 
 
+@app_helpers.answers_json
 @login_required
 @require_POST
 def convert_anime_library(request):
@@ -1759,6 +1792,7 @@ def advanced(request):
     return render(request, "users/advanced.html", context)
 
 
+@app_helpers.answers_json
 @require_POST
 def update_image_cache(request):
     """Update the instance-wide image cache toggle for superusers."""
@@ -1777,6 +1811,7 @@ def update_image_cache(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_image_cache(request):
     """Clear all derived provider images for superusers."""
@@ -2005,6 +2040,7 @@ def _delete_untracked_trackers(
     return deleted
 
 
+@app_helpers.answers_json
 @require_POST
 def bulk_delete_by_media_type(request):
     """Permanently delete all of the requesting user's media of one type."""
@@ -2293,12 +2329,22 @@ def delete_import_schedule(request):
     return redirect("import_data")
 
 
+def _export_error(request, message):
+    """Refuse an export: JSON for the web app, a flash and redirect otherwise."""
+    if app_helpers.wants_json(request):
+        return JsonResponse({"saved": False, "error": message}, status=400)
+    messages.error(request, message)
+    return redirect("export_data")
+
+
 @require_POST
 def create_export_schedule(request):
-    """Create a one-time export or a recurring scheduled export."""
+    """Create a one-time export or a recurring scheduled export.
+
+    Success is the CSV download in both cases; the web app reads it as a file.
+    """
     if request.user.is_demo:
-        messages.error(request, "This section is view-only for demo accounts.")
-        return redirect("export_data")
+        return _export_error(request, "This section is view-only for demo accounts.")
 
     frequency = request.POST.get("frequency", "once")
     export_time = request.POST.get("time", "03:00")
@@ -2309,11 +2355,10 @@ def create_export_schedule(request):
     include_collection = request.POST.get("include_collection") == "on"
 
     if not selected_media_types and not (include_lists or include_collection):
-        messages.error(
+        return _export_error(
             request,
             "Select at least one media type, Custom Lists, or Collection to export.",
         )
-        return redirect("export_data")
 
     media_types = selected_media_types or []
 
@@ -2344,8 +2389,7 @@ def create_export_schedule(request):
             include_collection=include_collection,
         )
     except data_management.DataManagementError as error:
-        messages.error(request, str(error))
-        return redirect("export_data")
+        return _export_error(request, str(error))
 
     logger.info(
         "User %s created recurring export schedule (%s) and started CSV export",
@@ -2354,6 +2398,7 @@ def create_export_schedule(request):
     )
     return build_export_response()
 
+@app_helpers.answers_json
 @require_POST
 def delete_export_schedule(request):
     """Delete a scheduled backup export."""
@@ -2610,6 +2655,7 @@ def export_crash_reports(request):
     return response
 
 
+@app_helpers.answers_json
 @require_POST
 def revoke_app_session(request, session_id):
     """Sign one install out; the user's other installs and apps keep working."""
@@ -2797,6 +2843,7 @@ def update_jellyseerr_settings(request):
     return redirect(request.META.get("HTTP_REFERER", "/settings/integrations"))
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_search_cache(request):
     """Clear all cached search entries."""
@@ -2814,6 +2861,7 @@ def clear_search_cache(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_history_cache(request):
     """Clear the requesting user's cached History day/index payloads."""
@@ -2832,6 +2880,7 @@ def clear_history_cache(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_statistics_cache(request):
     """Clear the requesting user's cached Statistics page/day payloads."""
@@ -2850,6 +2899,7 @@ def clear_statistics_cache(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_discover_cache(request):
     """Clear the requesting user's cached Discover rows/taste profile."""
@@ -2868,6 +2918,7 @@ def clear_discover_cache(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def clear_all_caches(request):
     """Clear every clearable cache: search (instance-wide) plus this user's own."""
@@ -2890,6 +2941,7 @@ def clear_all_caches(request):
     return redirect("advanced")
 
 
+@app_helpers.answers_json
 @require_POST
 def update_tmdb_proxy(request):
     """Update or clear the user's TMDB outbound proxy URL."""

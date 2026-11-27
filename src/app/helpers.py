@@ -1,6 +1,7 @@
 import ipaddress
 import re
 from datetime import date, datetime
+from http import HTTPStatus
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse
 
 from django.apps import apps
@@ -169,7 +170,8 @@ def answers_json(view):
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         response = view(request, *args, **kwargs)
-        if not wants_json(request) or isinstance(response, JsonResponse):
+        # A GET renders the page; only a form post answers in JSON.
+        if request.method == "GET" or not wants_json(request) or isinstance(response, JsonResponse):
             return response
         storage = messages.get_messages(request)
         queued = list(getattr(storage, "_queued_messages", []))
@@ -177,9 +179,14 @@ def answers_json(view):
         errors = [str(message) for message in queued if message.level >= messages.ERROR]
         if errors:
             return JsonResponse({"saved": False, "error": " ".join(errors)}, status=400)
+        # A bare refusal (403, 404) queues no message; it is still a failure.
+        if response.status_code >= HTTPStatus.BAD_REQUEST:
+            return JsonResponse({"saved": False, "error": ""}, status=response.status_code)
         answer = {
             "saved": True,
             "message": " ".join(str(message) for message in queued),
+            # Fields the view attached for the web (request.answer_extra).
+            **getattr(request, "answer_extra", {}),
         }
         if response.has_header("Location"):
             answer["location"] = response["Location"]

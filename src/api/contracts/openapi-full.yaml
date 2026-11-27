@@ -27887,6 +27887,87 @@ components:
       - social_connections_url
       - unused_recovery_codes
       - username
+    SettingsAdvanced:
+      type: object
+      description: Advanced. The TMDB proxy URL is never returned, only whether one
+        is set.
+      properties:
+        is_demo:
+          type: boolean
+        is_superuser:
+          type: boolean
+        bug_report_url:
+          type: string
+        image_cache:
+          $ref: '#/components/schemas/SettingsImageCache'
+        caches:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCache'
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsValueLabel'
+        tmdb_proxy_configured:
+          type: boolean
+        urls:
+          $ref: '#/components/schemas/SettingsAdvancedUrls'
+      required:
+      - bug_report_url
+      - caches
+      - image_cache
+      - is_demo
+      - is_superuser
+      - media_types
+      - tmdb_proxy_configured
+      - urls
+    SettingsAdvancedUrls:
+      type: object
+      description: Where the Advanced forms post.
+      properties:
+        logs:
+          type: string
+        image_cache:
+          type: string
+        clear_image_cache:
+          type: string
+        clear_all:
+          type: string
+        delete_media_type:
+          type: string
+        tmdb_proxy:
+          type: string
+      required:
+      - clear_all
+      - clear_image_cache
+      - delete_media_type
+      - image_cache
+      - logs
+      - tmdb_proxy
+    SettingsAppSession:
+      type: object
+      description: A signed-in install.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        last_active:
+          type: string
+          format: date-time
+          nullable: true
+        revoke_url:
+          type: string
+      required:
+      - id
+      - last_active
+      - name
+      - revoke_url
+      - scopes
     SettingsAppearance:
       type: object
       description: 'Appearance: post `detail_layouts` back with the sidebar choices.'
@@ -27916,6 +27997,60 @@ components:
       - save_url
       - sidebar_style
       - sidebar_styles
+    SettingsAutoPauseLibrary:
+      type: object
+      description: A library an auto-pause rule can name (`all`, or a media type).
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    SettingsAutoPauseRule:
+      type: object
+      description: Pause in-progress items of `library` after `weeks` without activity.
+      properties:
+        library:
+          type: string
+        weeks:
+          type: integer
+      required:
+      - library
+      - weeks
+    SettingsBackupStatus:
+      type: object
+      description: A backup directory, how many files it holds, and whether the host
+        sees it.
+      properties:
+        path:
+          type: string
+        file_count:
+          type: integer
+        host_reachable:
+          type: boolean
+      required:
+      - file_count
+      - host_reachable
+      - path
+    SettingsCache:
+      type: object
+      description: A cache the user can clear.
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        note:
+          type: string
+        url:
+          type: string
+      required:
+      - key
+      - label
+      - note
+      - url
     SettingsChoice:
       type: object
       description: An appearance option.
@@ -27930,6 +28065,238 @@ components:
       - hint
       - label
       - value
+    SettingsConnectedApps:
+      type: object
+      description: Connected apps (the newest 50 crash reports; the export has all).
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsAppSession'
+        sync_connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsSyncConnection'
+        crash_reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCrashReport'
+        crash_report_count:
+          type: integer
+        urls:
+          $ref: '#/components/schemas/SettingsConnectedAppsUrls'
+      required:
+      - crash_report_count
+      - crash_reports
+      - sessions
+      - sync_connections
+      - urls
+    SettingsConnectedAppsUrls:
+      type: object
+      description: Connected apps links.
+      properties:
+        export_crash_reports:
+          type: string
+        integrations:
+          type: string
+      required:
+      - export_crash_reports
+      - integrations
+    SettingsCrashReport:
+      type: object
+      description: A CineTrack crash report.
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+        exception_class:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        app_version:
+          type: string
+        device_model:
+          type: string
+        android_sdk:
+          type: integer
+          nullable: true
+        stack_trace:
+          type: string
+      required:
+      - android_sdk
+      - app_version
+      - device_model
+      - exception_class
+      - id
+      - kind
+      - occurred_at
+      - stack_trace
+    SettingsCredentialField:
+      type: object
+      description: A credential field. `preview` is masked (last 4 characters at most).
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        secret:
+          type: boolean
+        required:
+          type: boolean
+        placeholder:
+          type: string
+        setting:
+          type: string
+        source:
+          type: string
+          nullable: true
+        locked:
+          type: boolean
+        preview:
+          type: string
+        has_instance_value:
+          type: boolean
+        personal:
+          type: boolean
+        has_personal_value:
+          type: boolean
+      required:
+      - has_instance_value
+      - has_personal_value
+      - label
+      - locked
+      - name
+      - personal
+      - placeholder
+      - preview
+      - required
+      - secret
+      - setting
+      - source
+    SettingsExport:
+      type: object
+      description: 'Export: the CSV form posts to `urls.export` and answers with the
+        file.'
+      properties:
+        is_demo:
+          type: boolean
+        media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsValueLabel'
+        backup:
+          $ref: '#/components/schemas/SettingsBackupStatus'
+        snapshot:
+          $ref: '#/components/schemas/SettingsSnapshotStatus'
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsExportSchedule'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsExportResult'
+        urls:
+          $ref: '#/components/schemas/SettingsExportUrls'
+      required:
+      - backup
+      - is_demo
+      - media_types
+      - results
+      - schedules
+      - snapshot
+      - urls
+    SettingsExportResult:
+      type: object
+      description: A scheduled export run from the last 7 days.
+      properties:
+        date:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+        summary:
+          type: string
+        errors:
+          type: string
+      required:
+      - date
+      - errors
+      - status
+      - summary
+    SettingsExportSchedule:
+      type: object
+      description: 'A recurring export (`media_types` null: all of them).'
+      properties:
+        task_name:
+          type: string
+        schedule:
+          type: string
+        media_types:
+          type: array
+          items:
+            type: string
+          nullable: true
+        include_lists:
+          type: boolean
+        include_collection:
+          type: boolean
+        last_run:
+          type: string
+          format: date-time
+          nullable: true
+        next_run:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - include_collection
+      - include_lists
+      - last_run
+      - media_types
+      - next_run
+      - schedule
+      - task_name
+    SettingsExportUrls:
+      type: object
+      description: Where the export forms post.
+      properties:
+        export:
+          type: string
+        delete_schedule:
+          type: string
+        letterboxd:
+          type: string
+      required:
+      - delete_schedule
+      - export
+      - letterboxd
+    SettingsImageCache:
+      type: object
+      description: Instance-wide image caching (superusers change it).
+      properties:
+        enabled:
+          type: boolean
+        days:
+          type: integer
+        day_choices:
+          type: array
+          items:
+            type: integer
+        count:
+          type: integer
+        size:
+          type: string
+      required:
+      - count
+      - day_choices
+      - days
+      - enabled
+      - size
     SettingsItem:
       type: object
       description: An item excluded from notifications, or a search result.
@@ -27947,6 +28314,34 @@ components:
       - image
       - media_type
       - title
+    SettingsLibraryProvider:
+      type: object
+      description: 'The provider one library uses (`configurable`: it can be changed).'
+      properties:
+        media_type:
+          type: string
+        label:
+          type: string
+        current_provider:
+          type: string
+        current_label:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsProviderChoice'
+        configurable:
+          type: boolean
+        url:
+          type: string
+      required:
+      - choices
+      - configurable
+      - current_label
+      - current_provider
+      - label
+      - media_type
+      - url
     SettingsMediaType:
       type: object
       description: A media type on the Media types page, in sidebar order.
@@ -27961,6 +28356,43 @@ components:
       - enabled
       - label
       - value
+    SettingsMetadata:
+      type: object
+      description: Metadata providers and credentials.
+      properties:
+        is_demo:
+          type: boolean
+        can_edit_instance:
+          type: boolean
+        promote:
+          allOf:
+          - $ref: '#/components/schemas/SettingsPromote'
+          nullable: true
+        libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsLibraryProvider'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsProviderGroup'
+        anime_library_mode:
+          type: string
+        anime_library_modes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsValueLabel'
+        convert_anime_url:
+          type: string
+      required:
+      - anime_library_mode
+      - anime_library_modes
+      - can_edit_instance
+      - convert_anime_url
+      - groups
+      - is_demo
+      - libraries
+      - promote
     SettingsNavItem:
       type: object
       description: 'A settings page in the nav (`web`: the web draws it).'
@@ -28036,6 +28468,211 @@ components:
       - premiere_notifications_enabled
       - release_notifications_enabled
       - urls
+    SettingsPreferenceChoice:
+      type: object
+      description: One option of a preference.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        hint:
+          type: string
+      required:
+      - hint
+      - label
+      - value
+    SettingsPreferenceField:
+      type: object
+      description: 'One preference: a select or a switch (`"1"`/`"0"`), posted as
+        `name`.'
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        note:
+          type: string
+        kind:
+          $ref: '#/components/schemas/SettingsPreferenceFieldKindEnum'
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsPreferenceChoice'
+      required:
+      - choices
+      - kind
+      - label
+      - name
+      - note
+    SettingsPreferenceFieldKindEnum:
+      enum:
+      - select
+      - switch
+      type: string
+      description: |-
+        * `select` - select
+        * `switch` - switch
+    SettingsPreferenceSection:
+      type: object
+      description: A group of preferences.
+      properties:
+        title:
+          type: string
+        note:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsPreferenceField'
+      required:
+      - fields
+      - note
+      - title
+    SettingsPreferences:
+      type: object
+      description: 'Preferences: post `values`, `auto_pause_enabled` and `auto_pause_rules`.'
+      properties:
+        is_demo:
+          type: boolean
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsPreferenceSection'
+        values:
+          type: object
+          additionalProperties:
+            type: string
+        auto_pause_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsAutoPauseRule'
+        auto_pause_libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsAutoPauseLibrary'
+        tmdb_lists_loaded:
+          type: boolean
+        save_url:
+          type: string
+      required:
+      - auto_pause_libraries
+      - auto_pause_rules
+      - is_demo
+      - save_url
+      - sections
+      - tmdb_lists_loaded
+      - values
+    SettingsPromote:
+      type: object
+      description: How a non-superuser becomes one.
+      properties:
+        instance_has_superuser:
+          type: boolean
+        in_container:
+          type: boolean
+        command:
+          type: string
+      required:
+      - command
+      - in_container
+      - instance_has_superuser
+    SettingsProvider:
+      type: object
+      description: A metadata provider and its credentials.
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+        logo_slug:
+          type: string
+        description:
+          type: string
+        docs_url:
+          type: string
+          nullable: true
+        user_scope:
+          type: boolean
+        configured:
+          type: boolean
+        status:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCredentialField'
+        locked:
+          type: boolean
+        has_instance_value:
+          type: boolean
+        settable_media_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsSettableType'
+        urls:
+          $ref: '#/components/schemas/SettingsProviderUrls'
+      required:
+      - configured
+      - description
+      - docs_url
+      - fields
+      - has_instance_value
+      - label
+      - locked
+      - logo_slug
+      - settable_media_types
+      - slug
+      - status
+      - urls
+      - user_scope
+    SettingsProviderChoice:
+      type: object
+      description: A source a library can use; only a configured one can be saved.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        configured:
+          type: boolean
+      required:
+      - configured
+      - label
+      - value
+    SettingsProviderGroup:
+      type: object
+      description: Providers grouped by what they supply.
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsProvider'
+      required:
+      - description
+      - key
+      - label
+      - providers
+    SettingsProviderUrls:
+      type: object
+      description: Where a provider's forms post.
+      properties:
+        save:
+          type: string
+        clear:
+          type: string
+        personal:
+          type: string
+      required:
+      - clear
+      - personal
+      - save
     SettingsScreen:
       type: object
       description: 'A settings page for the web app (`handled: false`: open `django_url`).'
@@ -28062,11 +28699,35 @@ components:
           $ref: '#/components/schemas/SettingsAppearance'
         about:
           $ref: '#/components/schemas/SettingsAbout'
+        preferences:
+          $ref: '#/components/schemas/SettingsPreferences'
+        metadata:
+          $ref: '#/components/schemas/SettingsMetadata'
+        export:
+          $ref: '#/components/schemas/SettingsExport'
+        advanced:
+          $ref: '#/components/schemas/SettingsAdvanced'
+        connected_apps:
+          $ref: '#/components/schemas/SettingsConnectedApps'
       required:
       - django_url
       - handled
       - nav
       - page
+    SettingsSettableType:
+      type: object
+      description: A library this provider can be the default for.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        url:
+          type: string
+      required:
+      - label
+      - url
+      - value
     SettingsSidebar:
       type: object
       description: 'Media types: the page posts every type (one left out is turned
@@ -28084,6 +28745,50 @@ components:
       - clickable_media_cards
       - media_types
       - save_url
+    SettingsSnapshotStatus:
+      type: object
+      description: 'The database snapshot directory (`enabled`: DB_SNAPSHOT_ENABLED).'
+      properties:
+        path:
+          type: string
+        file_count:
+          type: integer
+        host_reachable:
+          type: boolean
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - file_count
+      - host_reachable
+      - path
+    SettingsSyncConnection:
+      type: object
+      description: An app that syncs the library.
+      properties:
+        label:
+          type: string
+        status:
+          type: string
+        last_sync:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - label
+      - last_sync
+      - status
+    SettingsValueLabel:
+      type: object
+      description: A value and its label.
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
     ShapeEnum:
       enum:
       - poster

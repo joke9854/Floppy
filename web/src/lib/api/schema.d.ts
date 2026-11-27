@@ -8451,6 +8451,35 @@ export interface components {
             social_connections_url: string;
             save_url: string;
         };
+        /** @description Advanced. The TMDB proxy URL is never returned, only whether one is set. */
+        SettingsAdvanced: {
+            is_demo: boolean;
+            is_superuser: boolean;
+            bug_report_url: string;
+            image_cache: components["schemas"]["SettingsImageCache"];
+            caches: components["schemas"]["SettingsCache"][];
+            media_types: components["schemas"]["SettingsValueLabel"][];
+            tmdb_proxy_configured: boolean;
+            urls: components["schemas"]["SettingsAdvancedUrls"];
+        };
+        /** @description Where the Advanced forms post. */
+        SettingsAdvancedUrls: {
+            logs: string;
+            image_cache: string;
+            clear_image_cache: string;
+            clear_all: string;
+            delete_media_type: string;
+            tmdb_proxy: string;
+        };
+        /** @description A signed-in install. */
+        SettingsAppSession: {
+            id: string;
+            name: string;
+            scopes: string[];
+            /** Format: date-time */
+            last_active: string | null;
+            revoke_url: string;
+        };
         /** @description Appearance: post `detail_layouts` back with the sidebar choices. */
         SettingsAppearance: {
             sidebar_style: string;
@@ -8461,11 +8490,118 @@ export interface components {
             is_demo: boolean;
             save_url: string;
         };
+        /** @description A library an auto-pause rule can name (`all`, or a media type). */
+        SettingsAutoPauseLibrary: {
+            value: string;
+            label: string;
+        };
+        /** @description Pause in-progress items of `library` after `weeks` without activity. */
+        SettingsAutoPauseRule: {
+            library: string;
+            weeks: number;
+        };
+        /** @description A backup directory, how many files it holds, and whether the host sees it. */
+        SettingsBackupStatus: {
+            path: string;
+            file_count: number;
+            host_reachable: boolean;
+        };
+        /** @description A cache the user can clear. */
+        SettingsCache: {
+            key: string;
+            label: string;
+            note: string;
+            url: string;
+        };
         /** @description An appearance option. */
         SettingsChoice: {
             value: string;
             label: string;
             hint: string;
+        };
+        /** @description Connected apps (the newest 50 crash reports; the export has all). */
+        SettingsConnectedApps: {
+            sessions: components["schemas"]["SettingsAppSession"][];
+            sync_connections: components["schemas"]["SettingsSyncConnection"][];
+            crash_reports: components["schemas"]["SettingsCrashReport"][];
+            crash_report_count: number;
+            urls: components["schemas"]["SettingsConnectedAppsUrls"];
+        };
+        /** @description Connected apps links. */
+        SettingsConnectedAppsUrls: {
+            export_crash_reports: string;
+            integrations: string;
+        };
+        /** @description A CineTrack crash report. */
+        SettingsCrashReport: {
+            id: number;
+            kind: string;
+            exception_class: string;
+            /** Format: date-time */
+            occurred_at: string | null;
+            app_version: string;
+            device_model: string;
+            android_sdk: number | null;
+            stack_trace: string;
+        };
+        /** @description A credential field. `preview` is masked (last 4 characters at most). */
+        SettingsCredentialField: {
+            name: string;
+            label: string;
+            secret: boolean;
+            required: boolean;
+            placeholder: string;
+            setting: string;
+            source: string | null;
+            locked: boolean;
+            preview: string;
+            has_instance_value: boolean;
+            personal: boolean;
+            has_personal_value: boolean;
+        };
+        /** @description Export: the CSV form posts to `urls.export` and answers with the file. */
+        SettingsExport: {
+            is_demo: boolean;
+            media_types: components["schemas"]["SettingsValueLabel"][];
+            backup: components["schemas"]["SettingsBackupStatus"];
+            snapshot: components["schemas"]["SettingsSnapshotStatus"];
+            schedules: components["schemas"]["SettingsExportSchedule"][];
+            results: components["schemas"]["SettingsExportResult"][];
+            urls: components["schemas"]["SettingsExportUrls"];
+        };
+        /** @description A scheduled export run from the last 7 days. */
+        SettingsExportResult: {
+            /** Format: date-time */
+            date: string | null;
+            status: string;
+            summary: string;
+            errors: string;
+        };
+        /** @description A recurring export (`media_types` null: all of them). */
+        SettingsExportSchedule: {
+            task_name: string;
+            schedule: string;
+            media_types: string[] | null;
+            include_lists: boolean;
+            include_collection: boolean;
+            /** Format: date-time */
+            last_run: string | null;
+            /** Format: date-time */
+            next_run: string | null;
+        };
+        /** @description Where the export forms post. */
+        SettingsExportUrls: {
+            export: string;
+            delete_schedule: string;
+            letterboxd: string;
+        };
+        /** @description Instance-wide image caching (superusers change it). */
+        SettingsImageCache: {
+            enabled: boolean;
+            days: number;
+            day_choices: number[];
+            count: number;
+            size: string;
         };
         /** @description An item excluded from notifications, or a search result. */
         SettingsItem: {
@@ -8474,11 +8610,32 @@ export interface components {
             media_type: string;
             image: string;
         };
+        /** @description The provider one library uses (`configurable`: it can be changed). */
+        SettingsLibraryProvider: {
+            media_type: string;
+            label: string;
+            current_provider: string;
+            current_label: string;
+            choices: components["schemas"]["SettingsProviderChoice"][];
+            configurable: boolean;
+            url: string;
+        };
         /** @description A media type on the Media types page, in sidebar order. */
         SettingsMediaType: {
             value: string;
             label: string;
             enabled: boolean;
+        };
+        /** @description Metadata providers and credentials. */
+        SettingsMetadata: {
+            is_demo: boolean;
+            can_edit_instance: boolean;
+            promote: components["schemas"]["SettingsPromote"] | null;
+            libraries: components["schemas"]["SettingsLibraryProvider"][];
+            groups: components["schemas"]["SettingsProviderGroup"][];
+            anime_library_mode: string;
+            anime_library_modes: components["schemas"]["SettingsValueLabel"][];
+            convert_anime_url: string;
         };
         /** @description A settings page in the nav (`web`: the web draws it). */
         SettingsNavItem: {
@@ -8509,6 +8666,85 @@ export interface components {
             excluded: components["schemas"]["SettingsItem"][];
             urls: components["schemas"]["SettingsNotificationUrls"];
         };
+        /** @description One option of a preference. */
+        SettingsPreferenceChoice: {
+            value: string;
+            label: string;
+            hint: string;
+        };
+        /** @description One preference: a select or a switch (`"1"`/`"0"`), posted as `name`. */
+        SettingsPreferenceField: {
+            name: string;
+            label: string;
+            note: string;
+            kind: components["schemas"]["SettingsPreferenceFieldKindEnum"];
+            choices: components["schemas"]["SettingsPreferenceChoice"][];
+        };
+        /**
+         * @description * `select` - select
+         *     * `switch` - switch
+         * @enum {string}
+         */
+        SettingsPreferenceFieldKindEnum: "select" | "switch";
+        /** @description A group of preferences. */
+        SettingsPreferenceSection: {
+            title: string;
+            note: string;
+            fields: components["schemas"]["SettingsPreferenceField"][];
+        };
+        /** @description Preferences: post `values`, `auto_pause_enabled` and `auto_pause_rules`. */
+        SettingsPreferences: {
+            is_demo: boolean;
+            sections: components["schemas"]["SettingsPreferenceSection"][];
+            values: {
+                [key: string]: string;
+            };
+            auto_pause_rules: components["schemas"]["SettingsAutoPauseRule"][];
+            auto_pause_libraries: components["schemas"]["SettingsAutoPauseLibrary"][];
+            tmdb_lists_loaded: boolean;
+            save_url: string;
+        };
+        /** @description How a non-superuser becomes one. */
+        SettingsPromote: {
+            instance_has_superuser: boolean;
+            in_container: boolean;
+            command: string;
+        };
+        /** @description A metadata provider and its credentials. */
+        SettingsProvider: {
+            slug: string;
+            label: string;
+            logo_slug: string;
+            description: string;
+            docs_url: string | null;
+            user_scope: boolean;
+            configured: boolean;
+            status: string;
+            fields: components["schemas"]["SettingsCredentialField"][];
+            locked: boolean;
+            has_instance_value: boolean;
+            settable_media_types: components["schemas"]["SettingsSettableType"][];
+            urls: components["schemas"]["SettingsProviderUrls"];
+        };
+        /** @description A source a library can use; only a configured one can be saved. */
+        SettingsProviderChoice: {
+            value: string;
+            label: string;
+            configured: boolean;
+        };
+        /** @description Providers grouped by what they supply. */
+        SettingsProviderGroup: {
+            key: string;
+            label: string;
+            description: string;
+            providers: components["schemas"]["SettingsProvider"][];
+        };
+        /** @description Where a provider's forms post. */
+        SettingsProviderUrls: {
+            save: string;
+            clear: string;
+            personal: string;
+        };
         /** @description A settings page for the web app (`handled: false`: open `django_url`). */
         SettingsScreen: {
             handled: boolean;
@@ -8521,12 +8757,42 @@ export interface components {
             sidebar?: components["schemas"]["SettingsSidebar"];
             appearance?: components["schemas"]["SettingsAppearance"];
             about?: components["schemas"]["SettingsAbout"];
+            preferences?: components["schemas"]["SettingsPreferences"];
+            metadata?: components["schemas"]["SettingsMetadata"];
+            export?: components["schemas"]["SettingsExport"];
+            advanced?: components["schemas"]["SettingsAdvanced"];
+            connected_apps?: components["schemas"]["SettingsConnectedApps"];
+        };
+        /** @description A library this provider can be the default for. */
+        SettingsSettableType: {
+            value: string;
+            label: string;
+            url: string;
         };
         /** @description Media types: the page posts every type (one left out is turned off). */
         SettingsSidebar: {
             clickable_media_cards: boolean;
             media_types: components["schemas"]["SettingsMediaType"][];
             save_url: string;
+        };
+        /** @description The database snapshot directory (`enabled`: DB_SNAPSHOT_ENABLED). */
+        SettingsSnapshotStatus: {
+            path: string;
+            file_count: number;
+            host_reachable: boolean;
+            enabled: boolean;
+        };
+        /** @description An app that syncs the library. */
+        SettingsSyncConnection: {
+            label: string;
+            status: string;
+            /** Format: date-time */
+            last_sync: string | null;
+        };
+        /** @description A value and its label. */
+        SettingsValueLabel: {
+            value: string;
+            label: string;
         };
         /**
          * @description * `poster` - poster

@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { BASE } from '#lib/paths.ts';
 	import { st } from '#lib/settings/strings.ts';
+	import type { Component } from 'svelte';
+	import type { SettingsScreen } from '#lib/settings/types.ts';
 	import type { PageProps } from './$types';
 
 	/**
@@ -19,9 +21,33 @@
 		appearance: () => import('#lib/settings/Appearance.svelte'),
 		notifications: () => import('#lib/settings/Notifications.svelte'),
 		sidebar: () => import('#lib/settings/MediaTypes.svelte'),
+		preferences: () => import('#lib/settings/Preferences.svelte'),
+		metadata: () => import('#lib/settings/Metadata.svelte'),
+		export: () => import('#lib/settings/Export.svelte'),
+		'connected-apps': () => import('#lib/settings/ConnectedApps.svelte'),
+		advanced: () => import('#lib/settings/Advanced.svelte'),
 		about: () => import('#lib/settings/About.svelte')
 	} as const;
-	const loader = $derived(pages[screen.page as keyof typeof pages]);
+	type PageModule = { default: Component<{ screen: SettingsScreen }> };
+
+	// The page component and the screen it was loaded for, set together: a
+	// page never sees another page's screen while the next one loads.
+	let view = $state<{ Page: PageModule['default']; screen: SettingsScreen } | null>(null);
+	$effect(() => {
+		const current = screen;
+		const load = pages[current.page as keyof typeof pages] as (() => Promise<PageModule>) | undefined;
+		if (!load) {
+			view = null;
+			return;
+		}
+		let stale = false;
+		void load().then((module) => {
+			if (!stale) view = { Page: module.default, screen: current };
+		});
+		return () => {
+			stale = true;
+		};
+	});
 
 	const hrefFor = (item: { slug: string; href: string; web: boolean }) => (item.web ? `${BASE}/settings/${item.slug}` : item.href);
 
@@ -61,10 +87,8 @@
 			{/each}
 		</select>
 		<div class="ct-settings-page">
-			{#if loader}
-				{#await loader() then { default: Page }}
-					<Page {screen} />
-				{/await}
+			{#if view}
+				<view.Page screen={view.screen} />
 			{/if}
 		</div>
 	</div>

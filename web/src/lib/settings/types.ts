@@ -4,9 +4,19 @@ export type SettingsScreen = components['schemas']['SettingsScreen'];
 export type SettingsNavSection = components['schemas']['SettingsNavSection'];
 export type SettingsMediaType = components['schemas']['SettingsMediaType'];
 export type SettingsItem = components['schemas']['SettingsItem'];
+export type SettingsPreferences = components['schemas']['SettingsPreferences'];
+export type SettingsAutoPauseRule = components['schemas']['SettingsAutoPauseRule'];
+export type SettingsProvider = components['schemas']['SettingsProvider'];
 
 /** A form answer from a Django settings view (Accept: application/json). */
-export type SavedAnswer = { saved: boolean; errors?: Record<string, string[]>; message?: string; changed?: boolean };
+export type SavedAnswer = {
+	saved: boolean;
+	errors?: Record<string, string[]>;
+	message?: string;
+	changed?: boolean;
+	/** Metadata: existing anime in the other shape after a provider change. */
+	anime_shape_prompt_count?: number;
+};
 
 /** Move one entry up (-1) or down (+1); out of range leaves the list as it is. */
 export function moveEntry<T>(list: T[], index: number, direction: -1 | 1): T[] {
@@ -45,10 +55,41 @@ export function notificationsForm(values: {
 	return form;
 }
 
-/** Read a settings form's answer, whatever the status. */
+/**
+ * Read a settings form's answer, whatever the status. Views wrapped in
+ * helpers.answers_json fail with `error` (a string); it becomes `message`.
+ */
 export async function readAnswer(response: Response): Promise<SavedAnswer> {
-	const body = (await response.json().catch(() => ({}))) as Partial<SavedAnswer>;
-	const answer: SavedAnswer = { saved: response.ok && body.saved !== false, errors: body.errors, message: body.message };
+	const body = (await response.json().catch(() => ({}))) as Partial<SavedAnswer> & { error?: string };
+	const saved = response.ok && body.saved !== false;
+	const answer: SavedAnswer = { saved, errors: body.errors, message: saved ? body.message : body.error || body.message };
 	if (typeof body.changed === 'boolean') answer.changed = body.changed;
+	if (typeof body.anime_shape_prompt_count === 'number') answer.anime_shape_prompt_count = body.anime_shape_prompt_count;
 	return answer;
+}
+
+/**
+ * The Preferences form: every field (the view resets the auto-pause rules,
+ * region and language when they are missing). Auto-pause is on while there
+ * is a rule, as on the Django page.
+ */
+export function preferencesForm(values: Record<string, string>, rules: SettingsAutoPauseRule[]): Record<string, string> {
+	return {
+		...values,
+		auto_pause_enabled: rules.length ? '1' : '0',
+		auto_pause_rules: JSON.stringify(rules.map((rule) => ({ library: rule.library, weeks: Math.max(1, Math.round(rule.weeks) || 1) })))
+	};
+}
+
+/** A server time as the browser's local date and time ("" for none). */
+export function when(iso: string | null | undefined): string {
+	if (!iso) return '';
+	const date = new Date(iso);
+	return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** The file name a download answer names (Content-Disposition), or `fallback`. */
+export function downloadName(response: Response, fallback: string): string {
+	const match = /filename="?([^";]+)"?/i.exec(response.headers.get('content-disposition') ?? '');
+	return match?.[1] ?? fallback;
 }

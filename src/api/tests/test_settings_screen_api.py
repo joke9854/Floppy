@@ -41,11 +41,12 @@ class SettingsScreenTests(TestCase):
         self.assertTrue(screen["handled"])
         items = {item["slug"]: item for section in screen["nav"] for item in section["items"]}
         self.assertTrue(items["notifications"]["web"])
-        self.assertFalse(items["preferences"]["web"])
+        self.assertTrue(items["preferences"]["web"])
+        self.assertFalse(items["integrations"]["web"])
         self.assertEqual(items["metadata"]["href"], reverse("metadata_settings"))
-        preferences = self._screen("preferences")
-        self.assertFalse(preferences["handled"])
-        self.assertEqual(preferences["django_url"], reverse("preferences"))
+        integrations = self._screen("integrations")
+        self.assertFalse(integrations["handled"])
+        self.assertEqual(integrations["django_url"], reverse("integrations"))
         self.assertFalse(self._screen("nope")["handled"])
 
     def test_account_username_and_password(self):

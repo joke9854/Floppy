@@ -358,4 +358,188 @@
 	background-color: rgb(255 255 255 / 8%);
 	font-family: ui-monospace, monospace;
 	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+
+/* A preference: its label and note, the control on the right (J2) */
+.ct-settings-pref {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background-color: rgb(255 255 255 / 4%);
+}
+
+.ct-settings-pref > span {
+	display: flex;
+	min-width: 12rem;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.ct-settings-pref small {
+	color: var(--color-text-muted);
+	font-size: 13px;
+	font-weight: 400;
+}
+
+.ct-settings-select,
+.ct-settings-weeks input,
+.ct-settings-field select {
+	min-height: 40px;
+	max-width: 100%;
+	padding: 8px 12px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 10px;
+	background-color: var(--color-bg, rgb(0 0 0 / 20%));
+	color: var(--color-text);
+	color-scheme: dark;
+	font-size: 14px;
+}
+
+.ct-settings-row .ct-settings-select {
+	min-width: 0;
+	flex: 1;
+}
+
+.ct-settings-weeks {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--color-text-muted);
+	font-size: 13px;
+}
+
+.ct-settings-weeks input {
+	width: 5.5rem;
+}
+
+.ct-settings-switch {
+	width: 40px;
+	height: 22px;
+	flex: none;
+	accent-color: var(--color-accent);
+	cursor: pointer;
+}
+
+.ct-settings-badge {
+	padding: 2px 8px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 999px;
+	color: var(--color-text-secondary);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.ct-settings-badge.is-on {
+	border-color: rgb(16 185 129 / 35%);
+	color: rgb(110 231 183);
+}
+
+.ct-settings-button.is-danger {
+	border-color: rgb(244 63 94 / 40%);
+	background-color: rgb(244 63 94 / 15%);
+	color: rgb(254 205 211);
+}
+
+/* Expandable rows: a provider's keys, a crash report's trace */
+.ct-settings-more {
+	border-radius: 10px;
+	background-color: rgb(255 255 255 / 4%);
+}
+
+.ct-settings-more > summary {
+	display: flex;
+	min-height: 48px;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 12px;
+	padding: 8px 12px;
+	color: var(--color-text);
+	cursor: pointer;
+	font-size: 14px;
+	list-style: none;
+}
+
+.ct-settings-more > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ct-settings-more > summary::after {
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border-right: 2px solid var(--color-text-muted);
+	border-bottom: 2px solid var(--color-text-muted);
+	margin-inline: 4px;
+	content: '';
+	rotate: 45deg;
+	translate: 0 -2px;
+}
+
+.ct-settings-more[open] > summary::after {
+	rotate: 225deg;
+	translate: 0 2px;
+}
+
+.ct-settings-more > summary > span {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.ct-settings-more > summary small {
+	color: var(--color-text-muted);
+	font-size: 12px;
+}
+
+.ct-settings-more > div {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 4px 12px 14px;
+}
+
+.ct-settings-more pre {
+	max-height: 20rem;
+	overflow: auto;
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+	white-space: pre;
+}
+
+/* Confirm dialog (Advanced danger zone) */
+.ct-settings-dialog {
+	width: min(28rem, calc(100vw - 2rem));
+	padding: 20px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 16px;
+	margin: auto;
+	background-color: var(--color-surface);
+	color: var(--color-text);
+}
+
+.ct-settings-dialog::backdrop {
+	background-color: rgb(0 0 0 / 60%);
+}
+
+.ct-settings-dialog form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.ct-settings-scopes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
 }
