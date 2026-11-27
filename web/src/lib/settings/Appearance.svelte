@@ -72,14 +72,16 @@
 			</fieldset>
 		{/if}
 	</section>
-	<div class="ct-settings-section ct-settings-actions is-split">
-		<div>
-			<p class="ct-settings-field">{st.appearance}</p>
-			<p class="ct-settings-note">{appearance.is_demo ? st.demo : st.changesAfterSaving}</p>
-		</div>
-		<div class="ct-settings-actions">
-			{#if status}<span class={['ct-settings-status', failed && 'is-error']} role="status">{status}</span>{/if}
-			<button type="submit" class="ct-settings-button is-primary" disabled={busy || appearance.is_demo}>{st.saveAppearance}</button>
+	<div class="ct-settings-section">
+		<div class="ct-settings-actions is-split">
+			<div>
+				<p class="ct-settings-field">{st.appearance}</p>
+				<p class="ct-settings-note">{appearance.is_demo ? st.demo : st.changesAfterSaving}</p>
+			</div>
+			<div class="ct-settings-actions">
+				{#if status}<span class={['ct-settings-status', failed && 'is-error']} role="status">{status}</span>{/if}
+				<button type="submit" class="ct-settings-button is-primary" disabled={busy || appearance.is_demo}>{st.saveAppearance}</button>
+			</div>
 		</div>
 	</div>
 </form>
