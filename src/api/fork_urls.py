@@ -243,6 +243,11 @@ urlpatterns = [
         name="api_history_screen",
     ),
     re_path(
+        r"^history/sessions/?$",
+        fork_views_details.SessionsScreenView.as_view(),
+        name="api_history_sessions",
+    ),
+    re_path(
         r"^history/genres/?$",
         fork_views_pages.HistoryGenresView.as_view(),
         name="api_history_genres",
@@ -865,6 +870,11 @@ urlpatterns = [
         name="api_person_screen",
     ),
     re_path(
+        r"^details/studio/(?P<source>[^/]+)/(?P<studio_id>[^/]+)/?$",
+        fork_views_details.StudioScreenView.as_view(),
+        name="api_studio_screen",
+    ),
+    re_path(
         r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/?$",
         fork_views_details.DetailShellView.as_view(),
         name="api_detail_shell",
@@ -878,6 +888,11 @@ urlpatterns = [
         r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/trailers/?$",
         fork_views_details.DetailTrailersView.as_view(),
         name="api_detail_trailers",
+    ),
+    re_path(
+        r"^details/(?P<media_type>[a-z_]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/graphs/?$",
+        fork_views_details.DetailGraphsView.as_view(),
+        name="api_detail_graphs",
     ),
     re_path(
         r"^details/tv/(?P<source>[^/]+)/(?P<media_id>[^/]+)/season/?$",

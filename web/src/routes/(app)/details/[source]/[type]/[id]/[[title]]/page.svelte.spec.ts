@@ -44,6 +44,7 @@ const shell = (overrides: object = {}) => ({
 	synopsis: 'Houses at war.',
 	watch_on: null,
 	track_time: true,
+	graphs: [],
 	...overrides
 });
 

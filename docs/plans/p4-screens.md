@@ -61,7 +61,7 @@ adds a web test for its flow:
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
 | P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2 (2026-11-27): Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3 (2026-11-28): Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Every Import source is drawn by the web |
-| P4-L | Detail pages for the other types | L1 built (2026-11-28): manga, games, books, comics, board games. L2 built (2026-11-28): music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: anime (its page and episodes), the activity sessions dialog, the ratings graphs, the studio page |
+| P4-L | Detail pages for the other types | L1 built (2026-11-28): manga, games, books, comics, board games. L3 built (2026-11-28): anime, sessions dialog, ratings graphs, studio page; P4-L done. L2 built (2026-11-28): music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: anime (its page and episodes), the activity sessions dialog, the ratings graphs, the studio page |
 | P4-M | Search and Add New Item | Planned (2026-11-28). M1: the search page (with the parent-show search). M2: the shell's search palette. M3: Add New Item (manual create) and Add Recommendation; the search-then-track web test |
 | P4-N | Floating sidebar | Planned (2026-11-28). The shell honours Appearance's sidebar style: Floating (the detached bar) with Expand on hover, Always expanded or Icons only; Attached stays the default |
 | P4-O | Leftover pages | Planned (2026-11-28). Tags, Collection, the Monthly recap, lists the user can only view, the collaborator search |
@@ -879,7 +879,7 @@ P4-L, detail pages for the other types (C follow-ups):
       all plays (its artist filter misses credited albums), mark all played
       (no page offers it), the cover and photo polling (the page shows what
       is stored; a reload picks up the rest).
-- [ ] L3: anime: its page (grouped TMDB/TVDB anime on the show machinery,
+- [x] L3 (2026-11-28): anime: its page (grouped TMDB/TVDB anime on the show machinery,
       flat MAL anime with the mapped episode preview) and its episode pages;
       the activity sessions dialog (`history/sessions`), the ratings graphs,
       the studio page. Moved out of L1 (2026-11-28): anime's next-episode
@@ -898,6 +898,9 @@ P4-L, detail pages for the other types (C follow-ups):
       does not move its progress).
       L3b: the activity sessions dialog behind the progress line, the
       ratings graphs (their own endpoint, fetched on open), the studio page.
+      Not in L3: the sessions dialog's activity calendar and its session
+      notes, Trakt graph polling (the graph shows what is stored), flat MAL
+      checks, the Django flat-MAL hint to convert to the grouped series.
 
 P4-M, Search and Add New Item:
 - [ ] M1: the search page (`search`, `search/parent_tv`).

@@ -138,6 +138,8 @@ const WEB_DETAIL = [
 	/^\/details\/[^/?#]+\/(?:movie|tv|anime|manga|game|book|comic|boardgame)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
 	/^\/details\/[^/?#]+\/(?:tv|anime)\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
 	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
+	// A studio's page (P4-L3b).
+	/^\/studio\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
 	// Music artists and albums, and podcast shows (P4-L2).
 	/^\/details\/music\/artist\/\d+\/[^/?#]+\/?(?:album\/\d+\/[^/?#]+\/?)?$/,
 	/^\/details\/(?:pocketcasts|gpodder|audiobookshelf)\/podcast\/[^/?#]+(?:\/[^/?#]+)?\/?$/,

@@ -118,6 +118,24 @@
 	content: '·';
 }
 
+/* The progress line that opens the sessions dialog, and a score that opens its graph (P4-L3b). */
+.ct-meta-link,
+button.ct-score {
+	color: inherit;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
+}
+
+button.ct-score {
+	font-size: 14px;
+}
+
+.ct-meta-link {
+	text-decoration: underline dotted;
+	text-underline-offset: 3px;
+}
+
 .ct-detail-chips {
 	display: flex;
 	flex-wrap: wrap;

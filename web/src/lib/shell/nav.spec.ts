@@ -116,6 +116,8 @@ describe('detail links', () => {
 		expect(detailHref('/person/tmdb/9273/amy-adams', '/next')).toBe(
 			'/next/person/tmdb/9273/amy-adams'
 		);
+		expect(detailHref('/studio/igdb/1234/nintendo', '/next')).toBe('/next/studio/igdb/1234/nintendo');
+		expect(detailHref('/studio/igdb/1234', '/next')).toBe('/studio/igdb/1234');
 		expect(detailHref('/history?media_type=movie&media_id=238&source=tmdb', '/next')).toBe(
 			'/next/history?media_type=movie&media_id=238&source=tmdb'
 		);

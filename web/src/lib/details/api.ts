@@ -31,11 +31,17 @@ export function detailApiPath(
 }
 
 export type PersonScreen = components['schemas']['PersonScreen'];
+export type StudioScreen = components['schemas']['StudioScreen'];
 export type EpisodeScreen = components['schemas']['EpisodeScreen'];
 
 /** A person page's read (GET details/person/...). */
 export function personApiPath(source: string, id: string): string {
 	return `/api/v1/details/person/${encodeURIComponent(source)}/${encodeURIComponent(id)}/`;
+}
+
+/** A studio page's read (GET details/studio/...). */
+export function studioApiPath(source: string, id: string): string {
+	return `/api/v1/details/studio/${encodeURIComponent(source)}/${encodeURIComponent(id)}/`;
 }
 
 /** An episode page's read (GET details/episode/...). */

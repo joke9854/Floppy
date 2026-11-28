@@ -54,6 +54,7 @@
 	} = $props();
 
 	let linksOpen = $state(false);
+	let sessionsOpen = $state(false);
 	let syncing = $state(false);
 	let problem = $state('');
 
@@ -130,7 +131,15 @@
 			{#each meta as part (part)}<span>{part}</span>{/each}
 			{#if status}<span>{status}</span>{/if}
 		</p>
-		{#if line}<p class="ct-media-activity">{line}</p>{/if}
+		{#if line}
+			<p class="ct-media-activity">
+				{#if activity?.sessions_query}
+					<button type="button" class="ct-meta-link" onclick={() => (sessionsOpen = true)}>{line}</button>
+				{:else}
+					{line}
+				{/if}
+			</p>
+		{/if}
 
 		<div class="ct-detail-actions">
 			<button
@@ -171,3 +180,9 @@
 		{@render children?.()}
 	</div>
 </div>
+
+{#if sessionsOpen && activity?.sessions_query}
+	{#await import('./HeroLazy.svelte') then { default: HeroLazy }}
+		<HeroLazy query={activity.sessions_query} onclose={() => (sessionsOpen = false)} />
+	{/await}
+{/if}

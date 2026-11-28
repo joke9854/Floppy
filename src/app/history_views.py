@@ -918,9 +918,8 @@ def _build_session_history_stats(history_days):
     ]
 
 
-@require_GET
-def activity_sessions_modal(request):
-    """Return the in-place, date-grouped activity history for one media item."""
+def build_activity_sessions_context(request):
+    """Return the context of the date-grouped activity history for one media item."""
     filters, logging_style = _parse_history_filters(request)
     history_days = history_cache_reader.get_history_days(
         request.user,
@@ -952,19 +951,25 @@ def activity_sessions_modal(request):
     visible_marker_days = sorted(
         {day["date"].isoformat() for day in visible_days if day.get("date")},
     )
+    return {
+        "user": request.user,
+        "history_days": visible_days,
+        "marker_days": marker_days,
+        "visible_marker_days": visible_marker_days,
+        "session_history_stats": session_history_stats,
+        "initial_month": newest_dated_day.strftime("%Y-%m"),
+        "history_capped": len(history_days) > SESSION_HISTORY_MAX_DAYS,
+        "history_querystring": request.GET.urlencode(),
+    }
+
+
+@require_GET
+def activity_sessions_modal(request):
+    """Return the in-place, date-grouped activity history for one media item."""
     return render(
         request,
         "app/components/session_history_modal.html",
-        {
-            "user": request.user,
-            "history_days": visible_days,
-            "marker_days": marker_days,
-            "visible_marker_days": visible_marker_days,
-            "session_history_stats": session_history_stats,
-            "initial_month": newest_dated_day.strftime("%Y-%m"),
-            "history_capped": len(history_days) > SESSION_HISTORY_MAX_DAYS,
-            "history_querystring": request.GET.urlencode(),
-        },
+        build_activity_sessions_context(request),
     )
 
 

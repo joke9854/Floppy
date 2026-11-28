@@ -1490,6 +1490,64 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/details/{media_type}/{source}/{media_id}/graphs/:
+    get:
+      operationId: getDetailGraphs
+      description: 'The provider, Trakt and IMDb ratings heatmaps (rows are episodes,
+        columns seasons); null for a kind with nothing stored. Trakt is not polled:
+        this returns what is stored. 400 for a type without graphs. Built by the Django
+        page''s own builder, so it shows what the page shows. Like the page, the read
+        can store metadata it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[a-z_]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailGraphs'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/details/{media_type}/{source}/{media_id}/sections/:
     get:
       operationId: getDetailSections
@@ -1969,6 +2027,64 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/studio/{source}/{studio_id}/:
+    get:
+      operationId: getStudioScreen
+      description: 'The studio page: the studio, its numbers and the titles it credits
+        with your status, built by the Django page''s own builder. IGDB studios read
+        the provider (503 while it is unreachable). Built by the Django page''s own
+        builder, so it shows what the page shows. Like the page, the read can store
+        metadata it resolves, so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: studio_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioScreen'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '503':
           content:
             application/json:
               schema:
@@ -2794,6 +2910,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryScreen'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/history/sessions/:
+    get:
+      operationId: getSessionsScreen
+      description: 'The date-grouped activity of one title, as the page''s activity
+        history dialog lists it, newest day first, at most `max_days` days (`capped`
+        when there are more). Filters: `media_type`, `media_id`, `source`, `season_number`,
+        `podcast_show`, `album`, `artist`, `logging_style=sessions` (games, board
+        games). Read only.'
+      parameters:
+      - in: query
+        name: album
+        schema:
+          type: integer
+      - in: query
+        name: artist
+        schema:
+          type: integer
+      - in: query
+        name: logging_style
+        schema:
+          type: string
+      - in: query
+        name: media_id
+        schema:
+          type: string
+      - in: query
+        name: media_type
+        schema:
+          type: string
+      - in: query
+        name: podcast_show
+        schema:
+          type: integer
+      - in: query
+        name: season_number
+        schema:
+          type: integer
+      - in: query
+        name: source
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsScreen'
           description: ''
         '401':
           content:
@@ -20771,6 +20953,110 @@ components:
       - pending
       - source_label
       - source_url
+    DetailGraph:
+      type: object
+      description: 'A ratings heatmap: rows are episodes, columns seasons.'
+      properties:
+        title:
+          type: string
+        row_label:
+          type: string
+          description: E for episodes, S for seasons.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailGraphSeason'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailGraphRow'
+        legend:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailGraphLegend'
+      required:
+      - legend
+      - row_label
+      - rows
+      - seasons
+      - title
+    DetailGraphCell:
+      type: object
+      description: 'A ratings graph cell: null score and color for an episode with
+        no rating.'
+      properties:
+        score:
+          type: number
+          format: double
+          nullable: true
+        votes:
+          type: integer
+          nullable: true
+        color:
+          type: string
+          nullable: true
+      required:
+      - color
+      - score
+      - votes
+    DetailGraphLegend:
+      type: object
+      description: A ratings graph legend entry.
+      properties:
+        label:
+          type: string
+        color:
+          type: string
+      required:
+      - color
+      - label
+    DetailGraphRow:
+      type: object
+      description: 'A ratings graph row: one episode (or season) across the seasons.'
+      properties:
+        episode:
+          type: integer
+          nullable: true
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailGraphCell'
+      required:
+      - cells
+      - episode
+    DetailGraphSeason:
+      type: object
+      description: A ratings graph column.
+      properties:
+        label:
+          type: string
+        episodes:
+          type: integer
+          description: How many rated episodes it has.
+      required:
+      - episodes
+      - label
+    DetailGraphs:
+      type: object
+      description: The detail page's ratings graphs; null for a kind with no stored
+        data.
+      properties:
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/DetailGraph'
+          nullable: true
+        trakt:
+          allOf:
+          - $ref: '#/components/schemas/DetailGraph'
+          nullable: true
+        imdb:
+          allOf:
+          - $ref: '#/components/schemas/DetailGraph'
+          nullable: true
+      required:
+      - imdb
+      - provider
+      - trakt
     DetailInfo:
       type: object
       description: The detail page's info.
@@ -20914,6 +21200,11 @@ components:
           type: string
           nullable: true
           description: 'Books: the series and the book''s place in it.'
+        sessions_query:
+          type: string
+          nullable: true
+          description: The query of GET /api/v1/history/sessions/ for the activity
+            line; null without an activity line or in a public view.
       required:
       - certification
       - genres
@@ -20922,6 +21213,7 @@ components:
       - runtime
       - seasons
       - series
+      - sessions_query
       - type_label
       - year
     DetailNamedLink:
@@ -21298,10 +21590,17 @@ components:
           nullable: true
         track_time:
           type: boolean
+        graphs:
+          type: array
+          items:
+            type: string
+          description: 'The ratings graphs this show has (provider, trakt, imdb):
+            GET details/<type>/<source>/<id>/graphs/.'
       required:
       - action
       - backdrop
       - fanart_poster
+      - graphs
       - links
       - logo
       - media_id
@@ -26821,10 +27120,16 @@ components:
         date_end:
           type: string
           nullable: true
+        sessions_query:
+          type: string
+          nullable: true
+          description: The query of GET /api/v1/history/sessions/ for this line; null
+            for none.
       required:
       - date_end
       - date_start
       - primary_text
+      - sessions_query
     MediaPlay:
       type: object
       description: One completed play.
@@ -29530,6 +29835,40 @@ components:
           minimum: 1
       required:
       - port
+    SessionsScreen:
+      type: object
+      description: The activity sessions dialog.
+      properties:
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryScreenDay'
+          description: Newest first, at most `max_days`.
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionsScreenStat'
+        capped:
+          type: boolean
+          description: More days exist than `max_days`.
+        max_days:
+          type: integer
+      required:
+      - capped
+      - days
+      - max_days
+      - stats
+    SessionsScreenStat:
+      type: object
+      description: One of the dialog's "At a glance" numbers.
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+      required:
+      - label
+      - value
     SettingsAbout:
       type: object
       description: 'About: the running version.'
@@ -32471,6 +32810,105 @@ components:
       - source_url
       - studio_id
       - titles
+    StudioScreen:
+      type: object
+      description: The studio page.
+      properties:
+        studio:
+          $ref: '#/components/schemas/StudioScreenStudio'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioScreenSection'
+      required:
+      - sections
+      - studio
+    StudioScreenCard:
+      type: object
+      description: A credited title's poster card, with your status for it.
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+        poster:
+          type: string
+        year:
+          type: string
+        media_type:
+          type: string
+        watched:
+          type: boolean
+        status:
+          type: string
+          nullable: true
+          description: Your tracked status, if any.
+      required:
+      - media_type
+      - poster
+      - status
+      - title
+      - url
+      - watched
+      - year
+    StudioScreenCount:
+      type: object
+      description: One of the studio's numbers.
+      properties:
+        label:
+          type: string
+        value:
+          type: integer
+      required:
+      - label
+      - value
+    StudioScreenSection:
+      type: object
+      description: A group of credited titles.
+      properties:
+        label:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioScreenCard'
+      required:
+      - cards
+      - label
+    StudioScreenStudio:
+      type: object
+      description: The studio's profile.
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+          description: The logo; null without one.
+        description:
+          type: string
+        source_label:
+          type: string
+        source_url:
+          type: string
+          nullable: true
+          description: The studio's website.
+        founded:
+          type: string
+          nullable: true
+          description: In the user's date format.
+        counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioScreenCount'
+      required:
+      - counts
+      - description
+      - founded
+      - image
+      - name
+      - source_label
+      - source_url
     StudioTitle:
       type: object
       description: One credited title of a studio.

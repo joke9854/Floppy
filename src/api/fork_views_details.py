@@ -35,6 +35,7 @@ from .details_media_screen import (
 )
 from .details_screen import (
     DETAIL_SCREEN_TYPES,
+    DetailGraphsSerializer,
     DetailSeasonSerializer,
     DetailSectionsSerializer,
     DetailShellSerializer,
@@ -47,9 +48,11 @@ from .history_screen import HistoryScreenSerializer, build_history_screen
 from .list_detail_screen import ListPageSerializer, build_list_detail_screen
 from .lists_screen import ListsScreenSerializer, build_lists_screen
 from .person_screen import PersonScreenSerializer, build_person_screen
+from .sessions_screen import SessionsScreenSerializer, build_sessions_screen
 from .settings_screen import SettingsScreenSerializer, build_settings_screen
 from .statistics_screen import StatisticsScreenSerializer, build_statistics_screen
 from .statistics_talent_screen import StatisticsTalentSerializer, build_talent_screen
+from .studio_screen import StudioScreenSerializer, build_studio_screen
 from .track_screen import (
     TRACK_SCREEN_TYPES,
     TRACKER_SCREEN_TYPES,
@@ -211,6 +214,29 @@ class DetailTrailersView(drf_views.APIView):
         )
 
 
+# /api/v1/details/{tv|anime}/{source}/{media_id}/graphs/
+class DetailGraphsView(drf_views.APIView):
+    """A show's ratings graphs (the score chips' series graphs)."""
+
+    @extend_schema(
+        operation_id="getDetailGraphs",
+        description=(
+            "The provider, Trakt and IMDb ratings heatmaps (rows are episodes, "
+            "columns seasons); null for a kind with nothing stored. Trakt is not "
+            "polled: this returns what is stored. 400 for a type without graphs."
+            + _NOTE
+        ),
+        responses={200: DetailGraphsSerializer, 400: DetailErrorSerializer},
+    )
+    def get(self, request, media_type, source, media_id):
+        """Return the ratings graphs."""
+        if media_type not in ("tv", "anime"):
+            return Response(_UNSUPPORTED, status=HTTP.BAD_REQUEST)
+        return _screen(
+            request, media_type, source, media_id, "graphs", DetailGraphsSerializer
+        )
+
+
 def _media_screen(request, builder, serializer, *args):
     """Run a music or podcast page builder: 400 for the page's redirect, 404 for none."""
     with credentials.current_user_scope(request.user):
@@ -343,6 +369,75 @@ class PersonScreenView(drf_views.APIView):
                 status=HTTP.BAD_REQUEST,
             )
         return Response(PersonScreenSerializer(data).data, status=HTTP.OK)
+
+
+# /api/v1/details/studio/{source}/{studio_id}/
+class StudioScreenView(drf_views.APIView):
+    """A studio or company page for the new web app (v2 P4-L3b)."""
+
+    @extend_schema(
+        operation_id="getStudioScreen",
+        description=(
+            "The studio page: the studio, its numbers and the titles it credits "
+            "with your status, built by the Django page's own builder. IGDB "
+            "studios read the provider (503 while it is unreachable)." + _NOTE
+        ),
+        responses={
+            200: StudioScreenSerializer,
+            404: DetailErrorSerializer,
+            503: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, source, studio_id):
+        """Return the studio page."""
+        from django.http import Http404
+
+        from app.providers import services
+
+        try:
+            with credentials.current_user_scope(request.user):
+                data = build_studio_screen(request._request, source, studio_id)
+        except Http404:
+            return Response({"detail": "No such studio."}, status=HTTP.NOT_FOUND)
+        except services.ProviderAPIError:
+            return Response(
+                {"detail": "The provider is not answering. Try again later."},
+                status=HTTP.SERVICE_UNAVAILABLE,
+            )
+        return Response(StudioScreenSerializer(data).data, status=HTTP.OK)
+
+
+# /api/v1/history/sessions/
+class SessionsScreenView(drf_views.APIView):
+    """The activity sessions dialog for the new web app (v2 P4-L3b)."""
+
+    @extend_schema(
+        operation_id="getSessionsScreen",
+        description=(
+            "The date-grouped activity of one title, as the page's activity "
+            "history dialog lists it, newest day first, at most `max_days` days "
+            "(`capped` when there are more). Filters: `media_type`, `media_id`, "
+            "`source`, `season_number`, `podcast_show`, `album`, `artist`, "
+            "`logging_style=sessions` (games, board games). Read only."
+        ),
+        parameters=[
+            OpenApiParameter("media_type", str),
+            OpenApiParameter("media_id", str),
+            OpenApiParameter("source", str),
+            OpenApiParameter("season_number", int),
+            OpenApiParameter("podcast_show", int),
+            OpenApiParameter("album", int),
+            OpenApiParameter("artist", int),
+            OpenApiParameter("logging_style", str),
+        ],
+        responses={200: SessionsScreenSerializer},
+    )
+    def get(self, request):
+        """Return the sessions dialog."""
+        return Response(
+            SessionsScreenSerializer(build_sessions_screen(request._request)).data,
+            status=HTTP.OK,
+        )
 
 
 # /api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/

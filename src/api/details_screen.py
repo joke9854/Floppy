@@ -14,7 +14,7 @@ which is why the route takes the session or the account token only.
 
 from __future__ import annotations
 
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlencode
 
 from django.conf import settings
 from django.template.defaultfilters import floatformat
@@ -263,6 +263,24 @@ def _meta(context) -> dict:
     if media_type in L1_TYPES and not context.get("public_view"):
         subtitle = context.get("activity_subtitle") or {}
         progress_text = _text(subtitle.get("primary_text")) or None
+    sessions_query = None
+    if (
+        media_type in (*L1_TYPES, *_SERIES_TYPES)
+        and not context.get("public_view")
+        and context.get("activity_subtitle")
+    ):
+        sessions_query = urlencode(
+            {
+                "media_type": media_type,
+                "media_id": str(media.get("media_id")),
+                "source": str(media.get("source")),
+                **(
+                    {"logging_style": "sessions"}
+                    if media_type in (MediaTypes.GAME.value, MediaTypes.BOARDGAME.value)
+                    else {}
+                ),
+            }
+        )
     series = None
     if media_type == MediaTypes.BOOK.value and media.get("series_name"):
         series = _text(media["series_name"])
@@ -282,6 +300,7 @@ def _meta(context) -> dict:
         "percent": percent,
         "progress": progress_text,
         "series": series,
+        "sessions_query": sessions_query,
     }
 
 
@@ -311,6 +330,60 @@ def build_detail_shell(request, context) -> dict:
         "synopsis": strip_tags(_text(media.get("synopsis"))).strip(),
         "watch_on": _watch_on(context.get("watch_on")),
         "track_time": settings.TRACK_TIME,
+        "graphs": [
+            kind
+            for kind, key in _GRAPH_KEYS
+            if context.get(f"{key}_series_graph_data")
+        ],
+    }
+
+
+# The ratings graph kinds and their context keys (detail_score_chips.html).
+_GRAPH_KEYS = (("provider", "provider"), ("trakt", "trakt"), ("imdb", "imdb"))
+
+
+def _graph(data) -> dict | None:
+    """Return one ratings heatmap (series_graph_tooltip.html), or None."""
+    if not data:
+        return None
+    return {
+        "title": _text(data.get("title")),
+        "row_label": _text(data.get("row_label")) or "E",
+        "seasons": [
+            {
+                "label": _text(season.get("label")),
+                "episodes": len(season.get("episodes") or []),
+            }
+            for season in data.get("seasons") or []
+        ],
+        "rows": [
+            {
+                "episode": row.get("ep"),
+                "cells": [
+                    {
+                        "score": float(cell["score"])
+                        if cell.get("score") is not None
+                        else None,
+                        "votes": cell.get("votes"),
+                        "color": cell.get("color") or None,
+                    }
+                    for cell in row.get("cells") or []
+                ],
+            }
+            for row in data.get("episode_rows") or []
+        ],
+        "legend": [
+            {"label": _text(item.get("label")), "color": _text(item.get("color"))}
+            for item in data.get("legend") or []
+        ],
+    }
+
+
+def build_detail_graphs(context) -> dict:
+    """Return the page's ratings graphs, from what is stored (no Trakt polling)."""
+    return {
+        kind: _graph(context.get(f"{key}_series_graph_data"))
+        for kind, key in _GRAPH_KEYS
     }
 
 
@@ -918,6 +991,8 @@ def build_detail_screen(request, media_type, source, media_id, part) -> dict | o
     context, _template = built
     if part == "shell":
         return build_detail_shell(request, context)
+    if part == "graphs":
+        return build_detail_graphs(context)
     if part == "season":
         try:
             number = int(request.GET.get("season", ""))
@@ -977,6 +1052,13 @@ class DetailMetaSerializer(serializers.Serializer):
     series = serializers.CharField(
         allow_null=True, help_text="Books: the series and the book's place in it."
     )
+    sessions_query = serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "The query of GET /api/v1/history/sessions/ for the activity line; "
+            "null without an activity line or in a public view."
+        ),
+    )
 
 
 class DetailActionSerializer(serializers.Serializer):
@@ -1034,6 +1116,10 @@ class DetailShellSerializer(serializers.Serializer):
     synopsis = serializers.CharField(allow_blank=True)
     watch_on = DetailWatchOnSerializer(allow_null=True)
     track_time = serializers.BooleanField()
+    graphs = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The ratings graphs this show has (provider, trakt, imdb): GET details/<type>/<source>/<id>/graphs/.",
+    )
 
 
 class DetailSeasonCoverSerializer(serializers.Serializer):
@@ -1262,3 +1348,50 @@ class DetailTrailersSerializer(serializers.Serializer):
     """A movie's or show's trailers: its own first, then each season's."""
 
     trailers = DetailTrailerSerializer(many=True)
+
+
+class DetailGraphSeasonSerializer(serializers.Serializer):
+    """A ratings graph column."""
+
+    label = serializers.CharField()
+    episodes = serializers.IntegerField(help_text="How many rated episodes it has.")
+
+
+class DetailGraphCellSerializer(serializers.Serializer):
+    """A ratings graph cell: null score and color for an episode with no rating."""
+
+    score = serializers.FloatField(allow_null=True)
+    votes = serializers.IntegerField(allow_null=True)
+    color = serializers.CharField(allow_null=True)
+
+
+class DetailGraphRowSerializer(serializers.Serializer):
+    """A ratings graph row: one episode (or season) across the seasons."""
+
+    episode = serializers.IntegerField(allow_null=True)
+    cells = DetailGraphCellSerializer(many=True)
+
+
+class DetailGraphLegendSerializer(serializers.Serializer):
+    """A ratings graph legend entry."""
+
+    label = serializers.CharField()
+    color = serializers.CharField()
+
+
+class DetailGraphSerializer(serializers.Serializer):
+    """A ratings heatmap: rows are episodes, columns seasons."""
+
+    title = serializers.CharField()
+    row_label = serializers.CharField(help_text="E for episodes, S for seasons.")
+    seasons = DetailGraphSeasonSerializer(many=True)
+    rows = DetailGraphRowSerializer(many=True)
+    legend = DetailGraphLegendSerializer(many=True)
+
+
+class DetailGraphsSerializer(serializers.Serializer):
+    """The detail page's ratings graphs; null for a kind with no stored data."""
+
+    provider = DetailGraphSerializer(allow_null=True)
+    trakt = DetailGraphSerializer(allow_null=True)
+    imdb = DetailGraphSerializer(allow_null=True)

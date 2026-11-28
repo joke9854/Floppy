@@ -421,6 +421,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/{media_type}/{source}/{media_id}/graphs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider, Trakt and IMDb ratings heatmaps (rows are episodes, columns seasons); null for a kind with nothing stored. Trakt is not polled: this returns what is stored. 400 for a type without graphs. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailGraphs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/details/{media_type}/{source}/{media_id}/sections/": {
         parameters: {
             query?: never;
@@ -549,6 +566,23 @@ export interface paths {
         };
         /** @description The show page with its first 20 episodes and your plays of each. The first read refreshes the feed, as the page does. With `episode_page` above 1 it answers only that page of episodes (a `PodcastEpisodesPage`) and never refreshes the feed. 400 for another source, or when the page answers with a redirect (an iTunes id). Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
         get: operations["getPodcastScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/studio/{source}/{studio_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The studio page: the studio, its numbers and the titles it credits with your status, built by the Django page's own builder. IGDB studios read the provider (503 while it is unreachable). Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getStudioScreen"];
         put?: never;
         post?: never;
         delete?: never;
@@ -832,6 +866,23 @@ export interface paths {
         };
         /** @description The Django History page's days and rows: the month view (`year`, `m`) from the history cache, or a page (`page`) of a filtered view: `media_type` (comma-separated), `start-date`/`end-date`, `history_mode=release`, `month`+`day` (on this day), genre, title and person filters, `logging_style`. Each row as the page writes it, with the track dialog target for Edit tracking. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
         get: operations["getHistoryScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/history/sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The date-grouped activity of one title, as the page's activity history dialog lists it, newest day first, at most `max_days` days (`capped` when there are more). Filters: `media_type`, `media_id`, `source`, `season_number`, `podcast_show`, `album`, `artist`, `logging_style=sessions` (games, board games). Read only. */
+        get: operations["getSessionsScreen"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5361,6 +5412,44 @@ export interface components {
             source_url: string | null;
             cards: components["schemas"]["DetailGameLengthCard"][];
         };
+        /** @description A ratings heatmap: rows are episodes, columns seasons. */
+        DetailGraph: {
+            title: string;
+            /** @description E for episodes, S for seasons. */
+            row_label: string;
+            seasons: components["schemas"]["DetailGraphSeason"][];
+            rows: components["schemas"]["DetailGraphRow"][];
+            legend: components["schemas"]["DetailGraphLegend"][];
+        };
+        /** @description A ratings graph cell: null score and color for an episode with no rating. */
+        DetailGraphCell: {
+            /** Format: double */
+            score: number | null;
+            votes: number | null;
+            color: string | null;
+        };
+        /** @description A ratings graph legend entry. */
+        DetailGraphLegend: {
+            label: string;
+            color: string;
+        };
+        /** @description A ratings graph row: one episode (or season) across the seasons. */
+        DetailGraphRow: {
+            episode: number | null;
+            cells: components["schemas"]["DetailGraphCell"][];
+        };
+        /** @description A ratings graph column. */
+        DetailGraphSeason: {
+            label: string;
+            /** @description How many rated episodes it has. */
+            episodes: number;
+        };
+        /** @description The detail page's ratings graphs; null for a kind with no stored data. */
+        DetailGraphs: {
+            provider: components["schemas"]["DetailGraph"] | null;
+            trakt: components["schemas"]["DetailGraph"] | null;
+            imdb: components["schemas"]["DetailGraph"] | null;
+        };
         /** @description The detail page's info. */
         DetailInfo: {
             label: string;
@@ -5420,6 +5509,8 @@ export interface components {
             progress: string | null;
             /** @description Books: the series and the book's place in it. */
             series: string | null;
+            /** @description The query of GET /api/v1/history/sessions/ for the activity line; null without an activity line or in a public view. */
+            sessions_query: string | null;
         };
         /** @description An author, studio or genre, with the Django page it opens. */
         DetailNamedLink: {
@@ -5548,6 +5639,8 @@ export interface components {
             synopsis: string;
             watch_on: components["schemas"]["DetailWatchOn"] | null;
             track_time: boolean;
+            /** @description The ratings graphs this show has (provider, trakt, imdb): GET details/<type>/<source>/<id>/graphs/. */
+            graphs: string[];
         };
         /** @description A YouTube trailer or teaser (ct/trailers.html). */
         DetailTrailer: {
@@ -7889,6 +7982,8 @@ export interface components {
             primary_text: string;
             date_start: string | null;
             date_end: string | null;
+            /** @description The query of GET /api/v1/history/sessions/ for this line; null for none. */
+            sessions_query: string | null;
         };
         /** @description One completed play. */
         MediaPlay: {
@@ -9036,6 +9131,20 @@ export interface components {
         ServerPortUpdate: {
             port: number;
         };
+        /** @description The activity sessions dialog. */
+        SessionsScreen: {
+            /** @description Newest first, at most `max_days`. */
+            days: components["schemas"]["HistoryScreenDay"][];
+            stats: components["schemas"]["SessionsScreenStat"][];
+            /** @description More days exist than `max_days`. */
+            capped: boolean;
+            max_days: number;
+        };
+        /** @description One of the dialog's "At a glance" numbers. */
+        SessionsScreenStat: {
+            label: string;
+            value: string;
+        };
         /** @description About: the running version. */
         SettingsAbout: {
             version: string;
@@ -10142,6 +10251,45 @@ export interface components {
             published_count: number | null;
             /** @description Credited titles, newest first, then by title. */
             titles: components["schemas"]["StudioTitle"][];
+        };
+        /** @description The studio page. */
+        StudioScreen: {
+            studio: components["schemas"]["StudioScreenStudio"];
+            sections: components["schemas"]["StudioScreenSection"][];
+        };
+        /** @description A credited title's poster card, with your status for it. */
+        StudioScreenCard: {
+            title: string;
+            url: string;
+            poster: string;
+            year: string;
+            media_type: string;
+            watched: boolean;
+            /** @description Your tracked status, if any. */
+            status: string | null;
+        };
+        /** @description One of the studio's numbers. */
+        StudioScreenCount: {
+            label: string;
+            value: number;
+        };
+        /** @description A group of credited titles. */
+        StudioScreenSection: {
+            label: string;
+            cards: components["schemas"]["StudioScreenCard"][];
+        };
+        /** @description The studio's profile. */
+        StudioScreenStudio: {
+            name: string;
+            /** @description The logo; null without one. */
+            image: string | null;
+            description: string;
+            source_label: string;
+            /** @description The studio's website. */
+            source_url: string | null;
+            /** @description In the user's date format. */
+            founded: string | null;
+            counts: components["schemas"]["StudioScreenCount"][];
         };
         /** @description One credited title of a studio. */
         StudioTitle: {
@@ -12943,6 +13091,55 @@ export interface operations {
             };
         };
     };
+    getDetailGraphs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                media_type: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailGraphs"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
     getDetailSections: {
         parameters: {
             query?: {
@@ -13376,6 +13573,62 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getStudioScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: string;
+                studio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14184,6 +14437,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryScreen"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getSessionsScreen: {
+        parameters: {
+            query?: {
+                album?: number;
+                artist?: number;
+                logging_style?: string;
+                media_id?: string;
+                media_type?: string;
+                podcast_show?: number;
+                season_number?: number;
+                source?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionsScreen"];
                 };
             };
             /** @description Credentials are missing, invalid, or expired. */

@@ -49,13 +49,14 @@ def _score(value) -> float | None:
     return float(value) if value is not None else None
 
 
-def _activity(subtitle, text_key) -> dict | None:
+def _activity(subtitle, text_key, sessions_query=None) -> dict | None:
     if not subtitle:
         return None
     return {
         "primary_text": _text(subtitle.get(text_key)),
         "date_start": _iso(subtitle.get("date_start")),
         "date_end": _iso(subtitle.get("date_end")),
+        "sessions_query": sessions_query,
     }
 
 
@@ -252,7 +253,9 @@ def build_album_screen(request, artist_id, album_id) -> dict | HttpResponse | No
             "musicbrainz_url": metadata.get("musicbrainz_url") or None,
         },
         "activity": _activity(
-            context.get("music_album_activity_subtitle"), "progress_text"
+            context.get("music_album_activity_subtitle"),
+            "progress_text",
+            f"album={album.id}",
         ),
         "tracker": _tracker(context.get("album_tracker")),
         "genres": genres,
@@ -363,7 +366,11 @@ def build_podcast_screen(
             "url": url,
             "website_url": show.website_url or None,
         },
-        "activity": _activity(context.get("activity_subtitle"), "primary_text"),
+        "activity": _activity(
+            context.get("activity_subtitle"),
+            "primary_text",
+            f"media_type={MediaTypes.PODCAST.value}&podcast_show={show.id}",
+        ),
         "tracker": _tracker(context.get("podcast_tracker")),
         "genres": [{"name": _text(name), "url": ""} for name in show.genres or []],
         "details": [
@@ -395,6 +402,10 @@ class MediaActivitySerializer(serializers.Serializer):
     primary_text = serializers.CharField(allow_blank=True)
     date_start = serializers.CharField(allow_null=True)
     date_end = serializers.CharField(allow_null=True)
+    sessions_query = serializers.CharField(
+        allow_null=True,
+        help_text="The query of GET /api/v1/history/sessions/ for this line; null for none.",
+    )
 
 
 class MediaPlaySerializer(serializers.Serializer):

@@ -31,6 +31,9 @@
 
 	let { data }: PageProps = $props();
 
+	/** What the hero opened lazily: the sessions dialog or a ratings graph (P4-L3b). */
+	let lazy = $state<{ query?: string; graph?: { kind: 'provider' | 'trakt' | 'imdb'; url: string } } | null>(null);
+
 	function trackTitle() {
 		openTrack({ mediaType: shell.media_type, source: shell.source, mediaId: shell.media_id });
 	}
@@ -361,19 +364,53 @@
 					{#if shell.meta.runtime}<span>{shell.meta.runtime}</span>{/if}
 					{#if shell.meta.certification}<span>{shell.meta.certification}</span>{/if}
 					{#if shell.meta.seasons}<span>{dt.seasonsCount(shell.meta.seasons)}</span>{/if}
-					{#if shell.meta.percent}<span>{dt.percentWatched(shell.meta.percent)}</span>{/if}
+					{#snippet line(text: string)}
+						{#if shell.meta.sessions_query}
+							<span>
+								<button
+									type="button"
+									class="ct-meta-link"
+									onclick={() => (lazy = { query: shell.meta.sessions_query! })}>{text}</button
+								>
+							</span>
+						{:else}
+							<span>{text}</span>
+						{/if}
+					{/snippet}
+					{#if shell.meta.percent}{@render line(dt.percentWatched(shell.meta.percent))}{/if}
 					{#if shell.meta.series}<span>{shell.meta.series}</span>{/if}
-					{#if shell.meta.progress}<span>{shell.meta.progress}</span>{/if}
+					{#if shell.meta.progress}{@render line(shell.meta.progress)}{/if}
 				</p>
 				{#if shell.scores.length}
 					<div class="ct-detail-chips">
 						{#each shell.scores as score (score.key)}
-							<span class="ct-score" title={score.label}>
+							{@const kind = shell.graphs.find((graph) => graph === score.key) as
+								| 'provider'
+								| 'trakt'
+								| 'imdb'
+								| undefined}
+							{#snippet chip()}
 								<span class="ct-score__badge" aria-hidden="true">{score.short}</span>
 								<span class="sr-only">{score.label}</span>
 								<span class="ct-score__rating">{score.rating}</span>
 								{#if score.count !== null}<span class="ct-score__count">{dt.votes(score.count)}</span>{/if}
-							</span>
+							{/snippet}
+							{#if kind}
+								<button
+									type="button"
+									class="ct-score"
+									title="{score.label} ratings graph"
+									onclick={() =>
+										(lazy = {
+											graph: {
+												kind,
+												url: `/api/v1/details/${shell.media_type}/${shell.source}/${encodeURIComponent(shell.media_id)}/graphs/`
+											}
+										})}>{@render chip()}</button
+								>
+							{:else}
+								<span class="ct-score" title={score.label}>{@render chip()}</span>
+							{/if}
 						{/each}
 					</div>
 				{/if}
@@ -509,3 +546,8 @@
 	</div>
 </main>
 
+{#if lazy}
+	{#await import('#lib/details/HeroLazy.svelte') then { default: HeroLazy }}
+		<HeroLazy {...lazy} onclose={() => (lazy = null)} />
+	{/await}
+{/if}

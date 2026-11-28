@@ -267,6 +267,10 @@ class MusicAlbumScreenTests(_Patched):
             second["plays"][0]["end_date"], (FIRST + timedelta(hours=1)).isoformat()
         )
 
+    def test_activity_carries_the_sessions_query(self):
+        data = self.client.get(self._url()).json()
+        self.assertEqual(data["activity"]["sessions_query"], f"album={self.album.id}")
+
     def test_history_id_is_what_the_delete_endpoint_removes(self):
         data = self.client.get(self._url()).json()
         play = data["tracks"][0]["plays"][0]
@@ -386,6 +390,17 @@ class PodcastScreenTests(_Patched):
         self.assertEqual(newest["play_count"], 1)
         self.assertEqual(newest["plays"][0]["end_date"], FIRST.isoformat())
         self.assertEqual(page["episodes"][1]["plays"], [])
+
+    def test_activity_carries_the_sessions_query(self):
+        episode = PodcastEpisode.objects.get(show=self.show, episode_uuid="ep-45")
+        fork_services_podcast.record_podcast_play(
+            self.user, self.show, episode=episode, episode_uuid="ep-45", end_date=FIRST
+        )
+        data = self.client.get(self._url()).json()
+        self.assertEqual(
+            data["activity"]["sessions_query"],
+            f"media_type=podcast&podcast_show={self.show.id}",
+        )
 
     def test_episode_page_does_not_refresh_and_returns_the_page(self):
         response = self.client.get(self._url() + "?episode_page=2")

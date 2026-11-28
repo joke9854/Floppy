@@ -147,6 +147,15 @@ const PAGES = [
 		budgetKb: 115
 	},
 	{
+		name: 'Studio page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/studio/[source]/[id]/[[name]]/+page.svelte'
+		],
+		budgetKb: 115
+	},
+	{
 		name: 'Artist page with the shell',
 		routes: [
 			'src/routes/+layout.svelte',
