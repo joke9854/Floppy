@@ -9411,6 +9411,29 @@ class MediaDetailsViewTests(TestCase):
             html=False,
         )
 
+    def test_podcast_episodes_api_survives_a_zero_page_size_and_page(self):
+        """page_size=0 and page=0 fall back to the defaults instead of raising."""
+        show = PodcastShow.objects.create(
+            podcast_uuid="paging-show",
+            title="Paging Show",
+            rss_feed_url="",
+            source=Sources.POCKETCASTS.value,
+        )
+        PodcastEpisode.objects.create(
+            show=show, episode_uuid="paging-episode", title="Only Episode"
+        )
+
+        response = self.client.get(
+            reverse("podcast_episodes_api", kwargs={"show_id": show.id}),
+            {"page": 0, "page_size": 0},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["pagination"]["page"], 1)
+        self.assertEqual(data["pagination"]["page_size"], 20)
+        self.assertEqual(data["episodes"][0]["title"], "Only Episode")
+
     @patch("events.tasks.reload_calendar.apply_async")
     @patch("integrations.podcast_rss.fetch_episodes_from_rss")
     def test_podcast_mark_all_played_fetches_rss_episodes_without_name_errors(

@@ -18,6 +18,8 @@ from app.models import (
     AlbumTracker,
     Artist,
     ArtistTracker,
+    Music,
+    Podcast,
     PodcastEpisode,
     PodcastShow,
     Status,
@@ -273,6 +275,35 @@ class MusicAlbumScreenTests(_Patched):
         again = self.client.get(self._url()).json()
         self.assertEqual(again["tracks"][0]["play_count"], 1)
 
+    def _music(self, track):
+        return Music.objects.get(user=self.user, album=self.album, track=track)
+
+    def _delete_play(self, music, end_date):
+        record = music.history.get(end_date=end_date)
+        response = self.client.delete(f"/api/v1/history/music/{record.history_id}/")
+        self.assertEqual(response.status_code, 204)
+
+    def test_deleting_the_latest_play_moves_the_row_to_the_one_before(self):
+        music = self._music(self.track1)
+        self.assertEqual(music.end_date, SECOND)
+        self._delete_play(music, SECOND)
+        music.refresh_from_db()
+        self.assertEqual(music.end_date, FIRST)
+        # The move adds no play.
+        self.assertEqual(music.history.filter(end_date__isnull=False).count(), 1)
+
+    def test_deleting_an_older_play_keeps_the_row(self):
+        music = self._music(self.track1)
+        self._delete_play(music, FIRST)
+        music.refresh_from_db()
+        self.assertEqual(music.end_date, SECOND)
+
+    def test_deleting_the_only_play_clears_the_row(self):
+        music = self._music(self.track2)
+        self._delete_play(music, FIRST + timedelta(hours=1))
+        music.refresh_from_db()
+        self.assertIsNone(music.end_date)
+
     def test_another_users_plays_are_not_shown(self):
         other = get_user_model().objects.create_user(username="other", password="x")
         fork_services_music.record_song_play(
@@ -400,6 +431,23 @@ class PodcastScreenTests(_Patched):
         self.assertEqual(response.status_code, 204)
         again = self.client.get(self._url()).json()
         self.assertEqual(again["episodes"]["episodes"][0]["play_count"], 0)
+
+    def test_deleting_the_latest_episode_play_moves_the_row_back(self):
+        episode = PodcastEpisode.objects.get(show=self.show, episode_uuid="ep-45")
+        for end_date in (FIRST, SECOND):
+            fork_services_podcast.record_podcast_play(
+                self.user,
+                self.show,
+                episode=episode,
+                episode_uuid="ep-45",
+                end_date=end_date,
+            )
+        podcast = Podcast.objects.get(user=self.user, episode=episode)
+        record = podcast.history.get(end_date=SECOND)
+        response = self.client.delete(f"/api/v1/history/podcast/{record.history_id}/")
+        self.assertEqual(response.status_code, 204)
+        podcast.refresh_from_db()
+        self.assertEqual(podcast.end_date, FIRST)
 
     def test_unsupported_source_is_400(self):
         self.assertEqual(self.client.get(self._url(source="tmdb")).status_code, 400)

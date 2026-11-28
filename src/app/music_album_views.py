@@ -273,7 +273,7 @@ def album_save(request):
             % {"value_1": album.title, "value_2": form.errors},
         )
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         return redirect(next_url)
     return redirect(_music_album_detail_url(album))
@@ -301,7 +301,7 @@ def album_delete(request):
     elif helpers.wants_json(request):
         return JsonResponse({"deleted": False})
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         return redirect(next_url)
     return redirect(_music_album_detail_url(album))
@@ -483,7 +483,7 @@ def song_save(request):
         response["Expires"] = "0"
         return response
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         return redirect(next_url)
     return redirect(_music_album_detail_url(album))

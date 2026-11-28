@@ -322,7 +322,9 @@ def _render_track_shell(request, context):
     return response
 def _music_bulk_redirect_url(request, *, artist=None, album=None):
     """Return the destination after a successful music bulk-play save."""
-    next_url = request.GET.get("next") or request.POST.get("return_url", "")
+    next_url = helpers.safe_next_url(
+        request.GET.get("next") or request.POST.get("return_url", "")
+    )
     if next_url:
         return next_url
     if album is not None:
@@ -1564,7 +1566,7 @@ def artist_save(request):
             % {"value_1": artist.name, "value_2": form.errors},
         )
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         return redirect(next_url)
     return redirect(_music_artist_detail_url(artist))
@@ -1594,7 +1596,7 @@ def artist_delete(request):
     elif helpers.wants_json(request):
         return JsonResponse({"deleted": False})
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         return redirect(next_url)
     return redirect(_music_artist_detail_url(artist))

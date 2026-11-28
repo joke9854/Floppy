@@ -643,6 +643,25 @@ class TrackModalViewTests(TestCase):
             ),
         )
 
+    def test_artist_save_follows_a_same_site_next_only(self):
+        """A ?next= to another site lands on the artist page instead."""
+        artist = Artist.objects.create(name="Saved Artist")
+        canonical = reverse(
+            "music_artist_details",
+            kwargs={"artist_id": artist.id, "artist_slug": "saved-artist"},
+        )
+        for next_url, expected in (
+            ("/history", "/history"),
+            ("https://example.invalid/", canonical),
+            ("//example.invalid/", canonical),
+        ):
+            response = self.client.post(
+                reverse("artist_save") + f"?next={next_url}",
+                {"artist_id": artist.id, "status": Status.IN_PROGRESS.value},
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.url, expected, next_url)
+
     def test_album_delete_redirects_to_canonical_music_details(self):
         """Album deletes should land on the canonical shared details page."""
         artist = Artist.objects.create(name="Saved Artist")

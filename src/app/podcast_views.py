@@ -100,6 +100,12 @@ def podcast_episodes_api(request, show_id):
     except ValueError:
         page = 1
         page_size = 20
+    # A zero page_size divided the page count by zero, and a page below 1
+    # sliced from a negative index; both raised. No upper bound: the REST
+    # episodes endpoint passes its own limit through as page_size.
+    page = max(page, 1)
+    if page_size < 1:
+        page_size = 20
 
     episodes_qs = (
         PodcastEpisode.objects.filter(show=show)
@@ -413,7 +419,7 @@ def podcast_show_save(request):
             % {"value_1": show.title, "value_2": form.errors},
         )
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         redirect_response = redirect(next_url)
     else:
@@ -447,7 +453,7 @@ def podcast_show_delete(request):
     elif helpers.wants_json(request):
         return JsonResponse({"deleted": False})
 
-    next_url = request.GET.get("next", "")
+    next_url = helpers.safe_next_url(request.GET.get("next", ""))
     if next_url:
         redirect_response = redirect(next_url)
     else:

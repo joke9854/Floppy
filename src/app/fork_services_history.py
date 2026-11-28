@@ -20,6 +20,34 @@ class HistoryDeletionError(RuntimeError):
     """The record was found but could not be deleted."""
 
 
+# One row per song or episode; each play is a history record carrying the
+# row's end_date at that save, and the row's end_date is the play recorded last.
+_PLAY_ROW_TYPES = frozenset({MediaTypes.MUSIC.value, MediaTypes.PODCAST.value})
+
+
+def _point_row_at_latest_play(historical_model, media_type, instance_id, deleted_at):
+    """After a play's record is deleted, stop the row naming that play.
+
+    When the deleted play is the one the row's end_date holds, the row moves to
+    the latest remaining play (None when none remain), so "last played" and the
+    album, artist and show date ranges stop showing a play that is gone. A
+    queryset update writes no history record, so it adds no play.
+    """
+    if deleted_at is None:
+        return
+    model = apps.get_model(app_label="app", model_name=media_type)
+    rows = model.objects.filter(id=instance_id, end_date=deleted_at)
+    if not rows.exists():
+        return
+    latest = (
+        historical_model.objects.filter(id=instance_id, end_date__isnull=False)
+        .order_by("-end_date")
+        .values_list("end_date", flat=True)
+        .first()
+    )
+    rows.update(end_date=latest)
+
+
 def delete_history_record_core(user, media_type, history_id):
     """Delete a consumption-history record for the user.
 
@@ -172,6 +200,13 @@ def delete_history_record_core(user, media_type, history_id):
                 "Could not verify deletion of history record %s: %s",
                 str(history_id),
                 str(exc),
+            )
+        if media_type_lower in _PLAY_ROW_TYPES:
+            _point_row_at_latest_play(
+                historical_model,
+                media_type_lower,
+                media_instance_id,
+                end_date,
             )
 
     logger.info(

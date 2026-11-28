@@ -244,6 +244,17 @@ def edition_result(edition, picker_type, *, selected_release_id=None):
     }
 
 
+def safe_next_url(value):
+    """Return ``value`` when it is a path on this site, else ``""``.
+
+    A ``?next=`` (or ``return_url``) the browser sends must not send it to
+    another site after a save or delete.
+    """
+    if value and url_has_allowed_host_and_scheme(value, None):
+        return value
+    return ""
+
+
 def redirect_back(request):
     """Redirect to the previous page, removing the 'page' parameter if present."""
     next_url = normalize_navigation_url(
