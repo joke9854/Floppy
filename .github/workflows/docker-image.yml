@@ -186,8 +186,9 @@ jobs:
             grep -Fq 'class="ct-library-bar"' <<<"$music_page"
             test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/library/episode")" = "$base/medialist/episode"
             library_ms=$(median_ms -b "$jar" "$base/next/library/movie")
-            # v2 P4-C1: types without a web detail page yet keep their Django page.
-            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/details/mal/anime/1/x")" = "$base/details/mal/anime/1/x"
+            # v2 P4-C1: types without a web detail page yet keep their Django page
+            # (a single song since P4-L3a gave anime its web page).
+            test "$(curl -s -o /dev/null -w '%{redirect_url}' -b "$jar" "$base/next/details/musicbrainz/music/1/x")" = "$base/details/musicbrainz/music/1/x"
             echo "Response times (median of 7): sign-in page ${signin_ms} ms, signed-in start page ${start_ms} ms, Library ${library_ms} ms"
             test "$signin_ms" -lt 800
             test "$start_ms" -lt 1500
