@@ -61,6 +61,10 @@ adds a web test for its flow:
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
 | P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2 (2026-11-27): Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3 (2026-11-28): Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Every Import source is drawn by the web |
+| P4-L | Detail pages for the other types | Planned (2026-11-28). L1: anime, manga, games, books, comics, board games. L2: music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: the activity sessions dialog, the ratings graphs, anime episodes, the studio page |
+| P4-M | Search and Add New Item | Planned (2026-11-28). M1: the search page (with the parent-show search). M2: the shell's search palette. M3: Add New Item (manual create) and Add Recommendation; the search-then-track web test |
+| P4-N | Floating sidebar | Planned (2026-11-28). The shell honours Appearance's sidebar style: Floating (the detached bar) with Expand on hover, Always expanded or Icons only; Attached stays the default |
+| P4-O | Leftover pages | Planned (2026-11-28). Tags, Collection, the Monthly recap, lists the user can only view, the collaborator search |
 
 ### P4-A: Home
 
@@ -832,4 +836,43 @@ Decided in K3: Plex's sign-in from the web passes `auto_import=0`, so the
 callback does not queue the setup wizard's default import (the wizard,
 without the flag, keeps it). The Plex library list no longer carries each
 server's URI and access token to the browser, on the Django page too.
+
+### P4-L to P4-O: what still opens Django (planned 2026-11-28)
+
+After P4-K every screen in the original list is on the web. These are the
+pages and pieces that still open Django, collected from the follow-ups
+above, so P5 can cut over. Order not decided yet; each on the board.
+
+P4-L, detail pages for the other types (C follow-ups):
+- [ ] L1: the detail page for anime, manga, games, books, comics and board
+      games (`details/<source>/<media_type>/...`); their Track buttons open
+      the web Track dialog.
+- [ ] L2: music artist and album pages (`details/music/artist/...`, album
+      releases) and podcast shows, with the song and podcast-episode
+      play-history dialog (`fill_track_song.html`).
+- [ ] L3: the activity sessions dialog (`history/sessions`), the ratings
+      graphs, anime episode pages, the studio page.
+
+P4-M, Search and Add New Item:
+- [ ] M1: the search page (`search`, `search/parent_tv`).
+- [ ] M2: the shell's search palette (`search/palette`).
+- [ ] M3: Add New Item (`create`) and Add Recommendation (both now the
+      Django search page); the web test for search, then track (the skipped
+      `test_tv_manual`, `test_tv_completed`, `test_season_*`).
+
+P4-N, the floating (detached) sidebar:
+- [ ] The web shell always draws the attached sidebar from lg and the icon
+      rail from md. Appearance's `sidebar_style` = Floating and its
+      `floating_sidebar` (Expand on hover, Always expanded, Icons only) are
+      saved by the web Settings (J1) but only the Django shell draws them.
+      Draw the floating bar in `web/src/lib/shell/Shell.svelte` from the
+      user's setting; Attached stays the default; phones keep the bottom bar.
+
+P4-O, leftover pages:
+- [ ] Tags (`tags`) and Collection (`collection/`).
+- [ ] The Monthly recap (`statistics/recap`).
+- [ ] Lists the user can only view (shared read-only, others' public lists)
+      and the collaborator search (needs a user-search endpoint).
+
+Staying on Django on purpose: Discover's debug panel (`?discover_debug=1`).
 
