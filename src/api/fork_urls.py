@@ -845,6 +845,21 @@ urlpatterns = [
         name="api_episode_screen",
     ),
     re_path(
+        r"^details/music/artist/(?P<artist_id>\d+)/?$",
+        fork_views_details.MusicArtistScreenView.as_view(),
+        name="api_music_artist_screen",
+    ),
+    re_path(
+        r"^details/music/artist/(?P<artist_id>\d+)/album/(?P<album_id>\d+)/?$",
+        fork_views_details.MusicAlbumScreenView.as_view(),
+        name="api_music_album_screen",
+    ),
+    re_path(
+        r"^details/podcast/(?P<source>[^/]+)/(?P<podcast_uuid>[^/]+)/?$",
+        fork_views_details.PodcastScreenView.as_view(),
+        name="api_podcast_screen",
+    ),
+    re_path(
         r"^details/person/(?P<source>[^/]+)/(?P<person_id>[^/]+)/?$",
         fork_views_details.PersonScreenView.as_view(),
         name="api_person_screen",

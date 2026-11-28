@@ -1685,6 +1685,118 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/details/music/artist/{artist_id}/:
+    get:
+      operationId: getMusicArtistScreen
+      description: 'The artist page: bio, details, members, the discography with your
+        play counts and scores, built by the Django page''s own builder. 400 when
+        the page answers with a redirect (a merged artist); the web opens the Django
+        page. Built by the Django page''s own builder, so it shows what the page shows.
+        Like the page, the read can store metadata it resolves, so integration tokens
+        cannot call it.'
+      parameters:
+      - in: path
+        name: artist_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtistScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/music/artist/{artist_id}/album/{album_id}/:
+    get:
+      operationId: getMusicAlbumScreen
+      description: 'The album page: details, genres and every track with the exact
+        instants of your plays (newest first), built by the Django page''s own builder.
+        400 when the page answers with a redirect (an album that canonicalizes elsewhere,
+        or another artist''s URL). Built by the Django page''s own builder, so it
+        shows what the page shows. Like the page, the read can store metadata it resolves,
+        so integration tokens cannot call it.'
+      parameters:
+      - in: path
+        name: album_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: artist_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlbumScreen'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/details/person/{source}/{person_id}/:
     get:
       operationId: getPersonScreen
@@ -1719,6 +1831,71 @@ paths:
                 $ref: '#/components/schemas/PersonScreen'
           description: ''
         '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
+  /api/v1/details/podcast/{source}/{podcast_uuid}/:
+    get:
+      operationId: getPodcastScreen
+      description: The show page with its first 20 episodes and your plays of each.
+        The first read refreshes the feed, as the page does. With `episode_page` above
+        1 it answers only that page of episodes (a `PodcastEpisodesPage`) and never
+        refreshes the feed. 400 for another source, or when the page answers with
+        a redirect (an iTunes id). Built by the Django page's own builder, so it shows
+        what the page shows. Like the page, the read can store metadata it resolves,
+        so integration tokens cannot call it.
+      parameters:
+      - in: query
+        name: episode_page
+        schema:
+          type: integer
+        description: Page of 20 episodes (`episodes.next_page`); invalid is 1.
+      - in: path
+        name: podcast_uuid
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastScreenOrEpisodesPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -17726,6 +17903,40 @@ components:
       - longest_streak_start
       - most_active_day
       - most_active_day_percentage
+    AlbumInfo:
+      type: object
+      description: The album.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        image:
+          type: string
+        url:
+          type: string
+        artists:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtistRef'
+        musicbrainz_url:
+          type: string
+          nullable: true
+      required:
+      - artists
+      - id
+      - image
+      - musicbrainz_url
+      - title
+      - url
+    AlbumRelease:
+      type: object
+      description: The release the user picked.
+      properties:
+        title:
+          type: string
+      required:
+      - title
     AlbumResyncResult:
       type: object
       description: The album holding the plays after a resync.
@@ -17744,6 +17955,111 @@ components:
       - album_id
       - merged
       - track_count
+    AlbumScreen:
+      type: object
+      description: The album page.
+      properties:
+        album:
+          $ref: '#/components/schemas/AlbumInfo'
+        activity:
+          allOf:
+          - $ref: '#/components/schemas/MediaActivity'
+          nullable: true
+        tracker:
+          allOf:
+          - $ref: '#/components/schemas/MediaTracker'
+          nullable: true
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailInfo'
+        release:
+          allOf:
+          - $ref: '#/components/schemas/AlbumRelease'
+          nullable: true
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlbumTrack'
+        total_tracks:
+          type: integer
+        total_runtime:
+          type: string
+        release_date:
+          type: string
+          nullable: true
+          description: ISO date.
+        history_url:
+          type: string
+        sync_url:
+          type: string
+          description: POST re-syncs the album.
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailLinkSection'
+      required:
+      - activity
+      - album
+      - details
+      - genres
+      - history_url
+      - links
+      - release
+      - release_date
+      - sync_url
+      - total_runtime
+      - total_tracks
+      - tracker
+      - tracks
+    AlbumTrack:
+      type: object
+      description: A track with your plays of it.
+      properties:
+        track_id:
+          type: integer
+          nullable: true
+        recording_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        disc:
+          type: integer
+          nullable: true
+        number:
+          type: integer
+          nullable: true
+        duration:
+          type: string
+        music_id:
+          type: integer
+          nullable: true
+        play_count:
+          type: integer
+        last_played:
+          type: string
+          nullable: true
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaPlay'
+          description: Newest first.
+      required:
+      - disc
+      - duration
+      - last_played
+      - music_id
+      - number
+      - play_count
+      - plays
+      - recording_id
+      - title
+      - track_id
     AlignEnum:
       enum:
       - start
@@ -17847,6 +18163,139 @@ components:
       required:
       - api_key
       - base_url
+    ArtistInfo:
+      type: object
+      description: The artist.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        image:
+          type: string
+        url:
+          type: string
+        bio:
+          type: string
+        musicbrainz_url:
+          type: string
+          nullable: true
+      required:
+      - bio
+      - id
+      - image
+      - musicbrainz_url
+      - name
+      - url
+    ArtistRating:
+      type: object
+      description: MusicBrainz's rating.
+      properties:
+        rating:
+          type: number
+          format: double
+          nullable: true
+        rating_count:
+          type: integer
+          nullable: true
+      required:
+      - rating
+      - rating_count
+    ArtistRef:
+      type: object
+      description: An artist with its web page.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+      required:
+      - id
+      - name
+      - url
+    ArtistRelation:
+      type: object
+      description: A band member, or a band the artist is also in.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        image:
+          type: string
+        url:
+          type: string
+        role:
+          type: string
+        is_current:
+          type: boolean
+      required:
+      - id
+      - image
+      - is_current
+      - name
+      - role
+      - url
+    ArtistScreen:
+      type: object
+      description: The artist page.
+      properties:
+        artist:
+          $ref: '#/components/schemas/ArtistInfo'
+        activity:
+          allOf:
+          - $ref: '#/components/schemas/MediaActivity'
+          nullable: true
+        rating:
+          $ref: '#/components/schemas/ArtistRating'
+        tracker:
+          allOf:
+          - $ref: '#/components/schemas/MediaTracker'
+          nullable: true
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailInfo'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtistRelation'
+        member_of:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtistRelation'
+        discography:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscographyGroup'
+        history_url:
+          type: string
+        sync_url:
+          type: string
+          description: POST re-syncs the discography.
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailLinkSection'
+      required:
+      - activity
+      - artist
+      - details
+      - discography
+      - genres
+      - history_url
+      - links
+      - member_of
+      - members
+      - rating
+      - sync_url
+      - tracker
     BackupFrequencyEnum:
       enum:
       - daily
@@ -20855,6 +21304,51 @@ components:
         * `inbound` - inbound
         * `outbound` - outbound
         * `both` - both
+    DiscographyAlbum:
+      type: object
+      description: A release in the discography.
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        image:
+          type: string
+        release_date:
+          type: string
+          nullable: true
+        release_type:
+          type: string
+        url:
+          type: string
+        play_count:
+          type: integer
+        score:
+          type: number
+          format: double
+          nullable: true
+      required:
+      - id
+      - image
+      - play_count
+      - release_date
+      - release_type
+      - score
+      - title
+      - url
+    DiscographyGroup:
+      type: object
+      description: A discography group (Albums, EPs, Singles, ...).
+      properties:
+        label:
+          type: string
+        albums:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscographyAlbum'
+      required:
+      - albums
+      - label
     DiscoverCandidate:
       type: object
       description: One Discover card (``app.discover.schemas.CandidateItem.to_dict``).
@@ -26227,6 +26721,36 @@ components:
       required:
       - needs_review
       - saved
+    MediaActivity:
+      type: object
+      description: 'The page''s activity subtitle: the line under the title.'
+      properties:
+        primary_text:
+          type: string
+        date_start:
+          type: string
+          nullable: true
+        date_end:
+          type: string
+          nullable: true
+      required:
+      - date_end
+      - date_start
+      - primary_text
+    MediaPlay:
+      type: object
+      description: One completed play.
+      properties:
+        history_id:
+          type: integer
+          description: DELETE /api/v1/history/<music|podcast>/<history_id>/ removes
+            it.
+        end_date:
+          type: string
+          description: The exact instant, ISO 8601 with offset.
+      required:
+      - end_date
+      - history_id
     MediaProgressRequest:
       type: object
       description: Progress step to apply.
@@ -26246,6 +26770,20 @@ components:
             type: integer
       required:
       - tag_ids
+    MediaTracker:
+      type: object
+      description: Your tracker for an artist, album or show.
+      properties:
+        status:
+          type: string
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+      required:
+      - score
+      - status
     MediaTypeEnum:
       enum:
       - tv
@@ -27802,6 +28340,44 @@ components:
           description: Omit or null for every library.
       required:
       - plex_usernames
+    PodcastEpisode:
+      type: object
+      description: An episode with your plays of it.
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        title:
+          type: string
+        number:
+          type: integer
+          nullable: true
+        published:
+          type: string
+          nullable: true
+        duration:
+          type: string
+        website_url:
+          type: string
+          nullable: true
+        play_count:
+          type: integer
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaPlay'
+          description: Newest first.
+      required:
+      - duration
+      - id
+      - number
+      - play_count
+      - plays
+      - published
+      - title
+      - uuid
+      - website_url
     PodcastEpisodePlay:
       type: object
       description: The recorded play; `duplicate` marks a repeat within five minutes.
@@ -27919,6 +28495,26 @@ components:
           format: date-time
       required:
       - show_id
+    PodcastEpisodesPage:
+      type: object
+      description: One page (20) of a show's episodes, newest first.
+      properties:
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodcastEpisode'
+        total:
+          type: integer
+        has_more:
+          type: boolean
+        next_page:
+          type: integer
+          nullable: true
+      required:
+      - episodes
+      - has_more
+      - next_page
+      - total
     PodcastFeedEpisode:
       type: object
       description: An episode read from the show's RSS feed.
@@ -28011,6 +28607,46 @@ components:
           type: integer
       required:
       - marked_played
+    PodcastScreen:
+      type: object
+      description: The podcast show page.
+      properties:
+        show:
+          $ref: '#/components/schemas/PodcastShowInfo'
+        activity:
+          allOf:
+          - $ref: '#/components/schemas/MediaActivity'
+          nullable: true
+        tracker:
+          allOf:
+          - $ref: '#/components/schemas/MediaTracker'
+          nullable: true
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailInfo'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailLinkSection'
+        episodes:
+          $ref: '#/components/schemas/PodcastEpisodesPage'
+      required:
+      - activity
+      - details
+      - episodes
+      - genres
+      - links
+      - show
+      - tracker
+    PodcastScreenOrEpisodesPage:
+      oneOf:
+      - $ref: '#/components/schemas/PodcastScreen'
+      - $ref: '#/components/schemas/PodcastEpisodesPage'
     PodcastShow:
       type: object
       description: A podcast show with the caller's tracker.
@@ -28128,6 +28764,39 @@ components:
       required:
       - pagination
       - results
+    PodcastShowInfo:
+      type: object
+      description: The show.
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        source:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        image:
+          type: string
+        description:
+          type: string
+        url:
+          type: string
+        website_url:
+          type: string
+          nullable: true
+      required:
+      - author
+      - description
+      - id
+      - image
+      - source
+      - title
+      - url
+      - uuid
+      - website_url
     PodcastShowTrackRequest:
       type: object
       description: Show to track, by Floppy id or iTunes id, plus tracker fields.

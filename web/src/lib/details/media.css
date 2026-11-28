@@ -1,0 +1,270 @@
+/* Music artist, album and podcast show pages (P4-L2). Reuses details.css. */
+
+.ct-media-art img {
+	aspect-ratio: 1 / 1;
+}
+
+.ct-media-activity {
+	margin-top: 8px;
+	color: var(--color-text-secondary);
+	font-size: 15px;
+}
+
+.ct-media-bio {
+	max-width: 640px;
+	margin-top: 16px;
+	color: var(--color-text-secondary);
+	text-wrap: pretty;
+	white-space: pre-line;
+}
+
+.ct-media-bio.is-clamped {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 4;
+}
+
+.ct-media-sections {
+	display: grid;
+	gap: 40px;
+}
+
+.ct-media-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 20px 16px;
+}
+
+.ct-media-card {
+	display: block;
+	min-width: 0;
+}
+
+.ct-media-card img,
+.ct-media-card__blank {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	border-radius: var(--radius-ct-md);
+	background-color: var(--color-surface);
+	object-fit: cover;
+}
+
+.ct-media-card__title {
+	display: -webkit-box;
+	overflow: hidden;
+	margin-top: 8px;
+	color: var(--color-text);
+	font-size: 14px;
+	font-weight: 600;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.ct-media-card:hover .ct-media-card__title {
+	color: var(--color-link);
+}
+
+.ct-media-card__sub {
+	margin-top: 2px;
+	color: var(--color-muted);
+	font-size: 12px;
+}
+
+.ct-media-group + .ct-media-group {
+	margin-top: 28px;
+}
+
+.ct-media-group__title {
+	margin-bottom: 12px;
+	color: var(--color-text-secondary);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.ct-media-people {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 12px 24px;
+}
+
+.ct-media-person {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+	color: var(--color-text);
+	font-size: 15px;
+	font-weight: 500;
+}
+
+.ct-media-person img,
+.ct-media-person__blank {
+	flex: none;
+	width: 40px;
+	height: 40px;
+	border-radius: 999px;
+	background-color: var(--color-surface);
+	object-fit: cover;
+}
+
+.ct-media-person:hover {
+	color: var(--color-link);
+}
+
+.ct-media-person__sub {
+	display: block;
+	color: var(--color-muted);
+	font-size: 12px;
+	font-weight: 400;
+}
+
+.ct-media-artists a:hover {
+	color: var(--color-link);
+}
+
+.ct-media-rows {
+	list-style: none;
+}
+
+.ct-media-row {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	width: 100%;
+	padding: 12px 16px;
+	color: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.ct-media-row + .ct-media-row {
+	box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-media-row:hover {
+	background-color: rgb(255 255 255 / 4%);
+}
+
+.ct-media-row__number {
+	flex: none;
+	min-width: 28px;
+	color: var(--color-muted);
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
+.ct-media-row__body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.ct-media-row__title {
+	overflow: hidden;
+	color: var(--color-text);
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ct-media-row__sub {
+	color: var(--color-muted);
+	font-size: 13px;
+}
+
+.ct-media-row__sub.is-played {
+	color: var(--color-text-secondary);
+}
+
+.ct-media-row__time {
+	flex: none;
+	color: var(--color-muted);
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.ct-plays-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.ct-plays-dialog__list {
+	display: flex;
+	flex-direction: column;
+	max-height: 220px;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.ct-plays-dialog__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 0;
+	color: var(--color-text);
+	font-size: 14px;
+}
+
+.ct-plays-dialog__item + .ct-plays-dialog__item {
+	box-shadow: inset 0 0.9px 0 rgb(255 255 255 / 7%);
+}
+
+.ct-plays-dialog__delete {
+	color: var(--color-error);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.ct-plays-dialog__delete:disabled {
+	opacity: 0.5;
+}
+
+.ct-plays-dialog__form {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ct-plays-dialog__label {
+	color: var(--color-muted);
+	font-size: 13px;
+}
+
+.ct-plays-dialog__input {
+	width: 100%;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background-color: rgb(255 255 255 / 8%);
+	color: var(--color-text);
+	color-scheme: dark;
+}
+
+.ct-plays-dialog__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.ct-plays-dialog__chips button {
+	padding: 4px 12px;
+	border-radius: 999px;
+	background-color: rgb(255 255 255 / 6%);
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.ct-plays-dialog__chips button:hover {
+	background-color: rgb(255 255 255 / 10%);
+	color: var(--color-text);
+}
+
+.ct-plays-dialog__empty {
+	color: var(--color-muted);
+	font-size: 14px;
+}

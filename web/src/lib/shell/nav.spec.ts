@@ -91,6 +91,22 @@ describe('detail links', () => {
 		expect(detailHref('/details/tmdb/tv/1399/got/season/1/episode/2', '/next')).toBe(
 			'/next/details/tmdb/tv/1399/got/season/1/episode/2'
 		);
+		expect(detailHref('/details/music/artist/7/slowdive-7/', '/next')).toBe(
+			'/next/details/music/artist/7/slowdive-7/'
+		);
+		expect(detailHref('/details/music/artist/7/slowdive-7/album/9/souvlaki-9/', '/next')).toBe(
+			'/next/details/music/artist/7/slowdive-7/album/9/souvlaki-9/'
+		);
+		expect(detailHref('/details/music/album/9/releases', '/next')).toBe('/details/music/album/9/releases');
+		expect(detailHref('/details/pocketcasts/podcast/abc-123/test-cast', '/next')).toBe(
+			'/next/details/pocketcasts/podcast/abc-123/test-cast'
+		);
+		expect(detailHref('/details/gpodder/podcast/abc-123/', '/next')).toBe(
+			'/next/details/gpodder/podcast/abc-123/'
+		);
+		expect(detailHref('/details/tmdb/podcast/abc-123/test-cast', '/next')).toBe(
+			'/details/tmdb/podcast/abc-123/test-cast'
+		);
 		expect(detailHref('/person/tmdb/9273/amy-adams', '/next')).toBe(
 			'/next/person/tmdb/9273/amy-adams'
 		);

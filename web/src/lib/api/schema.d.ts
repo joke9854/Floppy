@@ -472,6 +472,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/music/artist/{artist_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The artist page: bio, details, members, the discography with your play counts and scores, built by the Django page's own builder. 400 when the page answers with a redirect (a merged artist); the web opens the Django page. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getMusicArtistScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/music/artist/{artist_id}/album/{album_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The album page: details, genres and every track with the exact instants of your plays (newest first), built by the Django page's own builder. 400 when the page answers with a redirect (an album that canonicalizes elsewhere, or another artist's URL). Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getMusicAlbumScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/details/person/{source}/{person_id}/": {
         parameters: {
             query?: never;
@@ -481,6 +515,23 @@ export interface paths {
         };
         /** @description The person page: the person, your numbers with them, the titles you have watched, Known For and the filmography, built by the Django page's own builder. 400 for a source without person pages. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
         get: operations["getPersonScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/details/podcast/{source}/{podcast_uuid}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The show page with its first 20 episodes and your plays of each. The first read refreshes the feed, as the page does. With `episode_page` above 1 it answers only that page of episodes (a `PodcastEpisodesPage`) and never refreshes the feed. 400 for another source, or when the page answers with a redirect (an iTunes id). Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getPodcastScreen"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4052,6 +4103,19 @@ export interface components {
             /** Format: date */
             longest_streak_end: string | null;
         };
+        /** @description The album. */
+        AlbumInfo: {
+            id: number;
+            title: string;
+            image: string;
+            url: string;
+            artists: components["schemas"]["ArtistRef"][];
+            musicbrainz_url: string | null;
+        };
+        /** @description The release the user picked. */
+        AlbumRelease: {
+            title: string;
+        };
         /** @description The album holding the plays after a resync. */
         AlbumResyncResult: {
             /** @description The album now holding the plays. Differs from the requested id when that album was a duplicate and was merged into this one. */
@@ -4059,6 +4123,38 @@ export interface components {
             merged: boolean;
             /** @description Tracks in the refreshed tracklist; null after a merge. */
             track_count: number | null;
+        };
+        /** @description The album page. */
+        AlbumScreen: {
+            album: components["schemas"]["AlbumInfo"];
+            activity: components["schemas"]["MediaActivity"] | null;
+            tracker: components["schemas"]["MediaTracker"] | null;
+            genres: components["schemas"]["DetailNamedLink"][];
+            details: components["schemas"]["DetailInfo"][];
+            release: components["schemas"]["AlbumRelease"] | null;
+            tracks: components["schemas"]["AlbumTrack"][];
+            total_tracks: number;
+            total_runtime: string;
+            /** @description ISO date. */
+            release_date: string | null;
+            history_url: string;
+            /** @description POST re-syncs the album. */
+            sync_url: string;
+            links: components["schemas"]["DetailLinkSection"][];
+        };
+        /** @description A track with your plays of it. */
+        AlbumTrack: {
+            track_id: number | null;
+            recording_id: string | null;
+            title: string;
+            disc: number | null;
+            number: number | null;
+            duration: string;
+            music_id: number | null;
+            play_count: number;
+            last_played: string | null;
+            /** @description Newest first. */
+            plays: components["schemas"]["MediaPlay"][];
         };
         /**
          * @description * `start` - start
@@ -4110,6 +4206,52 @@ export interface components {
             base_url: string;
             api_key: string;
             name?: string;
+        };
+        /** @description The artist. */
+        ArtistInfo: {
+            id: number;
+            name: string;
+            image: string;
+            url: string;
+            bio: string;
+            musicbrainz_url: string | null;
+        };
+        /** @description MusicBrainz's rating. */
+        ArtistRating: {
+            /** Format: double */
+            rating: number | null;
+            rating_count: number | null;
+        };
+        /** @description An artist with its web page. */
+        ArtistRef: {
+            id: number;
+            name: string;
+            url: string;
+        };
+        /** @description A band member, or a band the artist is also in. */
+        ArtistRelation: {
+            id: number;
+            name: string;
+            image: string;
+            url: string;
+            role: string;
+            is_current: boolean;
+        };
+        /** @description The artist page. */
+        ArtistScreen: {
+            artist: components["schemas"]["ArtistInfo"];
+            activity: components["schemas"]["MediaActivity"] | null;
+            rating: components["schemas"]["ArtistRating"];
+            tracker: components["schemas"]["MediaTracker"] | null;
+            genres: components["schemas"]["DetailNamedLink"][];
+            details: components["schemas"]["DetailInfo"][];
+            members: components["schemas"]["ArtistRelation"][];
+            member_of: components["schemas"]["ArtistRelation"][];
+            discography: components["schemas"]["DiscographyGroup"][];
+            history_url: string;
+            /** @description POST re-syncs the discography. */
+            sync_url: string;
+            links: components["schemas"]["DetailLinkSection"][];
         };
         /**
          * @description * `daily` - daily
@@ -5417,6 +5559,23 @@ export interface components {
          * @enum {string}
          */
         DirectionEnum: "off" | "inbound" | "outbound" | "both";
+        /** @description A release in the discography. */
+        DiscographyAlbum: {
+            id: number;
+            title: string;
+            image: string;
+            release_date: string | null;
+            release_type: string;
+            url: string;
+            play_count: number;
+            /** Format: double */
+            score: number | null;
+        };
+        /** @description A discography group (Albums, EPs, Singles, ...). */
+        DiscographyGroup: {
+            label: string;
+            albums: components["schemas"]["DiscographyAlbum"][];
+        };
         /** @description One Discover card (``app.discover.schemas.CandidateItem.to_dict``). */
         DiscoverCandidate: {
             media_type: string;
@@ -7703,6 +7862,19 @@ export interface components {
             needs_review: components["schemas"]["MatchReference"][];
             saved: components["schemas"]["MatchReference"][];
         };
+        /** @description The page's activity subtitle: the line under the title. */
+        MediaActivity: {
+            primary_text: string;
+            date_start: string | null;
+            date_end: string | null;
+        };
+        /** @description One completed play. */
+        MediaPlay: {
+            /** @description DELETE /api/v1/history/<music|podcast>/<history_id>/ removes it. */
+            history_id: number;
+            /** @description The exact instant, ISO 8601 with offset. */
+            end_date: string;
+        };
         /** @description Progress step to apply. */
         MediaProgressRequest: {
             /** @description `increase` or `decrease`. */
@@ -7711,6 +7883,12 @@ export interface components {
         /** @description Tag ids that replace the media's tags. */
         MediaTagsRequest: {
             tag_ids: number[];
+        };
+        /** @description Your tracker for an artist, album or show. */
+        MediaTracker: {
+            status: string | null;
+            /** Format: double */
+            score: number | null;
         };
         /**
          * @description * `tv` - TV Show
@@ -8376,6 +8554,19 @@ export interface components {
             /** @description Omit or null for every library. */
             allowed_libraries?: string[] | null;
         };
+        /** @description An episode with your plays of it. */
+        PodcastEpisode: {
+            id: number;
+            uuid: string;
+            title: string;
+            number: number | null;
+            published: string | null;
+            duration: string;
+            website_url: string | null;
+            play_count: number;
+            /** @description Newest first. */
+            plays: components["schemas"]["MediaPlay"][];
+        };
         /** @description The recorded play; `duplicate` marks a repeat within five minutes. */
         PodcastEpisodePlay: {
             id: number | null;
@@ -8419,6 +8610,13 @@ export interface components {
             /** Format: date-time */
             end_date?: string;
         };
+        /** @description One page (20) of a show's episodes, newest first. */
+        PodcastEpisodesPage: {
+            episodes: components["schemas"]["PodcastEpisode"][];
+            total: number;
+            has_more: boolean;
+            next_page: number | null;
+        };
         /** @description An episode read from the show's RSS feed. */
         PodcastFeedEpisode: {
             title: string;
@@ -8453,6 +8651,17 @@ export interface components {
         PodcastMarkAllPlayed: {
             marked_played: number;
         };
+        /** @description The podcast show page. */
+        PodcastScreen: {
+            show: components["schemas"]["PodcastShowInfo"];
+            activity: components["schemas"]["MediaActivity"] | null;
+            tracker: components["schemas"]["MediaTracker"] | null;
+            genres: components["schemas"]["DetailNamedLink"][];
+            details: components["schemas"]["DetailInfo"][];
+            links: components["schemas"]["DetailLinkSection"][];
+            episodes: components["schemas"]["PodcastEpisodesPage"];
+        };
+        PodcastScreenOrEpisodesPage: components["schemas"]["PodcastScreen"] | components["schemas"]["PodcastEpisodesPage"];
         /** @description A podcast show with the caller's tracker. */
         PodcastShow: {
             id: number;
@@ -8493,6 +8702,18 @@ export interface components {
         PodcastShowEpisodes: {
             pagination: components["schemas"]["Pagination"];
             results: components["schemas"]["PodcastShowEpisode"][];
+        };
+        /** @description The show. */
+        PodcastShowInfo: {
+            id: number;
+            uuid: string;
+            source: string;
+            title: string;
+            author: string;
+            image: string;
+            description: string;
+            url: string;
+            website_url: string | null;
         };
         /** @description Show to track, by Floppy id or iTunes id, plus tracker fields. */
         PodcastShowTrackRequest: {
@@ -12861,6 +13082,117 @@ export interface operations {
             };
         };
     };
+    getMusicArtistScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistScreen"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getMusicAlbumScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+                artist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumScreen"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
     getPersonScreen: {
         parameters: {
             query?: never;
@@ -12900,6 +13232,65 @@ export interface operations {
             };
             /** @description The token does not hold the scope this operation requires. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
+    getPodcastScreen: {
+        parameters: {
+            query?: {
+                /** @description Page of 20 episodes (`episodes.next_page`); invalid is 1. */
+                episode_page?: number;
+            };
+            header?: never;
+            path: {
+                podcast_uuid: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PodcastScreenOrEpisodesPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

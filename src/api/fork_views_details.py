@@ -10,7 +10,11 @@ web keeps their Django page.
 from http import HTTPStatus as HTTP  # noqa: N814
 
 from django.http import HttpResponse
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    PolymorphicProxySerializer,
+    extend_schema,
+)
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
@@ -19,6 +23,16 @@ from app.providers import credentials
 
 from .calendar_screen import CalendarScreenSerializer, build_calendar_screen
 from .contract_serializers import DetailErrorSerializer
+from .details_media_screen import (
+    PODCAST_SOURCES,
+    AlbumScreenSerializer,
+    ArtistScreenSerializer,
+    PodcastEpisodesPageSerializer,
+    PodcastScreenSerializer,
+    build_album_screen,
+    build_artist_screen,
+    build_podcast_screen,
+)
 from .details_screen import (
     DETAIL_SCREEN_TYPES,
     DetailSeasonSerializer,
@@ -165,6 +179,115 @@ class DetailTrailersView(drf_views.APIView):
         """Return the trailers."""
         return _screen(
             request, media_type, source, media_id, "trailers", DetailTrailersSerializer
+        )
+
+
+def _media_screen(request, builder, serializer, *args):
+    """Run a music or podcast page builder: 400 for the page's redirect, 404 for none."""
+    with credentials.current_user_scope(request.user):
+        data = builder(request._request, *args)
+    if isinstance(data, HttpResponse):
+        return Response(_REDIRECTED, status=HTTP.BAD_REQUEST)
+    if data is None:
+        return Response({"detail": "Not found."}, status=HTTP.NOT_FOUND)
+    return Response(serializer(data).data, status=HTTP.OK)
+
+
+# /api/v1/details/music/artist/{artist_id}/
+class MusicArtistScreenView(drf_views.APIView):
+    """A music artist page for the new web app (v2 P4-L2)."""
+
+    @extend_schema(
+        operation_id="getMusicArtistScreen",
+        description=(
+            "The artist page: bio, details, members, the discography with your play "
+            "counts and scores, built by the Django page's own builder. 400 when "
+            "the page answers with a redirect (a merged artist); the web opens the "
+            "Django page." + _NOTE
+        ),
+        responses={
+            200: ArtistScreenSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, artist_id):
+        """Return the artist page."""
+        return _media_screen(
+            request, build_artist_screen, ArtistScreenSerializer, int(artist_id)
+        )
+
+
+# /api/v1/details/music/artist/{artist_id}/album/{album_id}/
+class MusicAlbumScreenView(drf_views.APIView):
+    """A music album page for the new web app (v2 P4-L2)."""
+
+    @extend_schema(
+        operation_id="getMusicAlbumScreen",
+        description=(
+            "The album page: details, genres and every track with the exact "
+            "instants of your plays (newest first), built by the Django page's own "
+            "builder. 400 when the page answers with a redirect (an album that "
+            "canonicalizes elsewhere, or another artist's URL)." + _NOTE
+        ),
+        responses={
+            200: AlbumScreenSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, artist_id, album_id):
+        """Return the album page."""
+        return _media_screen(
+            request,
+            build_album_screen,
+            AlbumScreenSerializer,
+            int(artist_id),
+            int(album_id),
+        )
+
+
+# /api/v1/details/podcast/{source}/{podcast_uuid}/
+class PodcastScreenView(drf_views.APIView):
+    """A podcast show page for the new web app (v2 P4-L2)."""
+
+    @extend_schema(
+        operation_id="getPodcastScreen",
+        description=(
+            "The show page with its first 20 episodes and your plays of each. The "
+            "first read refreshes the feed, as the page does. With `episode_page` "
+            "above 1 it answers only that page of episodes (a "
+            "`PodcastEpisodesPage`) and never refreshes the feed. 400 for another "
+            "source, or when the page answers with a redirect (an iTunes id)." + _NOTE
+        ),
+        parameters=[
+            OpenApiParameter(
+                "episode_page",
+                int,
+                description="Page of 20 episodes (`episodes.next_page`); invalid is 1.",
+            ),
+        ],
+        responses={
+            200: PolymorphicProxySerializer(
+                component_name="PodcastScreenOrEpisodesPage",
+                serializers=[PodcastScreenSerializer, PodcastEpisodesPageSerializer],
+                resource_type_field_name=None,
+            ),
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, source, podcast_uuid):
+        """Return the show page, or one page of its episodes."""
+        if source not in PODCAST_SOURCES:
+            return Response(
+                {"detail": "Not a podcast source."}, status=HTTP.BAD_REQUEST
+            )
+        raw = request.query_params.get("episode_page", "")
+        page = int(raw) if raw.isdigit() and int(raw) >= 1 else 1
+        serializer = PodcastScreenSerializer if page == 1 else PodcastEpisodesPageSerializer
+        return _media_screen(
+            request, build_podcast_screen, serializer, source, podcast_uuid, page
         )
 
 

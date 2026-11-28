@@ -61,7 +61,7 @@ adds a web test for its flow:
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
 | P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2 (2026-11-27): Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3 (2026-11-28): Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Every Import source is drawn by the web |
-| P4-L | Detail pages for the other types | L1 built (2026-11-28): manga, games, books, comics, board games. L2: music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: anime (its page and episodes), the activity sessions dialog, the ratings graphs, the studio page |
+| P4-L | Detail pages for the other types | L1 built (2026-11-28): manga, games, books, comics, board games. L2 built (2026-11-28): music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: anime (its page and episodes), the activity sessions dialog, the ratings graphs, the studio page |
 | P4-M | Search and Add New Item | Planned (2026-11-28). M1: the search page (with the parent-show search). M2: the shell's search palette. M3: Add New Item (manual create) and Add Recommendation; the search-then-track web test |
 | P4-N | Floating sidebar | Planned (2026-11-28). The shell honours Appearance's sidebar style: Floating (the detached bar) with Expand on hover, Always expanded or Icons only; Attached stays the default |
 | P4-O | Leftover pages | Planned (2026-11-28). Tags, Collection, the Monthly recap, lists the user can only view, the collaborator search |
@@ -858,9 +858,27 @@ P4-L, detail pages for the other types (C follow-ups):
       Hardcover `?edition_id=` preview (the Track dialog's Metadata tab
       picks the edition), Notes and Collection sections (not on the movie
       page either).
-- [ ] L2: music artist and album pages (`details/music/artist/...`, album
+- [x] L2 (2026-11-28): music artist and album pages (`details/music/artist/...`, album
       releases) and podcast shows, with the song and podcast-episode
       play-history dialog (`fill_track_song.html`).
+      Scope (decided 2026-11-28): three read endpoints, one phase each
+      (`details/music/artist/<id>/`, `.../album/<id>/`,
+      `details/podcast/<source>/<uuid>/` with `episode_page`); the web
+      pages on their own routes (own bundles). The actions reuse their
+      JSON twins unchanged: the tracker dialog (`track/artist|album|podcast`,
+      the album's release picker in its Metadata tab), add a play
+      (`music/songs/plays`, `podcasts/episodes/plays`), delete a play
+      (`history/<type>/<id>`), Sync (`music/artists/<id>/sync-discography`,
+      `music/albums/<id>/resync`). The Django renderers are split into
+      context builders the page and the API share. The podcast feed
+      refresh runs on the page's first read only, never on an episode page.
+      A canonical album or merged artist answers 400, so the web falls back
+      to the Django page, which redirects.
+      Not in L2: Collection and Notes sections (as L1), the album's tags,
+      a track's own score, the podcast in-progress entry's delete, delete
+      all plays (its artist filter misses credited albums), mark all played
+      (no page offers it), the cover and photo polling (the page shows what
+      is stored; a reload picks up the rest).
 - [ ] L3: anime: its page (grouped TMDB/TVDB anime on the show machinery,
       flat MAL anime with the mapped episode preview) and its episode pages;
       the activity sessions dialog (`history/sessions`), the ratings graphs,

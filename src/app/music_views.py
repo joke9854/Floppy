@@ -416,6 +416,14 @@ def _queue_artist_relation_image_prefetch(artist, band_members, member_of_bands)
 
 def _render_music_artist_details(request, artist):
     """Render a music artist through the shared media details template."""
+    context = build_music_artist_context(request, artist)
+    if isinstance(context, HttpResponse):
+        return context
+    return render(request, "app/media_details.html", context)
+
+
+def build_music_artist_context(request, artist):
+    """Return the artist page's context, or the redirect the page answers."""
     from app import views as view_barrel
     from app.helpers import get_artist_collection_stats
     from app.models import AlbumTracker, ArtistTracker
@@ -661,7 +669,7 @@ def _render_music_artist_details(request, artist):
     }
     detail_history_url = f"{reverse('history')}?artist={artist.id}"
 
-    context = {
+    return {
         "user": request.user,
         "music_detail_kind": "artist",
         "media_type": MediaTypes.MUSIC.value,
@@ -711,11 +719,18 @@ def _render_music_artist_details(request, artist):
         "poll_for_covers": missing_cover_count > 0,
         "bio": bio,
     }
-    return render(request, "app/media_details.html", context)
 
 
 def _render_music_album_details(request, artist, album):
     """Render a music album through the shared media details template."""
+    context = build_music_album_context(request, artist, album)
+    if isinstance(context, HttpResponse):
+        return context
+    return render(request, "app/media_details.html", context)
+
+
+def build_music_album_context(request, artist, album):
+    """Return the album page's context, or the redirect the page answers."""
     from app import views as view_barrel
     from app.helpers import get_album_collection_metadata
     from app.models import AlbumTracker
@@ -990,7 +1005,7 @@ def _render_music_album_details(request, artist, album):
         genre_list_media_type=MediaTypes.MUSIC.value,
     )
 
-    context = {
+    return {
         "user": request.user,
         "music_detail_kind": "album",
         "media_type": MediaTypes.MUSIC.value,
@@ -1051,7 +1066,6 @@ def _render_music_album_details(request, artist, album):
         ),
         "notes_entry": notes_entry,
     }
-    return render(request, "app/media_details.html", context)
 
 
 @require_GET
@@ -1061,9 +1075,8 @@ def music_artist_details(request, artist_id, artist_slug):
     return _render_music_artist_details(request, artist)
 
 
-@require_GET
-def music_album_details(request, artist_id, artist_slug, album_id, album_slug):
-    """Return the canonical shared music album detail page."""
+def resolve_music_album(request, artist_id, album_id):
+    """Return the canonical album for the page's URL, or the redirect it answers."""
     from app.services.music import canonicalize_album
 
     album = get_object_or_404(
@@ -1078,8 +1091,16 @@ def music_album_details(request, artist_id, artist_slug, album_id, album_slug):
     album = canonical_album
     if album.artist_id and album.artist_id != artist_id:
         return redirect(_music_album_detail_url(album))
-    artist = album.artist
-    return _render_music_album_details(request, artist, album)
+    return album
+
+
+@require_GET
+def music_album_details(request, artist_id, artist_slug, album_id, album_slug):
+    """Return the canonical shared music album detail page."""
+    album = resolve_music_album(request, artist_id, album_id)
+    if isinstance(album, HttpResponse):
+        return album
+    return _render_music_album_details(request, album.artist, album)
 
 
 @require_GET

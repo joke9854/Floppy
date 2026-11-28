@@ -136,6 +136,33 @@ const PAGES = [
 			'src/routes/(app)/person/[source]/[id]/[[name]]/+page.svelte'
 		],
 		budgetKb: 115
+	},
+	{
+		name: 'Artist page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/music/artist/[artistId]/[slug]/+page.svelte'
+		],
+		budgetKb: 115
+	},
+	{
+		name: 'Album page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/music/artist/[artistId]/[slug]/album/[albumId]/[albumSlug]/+page.svelte'
+		],
+		budgetKb: 115
+	},
+	{
+		name: 'Podcast page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/[source]/podcast/[id]/[[title]]/+page.svelte'
+		],
+		budgetKb: 115
 	}
 ];
 
