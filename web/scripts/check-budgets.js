@@ -66,6 +66,15 @@ const PAGES = [
 		budgetKb: 115
 	},
 	{
+		name: 'Anime episode page with the shell',
+		routes: [
+			'src/routes/+layout.svelte',
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/details/[source]/anime/[id]/[title]/season/[season]/episode/[episode]/+page.svelte'
+		],
+		budgetKb: 115
+	},
+	{
 		name: 'List page with the shell',
 		routes: [
 			'src/routes/+layout.svelte',

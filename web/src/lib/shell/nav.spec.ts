@@ -80,8 +80,14 @@ describe('detail links', () => {
 		expect(detailHref('/details/comicvine/comic/4050-1/saga', '/next')).toBe(
 			'/next/details/comicvine/comic/4050-1/saga'
 		);
-		// Anime and a comic issue keep their Django page.
-		expect(detailHref('/details/mal/anime/1/bebop', '/next')).toBe('/details/mal/anime/1/bebop');
+		// Anime opens the web page (P4-L3a), its episodes too; a comic issue keeps its Django page.
+		expect(detailHref('/details/mal/anime/1/bebop', '/next')).toBe('/next/details/mal/anime/1/bebop');
+		expect(detailHref('/details/tmdb/anime/1429/aot/season/1/episode/2', '/next')).toBe(
+			'/next/details/tmdb/anime/1429/aot/season/1/episode/2'
+		);
+		expect(detailHref('/details/tmdb/movie/1/x/season/1/episode/2', '/next')).toBe(
+			'/details/tmdb/movie/1/x/season/1/episode/2'
+		);
 		expect(detailHref('/details/comicvine/comicissue/4000-1/one', '/next')).toBe(
 			'/details/comicvine/comicissue/4000-1/one'
 		);
@@ -137,7 +143,10 @@ describe('detail links', () => {
 			'/details/tmdb/tv/1399/got/season/1'
 		);
 		expect(detailHref('/details/mal/anime/1/cowboy-bebop', '/next')).toBe(
-			'/details/mal/anime/1/cowboy-bebop'
+			'/next/details/mal/anime/1/cowboy-bebop'
+		);
+		expect(detailHref('/details/tmdb/anime/1429/aot/season/1', '/next')).toBe(
+			'/details/tmdb/anime/1429/aot/season/1'
 		);
 		expect(detailHref('/details/tmdb/movie/238/x?fragment=secondary', '/next')).toBe(
 			'/details/tmdb/movie/238/x?fragment=secondary'

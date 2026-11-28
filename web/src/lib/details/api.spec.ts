@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detailApiPath, formWatchNow, seasonApiPath } from './api.ts';
+import { detailApiPath, episodeApiPath, formWatchNow, seasonApiPath } from './api.ts';
 
 describe('detail API paths', () => {
 	it('names the three reads', () => {
@@ -10,8 +10,14 @@ describe('detail API paths', () => {
 		expect(detailApiPath('comic', 'comicvine', '4050-1', 'sections', null, 2)).toBe(
 			'/api/v1/details/comic/comicvine/4050-1/sections/?episode_page=2'
 		);
-		expect(seasonApiPath('tmdb', '1399', 'season=2&episode_page=2')).toBe(
+		expect(seasonApiPath('tv', 'tmdb', '1399', 'season=2&episode_page=2')).toBe(
 			'/api/v1/details/tv/tmdb/1399/season/?season=2&episode_page=2'
+		);
+		expect(seasonApiPath('anime', 'tmdb', '1', 'season=1')).toBe(
+			'/api/v1/details/anime/tmdb/1/season/?season=1'
+		);
+		expect(episodeApiPath('tmdb', '1', 1, 2, 'anime')).toBe(
+			'/api/v1/details/episode/tmdb/1/1/2/?parent=anime'
 		);
 	});
 });

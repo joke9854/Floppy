@@ -885,6 +885,11 @@ urlpatterns = [
         name="api_detail_season",
     ),
     re_path(
+        r"^details/anime/(?P<source>[^/]+)/(?P<media_id>[^/]+)/season/?$",
+        fork_views_details.DetailAnimeSeasonView.as_view(),
+        name="api_detail_season_anime",
+    ),
+    re_path(
         r"^library/(?P<media_type>[a-z_]+)/?$",
         fork_views_library.LibraryScreenView.as_view(),
         name="api_library_screen",

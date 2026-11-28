@@ -22,7 +22,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.html import strip_tags
 from rest_framework import serializers
 
-from app.models import MediaTypes, Status
+from app.models import MediaTypes, Sources, Status
 from app.templatetags import app_tags
 from users.appearance import resolved_detail_layouts
 from users.templatetags import user_tags
@@ -38,7 +38,15 @@ L1_TYPES = (
     MediaTypes.COMIC.value,
     MediaTypes.BOARDGAME.value,
 )
-DETAIL_SCREEN_TYPES = (MediaTypes.MOVIE.value, MediaTypes.TV.value, *L1_TYPES)
+# Anime joins in P4-L3a: grouped anime (TMDB, TVDB) reads like a show, flat MAL
+# anime lists its mapped episodes read-only.
+DETAIL_SCREEN_TYPES = (
+    MediaTypes.MOVIE.value,
+    MediaTypes.TV.value,
+    MediaTypes.ANIME.value,
+    *L1_TYPES,
+)
+_SERIES_TYPES = (MediaTypes.TV.value, MediaTypes.ANIME.value)
 DETAIL_PARTS = ("shell", "secondary", "season")
 
 # The v2 sections in the order ct/detail_secondary.html renders them, with
@@ -180,15 +188,31 @@ def _scores(context) -> list[dict]:
     return scores
 
 
-def _check_target(target) -> dict | None:
-    if not target:
+def _can_check(source) -> bool:
+    """Whether the episode ensure endpoint takes this source (tmdb, manual)."""
+    from .helpers import check_source_type
+
+    return check_source_type(MediaTypes.TV.value, source)
+
+
+def _library_type(media_type, item):
+    """Return the bucket a check lands in: an anime page's own, else the row's Item's."""
+    if media_type == MediaTypes.ANIME.value:
+        return MediaTypes.ANIME.value
+    return getattr(item, "library_media_type", None)
+
+
+def _check_target(target, media_type=MediaTypes.TV.value) -> dict | None:
+    if not target or not _can_check(target["source"]):
         return None
     return {
         "source": target["source"],
         "media_id": str(target["media_id"]),
         "season_number": target["season_number"],
         "episode_number": target["episode_number"],
-        "library_media_type": target.get("library_media_type"),
+        "library_media_type": MediaTypes.ANIME.value
+        if media_type == MediaTypes.ANIME.value
+        else target.get("library_media_type"),
     }
 
 
@@ -197,7 +221,7 @@ def _action(context) -> dict | None:
     if context.get("public_view"):
         return None
     media_type = context["media_type"]
-    if media_type not in (MediaTypes.MOVIE.value, MediaTypes.TV.value):
+    if media_type not in (MediaTypes.MOVIE.value, *_SERIES_TYPES):
         return None
     current = context.get("current_instance")
     status = getattr(current, "status", None)
@@ -207,9 +231,17 @@ def _action(context) -> dict | None:
         if current is None or status == Status.PLANNING.value:
             return {"kind": "mark", "episode": None}
         return None
+    if not _can_check(context["media"].get("source")):
+        # The ensure endpoint takes tmdb and manual only (flat MAL anime and
+        # TVDB shows are read-only here): no mark-next, the Track button stays.
+        return (
+            {"kind": "completed", "episode": None}
+            if status == Status.COMPLETED.value
+            else None
+        )
     target = app_tags.ct_detail_next_episode(context["media"], current)
     if target:
-        return {"kind": "episode", "episode": _check_target(target)}
+        return {"kind": "episode", "episode": _check_target(target, media_type)}
     # No named next episode: the page takes the first unwatched aired
     # episode of the season on screen, or stays green when completed.
     return {
@@ -224,7 +256,7 @@ def _meta(context) -> dict:
     details = media.get("details") or {}
     year = app_tags.release_year(details) or app_tags.release_year(media) or None
     percent = None
-    if media_type == MediaTypes.TV.value and not context.get("public_view"):
+    if media_type in _SERIES_TYPES and not context.get("public_view"):
         progress = app_tags.ct_series_progress(media, context.get("current_instance"))
         percent = (progress or {}).get("percent") or None
     progress_text = None
@@ -246,9 +278,7 @@ def _meta(context) -> dict:
         "certification": _text(details.get("certification")) or None
         if media_type == MediaTypes.MOVIE.value
         else None,
-        "seasons": details.get("seasons")
-        if media_type == MediaTypes.TV.value
-        else None,
+        "seasons": details.get("seasons") if media_type in _SERIES_TYPES else None,
         "percent": percent,
         "progress": progress_text,
         "series": series,
@@ -376,7 +406,7 @@ def _info(context, user, *, authors=(), studios=()) -> list[dict]:
             if last and last != value:
                 text += f" – {user_tags.user_date_format(last, user)}"  # noqa: RUF001  # the page's en dash
         else:
-            if key == "studios" and context["media_type"] == MediaTypes.TV.value:
+            if key == "studios" and context["media_type"] in _SERIES_TYPES:
                 label = "Network"
             else:
                 label = key.replace("_", " ").title()
@@ -402,7 +432,16 @@ def _sections(user, media_type) -> list[str]:
     return [key for key, zone in order if key in layouts.get(zone, [])]
 
 
-def _episode(episode, show, season_number, user, next_number) -> dict:
+def _episode(
+    episode,
+    show,
+    season_number,
+    user,
+    next_number,
+    media_type=MediaTypes.TV.value,
+    *,
+    read_only=False,
+) -> dict:
     history = episode.get("history") or []
     watched = app_tags.watched_count(history)
     history_text = ""
@@ -421,7 +460,9 @@ def _episode(episode, show, season_number, user, next_number) -> dict:
     if show.get("source") and show.get("media_id") and number is not None:
         try:
             url = reverse(
-                "episode_details",
+                "anime_episode_details"
+                if media_type == MediaTypes.ANIME.value
+                else "episode_details",
                 kwargs={
                     "source": show["source"],
                     "media_id": show["media_id"],
@@ -462,9 +503,12 @@ def _episode(episode, show, season_number, user, next_number) -> dict:
             "media_id": str(show.get("media_id")),
             "season_number": season_number,
             "episode_number": number,
-            "library_media_type": getattr(item, "library_media_type", None),
+            "library_media_type": _library_type(media_type, item),
         }
-        if episode.get("actions_enabled", True) and number is not None
+        if not read_only
+        and episode.get("actions_enabled", True)
+        and number is not None
+        and _can_check(show.get("source"))
         else None,
     }
 
@@ -480,13 +524,14 @@ def build_detail_season(request, show_context, season_number) -> dict | None:
     from app.season_details_views import build_season_details_context
 
     show = show_context["media"]
+    media_type = show_context["media_type"]
     context = build_season_details_context(
         request,
         show.get("source"),
         show.get("media_id"),
         app_tags.slug(show.get("title") or ""),
         season_number,
-        None,
+        MediaTypes.ANIME.value if media_type == MediaTypes.ANIME.value else None,
     )
     if not isinstance(context, dict):
         return None
@@ -542,7 +587,7 @@ def build_detail_season(request, show_context, season_number) -> dict | None:
         "info": info,
         "progress": progress,
         "episodes": [
-            _episode(episode, show, season_number, user, next_number)
+            _episode(episode, show, season_number, user, next_number, media_type)
             for episode in season.get("episodes") or []
             if isinstance(episode, dict)
         ],
@@ -592,6 +637,56 @@ def _issues(media, user) -> list[dict]:
             }
         )
     return issues
+
+
+def _flat_episodes(context, user) -> list[dict]:
+    """Return a flat MAL anime's mapped episodes, read-only (this page of them).
+
+    Each row links to the mapped provider's anime episode page (its own
+    media_id, source and season, as ct/detail_secondary.html does) and has no
+    check: the ensure endpoint takes no MAL show.
+    """
+    media = context["media"]
+    episodes = media.get("episodes")
+    if media.get("source") != Sources.MAL.value or not isinstance(episodes, list):
+        return []
+    rows = []
+    for episode in episodes:
+        if not isinstance(episode, dict) or not episode.get("source"):
+            continue
+        row_show = {
+            "source": episode["source"],
+            "media_id": episode.get("media_id"),
+            "title": media.get("title"),
+        }
+        rows.append(
+            _episode(
+                episode,
+                row_show,
+                episode.get("season_number") or 0,
+                user,
+                None,
+                MediaTypes.ANIME.value,
+                read_only=True,
+            )
+        )
+    return rows
+
+
+def _flat_note(context) -> str:
+    """Return "This entry maps to TMDB Season 2 (episodes 1-12)." for a mapped entry."""
+    target = context.get("grouped_preview_target")
+    display = context.get("display_provider")
+    if not isinstance(target, dict) or display == context.get("identity_provider"):
+        return ""
+    note = f"This entry maps to {_text(display).upper()} "
+    note += _text(target.get("season_title")) or "season"
+    start, end = target.get("episode_start"), target.get("episode_end")
+    if start and end:
+        note += f" (episodes {start}-{end})"
+    elif start:
+        note += f" (starting at episode {start})"
+    return note + "."
 
 
 def _issues_more(load_more) -> dict | None:
@@ -696,9 +791,7 @@ def build_detail_sections(request, context) -> dict:
     media_type = context["media_type"]
     seasons = []
     season = None
-    if media_type == MediaTypes.TV.value and (media.get("related") or {}).get(
-        "seasons"
-    ):
+    if media_type in _SERIES_TYPES and (media.get("related") or {}).get("seasons"):
         selected = _selected_season(request, context)
         seasons = [
             {
@@ -734,6 +827,11 @@ def build_detail_sections(request, context) -> dict:
     l1 = media_type in L1_TYPES
     authors = _authors(context) if l1 else []
     studios = _studios(context) if l1 else []
+    flat_episodes = (
+        _flat_episodes(context, user)
+        if media_type == MediaTypes.ANIME.value and not seasons
+        else []
+    )
     return {
         "backdrop": _backdrop(media, allow_network=True),
         **_fanart(media, allow_network=True),
@@ -767,6 +865,11 @@ def build_detail_sections(request, context) -> dict:
         "game_lengths": _game_lengths(context)
         if media_type == MediaTypes.GAME.value
         else None,
+        "flat_episodes": flat_episodes,
+        "flat_more": _issues_more(context.get("episode_load_more"))
+        if flat_episodes
+        else None,
+        "flat_note": _flat_note(context) if flat_episodes else "",
         "authors": authors,
         "studios": studios,
         "genres": _genres(media, media_type) if l1 else [],
@@ -1130,6 +1233,14 @@ class DetailSectionsSerializer(serializers.Serializer):
         many=True, help_text="Comics: this page of the volume's issues."
     )
     issues_more = DetailIssuesMoreSerializer(allow_null=True)
+    flat_episodes = DetailEpisodeSerializer(
+        many=True,
+        help_text="Flat MAL anime: this page of the mapped episodes, read-only.",
+    )
+    flat_more = DetailIssuesMoreSerializer(allow_null=True)
+    flat_note = serializers.CharField(
+        allow_blank=True, help_text="Where the flat entry maps (TMDB or TVDB)."
+    )
     game_lengths = DetailGameLengthsSerializer(allow_null=True)
     authors = DetailNamedLinkSerializer(many=True)
     studios = DetailNamedLinkSerializer(many=True)

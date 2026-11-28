@@ -884,6 +884,20 @@ P4-L, detail pages for the other types (C follow-ups):
       the activity sessions dialog (`history/sessions`), the ratings graphs,
       the studio page. Moved out of L1 (2026-11-28): anime's next-episode
       mark posts episode events, so it needs its own contract check.
+      Scope (decided 2026-11-28), two parts:
+      L3a, anime: grouped TMDB/TVDB anime on the show machinery with anime
+      season and episode URLs; every check and mark-next on an anime page
+      sends `library_media_type: "anime"` from the page type (an unwatched
+      row has no Item to read it from); the season read gains an anime
+      route and the episode read an optional `?parent=anime`, tv answers
+      unchanged. Checks only where the ensure route takes the source
+      (`check_source_type("tv", ...)`: tmdb, tvdb, manual, as
+      `api/fork_helpers.py` widens `VALID_SOURCES` at import). Flat MAL anime is read-only: the
+      mapped episode preview links to the provider's anime episode pages,
+      no checks (a mark there files a grouped show beside the MAL entry and
+      does not move its progress).
+      L3b: the activity sessions dialog behind the progress line, the
+      ratings graphs (their own endpoint, fetched on open), the studio page.
 
 P4-M, Search and Add New Item:
 - [ ] M1: the search page (`search`, `search/parent_tv`).

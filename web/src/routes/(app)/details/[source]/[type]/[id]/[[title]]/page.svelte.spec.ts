@@ -1,5 +1,5 @@
 import { page } from 'vitest/browser';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 // The sections load with import() on the page; load them before the tests run.
@@ -119,6 +119,10 @@ const sections = {
 	// Empty for a movie or show (P4-L1).
 	issues: [],
 	issues_more: null,
+	// Empty unless a flat MAL anime (P4-L3a).
+	flat_episodes: [],
+	flat_more: null,
+	flat_note: '',
 	game_lengths: null,
 	authors: [],
 	studios: [],
@@ -138,6 +142,8 @@ const renderDetail = (shellOverrides: object = {}, sectionsValue: object | null 
 	});
 
 describe('/next detail page', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
 	it('shows the hero, the next episode and the Track button', async () => {
 		renderDetail();
 
@@ -253,6 +259,74 @@ describe('/next detail page', () => {
 		await expect.element(page.getByText('Read', { exact: true })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Show Issues 3 to 4' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Track Issue title 2' })).toBeVisible();
+	});
+
+	it('checks an anime episode into the anime bucket', async () => {
+		document.cookie = 'csrftoken=test-token';
+		// The save answers `created`; the page then re-reads its hero and season.
+		const answer = (url: string) => {
+			if (url.includes('/episodes/ensure/')) return { results: [{ status: 'created' }] };
+			if (url.includes('/trailers/')) return { trailers: [] };
+			if (url.includes('/season/')) return sections.season;
+			return shell({ media_type: 'anime', action: null });
+		};
+		const fetch = vi.fn(
+			async (url: string, _init?: RequestInit) =>
+				new Response(JSON.stringify(answer(String(url))), { status: 200 })
+		);
+		vi.stubGlobal('fetch', fetch);
+		const animeEpisode = (number: number) => ({
+			...episode(number, false),
+			url: `/details/tmdb/anime/1399/test-show/season/1/episode/${number}`,
+			check: {
+				source: 'tmdb',
+				media_id: '1399',
+				season_number: 1,
+				episode_number: number,
+				library_media_type: 'anime'
+			}
+		});
+		renderDetail(
+			{ media_type: 'anime', action: null },
+			{ ...sections, season: { ...sections.season, episodes: [animeEpisode(1), animeEpisode(2)] } }
+		);
+
+		await page.getByRole('button', { name: 'Mark E2 Episode 2 as watched' }).click();
+
+		await vi.waitFor(() =>
+			expect(fetch.mock.calls.some(([url]) => String(url).includes('/episodes/ensure/'))).toBe(true)
+		);
+		const call = fetch.mock.calls.find(([url]) => String(url).includes('/episodes/ensure/'))!;
+		expect(String(call[0])).toBe('/api/v1/media/tv/tmdb/1399/episodes/ensure/');
+		const body = JSON.parse(String(call[1]?.body));
+		expect(body.library_media_type).toBe('anime');
+		expect(body.events[0].episode_number).toBe(2);
+	});
+
+	it('lists a flat MAL anime mapped episodes without a check', async () => {
+		renderDetail(
+			{ media_type: 'anime', source: 'mal', media_id: '52991', title: 'Frieren', action: null },
+			{
+				...sections,
+				sections: ['episodes'],
+				seasons: [],
+				season: null,
+				flat_episodes: [
+					{
+						...episode(1, false),
+						title: 'Mapped 1',
+						check: null,
+						url: '/details/tvdb/anime/9350138/frieren/season/1/episode/1'
+					}
+				],
+				flat_note: 'This entry maps to TVDB Season 1.'
+			}
+		);
+
+		await expect.element(page.getByText('Mapped 1')).toBeVisible();
+		await expect.element(page.getByText('This entry maps to TVDB Season 1.')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: /as watched/ })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Track' })).toBeVisible();
 	});
 
 	it('says when the sections could not load', async () => {

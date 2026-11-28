@@ -455,6 +455,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/details/anime/{source}/{media_id}/season/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One season's episodes of an anime filed as a series: the rows read the anime bucket, and the links open the anime episode pages. Built by the Django page's own builder, so it shows what the page shows. Like the page, the read can store metadata it resolves, so integration tokens cannot call it. */
+        get: operations["getDetailAnimeSeason"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/": {
         parameters: {
             query?: never;
@@ -5494,6 +5511,11 @@ export interface components {
             /** @description Comics: this page of the volume's issues. */
             issues: components["schemas"]["DetailIssue"][];
             issues_more: components["schemas"]["DetailIssuesMore"] | null;
+            /** @description Flat MAL anime: this page of the mapped episodes, read-only. */
+            flat_episodes: components["schemas"]["DetailEpisode"][];
+            flat_more: components["schemas"]["DetailIssuesMore"] | null;
+            /** @description Where the flat entry maps (TMDB or TVDB). */
+            flat_note: string;
             game_lengths: components["schemas"]["DetailGameLengths"] | null;
             authors: components["schemas"]["DetailNamedLink"][];
             studios: components["schemas"]["DetailNamedLink"][];
@@ -13024,9 +13046,72 @@ export interface operations {
             };
         };
     };
+    getDetailAnimeSeason: {
+        parameters: {
+            query: {
+                /** @description From `load_more.querystring`. */
+                episode_page?: number;
+                season: number;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailSeason"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description Credentials are missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            /** @description The token does not hold the scope this operation requires. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailError"];
+                };
+            };
+        };
+    };
     getEpisodeScreen: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `anime` for an anime filed as a series (its own bucket). */
+                parent?: string;
+            };
             header?: never;
             path: {
                 episode_number: string;

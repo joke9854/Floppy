@@ -10,6 +10,7 @@
 	import {
 		detailApiPath,
 		type DetailCard,
+		type DetailEpisode,
 		type DetailIssue,
 		type DetailSeason,
 		type DetailSections,
@@ -91,6 +92,51 @@
 					failed: false
 				}
 	);
+
+	// A flat MAL anime's mapped episodes: the sections' own page, then "Show ..." pages.
+	let loadedFlat = $state.raw<{
+		for: DetailSections;
+		extra: DetailEpisode[];
+		more: DetailSections['flat_more'];
+		loading: boolean;
+		failed: boolean;
+	} | null>(null);
+	const flatState = $derived(
+		loadedFlat && loadedFlat.for === sections
+			? loadedFlat
+			: {
+					for: sections,
+					extra: [] as DetailEpisode[],
+					more: sections.flat_more,
+					loading: false,
+					failed: false
+				}
+	);
+
+	async function moreFlat() {
+		const more = flatState.more;
+		if (!more || flatState.loading) return;
+		const forSections = sections;
+		loadedFlat = { ...flatState, loading: true, failed: false };
+		try {
+			const response = await fetch(
+				detailApiPath(mediaType, source, mediaId, 'sections', null, more.page),
+				{ credentials: 'same-origin' }
+			);
+			if (!response.ok) throw new Error(String(response.status));
+			const next = (await response.json()) as DetailSections;
+			if (forSections !== sections) return;
+			loadedFlat = {
+				for: forSections,
+				extra: [...flatState.extra, ...next.flat_episodes],
+				more: next.flat_more,
+				loading: false,
+				failed: false
+			};
+		} catch {
+			if (forSections === sections) loadedFlat = { ...flatState, loading: false, failed: true };
+		}
+	}
 
 	async function moreIssues() {
 		const more = issueState.more;
@@ -227,6 +273,28 @@
 						{/if}
 						{#if issueState.failed}
 							<p class="px-4 py-6 text-center text-muted" role="alert">{dt.issuesFailed}</p>
+						{/if}
+					</div>
+				</section>
+			{:else if key === 'episodes' && sections.flat_episodes.length}
+				<section aria-labelledby="ct-flat-title">
+					<div class="ct-row-head">
+						<h2 class="ct-row-title" id="ct-flat-title">{dt.episodes}</h2>
+					</div>
+					{#if sections.flat_note}<p class="px-4 pb-2 text-muted">{sections.flat_note}</p>{/if}
+					<div class={['ct-episode-list', flatState.loading && 'is-loading']} aria-busy={flatState.loading}>
+						{#each [...sections.flat_episodes, ...flatState.extra] as episode, index (index)}
+							<EpisodeRow {episode} {trackTime} />
+						{/each}
+						{#if flatState.more}
+							<div class="ct-ep-more">
+								<button type="button" class="ct-row-link" onclick={moreFlat} disabled={flatState.loading}>
+									{dt.showMore(flatState.more.label)}
+								</button>
+							</div>
+						{/if}
+						{#if flatState.failed}
+							<p class="px-4 py-6 text-center text-muted" role="alert">{dt.episodesFailed}</p>
 						{/if}
 					</div>
 				</section>

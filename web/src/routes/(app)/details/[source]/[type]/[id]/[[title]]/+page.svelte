@@ -73,7 +73,7 @@
 	);
 
 	async function readSeason(query: string): Promise<DetailSeason | null> {
-		const response = await fetch(seasonApiPath(shell.source, shell.media_id, query), {
+		const response = await fetch(seasonApiPath(shell.media_type === 'anime' ? 'anime' : 'tv', shell.source, shell.media_id, query), {
 			credentials: 'same-origin'
 		});
 		if (!response.ok) throw new Error(String(response.status));

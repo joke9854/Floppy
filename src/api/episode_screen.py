@@ -23,6 +23,7 @@ from .details_screen import (
     _person,
     _text,
 )
+from .helpers import check_source_type
 from .home_screen import HomeCheckTargetSerializer
 
 
@@ -96,14 +97,20 @@ def _scores(context) -> list[dict]:
 
 
 def build_episode_screen(
-    request, source, media_id, season_number, episode_number
+    request, source, media_id, season_number, episode_number, parent=None
 ) -> dict | None:
     """Return the episode page for the web, or None for an episode it cannot find."""
     from app.views import build_episode_context
 
     # The title is only the URL slug; the links below use the show's own.
     context = build_episode_context(
-        request, source, media_id, "show", season_number, episode_number
+        request,
+        source,
+        media_id,
+        "show",
+        season_number,
+        episode_number,
+        MediaTypes.ANIME.value if parent == MediaTypes.ANIME.value else None,
     )
     user = request.user
     episode = context.get("episode") or {}
@@ -164,9 +171,11 @@ def build_episode_screen(
             "media_id": str(media_id),
             "season_number": season_number,
             "episode_number": episode_number,
-            "library_media_type": getattr(item, "library_media_type", None),
+            "library_media_type": MediaTypes.ANIME.value
+            if parent == MediaTypes.ANIME.value
+            else getattr(item, "library_media_type", None),
         }
-        if episode and not public
+        if episode and not public and check_source_type(MediaTypes.TV.value, source)
         else None,
         "overview": overview,
         "overview_hidden": bool(overview)

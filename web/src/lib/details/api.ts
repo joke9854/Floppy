@@ -43,18 +43,26 @@ export function episodeApiPath(
 	source: string,
 	id: string,
 	season: string | number,
-	episode: string | number
+	episode: string | number,
+	parent?: 'anime'
 ): string {
 	return (
 		`/api/v1/details/episode/${encodeURIComponent(source)}/${encodeURIComponent(id)}/` +
-		`${encodeURIComponent(String(season))}/${encodeURIComponent(String(episode))}/`
+		`${encodeURIComponent(String(season))}/${encodeURIComponent(String(episode))}/` +
+		(parent ? `?parent=${parent}` : '')
 	);
 }
 
 /** One season of a show's episode list, or its next batch (`load_more`). */
-export function seasonApiPath(source: string, id: string, query: string): string {
+export function seasonApiPath(
+	type: 'tv' | 'anime',
+	source: string,
+	id: string,
+	query: string
+): string {
 	return (
-		`/api/v1/details/tv/${encodeURIComponent(source)}/${encodeURIComponent(id)}/season/?` + query
+		`/api/v1/details/${type}/${encodeURIComponent(source)}/${encodeURIComponent(id)}/season/?` +
+		query
 	);
 }
 

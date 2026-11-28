@@ -565,7 +565,7 @@ class DetailScreenApiTests(TestCase):
 
     def test_types_without_a_web_page_yet(self, _metadata_mock):
         response = self.client.get(
-            reverse("api_detail_shell", args=["anime", "mal", "1"])
+            reverse("api_detail_shell", args=["music", "musicbrainz", "1"])
         )
 
         self.assertEqual(response.status_code, 400)
@@ -580,6 +580,7 @@ class DetailScreenApiTests(TestCase):
             ("api_detail_shell", ["movie", "tmdb", "238"]),
             ("api_detail_sections", ["movie", "tmdb", "238"]),
             ("api_detail_season", ["tmdb", "1399"]),
+            ("api_detail_season_anime", ["tmdb", "1399"]),
             ("api_detail_trailers", ["movie", "tmdb", "238"]),
         ):
             response = Client().get(reverse(name, args=args), HTTP_X_API_KEY=raw)

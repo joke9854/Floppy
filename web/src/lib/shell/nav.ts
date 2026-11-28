@@ -128,15 +128,15 @@ export function isCurrentHref(href: string, pathname: string, base: string = BAS
 
 /**
  * Django pages with a web screen: a movie, show, manga, game, book, comic or board game
- * (/details/<source>/<movie|tv>/<id>/<title>[?season=N]), a TV episode
- * (.../tv/<id>/<title>/season/<n>/episode/<n>), a person
+ * (/details/<source>/<movie|tv|anime|...>/<id>/<title>[?season=N]), a show or
+ * anime episode (.../<tv|anime>/<id>/<title>/season/<n>/episode/<n>), a person
  * (/person/<source>/<id>/<name>), a music artist
  * (/details/music/artist/<id>/<slug>), an album (.../artist/<id>/<slug>/album/<id>/<slug>)
  * and a podcast show (/details/<pocketcasts|gpodder|audiobookshelf>/podcast/<uuid>[/<title>]).
  */
 const WEB_DETAIL = [
-	/^\/details\/[^/?#]+\/(?:movie|tv|manga|game|book|comic|boardgame)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
-	/^\/details\/[^/?#]+\/tv\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
+	/^\/details\/[^/?#]+\/(?:movie|tv|anime|manga|game|book|comic|boardgame)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
+	/^\/details\/[^/?#]+\/(?:tv|anime)\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
 	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
 	// Music artists and albums, and podcast shows (P4-L2).
 	/^\/details\/music\/artist\/\d+\/[^/?#]+\/?(?:album\/\d+\/[^/?#]+\/?)?$/,

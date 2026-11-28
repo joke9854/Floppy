@@ -162,6 +162,35 @@ class DetailSeasonView(drf_views.APIView):
         )
 
 
+# /api/v1/details/anime/{source}/{media_id}/season/?season=N
+class DetailAnimeSeasonView(drf_views.APIView):
+    """One season of an anime page's episode list (the anime bucket's rows)."""
+
+    @extend_schema(
+        operation_id="getDetailAnimeSeason",
+        description="One season's episodes of an anime filed as a series: the rows "
+        "read the anime bucket, and the links open the anime episode pages." + _NOTE,
+        parameters=[
+            OpenApiParameter("season", int, required=True),
+            OpenApiParameter(
+                "episode_page", int, description="From `load_more.querystring`."
+            ),
+        ],
+        responses={
+            200: DetailSeasonSerializer,
+            400: DetailErrorSerializer,
+            404: DetailErrorSerializer,
+        },
+    )
+    def get(self, request, source, media_id):
+        """Return one season's episodes."""
+        if not request.GET.get("season", "").isdigit():
+            return Response({"detail": "season is required."}, status=HTTP.BAD_REQUEST)
+        return _screen(
+            request, "anime", source, media_id, "season", DetailSeasonSerializer
+        )
+
+
 # /api/v1/details/{media_type}/{source}/{media_id}/trailers/
 class DetailTrailersView(drf_views.APIView):
     """A movie's or show's trailers and teasers (the page's ?fragment=trailers)."""
@@ -326,6 +355,13 @@ class EpisodeScreenView(drf_views.APIView):
             "The episode page: the episode, the season strip, guest stars and key "
             "crew, built by the Django page's own builder." + _NOTE
         ),
+        parameters=[
+            OpenApiParameter(
+                "parent",
+                str,
+                description="`anime` for an anime filed as a series (its own bucket).",
+            )
+        ],
         responses={
             200: EpisodeScreenSerializer,
             404: DetailErrorSerializer,
@@ -334,12 +370,18 @@ class EpisodeScreenView(drf_views.APIView):
     )
     def get(self, request, source, media_id, season_number, episode_number):
         """Return the episode page."""
+        parent = "anime" if request.GET.get("parent") == "anime" else None
         from app.providers import services
 
         try:
             with credentials.current_user_scope(request.user):
                 data = build_episode_screen(
-                    request._request, source, media_id, int(season_number), int(episode_number)
+                    request._request,
+                    source,
+                    media_id,
+                    int(season_number),
+                    int(episode_number),
+                    parent,
                 )
         except services.ProviderAPIError:
             return Response(

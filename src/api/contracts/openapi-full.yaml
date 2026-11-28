@@ -1616,6 +1616,74 @@ paths:
                 $ref: '#/components/schemas/DetailError'
           description: The token does not hold the scope this operation requires.
       x-required-scope: none (session or account token only)
+  /api/v1/details/anime/{source}/{media_id}/season/:
+    get:
+      operationId: getDetailAnimeSeason
+      description: 'One season''s episodes of an anime filed as a series: the rows
+        read the anime bucket, and the links open the anime episode pages. Built by
+        the Django page''s own builder, so it shows what the page shows. Like the
+        page, the read can store metadata it resolves, so integration tokens cannot
+        call it.'
+      parameters:
+      - in: query
+        name: episode_page
+        schema:
+          type: integer
+        description: From `load_more.querystring`.
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: query
+        name: season
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailSeason'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: Credentials are missing, invalid, or expired.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: The token does not hold the scope this operation requires.
+      x-required-scope: none (session or account token only)
   /api/v1/details/episode/{source}/{media_id}/{season_number}/{episode_number}/:
     get:
       operationId: getEpisodeScreen
@@ -1636,6 +1704,11 @@ paths:
           type: string
           pattern: ^[^/]+$
         required: true
+      - in: query
+        name: parent
+        schema:
+          type: string
+        description: '`anime` for an anime filed as a series (its own bucket).'
       - in: path
         name: season_number
         schema:
@@ -21107,6 +21180,18 @@ components:
           allOf:
           - $ref: '#/components/schemas/DetailIssuesMore'
           nullable: true
+        flat_episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailEpisode'
+          description: 'Flat MAL anime: this page of the mapped episodes, read-only.'
+        flat_more:
+          allOf:
+          - $ref: '#/components/schemas/DetailIssuesMore'
+          nullable: true
+        flat_note:
+          type: string
+          description: Where the flat entry maps (TMDB or TVDB).
         game_lengths:
           allOf:
           - $ref: '#/components/schemas/DetailGameLengths'
@@ -21136,6 +21221,9 @@ components:
       - cast_view_all_url
       - crew
       - fanart_poster
+      - flat_episodes
+      - flat_more
+      - flat_note
       - game_lengths
       - genres
       - history_url
