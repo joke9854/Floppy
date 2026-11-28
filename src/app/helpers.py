@@ -250,6 +250,7 @@ def safe_next_url(value):
     A ``?next=`` (or ``return_url``) the browser sends must not send it to
     another site after a save or delete.
     """
+    value = normalize_navigation_url(value)
     if value and url_has_allowed_host_and_scheme(value, None):
         return value
     return ""
