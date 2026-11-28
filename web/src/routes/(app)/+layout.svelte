@@ -5,6 +5,9 @@
 	let { data, children }: LayoutProps = $props();
 </script>
 
-<Shell username={data.username} library={data.library}>
+<Shell username={data.username} library={data.library}
+	sidebarStyle={data.sidebarStyle}
+	floatingSidebar={data.floatingSidebar}
+>
 	{@render children()}
 </Shell>

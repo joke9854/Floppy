@@ -11317,6 +11317,10 @@ export interface components {
             };
             /** @description The enabled types in the user's sidebar order, with their names, as the web's Library switch shows them (TV Seasons folds into TV Shows while both are on). */
             readonly library: components["schemas"]["LibraryType"][];
+            /** @description The desktop sidebar style: attached or floating. */
+            readonly sidebar_style: string;
+            /** @description How the floating sidebar shows its labels: hover, expanded or icons. */
+            readonly floating_sidebar: string;
         };
         /** @description User fields changed by a sidebar update. */
         UserSidebarUpdateResponse: {

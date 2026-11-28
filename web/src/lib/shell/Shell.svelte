@@ -25,19 +25,28 @@
 		type LibraryType,
 		type NavItem
 	} from './nav.ts';
+	import './shell.css';
 	import logo from '#lib/assets/floppy-logo.png';
 
 	/**
 	 * The signed-in shell, as the Django web's CineTrack shell: from md a
-	 * floating icon rail, from lg the attached labelled sidebar (the default
-	 * sidebar style); below md the glass bottom bar with Library and More
+	 * floating icon rail, from lg the sidebar style the user chose: the attached
+	 * labelled sidebar (the default) or the floating one (expanded, on hover or icons); below md the glass bottom bar with Library and More
 	 * sheets. Glass only on the navigation, never over content.
 	 */
 	let {
 		username,
 		library,
+		sidebarStyle = 'attached',
+		floatingSidebar = 'hover',
 		children
-	}: { username: string; library: LibraryType[]; children: Snippet } = $props();
+	}: {
+		username: string;
+		library: LibraryType[];
+		sidebarStyle?: string;
+		floatingSidebar?: string;
+		children: Snippet;
+	} = $props();
 
 	const libraryLinks = $derived(libraryItems(library));
 	const settingsLinks: NavItem[] = [
@@ -51,7 +60,7 @@
 	let moreSheet = $state(false);
 
 	const railButton =
-		'ct-focus flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors duration-(--motion-short) ease-standard hover:bg-white/6 hover:text-text data-[state=open]:bg-white/12 data-[state=open]:text-text lg:h-9 lg:w-full lg:justify-start lg:gap-3 lg:rounded-ct-sm lg:px-3';
+		'ct-rail-link ct-focus flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors duration-(--motion-short) ease-standard hover:bg-white/6 hover:text-text data-[state=open]:bg-white/12 data-[state=open]:text-text';
 	const tab =
 		'ct-focus group flex min-h-[52px] flex-1 flex-col items-center gap-0.5 rounded-ct-md py-1 text-[11px] font-semibold text-muted aria-[current=page]:text-text';
 	const tabIcon =
@@ -75,32 +84,34 @@
 {/snippet}
 
 <div class="min-h-dvh">
-	<!-- md: floating icon rail. lg: attached labelled sidebar. -->
+	<!-- md: floating icon rail. lg: the chosen sidebar style (shell.css). -->
 	<nav
 		aria-label={t.mainNav}
-		class="ct-glass fixed top-3 left-3 z-40 hidden max-h-[calc(100dvh-24px)] w-16 flex-col items-center gap-3 rounded-ct-lg py-3 md:flex lg:inset-y-0 lg:left-0 lg:top-0 lg:max-h-none lg:w-[248px] lg:items-stretch lg:gap-2 lg:rounded-none lg:border-0 lg:border-r lg:border-white/6 lg:bg-sidebar lg:px-4 lg:pt-5 lg:pb-4 lg:shadow-none lg:backdrop-blur-none"
+		data-ct-sidebar={sidebarStyle}
+		data-ct-floating={floatingSidebar}
+		class="ct-rail ct-glass fixed top-3 left-3 z-40 hidden max-h-[calc(100dvh-24px)] w-16 flex-col items-center gap-3 rounded-ct-lg py-3 md:flex"
 	>
 		<a
 			href="{BASE}/"
 			data-sveltekit-reload={reloadFor(`${BASE}/`)}
-			class="ct-focus flex items-center gap-3 rounded-ct-sm lg:px-1 lg:pb-1"
+			class="ct-focus flex items-center gap-3 rounded-ct-sm ct-rail-brand"
 			title={t.appName}
 		>
 			<img src={logo} alt="" width="36" height="36" class="size-9 rounded-ct-sm" />
-			<span class="sr-only text-[17px] font-bold lg:not-sr-only">{t.appName}</span>
+			<span class="ct-rail-label sr-only text-[17px] font-bold">{t.appName}</span>
 		</a>
 
 		<NavLink item={{ label: t.search, href: '/search', icon: Search }} />
 
 		<!-- Many media types outgrow short screens: the list scrolls in the room left. -->
 		<ul
-			class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-color:rgb(255_255_255/18%)_transparent] [scrollbar-width:thin] lg:items-stretch lg:gap-0.5"
+			class="ct-rail-list flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-color:rgb(255_255_255/18%)_transparent] [scrollbar-width:thin]"
 		>
 			{#each PRIMARY as item (item.href)}
 				<li><NavLink {item} /></li>
 			{/each}
 			<li
-				class="hidden pt-2.5 pb-1 text-xs font-bold tracking-wide text-muted uppercase lg:block lg:px-3"
+				class="hidden pt-2.5 pb-1 text-xs font-bold tracking-wide text-muted uppercase ct-rail-section"
 			>
 				{t.library}
 			</li>
@@ -112,12 +123,12 @@
 				<LinkMenu items={LIBRARY_MORE.slice(1)} triggerClass={railButton} triggerLabel={t.more}>
 					{#snippet trigger()}
 						<Ellipsis class="size-5 shrink-0" aria-hidden="true" />
-						<span class="sr-only text-[14px] font-semibold lg:not-sr-only">{t.more}</span>
+						<span class="ct-rail-label sr-only text-[14px] font-semibold">{t.more}</span>
 					{/snippet}
 				</LinkMenu>
 			</li>
 			<li
-				class="hidden pt-2.5 pb-1 text-xs font-bold tracking-wide text-muted uppercase lg:block lg:px-3"
+				class="hidden pt-2.5 pb-1 text-xs font-bold tracking-wide text-muted uppercase ct-rail-section"
 			>
 				{t.you}
 			</li>
@@ -126,7 +137,7 @@
 			{/each}
 		</ul>
 
-		<div class="flex shrink-0 flex-col items-center lg:items-stretch">
+		<div class="ct-rail-foot flex shrink-0 flex-col items-center">
 			<LinkMenu
 				items={settingsLinks}
 				heading={username}
@@ -140,7 +151,7 @@
 						class="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-strong text-xs font-bold text-text"
 						aria-hidden="true">{initials}</span
 					>
-					<span class="sr-only flex-col items-start lg:not-sr-only lg:flex">
+					<span class="ct-rail-label ct-rail-account sr-only flex-col items-start">
 						<span class="text-[14px] font-semibold text-text" data-testid="username">{username}</span>
 						<span class="text-xs text-muted">{t.settings}</span>
 					</span>
@@ -158,7 +169,7 @@
 		</div>
 	</nav>
 
-	<div class="pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[88px] lg:pl-[248px]">
+	<div class="ct-shell-content pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[88px]">
 		{@render children()}
 	</div>
 

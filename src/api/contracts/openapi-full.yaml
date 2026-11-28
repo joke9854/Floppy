@@ -35331,9 +35331,20 @@ components:
           description: The enabled types in the user's sidebar order, with their names,
             as the web's Library switch shows them (TV Seasons folds into TV Shows
             while both are on).
+        sidebar_style:
+          type: string
+          readOnly: true
+          description: 'The desktop sidebar style: attached or floating.'
+        floating_sidebar:
+          type: string
+          readOnly: true
+          description: 'How the floating sidebar shows its labels: hover, expanded
+            or icons.'
       required:
+      - floating_sidebar
       - library
       - media_types
+      - sidebar_style
     UserSidebarUpdateResponse:
       type: object
       description: User fields changed by a sidebar update.

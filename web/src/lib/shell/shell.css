@@ -1,0 +1,82 @@
+/* From lg the rail follows the sidebar style the user chose (data attributes on .ct-rail). */
+@media (width >= 64rem) {
+	.ct-rail[data-ct-sidebar='attached'] {
+		inset: 0 auto 0 0;
+		max-height: none;
+		width: 248px;
+		padding: 20px 16px 16px;
+		border: 0;
+		border-right: 1px solid rgb(255 255 255 / 6%);
+		border-radius: 0;
+		background-color: var(--color-sidebar);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		box-shadow: none;
+	}
+	.ct-rail[data-ct-sidebar='attached'] ~ .ct-shell-content {
+		padding-left: 248px;
+	}
+	.ct-rail[data-ct-sidebar='floating'][data-ct-floating='expanded'] ~ .ct-shell-content {
+		padding-left: 224px;
+	}
+	.ct-rail[data-ct-sidebar='floating']:is(
+			[data-ct-floating='expanded'],
+			[data-ct-floating='hover']:is(:hover, :focus-within, :has([data-state='open']))
+		) {
+		width: 200px;
+		padding-inline: 8px;
+	}
+
+	/* Wide: attached, always expanded, or hovered. */
+	.ct-rail:is(
+			[data-ct-sidebar='attached'],
+			[data-ct-floating='expanded'],
+			[data-ct-floating='hover']:is(:hover, :focus-within, :has([data-state='open']))
+		) {
+		align-items: stretch;
+		gap: 8px;
+
+		& .ct-rail-list {
+			align-items: stretch;
+			gap: 2px;
+		}
+		& .ct-rail-foot {
+			align-items: stretch;
+		}
+		& .ct-rail-brand {
+			padding: 0 4px 4px;
+		}
+		& .ct-rail-section {
+			display: block;
+			padding-inline: 12px;
+		}
+		& .ct-rail-link {
+			width: 100%;
+			height: 36px;
+			justify-content: flex-start;
+			gap: 12px;
+			border-radius: var(--radius-ct-sm);
+			padding-inline: 12px;
+		}
+		& .ct-rail-label {
+			position: static;
+			width: auto;
+			height: auto;
+			margin: 0;
+			padding: 0;
+			overflow: visible;
+			clip: auto;
+			/* Tailwind 4's sr-only hides with clip-path, not clip. */
+			clip-path: none;
+			white-space: normal;
+		}
+		& .ct-rail-trunc {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		& .ct-rail-account {
+			display: flex;
+		}
+	}
+}

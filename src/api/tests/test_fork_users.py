@@ -105,6 +105,19 @@ class SidebarTests(FloppyApiTestCase):
         self.assertNotIn(MediaTypes.ANIME.value, types)
         self.assertTrue(all(entry["label"] for entry in library))
 
+    def test_get_returns_the_sidebar_style(self):
+        """The web shell draws the user's sidebar style and floating mode."""
+        listed = self.call_api("get", "api_user_sidebar", headers=self.auth_headers).json()
+        self.assertEqual(listed["sidebar_style"], "attached")
+        self.assertEqual(listed["floating_sidebar"], "hover")
+
+        self.user1.sidebar_style = "floating"
+        self.user1.floating_sidebar = "expanded"
+        self.user1.save()
+        listed = self.call_api("get", "api_user_sidebar", headers=self.auth_headers).json()
+        self.assertEqual(listed["sidebar_style"], "floating")
+        self.assertEqual(listed["floating_sidebar"], "expanded")
+
     def test_unknown_media_type_rejected(self):
         """Unknown media types return 400."""
         response = self.call_api(

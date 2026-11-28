@@ -24,6 +24,25 @@ describe('Shell', () => {
 		expect([...links].every((link) => link.hasAttribute('data-sveltekit-reload'))).toBe(true);
 	});
 
+	it('marks the rail attached with the hover mode by default', async () => {
+		render(ShellHost, { library });
+
+		const rail = document.querySelector('nav[data-ct-sidebar]');
+		expect(rail?.getAttribute('data-ct-sidebar')).toBe('attached');
+		expect(rail?.getAttribute('data-ct-floating')).toBe('hover');
+	});
+
+	it.each([
+		['floating', 'expanded'],
+		['floating', 'icons']
+	])('marks the rail %s and %s', async (sidebarStyle, floatingSidebar) => {
+		render(ShellHost, { library, sidebarStyle, floatingSidebar });
+
+		const rail = document.querySelector('nav[data-ct-sidebar]');
+		expect(rail?.getAttribute('data-ct-sidebar')).toBe(sidebarStyle);
+		expect(rail?.getAttribute('data-ct-floating')).toBe(floatingSidebar);
+	});
+
 	it('opens the Library sheet from the phone bar', async () => {
 		await page.viewport(390, 844);
 		render(ShellHost, { library });

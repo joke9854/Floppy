@@ -228,6 +228,14 @@ class UserSidebarSerializer(serializers.Serializer):
             "while both are on)."
         ),
     )
+    sidebar_style = serializers.CharField(
+        read_only=True,
+        help_text="The desktop sidebar style: attached or floating.",
+    )
+    floating_sidebar = serializers.CharField(
+        read_only=True,
+        help_text="How the floating sidebar shows its labels: hover, expanded or icons.",
+    )
 
 
 class UserSidebarUpdateResponseSerializer(serializers.Serializer):
@@ -457,6 +465,8 @@ class UserSidebarView(drf_views.APIView):
                     {"media_type": entry["media_type"], "label": str(entry["display_name"])}
                     for entry in ct_library_types(request.user)["types"]
                 ],
+                "sidebar_style": request.user.sidebar_style,
+                "floating_sidebar": request.user.floating_sidebar,
             },
             status=HTTP.OK,
         )

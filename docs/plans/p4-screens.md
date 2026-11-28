@@ -910,7 +910,10 @@ P4-M, Search and Add New Item:
       `test_tv_manual`, `test_tv_completed`, `test_season_*`).
 
 P4-N, the floating (detached) sidebar:
-- [ ] The web shell always draws the attached sidebar from lg and the icon
+- [x] (2026-11-28, built: `user/sidebar/` GET carries both settings; the lg modes
+      are one plain-CSS block, `web/src/lib/shell/shell.css`, keyed on
+      `data-ct-sidebar`/`data-ct-floating` like Django's shell.css; a
+      Tailwind custom variant cost 0.5 kB per page.) The web shell always draws the attached sidebar from lg and the icon
       rail from md. Appearance's `sidebar_style` = Floating and its
       `floating_sidebar` (Expand on hover, Always expanded, Icons only) are
       saved by the web Settings (J1) but only the Django shell draws them.
