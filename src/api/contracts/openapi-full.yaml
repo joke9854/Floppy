@@ -1499,6 +1499,11 @@ paths:
         so it shows what the page shows. Like the page, the read can store metadata
         it resolves, so integration tokens cannot call it.
       parameters:
+      - in: query
+        name: episode_page
+        schema:
+          type: integer
+        description: A comic volume's page of issues (`issues_more.page`).
       - in: path
         name: media_id
         schema:
@@ -20205,6 +20210,45 @@ components:
         errors: {}
       required:
       - detail
+    DetailGameLengthCard:
+      type: object
+      description: One Time to Beat figure.
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        count:
+          type: integer
+          description: The submissions behind it.
+      required:
+      - count
+      - label
+      - value
+    DetailGameLengths:
+      type: object
+      description: A game's Time to Beat.
+      properties:
+        available:
+          type: boolean
+        pending:
+          type: boolean
+          description: The figures are being fetched in the background.
+        source_label:
+          type: string
+        source_url:
+          type: string
+          nullable: true
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailGameLengthCard'
+      required:
+      - available
+      - cards
+      - pending
+      - source_label
+      - source_url
     DetailInfo:
       type: object
       description: The detail page's info.
@@ -20216,6 +20260,53 @@ components:
       required:
       - label
       - value
+    DetailIssue:
+      type: object
+      description: A comic volume's issue.
+      properties:
+        number:
+          type: string
+        title:
+          type: string
+        image:
+          type: string
+          nullable: true
+        cover_date:
+          type: string
+        read:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+          description: comicissue, for the track dialog.
+        source:
+          type: string
+        media_id:
+          type: string
+      required:
+      - cover_date
+      - image
+      - media_id
+      - media_type
+      - number
+      - read
+      - source
+      - title
+      - url
+    DetailIssuesMore:
+      type: object
+      description: The next page of a volume's issues.
+      properties:
+        page:
+          type: integer
+          description: Pass it as `episode_page`.
+        label:
+          type: string
+      required:
+      - label
+      - page
     DetailLink:
       type: object
       description: 'A link chip: a provider page or an external database.'
@@ -20292,14 +20383,37 @@ components:
         percent:
           type: integer
           nullable: true
+        progress:
+          type: string
+          nullable: true
+          description: 'Books, manga, games, comics: your progress line (Progress:
+            120/300).'
+        series:
+          type: string
+          nullable: true
+          description: 'Books: the series and the book''s place in it.'
       required:
       - certification
       - genres
       - percent
+      - progress
       - runtime
       - seasons
+      - series
       - type_label
       - year
+    DetailNamedLink:
+      type: object
+      description: An author, studio or genre, with the Django page it opens.
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+          nullable: true
+      required:
+      - name
+      - url
     DetailPerson:
       type: object
       description: A cast or crew card; crew cards carry the job as `role`.
@@ -20535,6 +20649,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DetailInfo'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailIssue'
+          description: 'Comics: this page of the volume''s issues.'
+        issues_more:
+          allOf:
+          - $ref: '#/components/schemas/DetailIssuesMore'
+          nullable: true
+        game_lengths:
+          allOf:
+          - $ref: '#/components/schemas/DetailGameLengths'
+          nullable: true
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
+        studios:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailNamedLink'
         fanart_poster:
           type: string
           nullable: true
@@ -20542,13 +20681,18 @@ components:
           type: string
           nullable: true
       required:
+      - authors
       - backdrop
       - cast
       - cast_view_all_url
       - crew
       - fanart_poster
+      - game_lengths
+      - genres
       - history_url
       - info
+      - issues
+      - issues_more
       - logo
       - plays
       - recommendations
@@ -20556,6 +20700,7 @@ components:
       - season
       - seasons
       - sections
+      - studios
       - watch_on
     DetailShell:
       type: object

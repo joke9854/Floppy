@@ -14,7 +14,10 @@ which is why the route takes the session or the account token only.
 
 from __future__ import annotations
 
+from urllib.parse import parse_qs, quote
+
 from django.conf import settings
+from django.template.defaultfilters import floatformat
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import strip_tags
 from rest_framework import serializers
@@ -26,7 +29,16 @@ from users.templatetags import user_tags
 
 from .home_screen import HomeCheckTargetSerializer
 
-DETAIL_SCREEN_TYPES = (MediaTypes.MOVIE.value, MediaTypes.TV.value)
+# The types whose page the web also draws (P4-L1): books, manga, games, comics
+# and board games share one set of sections beside the movie and show page.
+L1_TYPES = (
+    MediaTypes.MANGA.value,
+    MediaTypes.GAME.value,
+    MediaTypes.BOOK.value,
+    MediaTypes.COMIC.value,
+    MediaTypes.BOARDGAME.value,
+)
+DETAIL_SCREEN_TYPES = (MediaTypes.MOVIE.value, MediaTypes.TV.value, *L1_TYPES)
 DETAIL_PARTS = ("shell", "secondary", "season")
 
 # The v2 sections in the order ct/detail_secondary.html renders them, with
@@ -41,8 +53,21 @@ _SECTIONS = (
     ("recommendations", "content"),
     ("details", "sidebar"),
 )
+# The extended order for the L1 types (the layout family still filters it).
+_SECTIONS_L1 = (
+    ("episodes", "content"),
+    ("history", "sidebar"),
+    ("related", "content"),
+    ("cast", "content"),
+    ("recommendations", "content"),
+    ("game_lengths", "content"),
+    ("details", "sidebar"),
+    ("genres", "sidebar"),
+    ("studios", "sidebar"),
+)
 # Information grid keys the template leaves out.
 _INFO_SKIPPED = {"themes", "format", "last_air_date", "seasons", "episodes"}
+_INFO_SKIPPED_L1 = _INFO_SKIPPED - {"format"}
 
 
 def _text(value) -> str:
@@ -172,6 +197,8 @@ def _action(context) -> dict | None:
     if context.get("public_view"):
         return None
     media_type = context["media_type"]
+    if media_type not in (MediaTypes.MOVIE.value, MediaTypes.TV.value):
+        return None
     current = context.get("current_instance")
     status = getattr(current, "status", None)
     if media_type == MediaTypes.MOVIE.value:
@@ -200,6 +227,15 @@ def _meta(context) -> dict:
     if media_type == MediaTypes.TV.value and not context.get("public_view"):
         progress = app_tags.ct_series_progress(media, context.get("current_instance"))
         percent = (progress or {}).get("percent") or None
+    progress_text = None
+    if media_type in L1_TYPES and not context.get("public_view"):
+        subtitle = context.get("activity_subtitle") or {}
+        progress_text = _text(subtitle.get("primary_text")) or None
+    series = None
+    if media_type == MediaTypes.BOOK.value and media.get("series_name"):
+        series = _text(media["series_name"])
+        if media.get("series_position"):
+            series += f" #{floatformat(media['series_position'], '-2')}"
     return {
         "type_label": _text(app_tags.media_type_readable(media_type)),
         "genres": [_text(genre) for genre in (media.get("genres") or [])[:2]],
@@ -214,6 +250,8 @@ def _meta(context) -> dict:
         if media_type == MediaTypes.TV.value
         else None,
         "percent": percent,
+        "progress": progress_text,
+        "series": series,
     }
 
 
@@ -317,13 +355,19 @@ def _plays(context, user) -> list[dict]:
     return plays
 
 
-def _info(context, user) -> list[dict]:
+def _info(context, user, *, authors=(), studios=()) -> list[dict]:
     """Return the Information grid (the page's labels and date formats)."""
     media = context["media"]
     details = media.get("details") or {}
+    skipped = _INFO_SKIPPED_L1 if context["media_type"] in L1_TYPES else _INFO_SKIPPED
     rows = []
     for key, value in details.items():
-        if key in _INFO_SKIPPED or not value:
+        if key in skipped or not value:
+            continue
+        # The linked Authors and Studios rows replace the plain ones.
+        if authors and key in (context.get("author_detail_keys") or ()):
+            continue
+        if studios and key in (context.get("studio_detail_keys") or ()):
             continue
         if key == "first_air_date":
             label = "Aired"
@@ -332,7 +376,7 @@ def _info(context, user) -> list[dict]:
             if last and last != value:
                 text += f" – {user_tags.user_date_format(last, user)}"  # noqa: RUF001  # the page's en dash
         else:
-            if key == "studios" and context["media_type"] != MediaTypes.MOVIE.value:
+            if key == "studios" and context["media_type"] == MediaTypes.TV.value:
                 label = "Network"
             else:
                 label = key.replace("_", " ").title()
@@ -354,7 +398,8 @@ def _sections(user, media_type) -> list[str]:
     layouts = resolved_detail_layouts(
         getattr(user, "detail_page_layouts", {}) if user.is_authenticated else {}
     ).get(family, {})
-    return [key for key, zone in _SECTIONS if key in layouts.get(zone, [])]
+    order = _SECTIONS_L1 if media_type in L1_TYPES else _SECTIONS
+    return [key for key, zone in order if key in layouts.get(zone, [])]
 
 
 def _episode(episode, show, season_number, user, next_number) -> dict:
@@ -510,6 +555,123 @@ def build_detail_season(request, show_context, season_number) -> dict | None:
     }
 
 
+def _issues(media, user) -> list[dict]:
+    """Return a comic volume's issues (issue_row.html) from the page's episodes."""
+    issues = []
+    for episode in media.get("episodes") or []:
+        if not isinstance(episode, dict):
+            continue
+        number = _text(episode.get("issue_number"))
+        title = _text(episode.get("title"))
+        try:
+            url = reverse(
+                "media_details",
+                kwargs={
+                    "source": episode.get("source"),
+                    "media_type": episode.get("media_type"),
+                    "media_id": episode.get("media_id"),
+                    "title": app_tags.slug(title or number),
+                },
+            )
+        except NoReverseMatch:
+            url = None
+        image = episode.get("image")
+        issues.append(
+            {
+                "number": number,
+                "title": title,
+                "image": _image(image, "w342")
+                if image and image != settings.IMG_NONE
+                else None,
+                "cover_date": _text(episode.get("cover_date")),
+                "read": bool(episode.get("history")),
+                "url": url,
+                "media_type": MediaTypes.COMIC_ISSUE.value,
+                "source": _text(episode.get("source")),
+                "media_id": _text(episode.get("media_id")),
+            }
+        )
+    return issues
+
+
+def _issues_more(load_more) -> dict | None:
+    """Return the next page of issues: its number and the "Show" label."""
+    if not load_more:
+        return None
+    try:
+        page = int(parse_qs(_text(load_more.get("querystring"))).get("episode_page", [""])[0])
+    except ValueError:
+        return None
+    return {"page": page, "label": _text(load_more.get("label"))}
+
+
+def _game_lengths(context) -> dict:
+    """Return a game's Time to Beat (game_lengths_section.html), no icon keys.
+
+    Every game gets it, as on the page: without data or a fetch it says the
+    figures are not available yet.
+    """
+    lengths = context.get("game_lengths") or {}
+    pending = bool(context.get("game_lengths_pending"))
+    return {
+        "available": bool(lengths.get("available")),
+        "pending": pending,
+        "source_label": _text(lengths.get("source_label")),
+        "source_url": lengths.get("source_url") or None,
+        "cards": [
+            {
+                "label": _text(card.get("label")),
+                "value": _text(card.get("value")),
+                "count": card.get("count") or 0,
+            }
+            for card in lengths.get("cards") or []
+        ],
+    }
+
+
+def _authors(context) -> list[dict]:
+    """Return the linked authors (detail_secondary_content.html)."""
+    authors = []
+    for author in context.get("authors_linked") or []:
+        try:
+            url = reverse(
+                "person_detail",
+                kwargs={
+                    "source": author["source"],
+                    "person_id": author["person_id"],
+                    "name": app_tags.slug(author["name"]),
+                },
+            )
+        except (NoReverseMatch, KeyError):
+            continue
+        authors.append({"name": _text(author["name"]), "url": url})
+    return authors
+
+
+def _studios(context) -> list[dict]:
+    studios = []
+    for studio in (context.get("studios_linked") or [])[:12]:
+        name = studio.get("name") if isinstance(studio, dict) else getattr(studio, "name", "")
+        studios.append(
+            {
+                "name": _text(name) or "Unknown Studio",
+                "url": app_tags.studio_url(studio) or None,
+            }
+        )
+    return studios
+
+
+def _genres(media, media_type) -> list[dict]:
+    try:
+        base = reverse("medialist", kwargs={"media_type": media_type})
+    except NoReverseMatch:
+        return []
+    return [
+        {"name": _text(genre), "url": f"{base}?genre={quote(_text(genre))}"}
+        for genre in media.get("genres") or []
+    ]
+
+
 def _selected_season(request, context) -> int | None:
     covers = app_tags.ct_season_covers(
         context["media"],
@@ -569,6 +731,9 @@ def build_detail_sections(request, context) -> dict:
     )
     recommendations = (context.get("recommendations_row") or {}).get("items") or []
     public = bool(context.get("public_view"))
+    l1 = media_type in L1_TYPES
+    authors = _authors(context) if l1 else []
+    studios = _studios(context) if l1 else []
     return {
         "backdrop": _backdrop(media, allow_network=True),
         **_fanart(media, allow_network=True),
@@ -594,7 +759,17 @@ def build_detail_sections(request, context) -> dict:
         "recommendations": [_card(entry, user) for entry in recommendations]
         if (media.get("related") or {}).get("recommendations")
         else [],
-        "info": _info(context, user),
+        "info": _info(context, user, authors=authors, studios=studios),
+        "issues": _issues(media, user) if media_type == MediaTypes.COMIC.value else [],
+        "issues_more": _issues_more(context.get("episode_load_more"))
+        if media_type == MediaTypes.COMIC.value
+        else None,
+        "game_lengths": _game_lengths(context)
+        if media_type == MediaTypes.GAME.value
+        else None,
+        "authors": authors,
+        "studios": studios,
+        "genres": _genres(media, media_type) if l1 else [],
     }
 
 
@@ -692,6 +867,13 @@ class DetailMetaSerializer(serializers.Serializer):
     certification = serializers.CharField(allow_null=True)
     seasons = serializers.IntegerField(allow_null=True)
     percent = serializers.IntegerField(allow_null=True)
+    progress = serializers.CharField(
+        allow_null=True,
+        help_text="Books, manga, games, comics: your progress line (Progress: 120/300).",
+    )
+    series = serializers.CharField(
+        allow_null=True, help_text="Books: the series and the book's place in it."
+    )
 
 
 class DetailActionSerializer(serializers.Serializer):
@@ -877,6 +1059,54 @@ class DetailInfoSerializer(serializers.Serializer):
     value = serializers.CharField(allow_blank=True)
 
 
+class DetailIssueSerializer(serializers.Serializer):
+    """A comic volume's issue."""
+
+    number = serializers.CharField(allow_blank=True)
+    title = serializers.CharField(allow_blank=True)
+    image = serializers.CharField(allow_null=True)
+    cover_date = serializers.CharField(allow_blank=True)
+    read = serializers.BooleanField()
+    url = serializers.CharField(allow_null=True)
+    media_type = serializers.CharField(help_text="comicissue, for the track dialog.")
+    source = serializers.CharField()
+    media_id = serializers.CharField()
+
+
+class DetailIssuesMoreSerializer(serializers.Serializer):
+    """The next page of a volume's issues."""
+
+    page = serializers.IntegerField(help_text="Pass it as `episode_page`.")
+    label = serializers.CharField(allow_blank=True)
+
+
+class DetailGameLengthCardSerializer(serializers.Serializer):
+    """One Time to Beat figure."""
+
+    label = serializers.CharField()
+    value = serializers.CharField()
+    count = serializers.IntegerField(help_text="The submissions behind it.")
+
+
+class DetailGameLengthsSerializer(serializers.Serializer):
+    """A game's Time to Beat."""
+
+    available = serializers.BooleanField()
+    pending = serializers.BooleanField(
+        help_text="The figures are being fetched in the background."
+    )
+    source_label = serializers.CharField(allow_blank=True)
+    source_url = serializers.CharField(allow_null=True)
+    cards = DetailGameLengthCardSerializer(many=True)
+
+
+class DetailNamedLinkSerializer(serializers.Serializer):
+    """An author, studio or genre, with the Django page it opens."""
+
+    name = serializers.CharField()
+    url = serializers.CharField(allow_null=True)
+
+
 class DetailSectionsSerializer(serializers.Serializer):
     """The detail page's sections."""
 
@@ -896,6 +1126,14 @@ class DetailSectionsSerializer(serializers.Serializer):
     cast_view_all_url = serializers.CharField(allow_null=True)
     recommendations = DetailCardSerializer(many=True)
     info = DetailInfoSerializer(many=True)
+    issues = DetailIssueSerializer(
+        many=True, help_text="Comics: this page of the volume's issues."
+    )
+    issues_more = DetailIssuesMoreSerializer(allow_null=True)
+    game_lengths = DetailGameLengthsSerializer(allow_null=True)
+    authors = DetailNamedLinkSerializer(many=True)
+    studios = DetailNamedLinkSerializer(many=True)
+    genres = DetailNamedLinkSerializer(many=True)
     fanart_poster = serializers.CharField(allow_null=True)
     logo = serializers.CharField(allow_null=True)
 

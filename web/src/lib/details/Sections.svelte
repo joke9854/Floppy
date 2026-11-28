@@ -7,9 +7,17 @@
 	import { fadeIn } from '#lib/media/fade.ts';
 	import { t } from '#lib/strings.ts';
 	import { dt } from '#lib/details/strings.ts';
-	import type { DetailCard, DetailSeason, DetailSections, DetailTrailer } from './api.ts';
+	import {
+		detailApiPath,
+		type DetailCard,
+		type DetailIssue,
+		type DetailSeason,
+		type DetailSections,
+		type DetailTrailer
+	} from './api.ts';
 	import EpisodeRow from './EpisodeRow.svelte';
-	import { detailLink } from './link.ts';
+	import IssueRow from './IssueRow.svelte';
+	import { detailLink, genreLink } from './link.ts';
 	import PeopleRail from './PeopleRail.svelte';
 
 	/**
@@ -20,6 +28,9 @@
 	 */
 	let {
 		sections,
+		mediaType,
+		source,
+		mediaId,
 		current,
 		trailers,
 		trackTime,
@@ -30,6 +41,9 @@
 		onplay
 	}: {
 		sections: DetailSections;
+		mediaType: string;
+		source: string;
+		mediaId: string;
 		current: { season: DetailSeason | null; selected: number | null; loading: boolean; failed: boolean };
 		trailers: DetailTrailer[];
 		trackTime: boolean;
@@ -41,10 +55,67 @@
 	} = $props();
 
 	// The page's section order; Trailers has no layout key and sits after Cast.
-	const ORDER = ['episodes', 'history', 'related', 'cast', 'trailers', 'recommendations', 'details'];
+	// Books, manga, games, comics and board games add Time to Beat, Genres and Studios (P4-L1).
+	const ORDER = [
+		'episodes',
+		'history',
+		'related',
+		'cast',
+		'trailers',
+		'recommendations',
+		'game_lengths',
+		'details',
+		'genres',
+		'studios'
+	];
 	const sectionOrder = $derived(
 		ORDER.filter((key) => key === 'trailers' || sections.sections.includes(key))
 	);
+
+	// A comic volume's issues: the sections' own page, then the pages "Show ..." loads.
+	let loadedIssues = $state.raw<{
+		for: DetailSections;
+		extra: DetailIssue[];
+		more: DetailSections['issues_more'];
+		loading: boolean;
+		failed: boolean;
+	} | null>(null);
+	const issueState = $derived(
+		loadedIssues && loadedIssues.for === sections
+			? loadedIssues
+			: {
+					for: sections,
+					extra: [] as DetailIssue[],
+					more: sections.issues_more,
+					loading: false,
+					failed: false
+				}
+	);
+
+	async function moreIssues() {
+		const more = issueState.more;
+		if (!more || issueState.loading) return;
+		const forSections = sections;
+		loadedIssues = { ...issueState, loading: true, failed: false };
+		try {
+			const response = await fetch(
+				detailApiPath(mediaType, source, mediaId, 'sections', null, more.page),
+				{ credentials: 'same-origin' }
+			);
+			if (!response.ok) throw new Error(String(response.status));
+			const next = (await response.json()) as DetailSections;
+			if (forSections !== sections) return;
+			loadedIssues = {
+				for: forSections,
+				extra: [...issueState.extra, ...next.issues],
+				more: next.issues_more,
+				loading: false,
+				failed: false
+			};
+		} catch {
+			if (forSections === sections) loadedIssues = { ...issueState, loading: false, failed: true };
+		}
+	}
 </script>
 
 	<div class="ct-detail-sections">
@@ -138,6 +209,61 @@
 						{/if}
 					</div>
 				</section>
+			{:else if key === 'episodes' && sections.issues.length}
+				<section aria-labelledby="ct-issues-title">
+					<div class="ct-row-head">
+						<h2 class="ct-row-title" id="ct-issues-title">{dt.issues}</h2>
+					</div>
+					<div class={['ct-episode-list', issueState.loading && 'is-loading']} aria-busy={issueState.loading}>
+						{#each [...sections.issues, ...issueState.extra] as issue (issue.media_id)}
+							<IssueRow {issue} />
+						{/each}
+						{#if issueState.more}
+							<div class="ct-ep-more">
+								<button type="button" class="ct-row-link" onclick={moreIssues} disabled={issueState.loading}>
+									{dt.showMore(issueState.more.label)}
+								</button>
+							</div>
+						{/if}
+						{#if issueState.failed}
+							<p class="px-4 py-6 text-center text-muted" role="alert">{dt.issuesFailed}</p>
+						{/if}
+					</div>
+				</section>
+			{:else if key === 'game_lengths' && sections.game_lengths}
+				{@const lengths = sections.game_lengths}
+				<section aria-labelledby="ct-lengths-title">
+					<div class="ct-row-head">
+						<h2 class="ct-row-title" id="ct-lengths-title">{dt.timeToBeat}</h2>
+						{#if lengths.source_label}
+							{#if lengths.source_url}
+								<a
+									class="ct-source-pill"
+									href={lengths.source_url}
+									target="_blank"
+									rel="noreferrer noopener">{lengths.source_label}</a
+								>
+							{:else}
+								<span class="ct-source-pill">{lengths.source_label}</span>
+							{/if}
+						{/if}
+					</div>
+					{#if lengths.available}
+						<ul class="ct-lengths">
+							{#each lengths.cards as card (card.label)}
+								<li class="ct-length">
+									<span class="ct-length__label">{card.label}</span>
+									<span class="ct-length__value">{card.value}</span>
+									<span class="ct-length__count">{dt.submissions(card.count)}</span>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="ct-detail-note">
+							{lengths.pending ? dt.timeToBeatPending : dt.timeToBeatNone}
+						</p>
+					{/if}
+				</section>
 			{:else if key === 'history' && sections.plays.length}
 				<section aria-labelledby="ct-plays-title">
 					<div class="ct-row-head">
@@ -223,7 +349,7 @@
 						{/each}
 					</div>
 				</section>
-			{:else if key === 'details' && sections.info.length}
+			{:else if key === 'details' && (sections.info.length || sections.authors.length)}
 				<section aria-labelledby="ct-info-title">
 					<div class="ct-row-head">
 						<h2 class="ct-row-title" id="ct-info-title">{dt.information}</h2>
@@ -235,7 +361,53 @@
 								<dd>{row.value}</dd>
 							</div>
 						{/each}
+						{#if sections.authors.length}
+							<div>
+								<dt>{sections.authors.length === 1 ? dt.author : dt.authors}</dt>
+								<dd class="ct-info-links">
+									{#each sections.authors as author, index (index)}
+										{#if author.url}
+											<a {...detailLink(author.url)}>{author.name}</a>
+										{:else}
+											<span>{author.name}</span>
+										{/if}
+									{/each}
+								</dd>
+							</div>
+						{/if}
 					</dl>
+				</section>
+			{:else if key === 'genres' && sections.genres.length}
+				<section aria-labelledby="ct-genres-title">
+					<div class="ct-row-head">
+						<h2 class="ct-row-title" id="ct-genres-title">{dt.genres}</h2>
+					</div>
+					<div class="ct-chip-list">
+						{#each sections.genres as genre (genre.name)}
+							{#if genre.url}
+								<a class="ct-genre-chip" {...genreLink(genre.url)}>{genre.name}</a>
+							{:else}
+								<span class="ct-genre-chip">{genre.name}</span>
+							{/if}
+						{/each}
+					</div>
+				</section>
+			{:else if key === 'studios' && sections.studios.length}
+				<section aria-labelledby="ct-studios-title">
+					<div class="ct-row-head">
+						<h2 class="ct-row-title" id="ct-studios-title">{dt.studios}</h2>
+					</div>
+					<ul class="ct-link-list">
+						{#each sections.studios as studio, index (index)}
+							<li>
+								{#if studio.url}
+									<a {...detailLink(studio.url)}>{studio.name}</a>
+								{:else}
+									{studio.name}
+								{/if}
+							</li>
+						{/each}
+					</ul>
 				</section>
 			{/if}
 		{/each}

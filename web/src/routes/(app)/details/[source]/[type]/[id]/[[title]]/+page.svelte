@@ -362,6 +362,8 @@
 					{#if shell.meta.certification}<span>{shell.meta.certification}</span>{/if}
 					{#if shell.meta.seasons}<span>{dt.seasonsCount(shell.meta.seasons)}</span>{/if}
 					{#if shell.meta.percent}<span>{dt.percentWatched(shell.meta.percent)}</span>{/if}
+					{#if shell.meta.series}<span>{shell.meta.series}</span>{/if}
+					{#if shell.meta.progress}<span>{shell.meta.progress}</span>{/if}
 				</p>
 				{#if shell.scores.length}
 					<div class="ct-detail-chips">
@@ -490,6 +492,9 @@
 			{:then view}
 				<view.default
 					{sections}
+					mediaType={shell.media_type}
+					source={shell.source}
+					mediaId={shell.media_id}
 					{current}
 					trailers={trailerList}
 					trackTime={shell.track_time}

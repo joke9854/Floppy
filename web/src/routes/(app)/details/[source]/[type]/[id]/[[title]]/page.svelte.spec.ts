@@ -115,7 +115,14 @@ const sections = {
 	logo: null,
 	cast_view_all_url: null,
 	recommendations: [],
-	info: [{ label: 'Status', value: 'Ended' }]
+	info: [{ label: 'Status', value: 'Ended' }],
+	// Empty for a movie or show (P4-L1).
+	issues: [],
+	issues_more: null,
+	game_lengths: null,
+	authors: [],
+	studios: [],
+	genres: []
 };
 
 const renderDetail = (shellOverrides: object = {}, sectionsValue: object | null = sections) =>
@@ -166,6 +173,86 @@ describe('/next detail page', () => {
 		const button = page.getByRole('button', { name: 'Mark as watched' });
 		await expect.element(button).toBeVisible();
 		await expect.element(button).toBeEnabled();
+	});
+
+	it('shows a book with its series and progress, a Track button and no primary action', async () => {
+		renderDetail(
+			{
+				media_type: 'book',
+				source: 'openlibrary',
+				media_id: 'OL1W',
+				title: 'Test Book',
+				action: null,
+				meta: {
+					type_label: 'Book',
+					genres: ['Fantasy'],
+					year: '1999',
+					runtime: null,
+					certification: null,
+					seasons: null,
+					percent: null,
+					series: 'The Cycle #2',
+					progress: 'Progress: 120/300'
+				}
+			},
+			{
+				...sections,
+				sections: ['details', 'genres'],
+				seasons: [],
+				season: null,
+				info: [{ label: 'Format', value: 'Hardcover' }],
+				authors: [{ name: 'A. Writer', url: '/person/openlibrary/OL9A/a-writer' }],
+				genres: [{ name: 'Fantasy', url: '/medialist/book?genre=Fantasy' }],
+				studios: [],
+				issues: [],
+				issues_more: null,
+				game_lengths: null
+			}
+		);
+
+		await expect.element(page.getByText('The Cycle #2')).toBeVisible();
+		await expect.element(page.getByText('Progress: 120/300')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Track' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Mark as watched' })).not.toBeInTheDocument();
+		await expect.element(page.getByText('Hardcover')).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'A. Writer' })).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'Fantasy', exact: true })).toBeVisible();
+	});
+
+	it('lists a comic volume\'s issues with a Read mark and a way to load more', async () => {
+		const issue = (number: number, read: boolean) => ({
+			number: String(number),
+			title: `Issue title ${number}`,
+			image: POSTER,
+			cover_date: `2020-01-0${number}`,
+			read,
+			url: `/details/comicvine/comicissue/4000-${number}/issue-title-${number}`,
+			media_type: 'comicissue',
+			source: 'comicvine',
+			media_id: `4000-${number}`
+		});
+		renderDetail(
+			{ media_type: 'comic', source: 'comicvine', media_id: '4050-1', title: 'Test Volume', action: null },
+			{
+				...sections,
+				sections: ['episodes'],
+				seasons: [],
+				season: null,
+				issues: [issue(1, true), issue(2, false)],
+				issues_more: { page: 2, label: 'Issues 3 to 4' },
+				game_lengths: null,
+				authors: [],
+				genres: [],
+				studios: []
+			}
+		);
+
+		await expect.element(page.getByRole('heading', { name: 'Issues' })).toBeVisible();
+		await expect.element(page.getByText('Issue title 1')).toBeVisible();
+		await expect.element(page.getByText('Issue #2 · 2020-01-02')).toBeVisible();
+		await expect.element(page.getByText('Read', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Show Issues 3 to 4' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Track Issue title 2' })).toBeVisible();
 	});
 
 	it('says when the sections could not load', async () => {

@@ -66,5 +66,23 @@ export const dt = {
 	nextEpisode: 'Next episode',
 	thisEpisode: 'This episode',
 	guestStars: 'Guest Stars',
-	seasonWatched: (watched: number, total: number) => `${watched} of ${total} watched`
+	seasonWatched: (watched: number, total: number) => `${watched} of ${total} watched`,
+
+	// Books, manga, games, comics and board games, P4-L1.
+	issues: 'Issues',
+	issueNumber: (number: string) => `Issue #${number}`,
+	issueRead: 'Read',
+	trackIssue: (title: string) => `Track ${title}`,
+	showMore: (label: string) => `Show ${label}`,
+	issuesFailed: 'More issues could not load.',
+	timeToBeat: 'Time to Beat',
+	submissions: (count: number) =>
+		`${count.toLocaleString('en-US')} ${count === 1 ? 'submission' : 'submissions'}`,
+	timeToBeatPending: 'Fetching cached time-to-beat data in the background.',
+	timeToBeatNone: 'Time-to-beat data is not available yet.',
+	genres: 'Genres',
+	studios: 'Studios',
+	author: 'Author',
+	authors: 'Authors',
+	unknownIssue: 'Unknown'
 } as const;

@@ -127,13 +127,13 @@ export function isCurrentHref(href: string, pathname: string, base: string = BAS
 }
 
 /**
- * Django pages with a web screen: a movie or show
+ * Django pages with a web screen: a movie, show, manga, game, book, comic or board game
  * (/details/<source>/<movie|tv>/<id>/<title>[?season=N]), a TV episode
  * (.../tv/<id>/<title>/season/<n>/episode/<n>) and a person
  * (/person/<source>/<id>/<name>).
  */
 const WEB_DETAIL = [
-	/^\/details\/[^/?#]+\/(?:movie|tv)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
+	/^\/details\/[^/?#]+\/(?:movie|tv|manga|game|book|comic|boardgame)\/[^/?#]+\/[^/?#]+\/?(?:\?season=\d+)?$/,
 	/^\/details\/[^/?#]+\/tv\/[^/?#]+\/[^/?#]+\/season\/\d+\/episode\/\d+\/?$/,
 	/^\/person\/[^/?#]+\/[^/?#]+\/[^/?#]+\/?$/,
 	// History (P4-E), any of its filters.

@@ -5186,10 +5186,45 @@ export interface components {
             detail: string;
             errors?: unknown;
         };
+        /** @description One Time to Beat figure. */
+        DetailGameLengthCard: {
+            label: string;
+            value: string;
+            /** @description The submissions behind it. */
+            count: number;
+        };
+        /** @description A game's Time to Beat. */
+        DetailGameLengths: {
+            available: boolean;
+            /** @description The figures are being fetched in the background. */
+            pending: boolean;
+            source_label: string;
+            source_url: string | null;
+            cards: components["schemas"]["DetailGameLengthCard"][];
+        };
         /** @description The detail page's info. */
         DetailInfo: {
             label: string;
             value: string;
+        };
+        /** @description A comic volume's issue. */
+        DetailIssue: {
+            number: string;
+            title: string;
+            image: string | null;
+            cover_date: string;
+            read: boolean;
+            url: string | null;
+            /** @description comicissue, for the track dialog. */
+            media_type: string;
+            source: string;
+            media_id: string;
+        };
+        /** @description The next page of a volume's issues. */
+        DetailIssuesMore: {
+            /** @description Pass it as `episode_page`. */
+            page: number;
+            label: string;
         };
         /** @description A link chip: a provider page or an external database. */
         DetailLink: {
@@ -5222,6 +5257,15 @@ export interface components {
             certification: string | null;
             seasons: number | null;
             percent: number | null;
+            /** @description Books, manga, games, comics: your progress line (Progress: 120/300). */
+            progress: string | null;
+            /** @description Books: the series and the book's place in it. */
+            series: string | null;
+        };
+        /** @description An author, studio or genre, with the Django page it opens. */
+        DetailNamedLink: {
+            name: string;
+            url: string | null;
         };
         /** @description A cast or crew card; crew cards carry the job as `role`. */
         DetailPerson: {
@@ -5305,6 +5349,13 @@ export interface components {
             cast_view_all_url: string | null;
             recommendations: components["schemas"]["DetailCard"][];
             info: components["schemas"]["DetailInfo"][];
+            /** @description Comics: this page of the volume's issues. */
+            issues: components["schemas"]["DetailIssue"][];
+            issues_more: components["schemas"]["DetailIssuesMore"] | null;
+            game_lengths: components["schemas"]["DetailGameLengths"] | null;
+            authors: components["schemas"]["DetailNamedLink"][];
+            studios: components["schemas"]["DetailNamedLink"][];
+            genres: components["schemas"]["DetailNamedLink"][];
             fanart_poster: string | null;
             logo: string | null;
         };
@@ -12652,6 +12703,8 @@ export interface operations {
     getDetailSections: {
         parameters: {
             query?: {
+                /** @description A comic volume's page of issues (`issues_more.page`). */
+                episode_page?: number;
                 /** @description The season on screen; else the next episode's, else the first. */
                 season?: number;
             };

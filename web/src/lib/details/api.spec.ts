@@ -7,6 +7,9 @@ describe('detail API paths', () => {
 		expect(detailApiPath('tv', 'tmdb', '1399', 'sections', '2')).toBe(
 			'/api/v1/details/tv/tmdb/1399/sections/?season=2'
 		);
+		expect(detailApiPath('comic', 'comicvine', '4050-1', 'sections', null, 2)).toBe(
+			'/api/v1/details/comic/comicvine/4050-1/sections/?episode_page=2'
+		);
 		expect(seasonApiPath('tmdb', '1399', 'season=2&episode_page=2')).toBe(
 			'/api/v1/details/tv/tmdb/1399/season/?season=2&episode_page=2'
 		);

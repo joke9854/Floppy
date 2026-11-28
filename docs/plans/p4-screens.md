@@ -61,7 +61,7 @@ adds a web test for its flow:
 | P4-I | Lists | I1 (2026-11-23): the index (My Lists / Shared with Me, search, type, sort, covers, more on scroll), create/edit/delete, CSV, MDBList and Trakt imports; the nav opens it. I2 (2026-11-23): a manual list's page. I3 (2026-11-23): smart lists with the rule builder, Recommendations and Activity History dialogs |
 | P4-J | Settings and integrations | J1 (2026-11-27): the settings route and nav, Account, Appearance, Notifications, Media types, About. J2 (2026-11-27): Preferences, Metadata, Connected apps, Export, Advanced. J3 (2026-11-27): Integrations and RSS. Import stays P4-K |
 | P4-K | Imports | K1 (2026-11-27): the Import page (settings, source tiles with the media-type filter, activity panel with cancel, undo, schedule and by-source delete) and the file and username imports (Floppy, Yamtrack, CLZ, HowLongToBeat, Grouvee, IMDB, Goodreads, Hardcover, StoryGraph, TV Time, MyAnimeList, Kitsu, Simkl, MDBList). K2 (2026-11-27): Trakt, AniList, Last.fm, Koito, Steam, Xbox, PlayStation, Pocket Casts, GPodder. K3 (2026-11-28): Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader. Every Import source is drawn by the web |
-| P4-L | Detail pages for the other types | Planned (2026-11-28). L1: anime, manga, games, books, comics, board games. L2: music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: the activity sessions dialog, the ratings graphs, anime episodes, the studio page |
+| P4-L | Detail pages for the other types | L1 built (2026-11-28): manga, games, books, comics, board games. L2: music artist and album pages and podcast shows, with the song and podcast-episode play dialog. L3: anime (its page and episodes), the activity sessions dialog, the ratings graphs, the studio page |
 | P4-M | Search and Add New Item | Planned (2026-11-28). M1: the search page (with the parent-show search). M2: the shell's search palette. M3: Add New Item (manual create) and Add Recommendation; the search-then-track web test |
 | P4-N | Floating sidebar | Planned (2026-11-28). The shell honours Appearance's sidebar style: Floating (the detached bar) with Expand on hover, Always expanded or Icons only; Attached stays the default |
 | P4-O | Leftover pages | Planned (2026-11-28). Tags, Collection, the Monthly recap, lists the user can only view, the collaborator search |
@@ -844,14 +844,28 @@ pages and pieces that still open Django, collected from the follow-ups
 above, so P5 can cut over. Order not decided yet; each on the board.
 
 P4-L, detail pages for the other types (C follow-ups):
-- [ ] L1: the detail page for anime, manga, games, books, comics and board
-      games (`details/<source>/<media_type>/...`); their Track buttons open
-      the web Track dialog.
+- [x] L1 (2026-11-28): the detail page for manga, games, books, comics and
+      board games (`details/<source>/<media_type>/...`): the hero's progress
+      line (the page's activity subtitle) and a book's series line, no
+      filled action (Track opens the web Track dialog), the Information
+      grid with `format` and linked Authors, Genres (chips to the web
+      Library's genre filter), Studios, a game's Time to Beat (or the
+      page's not-available note), a comic volume's Issues (Read mark, Track
+      as `comicissue`, the issue page on Django, "Show ..." pages by
+      `episode_page`). The user's layout family picks the sections.
+      Not in L1: the activity sessions dialog behind the progress line
+      (L3), IGDB trailers and screenshots (the page's carousel), the
+      Hardcover `?edition_id=` preview (the Track dialog's Metadata tab
+      picks the edition), Notes and Collection sections (not on the movie
+      page either).
 - [ ] L2: music artist and album pages (`details/music/artist/...`, album
       releases) and podcast shows, with the song and podcast-episode
       play-history dialog (`fill_track_song.html`).
-- [ ] L3: the activity sessions dialog (`history/sessions`), the ratings
-      graphs, anime episode pages, the studio page.
+- [ ] L3: anime: its page (grouped TMDB/TVDB anime on the show machinery,
+      flat MAL anime with the mapped episode preview) and its episode pages;
+      the activity sessions dialog (`history/sessions`), the ratings graphs,
+      the studio page. Moved out of L1 (2026-11-28): anime's next-episode
+      mark posts episode events, so it needs its own contract check.
 
 P4-M, Search and Add New Item:
 - [ ] M1: the search page (`search`, `search/parent_tv`).

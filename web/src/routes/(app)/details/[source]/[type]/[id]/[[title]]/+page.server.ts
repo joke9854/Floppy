@@ -2,13 +2,13 @@ import { error, redirect } from '@sveltejs/kit';
 import { detailApiPath, type DetailSections, type DetailShell } from '#lib/details/api.ts';
 import type { PageServerLoad } from './$types';
 
-const WEB_TYPES = new Set(['movie', 'tv']);
+const WEB_TYPES = new Set(['movie', 'tv', 'manga', 'game', 'book', 'comic', 'boardgame']);
 
 export const load: PageServerLoad = async ({ fetch, url, params }) => {
 	const django =
 		`/details/${encodeURIComponent(params.source)}/${encodeURIComponent(params.type)}/` +
 		`${encodeURIComponent(params.id)}/${encodeURIComponent(params.title ?? 'title')}${url.search}`;
-	// Movies and shows only (P4-C1); other types keep their Django page.
+	// Movies, shows and the L1 types (P4-L1); anime and the rest keep their Django page.
 	if (!WEB_TYPES.has(params.type)) redirect(307, django);
 
 	// The page's two phases at once: the hero (caches only, awaited) and the

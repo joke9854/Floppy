@@ -73,6 +73,18 @@ describe('detail links', () => {
 		expect(detailHref('/details/tmdb/movie/238/the-godfather', '/next')).toBe(
 			'/next/details/tmdb/movie/238/the-godfather'
 		);
+		expect(detailHref('/details/openlibrary/book/OL1W/dune', '/next')).toBe(
+			'/next/details/openlibrary/book/OL1W/dune'
+		);
+		expect(detailHref('/details/igdb/game/7/zelda', '/next')).toBe('/next/details/igdb/game/7/zelda');
+		expect(detailHref('/details/comicvine/comic/4050-1/saga', '/next')).toBe(
+			'/next/details/comicvine/comic/4050-1/saga'
+		);
+		// Anime and a comic issue keep their Django page.
+		expect(detailHref('/details/mal/anime/1/bebop', '/next')).toBe('/details/mal/anime/1/bebop');
+		expect(detailHref('/details/comicvine/comicissue/4000-1/one', '/next')).toBe(
+			'/details/comicvine/comicissue/4000-1/one'
+		);
 		expect(detailHref('/details/tmdb/tv/1399/got?season=2', '/next')).toBe(
 			'/next/details/tmdb/tv/1399/got?season=2'
 		);

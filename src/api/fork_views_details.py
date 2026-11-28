@@ -104,6 +104,11 @@ class DetailSectionsView(drf_views.APIView):
                 int,
                 description="The season on screen; else the next episode's, else the first.",
             ),
+            OpenApiParameter(
+                "episode_page",
+                int,
+                description="A comic volume's page of issues (`issues_more.page`).",
+            ),
         ],
         responses={200: DetailSectionsSerializer, 400: DetailErrorSerializer},
     )

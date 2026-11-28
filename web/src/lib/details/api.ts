@@ -5,7 +5,8 @@ export type DetailSections = components['schemas']['DetailSections'];
 export type DetailSeason = components['schemas']['DetailSeason'];
 export type DetailEpisode = components['schemas']['DetailEpisode'];
 export type DetailCard = components['schemas']['DetailCard'];
-export type DetailTrailer = components['schemas']['DetailTrailer'];
+export type DetailIssue = components['schemas']['DetailIssue'];
+export type DetailTrailer =components['schemas']['DetailTrailer'];
 
 /** A movie or show page's three reads (GET details/...). */
 export function detailApiPath(
@@ -13,14 +14,20 @@ export function detailApiPath(
 	source: string,
 	id: string,
 	part: 'shell' | 'sections' | 'trailers' = 'shell',
-	season?: string | null
+	season?: string | null,
+	page?: number | null
 ): string {
 	const base =
 		`/api/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(source)}/` +
 		`${encodeURIComponent(id)}/`;
 	if (part === 'shell') return base;
 	if (part === 'trailers') return `${base}trailers/`;
-	return season ? `${base}sections/?season=${encodeURIComponent(season)}` : `${base}sections/`;
+	const query = new URLSearchParams();
+	if (season) query.set('season', season);
+	// A comic volume's next page of issues (`issues_more.page`).
+	if (page) query.set('episode_page', String(page));
+	const text = query.toString();
+	return text ? `${base}sections/?${text}` : `${base}sections/`;
 }
 
 export type PersonScreen = components['schemas']['PersonScreen'];

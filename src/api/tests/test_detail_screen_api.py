@@ -16,7 +16,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 import events.tasks
-from app.models import TV, Item, MediaTypes, Movie, Sources, Status
+from app.models import TV, Book, ComicIssue, Item, MediaTypes, Movie, Sources, Status
 from users.models import ThemeChoices
 
 MOVIE = {
@@ -78,6 +78,75 @@ SHOW = {
 }
 
 
+BOOK = {
+    "media_id": "OL1W",
+    "title": "Test Book",
+    "media_type": MediaTypes.BOOK.value,
+    "source": Sources.OPENLIBRARY.value,
+    "image": "https://covers.example/book.jpg",
+    "synopsis": "A long book.",
+    "max_progress": 300,
+    "series_name": "The Cycle",
+    "series_position": 2.0,
+    "genres": ["Fantasy", "Adventure"],
+    "details": {"format": "Hardcover", "number_of_pages": 300, "author": "A. Writer"},
+    "authors_full": [{"person_id": "OL9A", "name": "A. Writer"}],
+}
+
+GAME = {
+    "media_id": "7",
+    "title": "Test Game",
+    "media_type": MediaTypes.GAME.value,
+    "source": Sources.IGDB.value,
+    "image": "https://images.example/game.jpg",
+    "synopsis": "A game.",
+    "max_progress": None,
+    "genres": ["RPG"],
+    "details": {"format": "Game", "platforms": "PC"},
+}
+
+BOARDGAME = {
+    "media_id": "13",
+    "title": "Test Board Game",
+    "media_type": MediaTypes.BOARDGAME.value,
+    "source": Sources.BGG.value,
+    "image": "https://images.example/board.jpg",
+    "synopsis": "A board game.",
+    "max_progress": None,
+    "genres": [],
+    "details": {"players": "2-4"},
+}
+
+# How many issues the comic volume fixture has (a test raises it past a page).
+_COMIC_ISSUES = [3]
+
+
+def _comic(issue_count):
+    return {
+        "media_id": "4050-1",
+        "title": "Test Volume",
+        "media_type": MediaTypes.COMIC.value,
+        "source": Sources.COMICVINE.value,
+        "image": "https://images.example/volume.jpg",
+        "synopsis": "A volume.",
+        "max_progress": issue_count,
+        "genres": [],
+        "details": {"format": "Comic"},
+        "issues": [
+            {
+                "media_id": f"4000-{number}",
+                "source": Sources.COMICVINE.value,
+                "media_type": MediaTypes.COMIC_ISSUE.value,
+                "title": f"Issue title {number}",
+                "issue_number": str(number),
+                "image": f"https://images.example/issue{number}.jpg",
+                "cover_date": f"2020-01-{number:02d}",
+            }
+            for number in range(1, issue_count + 1)
+        ],
+    }
+
+
 def _season(number):
     return {
         "media_id": "1399",
@@ -111,6 +180,14 @@ def _metadata(media_type, media_id, source, season_numbers=None, *_args, **_kwar
         for number in season_numbers or []:
             payload[f"season/{number}"] = _season(number)
         return payload
+    if media_type == MediaTypes.BOOK.value:
+        return copy.deepcopy(BOOK)
+    if media_type == MediaTypes.GAME.value:
+        return copy.deepcopy(GAME)
+    if media_type == MediaTypes.BOARDGAME.value:
+        return copy.deepcopy(BOARDGAME)
+    if media_type == MediaTypes.COMIC.value:
+        return _comic(_COMIC_ISSUES[0])
     if media_type == MediaTypes.SEASON.value:
         return _season(season_numbers[0] if season_numbers else 1)
     return copy.deepcopy(SHOW)
@@ -351,6 +428,140 @@ class DetailScreenApiTests(TestCase):
                 {"key": "def456", "name": "Teaser", "type": "Teaser", "season": None},
             ],
         )
+
+    def test_movie_has_none_of_the_l1_fields(self, _metadata_mock):
+        shell = self._api("api_detail_shell", "movie", "tmdb", "238")
+        sections = self._api("api_detail_sections", "movie", "tmdb", "238")
+
+        self.assertIsNone(shell["meta"]["progress"])
+        self.assertIsNone(shell["meta"]["series"])
+        self.assertEqual(sections["issues"], [])
+        self.assertIsNone(sections["issues_more"])
+        self.assertIsNone(sections["game_lengths"])
+        self.assertEqual(sections["authors"], [])
+        self.assertEqual(sections["studios"], [])
+        self.assertEqual(sections["genres"], [])
+
+    def test_book_has_series_progress_authors_and_genres(self, _metadata_mock):
+        item = Item.objects.create(
+            media_id="OL1W",
+            source=Sources.OPENLIBRARY.value,
+            media_type=MediaTypes.BOOK.value,
+            title="Test Book",
+            image=BOOK["image"],
+        )
+        Book.objects.create(
+            item=item, user=self.user, status=Status.IN_PROGRESS.value, progress=120
+        )
+
+        shell = self._api("api_detail_shell", "book", "openlibrary", "OL1W")
+        sections = self._api("api_detail_sections", "book", "openlibrary", "OL1W")
+
+        self.assertIsNone(shell["action"])
+        self.assertEqual(shell["meta"]["series"], "The Cycle #2")
+        self.assertEqual(shell["meta"]["progress"], "Progress: 120/300")
+        labels = [row["label"] for row in sections["info"]]
+        self.assertIn("Format", labels)
+        self.assertNotIn("Author", labels)
+        self.assertEqual(
+            sections["authors"],
+            [{"name": "A. Writer", "url": "/person/openlibrary/OL9A/a-writer"}],
+        )
+        self.assertEqual(
+            [genre["name"] for genre in sections["genres"]], ["Fantasy", "Adventure"]
+        )
+        self.assertTrue(sections["genres"][0]["url"].endswith("?genre=Fantasy"))
+        self.assertIn("genres", sections["sections"])
+        self.assertEqual(sections["issues"], [])
+
+    @patch(
+        "app.media_details_views._build_game_lengths_context",
+        return_value={
+            "available": True,
+            "source": "igdb",
+            "source_label": "Internet Games Database",
+            "source_url": None,
+            "cards": [
+                {
+                    "label": "Normally",
+                    "value": "12h",
+                    "count": 5,
+                    "icon_template": "app/icons/clock.svg",
+                }
+            ],
+        },
+    )
+    def test_game_has_time_to_beat_and_no_action(self, _lengths, _metadata_mock):
+        shell = self._api("api_detail_shell", "game", "igdb", "7")
+        sections = self._api("api_detail_sections", "game", "igdb", "7")
+
+        self.assertIsNone(shell["action"])
+        lengths = sections["game_lengths"]
+        self.assertTrue(lengths["available"])
+        self.assertEqual(lengths["source_label"], "Internet Games Database")
+        self.assertEqual(
+            lengths["cards"], [{"label": "Normally", "value": "12h", "count": 5}]
+        )
+        self.assertIn("game_lengths", sections["sections"])
+
+    @patch("app.media_details_views._should_queue_game_lengths_refresh", return_value=False)
+    @patch("app.media_details_views._build_game_lengths_context", return_value=None)
+    def test_game_without_figures_says_not_available(self, _lengths, _queue, _metadata_mock):
+        sections = self._api("api_detail_sections", "game", "igdb", "7")
+
+        self.assertEqual(
+            sections["game_lengths"],
+            {
+                "available": False,
+                "pending": False,
+                "source_label": "",
+                "source_url": None,
+                "cards": [],
+            },
+        )
+
+    def test_boardgame_renders_without_an_action(self, _metadata_mock):
+        shell = self._api("api_detail_shell", "boardgame", "bgg", "13")
+        sections = self._api("api_detail_sections", "boardgame", "bgg", "13")
+
+        self.assertIsNone(shell["action"])
+        self.assertEqual(shell["title"], "Test Board Game")
+        self.assertIsNone(sections["game_lengths"])
+
+    def test_comic_lists_its_issues_with_read_flags_and_pages(self, _metadata_mock):
+        _COMIC_ISSUES[0] = 26
+        self.addCleanup(_COMIC_ISSUES.__setitem__, 0, 3)
+        issue = Item.objects.create(
+            media_id="4000-1",
+            source=Sources.COMICVINE.value,
+            media_type=MediaTypes.COMIC_ISSUE.value,
+            title="Issue title 1",
+            image="https://images.example/issue1.jpg",
+        )
+        ComicIssue.objects.create(
+            item=issue, user=self.user, status=Status.COMPLETED.value
+        )
+
+        shell = self._api("api_detail_shell", "comic", "comicvine", "4050-1")
+        first = self._api("api_detail_sections", "comic", "comicvine", "4050-1")
+        second = self._api(
+            "api_detail_sections", "comic", "comicvine", "4050-1", episode_page=2
+        )
+
+        self.assertIsNone(shell["action"])
+        self.assertEqual(len(first["issues"]), 25)
+        self.assertEqual(first["issues"][0]["number"], "1")
+        self.assertTrue(first["issues"][0]["read"])
+        self.assertFalse(first["issues"][1]["read"])
+        self.assertEqual(first["issues"][0]["media_type"], "comicissue")
+        self.assertEqual(first["issues"][0]["media_id"], "4000-1")
+        self.assertEqual(
+            first["issues"][0]["url"],
+            "/details/comicvine/comicissue/4000-1/issue-title-1",
+        )
+        self.assertEqual(first["issues_more"]["page"], 2)
+        self.assertEqual([i["number"] for i in second["issues"]], ["26"])
+        self.assertIsNone(second["issues_more"])
 
     def test_types_without_a_web_page_yet(self, _metadata_mock):
         response = self.client.get(
