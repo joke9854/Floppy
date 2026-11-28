@@ -16,6 +16,9 @@
  *   several files, frequency "once" only, not mode-gated).
  * - `account` (K2): connect once, then Sync now / full history / Disconnect
  *   (see `ImportAccount`). None of these is mode-gated.
+ * - `plex`, `arr` (Radarr, Sonarr), `storyteller`, `koreader` (K3): their
+ *   own panels (see the screen's `plex`, `radarr`/`sonarr`,
+ *   `storyteller_pending` and `koreader`).
  */
 export type ImportUrlKey =
 	| 'yamtrack'
@@ -34,7 +37,7 @@ export type ImportUrlKey =
 	| 'steam';
 
 /** The K2 accounts on the screen (`accounts.<key>`) and their `urls.<key>_connect|_disconnect|_sync|_history`. */
-export type ImportAccountKey = 'lastfm' | 'koito' | 'xbox' | 'psn' | 'pocketcasts' | 'gpodder';
+export type ImportAccountKey = 'lastfm' | 'koito' | 'xbox' | 'psn' | 'pocketcasts' | 'gpodder' | 'stremio' | 'audiobookshelf';
 
 export type ImportConnectField = {
 	name: string;
@@ -44,12 +47,14 @@ export type ImportConnectField = {
 	required: boolean;
 	/** The field's starting value (GPodder's server). */
 	value?: string;
+	/** A help line under the field. */
+	hint?: string;
 };
 
 export type ImportLink = { label: string; href: string };
 
 /** What a page-level value the account texts depend on. */
-export type ImportAccountContext = { frequency: string; pollInterval: number };
+export type ImportAccountContext = { frequency: string; pollInterval: number; absPollInterval: number };
 
 /**
  * An account source (import_data.html's Last.fm, Koito, Xbox, PSN, Pocket
@@ -76,6 +81,8 @@ export type ImportAccount = {
 	footnote?: string;
 	footnoteAlways?: boolean;
 	history?: boolean;
+	/** When the connect button can be used, if not "every required field is filled". */
+	connectReady?: (values: Record<string, string>) => boolean;
 };
 
 export type ImportFileField = { name: string; label: string; accept: string; title?: string };
@@ -84,7 +91,7 @@ export type ImportSource = {
 	key: string;
 	/** Where the file and username kinds post. */
 	url?: ImportUrlKey;
-	kind: 'file' | 'files' | 'username' | 'mdblist' | 'hardcover' | 'simkl' | 'trakt' | 'anilist' | 'account';
+	kind: 'file' | 'files' | 'username' | 'mdblist' | 'hardcover' | 'simkl' | 'trakt' | 'anilist' | 'account' | 'plex' | 'arr' | 'storyteller' | 'koreader';
 	/** The text above the form when the frequency is "once" (uploads) or always. */
 	description: string;
 	files?: ImportFileField[];
@@ -351,6 +358,77 @@ export const IMPORT_SOURCES: Record<string, ImportSource> = {
 			connected: () => 'Recurring podcast history sync for GPodder, AntennaPod, and self-hosted compatible servers every 2 hours.',
 			syncLabel: () => 'Sync now'
 		}
+	},
+	plex: {
+		key: 'plex',
+		kind: 'plex',
+		description: ''
+	},
+	radarr: {
+		key: 'radarr',
+		kind: 'arr',
+		description: 'Sync owned movies from Radarr every 2 hours and reconcile quality metadata with Plex.'
+	},
+	sonarr: {
+		key: 'sonarr',
+		kind: 'arr',
+		description: 'Sync owned TV collection from Sonarr every 2 hours and reconcile ownership with Plex.'
+	},
+	stremio: {
+		key: 'stremio',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'stremio',
+			connectFields: [
+				{ name: 'email', label: 'Email', type: 'email', placeholder: 'Stremio email', required: false },
+				{ name: 'password', label: 'Password', type: 'password', placeholder: 'Stremio password', required: false },
+				{
+					name: 'auth_key',
+					label: 'Or an auth key',
+					type: 'password',
+					placeholder: 'Stremio auth key',
+					required: false,
+					hint: 'Find it in Stremio Web local storage. Required for accounts created with Facebook login.'
+				}
+			],
+			connectButton: 'Connect Stremio',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			connectReady: (values) => !!values.auth_key?.trim() || (!!values.email?.trim() && !!values.password),
+			disconnected: () => 'Connect with your Stremio email and password. Only an API key is stored; your password is never saved.',
+			connected: () => 'Sync watched movies and episodes from your Stremio library every 2 hours.',
+			syncLabel: () => 'Sync Now'
+		}
+	},
+	audiobookshelf: {
+		key: 'audiobookshelf',
+		kind: 'account',
+		description: '',
+		account: {
+			key: 'audiobookshelf',
+			connectFields: [
+				{ name: 'base_url', label: 'Base URL', type: 'url', placeholder: 'https://abs.example.com', required: true },
+				{ name: 'api_token', label: 'API Token', type: 'password', placeholder: 'Audiobookshelf API token', required: true }
+			],
+			connectButton: 'Connect Audiobookshelf',
+			connectPostsShared: false,
+			syncPostsShared: false,
+			disconnected: () => 'Pull audiobook progress from Audiobookshelf.',
+			connected: ({ absPollInterval }) => `Sync Audiobook progress from Audiobookshelf every ${absPollInterval} minutes.`,
+			syncLabel: () => 'Sync now',
+			nameLabel: 'Server'
+		}
+	},
+	storyteller: {
+		key: 'storyteller',
+		kind: 'storyteller',
+		description: ''
+	},
+	koreader: {
+		key: 'koreader',
+		kind: 'koreader',
+		description: ''
 	},
 	mdblist: {
 		key: 'mdblist',

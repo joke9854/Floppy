@@ -492,6 +492,9 @@ def plex_connect(request):
         "plex_pin_id": pin["id"],
         "plex_pin_code": pin["code"],
         "return_to": request.POST.get("next"),
+        # The setup wizard wants a first import right away; the web Import page
+        # (auto_import=0) lets the user pick libraries and the mode first.
+        "auto_import": request.POST.get("auto_import", "1") != "0",
     }
 
     auth_url = plex_api.build_auth_url(
@@ -585,7 +588,7 @@ def plex_callback(request):
     account_username = account.get("username") or "your Plex account"
     messages.success(request, f"Connected to Plex as {account_username}.")
 
-    if return_to:
+    if return_to and state_data.get("auto_import", True):
         # Arrived from the setup wizard: queue a sensible default import
         # rather than requiring a second visit to pick a library/mode.
         tasks.import_plex.delay(user_id=request.user.id, mode="new", library=["all"])
@@ -593,6 +596,7 @@ def plex_callback(request):
     return _integration_redirect(request, connected_slug="plex", next_url=return_to)
 
 
+@app_helpers.answers_json
 @require_POST
 def plex_disconnect(request):
     """Remove stored Plex credentials."""
@@ -622,6 +626,7 @@ def _save_plex_content_kind(plex_account, library_content_kinds):
         plex_account.save(update_fields=["section_settings"])
 
 
+@app_helpers.answers_json
 @require_POST
 def import_plex(request):
     """Queue a Plex history import for the current user."""
@@ -674,6 +679,7 @@ def import_plex(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def plex_disable_watchlist(request):
     """Disable recurring Plex watchlist sync for the current user."""
@@ -1172,12 +1178,14 @@ def _arr_instance_action(request, action):
         raise Http404 from exc
 
 
+@app_helpers.answers_json
 @require_POST
 def radarr_connect(request):
     """Connect a new Radarr instance using base URL + API key."""
     return _arr_connect_view(request, "Radarr", connections.connect_radarr)
 
 
+@app_helpers.answers_json
 @require_POST
 def radarr_disconnect(request):
     """Disconnect one Radarr instance."""
@@ -1186,6 +1194,7 @@ def radarr_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_radarr(request):
     """Queue Radarr import and ensure recurring schedule exists."""
@@ -1194,12 +1203,14 @@ def import_radarr(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def sonarr_connect(request):
     """Connect a new Sonarr instance using base URL + API key."""
     return _arr_connect_view(request, "Sonarr", connections.connect_sonarr)
 
 
+@app_helpers.answers_json
 @require_POST
 def sonarr_disconnect(request):
     """Disconnect one Sonarr instance."""
@@ -1208,6 +1219,7 @@ def sonarr_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_sonarr(request):
     """Queue Sonarr import and ensure recurring schedule exists."""
@@ -1339,6 +1351,7 @@ def jellyfin_playback_reporting_import(request):
     return redirect("integrations")
 
 
+@app_helpers.answers_json
 @require_POST
 def audiobookshelf_connect(request):
     """Connect Audiobookshelf account using base URL + API token."""
@@ -1356,6 +1369,7 @@ def audiobookshelf_connect(request):
     return _integration_redirect(request, connected_slug="audiobookshelf")
 
 
+@app_helpers.answers_json
 @require_POST
 def audiobookshelf_disconnect(request):
     """Disconnect Audiobookshelf integration."""
@@ -1364,6 +1378,7 @@ def audiobookshelf_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_audiobookshelf(request):
     """Queue Audiobookshelf import and ensure recurring schedule exists."""
@@ -1734,6 +1749,7 @@ def _fix_storyteller_uri(uri, base_url):
     return uri
 
 
+@app_helpers.answers_json
 @require_POST
 def storyteller_connect(request):
     """Begin the Storyteller device-code login flow."""
@@ -1827,6 +1843,7 @@ def storyteller_poll(request):
     return JsonResponse({"status": "error", "message": error or "Login failed."})
 
 
+@app_helpers.answers_json
 @require_POST
 def storyteller_cancel(request):
     """Cancel an in-progress Storyteller device login."""
@@ -1835,6 +1852,7 @@ def storyteller_cancel(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def storyteller_disconnect(request):
     """Disconnect the Storyteller integration."""
@@ -1843,6 +1861,7 @@ def storyteller_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_storyteller(request):
     """Queue a Storyteller import and ensure the recurring schedule exists."""
@@ -1866,6 +1885,7 @@ def _koreader_form_options(post):
     }
 
 
+@app_helpers.answers_json
 @require_POST
 def koreader_connect(request):
     """Connect a KOReader sync server account."""
@@ -1903,6 +1923,7 @@ def koreader_connect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def koreader_settings(request):
     """Update KOReader connection and sync options."""
@@ -1922,6 +1943,7 @@ def koreader_settings(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def koreader_disconnect(request):
     """Disconnect the KOReader integration."""
@@ -1930,6 +1952,7 @@ def koreader_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_koreader(request):
     """Queue a KOReader import or update its schedule."""
@@ -1958,6 +1981,7 @@ def import_koreader(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def stremio_connect(request):
     """Connect a Stremio account using email/password or a pasted auth key."""
@@ -1979,6 +2003,7 @@ def stremio_connect(request):
     return _integration_redirect(request, connected_slug="stremio")
 
 
+@app_helpers.answers_json
 @require_POST
 def stremio_disconnect(request):
     """Disconnect the Stremio integration."""
@@ -1987,6 +2012,7 @@ def stremio_disconnect(request):
     return redirect("import_data")
 
 
+@app_helpers.answers_json
 @require_POST
 def import_stremio(request):
     """Queue a Stremio import and ensure the recurring schedule exists."""

@@ -1428,7 +1428,9 @@ def _decorate_plex_sections(sections, plex_account):
 
     decorated = []
     for section in sections or []:
-        entry = dict(section)
+        # The cached section carries the server's URI and access token for
+        # imports; the page only needs what it shows.
+        entry = {key: value for key, value in section.items() if key not in {"uri", "access_token"}}
         entry["is_music"] = is_music_section(section)
         entry["audiobook_hint"] = entry["is_music"] and section_audiobook_hint(
             section,

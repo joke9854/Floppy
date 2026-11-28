@@ -29,7 +29,7 @@
 	} = $props();
 
 	const acct = $derived(data.accounts[account.key]);
-	const ctx = $derived({ frequency, pollInterval: data.lastfm_poll_interval });
+	const ctx = $derived({ frequency, pollInterval: data.lastfm_poll_interval, absPollInterval: data.audiobookshelf_poll_interval });
 	const urls = $derived(data.urls as unknown as Record<string, string>);
 	const shared = $derived(sharedFields({ frequency, time, mode }));
 	const history = $derived(acct?.history ?? null);
@@ -40,7 +40,11 @@
 
 	let values = $state<Record<string, string>>({});
 	const value = (name: string, fallback?: string) => values[name] ?? fallback ?? '';
-	const blank = $derived(account.connectFields.some((field) => field.required && !value(field.name, field.value).trim()));
+	const blank = $derived(
+		account.connectReady
+			? !account.connectReady(Object.fromEntries(account.connectFields.map((field) => [field.name, value(field.name, field.value)])))
+			: account.connectFields.some((field) => field.required && !value(field.name, field.value).trim())
+	);
 
 	async function connect(event: SubmitEvent) {
 		event.preventDefault();

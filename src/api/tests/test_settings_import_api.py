@@ -34,7 +34,7 @@ class ImportScreenTests(TestCase):
         screen = self._screen()
         tiles = {tile["key"]: tile for tile in screen["tiles"]}
         self.assertEqual({key for key, tile in tiles.items() if tile["web"]}, set(WEB_SOURCES))
-        self.assertFalse(tiles["plex"]["web"])
+        self.assertTrue(tiles["plex"]["web"])
         self.assertEqual(tiles["plex"]["django_url"], reverse("import_data") + "?open=plex")
         self.assertEqual(screen["settings"]["frequency"], self.user.import_frequency)
         self.assertEqual(screen["media_tags"][0]["value"], "all")
@@ -215,4 +215,128 @@ class ImportK2Tests(TestCase):
         response = self.client.post(url, {**SHARED, "next": "/next/settings/import"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith("https://anilist.co/"))
+
+
+class ImportK3Tests(TestCase):
+    """K3: media servers and readers (Plex, Radarr, Sonarr, Stremio, Audiobookshelf, Storyteller, KOReader)."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="k3", password="k3-password-1")
+        self.client.login(username="k3", password="k3-password-1")
+
+    def _screen(self):
+        response = self.client.get(reverse("api_settings_screen", args=["import"]))
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        return response
+
+    def test_every_tile_is_web(self):
+        screen = self._screen().json()["import_"]
+        self.assertTrue(all(tile["web"] for tile in screen["tiles"]))
+        self.assertIsNone(screen["plex"])
+        self.assertEqual((screen["radarr"], screen["sonarr"]), ([], []))
+        self.assertIsNone(screen["storyteller_pending"])
+        self.assertIsNone(screen["koreader"])
+        self.assertEqual(screen["audiobookshelf_poll_interval"], 15)
+
+    def test_screen_never_carries_secrets(self):
+        from integrations.models import (
+            AudiobookshelfAccount,
+            KoreaderAccount,
+            PlexAccount,
+            RadarrInstance,
+            StorytellerAccount,
+            StremioAccount,
+        )
+
+        PlexAccount.objects.create(
+            user=self.user,
+            plex_token="plex-secret-1",
+            plex_username="viewer",
+            sections=[
+                {
+                    "id": "1",
+                    "title": "Films",
+                    "type": "movie",
+                    "server_name": "Home",
+                    "machine_identifier": "abc",
+                    "uri": "http://plex-secret-uri.test:32400",
+                    "access_token": "plex-section-secret-1",
+                }
+            ],
+        )
+        RadarrInstance.objects.create(user=self.user, name="4K", base_url="http://radarr.test", api_key="radarr-secret-1")
+        StremioAccount.objects.create(user=self.user, auth_key="stremio-secret-1", email="stremio@example.test")
+        AudiobookshelfAccount.objects.create(user=self.user, base_url="http://abs.test", api_token="abs-secret-1")
+        StorytellerAccount.objects.create(user=self.user, server_url="http://storyteller.test", auth_token="st-secret-1")
+        KoreaderAccount.objects.create(
+            user=self.user, server_url="http://kosync.test", username="reader", auth_key="ko-secret-1", finished_threshold=0.95
+        )
+        session = self.client.session
+        session["storyteller_pending_auth"] = {"device_code": "device-secret-1", "user_code": "ABCD", "verification_uri": "http://st.test/a"}
+        session.save()
+        response = self._screen()
+        for secret in (
+            b"plex-secret-1",
+            b"plex-secret-uri",
+            b"plex-section-secret-1",
+            b"radarr-secret-1",
+            b"stremio-secret-1",
+            b"stremio@example.test",
+            b"abs-secret-1",
+            b"st-secret-1",
+            b"ko-secret-1",
+            b"device-secret-1",
+        ):
+            self.assertNotIn(secret, response.content)
+        screen = response.json()["import_"]
+        self.assertEqual(screen["plex"]["libraries"][0]["value"], "abc::1")
+        self.assertEqual(screen["plex"]["libraries"][0]["label"], "Films - Home (Movie)")
+        self.assertEqual(screen["radarr"][0]["name"], "4K")
+        self.assertEqual(screen["storyteller_pending"]["user_code"], "ABCD")
+        self.assertEqual(screen["koreader"]["finished_threshold_percent"], 95)
+        self.assertEqual(screen["accounts"]["audiobookshelf"]["name"], "http://abs.test")
+
+        sections = self.client.get(screen["urls"]["plex_sections"])
+        self.assertEqual(sections.status_code, 200)
+        self.assertNotIn(b"plex-section-secret-1", sections.content)
+        self.assertNotIn(b"plex-secret-uri", sections.content)
+
+    def test_errors_answer_json(self):
+        urls = self._screen().json()["import_"]["urls"]
+        cases = {
+            "radarr_connect": ({}, "Radarr base URL and API key are required."),
+            "stremio_connect": ({}, "Enter your Stremio email and password, or an auth key."),
+            "audiobookshelf_connect": ({}, "Audiobookshelf base URL and API token are required."),
+            "storyteller_connect": ({}, "Storyteller server URL is required."),
+            "koreader_connect": (SHARED, "Server URL, username, and password are required."),
+            "koreader_settings": ({}, "Connect KOReader before changing settings."),
+            "plex_import": (SHARED, "Connect Plex before importing."),
+            "plex_disable_watchlist": ({}, "Connect Plex before changing watchlist sync."),
+            "stremio_sync": ({}, "Connect Stremio before importing."),
+            "audiobookshelf_sync": ({}, "Connect Audiobookshelf before importing."),
+            "storyteller_sync": ({}, "Connect Storyteller before importing."),
+            "koreader_sync": (SHARED, "Connect KOReader before importing."),
+        }
+        for key, (fields, error) in cases.items():
+            response = self.client.post(urls[key], fields, **JSON)
+            self.assertEqual(response.status_code, 400, key)
+            self.assertEqual(response.json()["error"], error, key)
+        self.assertEqual(self.client.post(urls["radarr_sync"], {"instance_id": "999999"}, **JSON).status_code, 404)
+        cancel = self.client.post(urls["storyteller_cancel"], **JSON)
+        self.assertTrue(cancel.json()["saved"])
+
+    def test_radarr_connect_and_sync(self):
+        urls = self._screen().json()["import_"]["urls"]
+        with mock.patch("integrations.views.connections.connect_radarr") as connect:
+            response = self.client.post(urls["radarr_connect"], {"base_url": "http://radarr.test", "api_key": "k"}, **JSON)
+        self.assertTrue(response.json()["saved"], response.content[:300])
+        connect.assert_called_once()
+
+    def test_plex_connect_from_the_web_skips_the_first_import(self):
+        url = self._screen().json()["import_"]["urls"]["plex_connect"]
+        with mock.patch("integrations.views.plex_api.create_pin", return_value={"id": 1, "code": "pin"}):
+            response = self.client.post(url, {"next": "/next/settings/import", "auto_import": "0"})
+        self.assertEqual(response.status_code, 302)
+        states = [value for value in self.client.session.values() if isinstance(value, dict) and "plex_pin_id" in value]
+        self.assertEqual([(state["return_to"], state["auto_import"]) for state in states], [("/next/settings/import", False)])
 

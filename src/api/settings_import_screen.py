@@ -12,9 +12,17 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
-# Sources the web draws (K1, K2); the rest open the Django page's dialog.
+# Sources the web draws (K1-K3: all of them); a tile it did not draw would
+# open the Django page's dialog.
 WEB_SOURCES = frozenset(
     {
+        "plex",
+        "radarr",
+        "sonarr",
+        "stremio",
+        "audiobookshelf",
+        "storyteller",
+        "koreader",
         "trakt",
         "anilist",
         "lastfm",
@@ -191,7 +199,13 @@ def build_import(request) -> dict:
         "hardcover_key_saved": connected["hardcover"],
         "trakt": _trakt(request),
         **_lastfm_poll(user),
+        "audiobookshelf_poll_interval": _audiobookshelf_poll(user),
         "accounts": _accounts(user),
+        "plex": _plex(user),
+        "radarr": _arr(user.radarr_instances, "radarr"),
+        "sonarr": _arr(user.sonarr_instances, "sonarr"),
+        "storyteller_pending": _storyteller_pending(request),
+        "koreader": _koreader(user),
         "activity": _activity_or_none(user),
         "urls": {
             "template": reverse("import_template_csv"),
@@ -239,7 +253,142 @@ def build_import(request) -> dict:
             "gpodder_connect": reverse("gpodder_connect"),
             "gpodder_disconnect": reverse("gpodder_disconnect"),
             "gpodder_sync": reverse("import_gpodder"),
+            "plex_connect": reverse("plex_connect"),
+            "plex_disconnect": reverse("plex_disconnect"),
+            "plex_import": reverse("import_plex"),
+            "plex_disable_watchlist": reverse("plex_disable_watchlist"),
+            "plex_status": reverse("import_data_plex_status"),
+            "plex_sections": reverse("import_data_plex_sections"),
+            "radarr_connect": reverse("radarr_connect"),
+            "radarr_disconnect": reverse("radarr_disconnect"),
+            "radarr_sync": reverse("import_radarr"),
+            "sonarr_connect": reverse("sonarr_connect"),
+            "sonarr_disconnect": reverse("sonarr_disconnect"),
+            "sonarr_sync": reverse("import_sonarr"),
+            "stremio_connect": reverse("stremio_connect"),
+            "stremio_disconnect": reverse("stremio_disconnect"),
+            "stremio_sync": reverse("import_stremio"),
+            "audiobookshelf_connect": reverse("audiobookshelf_connect"),
+            "audiobookshelf_disconnect": reverse("audiobookshelf_disconnect"),
+            "audiobookshelf_sync": reverse("import_audiobookshelf"),
+            "storyteller_connect": reverse("storyteller_connect"),
+            "storyteller_poll": reverse("storyteller_poll"),
+            "storyteller_cancel": reverse("storyteller_cancel"),
+            "storyteller_disconnect": reverse("storyteller_disconnect"),
+            "storyteller_sync": reverse("import_storyteller"),
+            "koreader_connect": reverse("koreader_connect"),
+            "koreader_settings": reverse("koreader_settings"),
+            "koreader_disconnect": reverse("koreader_disconnect"),
+            "koreader_sync": reverse("import_koreader"),
         },
+    }
+
+
+def _audiobookshelf_poll(user) -> int:
+    """Audiobookshelf: the poll interval in minutes (the recurring task's, when it runs)."""
+    from django.conf import settings
+
+    interval = getattr(settings, "AUDIOBOOKSHELF_POLL_INTERVAL_MINUTES", 15)
+    if getattr(user, "audiobookshelf_account", None):
+        from django_celery_beat.models import PeriodicTask
+
+        from integrations.task_filters import user_kwargs_regex
+
+        task = PeriodicTask.objects.filter(
+            task="Import from Audiobookshelf (Recurring)",
+            kwargs__regex=user_kwargs_regex(user.id),
+            enabled=True,
+        ).first()
+        if task and task.interval:
+            interval = task.interval.every
+    return interval
+
+
+def _plex_label(section) -> str:
+    label = section.get("title") or _("Unknown library")
+    if section.get("server_name"):
+        label += f" - {section['server_name']}"
+    if section.get("type"):
+        kind = str(section["type"])
+        label += f" ({kind[:1].upper()}{kind[1:]})"
+    return label
+
+
+def plex_libraries(sections) -> list[dict]:
+    """Return Plex libraries as the Import dialog lists them; never the server URI or token."""
+    return [
+        {
+            "value": f"{section.get('machine_identifier')}::{section.get('id')}",
+            "label": _plex_label(section),
+            "is_music": bool(section.get("is_music")),
+            "audiobook_hint": bool(section.get("audiobook_hint")),
+            "content_kind": str(section.get("content_kind") or "auto"),
+        }
+        for section in sections
+    ]
+
+
+def _plex(user):
+    """Plex: the connected account, its cached libraries and watchlist sync (no network)."""
+    from integrations.plex_watchlist import WATCHLIST_SYNC_INTERVAL_MINUTES
+    from users.views import _decorate_plex_sections, _get_stored_plex_account
+
+    account = _get_stored_plex_account(user)
+    if not account:
+        return None
+    return {
+        "username": account.plex_username or "",
+        "usernames": user.plex_usernames or "",
+        "libraries": plex_libraries(_decorate_plex_sections(account.sections or [], account)),
+        "watchlist_sync_enabled": bool(account.watchlist_sync_enabled),
+        "watchlist_last_synced_at": _when(account.watchlist_last_synced_at),
+        "watchlist_last_error": account.watchlist_last_error or "",
+        "watchlist_interval": WATCHLIST_SYNC_INTERVAL_MINUTES,
+    }
+
+
+def _arr(instances, label) -> list[dict]:
+    """Radarr or Sonarr instances: name, server, state; never the API key."""
+    return [
+        {
+            "id": instance.pk,
+            "name": instance.display_name,
+            "base_url": instance.base_url,
+            "connected": bool(instance.is_connected()),
+            "error": instance.last_error_message or "",
+            "last_sync": _when(instance.last_sync_at),
+        }
+        for instance in instances.order_by("created_at")
+    ]
+
+
+def _storyteller_pending(request):
+    """Return a Storyteller device login waiting for approval (never the device code)."""
+    pending = request.session.get("storyteller_pending_auth")
+    if not pending:
+        return None
+    return {
+        "user_code": str(pending.get("user_code") or ""),
+        "verification_uri": str(pending.get("verification_uri_complete") or pending.get("verification_uri") or ""),
+        "interval": int(pending.get("interval") or 5),
+    }
+
+
+def _koreader(user):
+    """KOReader: the saved settings (never the password) and the linked document count."""
+    account = getattr(user, "koreader_account", None)
+    if not account:
+        return None
+    from integrations.models import KoreaderDocumentLink
+
+    return {
+        "server_url": account.server_url,
+        "username": account.username,
+        "verify_ssl": bool(account.verify_ssl),
+        "create_missing": bool(account.create_missing),
+        "skip_finished_books": bool(account.skip_finished_books),
+        "finished_threshold_percent": round((account.finished_threshold or 0) * 100),
+        "link_count": KoreaderDocumentLink.objects.filter(user=user).count(),
     }
 
 
@@ -300,7 +449,7 @@ def history_state(account, *, pages: bool = False) -> dict:
 
 
 def _accounts(user) -> dict:
-    """Return the K2 accounts as their dialogs show them; never a key, token or password."""
+    """Return the accounts as their dialogs show them; never a key, token or password."""
 
     def account(attr, *, name="", error_when_broken=True, history=False, pages=False):
         row = getattr(user, attr, None)
@@ -324,6 +473,10 @@ def _accounts(user) -> dict:
         "psn": account("psn_account", name="online_id", error_when_broken=False),
         "pocketcasts": account("pocketcasts_account"),
         "gpodder": account("gpodder_account"),
+        "stremio": account("stremio_account", error_when_broken=False),
+        "audiobookshelf": account("audiobookshelf_account", name="base_url", error_when_broken=False),
+        "storyteller": account("storyteller_account", name="server_url", error_when_broken=False),
+        "koreader": account("koreader_account", name="server_url", error_when_broken=False),
     }
 
 
@@ -512,6 +665,86 @@ class SettingsImportUrlsSerializer(serializers.Serializer):
     gpodder_connect = serializers.CharField()
     gpodder_disconnect = serializers.CharField()
     gpodder_sync = serializers.CharField()
+    plex_connect = serializers.CharField()
+    plex_disconnect = serializers.CharField()
+    plex_import = serializers.CharField()
+    plex_disable_watchlist = serializers.CharField()
+    plex_status = serializers.CharField()
+    plex_sections = serializers.CharField()
+    radarr_connect = serializers.CharField()
+    radarr_disconnect = serializers.CharField()
+    radarr_sync = serializers.CharField()
+    sonarr_connect = serializers.CharField()
+    sonarr_disconnect = serializers.CharField()
+    sonarr_sync = serializers.CharField()
+    stremio_connect = serializers.CharField()
+    stremio_disconnect = serializers.CharField()
+    stremio_sync = serializers.CharField()
+    audiobookshelf_connect = serializers.CharField()
+    audiobookshelf_disconnect = serializers.CharField()
+    audiobookshelf_sync = serializers.CharField()
+    storyteller_connect = serializers.CharField()
+    storyteller_poll = serializers.CharField()
+    storyteller_cancel = serializers.CharField()
+    storyteller_disconnect = serializers.CharField()
+    storyteller_sync = serializers.CharField()
+    koreader_connect = serializers.CharField()
+    koreader_settings = serializers.CharField()
+    koreader_disconnect = serializers.CharField()
+    koreader_sync = serializers.CharField()
+
+
+class SettingsImportPlexLibrarySerializer(serializers.Serializer):
+    """A Plex library (`value`: machine::id; music libraries take a content kind)."""
+
+    value = serializers.CharField()
+    label = serializers.CharField()
+    is_music = serializers.BooleanField()
+    audiobook_hint = serializers.BooleanField()
+    content_kind = serializers.CharField()
+
+
+class SettingsImportPlexSerializer(serializers.Serializer):
+    """The connected Plex account (cached libraries; the dialog asks for live ones)."""
+
+    username = serializers.CharField(allow_blank=True)
+    usernames = serializers.CharField(allow_blank=True)
+    libraries = SettingsImportPlexLibrarySerializer(many=True)
+    watchlist_sync_enabled = serializers.BooleanField()
+    watchlist_last_synced_at = serializers.DateTimeField(allow_null=True)
+    watchlist_last_error = serializers.CharField(allow_blank=True)
+    watchlist_interval = serializers.IntegerField()
+
+
+class SettingsImportArrSerializer(serializers.Serializer):
+    """A Radarr or Sonarr instance."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    base_url = serializers.CharField()
+    connected = serializers.BooleanField()
+    error = serializers.CharField(allow_blank=True)
+    last_sync = serializers.DateTimeField(allow_null=True)
+
+
+class SettingsImportStorytellerPendingSerializer(serializers.Serializer):
+    """A Storyteller login waiting for approval; poll `urls.storyteller_poll`."""
+
+    user_code = serializers.CharField(allow_blank=True)
+    verification_uri = serializers.CharField(allow_blank=True)
+    interval = serializers.IntegerField()
+
+
+class SettingsImportKoreaderSerializer(serializers.Serializer):
+    """KOReader's saved settings (a blank password keeps the saved one)."""
+
+    server_url = serializers.CharField()
+    username = serializers.CharField()
+    verify_ssl = serializers.BooleanField()
+    create_missing = serializers.BooleanField()
+    skip_finished_books = serializers.BooleanField()
+    finished_threshold_percent = serializers.IntegerField()
+    link_count = serializers.IntegerField()
 
 
 class SettingsImportTraktSerializer(serializers.Serializer):
@@ -536,7 +769,7 @@ class SettingsImportHistorySerializer(serializers.Serializer):
 
 
 class SettingsImportAccountSerializer(serializers.Serializer):
-    """A connected account (`name`: Koito's server, the gamertag or the PSN online ID)."""
+    """A connected account (`name`: the server, the gamertag or the PSN online ID)."""
 
     connected = serializers.BooleanField()
     broken = serializers.BooleanField()
@@ -547,7 +780,7 @@ class SettingsImportAccountSerializer(serializers.Serializer):
 
 
 class SettingsImportAccountsSerializer(serializers.Serializer):
-    """The K2 accounts (null: not connected)."""
+    """The account sources (null: not connected)."""
 
     lastfm = SettingsImportAccountSerializer(allow_null=True)
     koito = SettingsImportAccountSerializer(allow_null=True)
@@ -555,6 +788,10 @@ class SettingsImportAccountsSerializer(serializers.Serializer):
     psn = SettingsImportAccountSerializer(allow_null=True)
     pocketcasts = SettingsImportAccountSerializer(allow_null=True)
     gpodder = SettingsImportAccountSerializer(allow_null=True)
+    stremio = SettingsImportAccountSerializer(allow_null=True)
+    audiobookshelf = SettingsImportAccountSerializer(allow_null=True)
+    storyteller = SettingsImportAccountSerializer(allow_null=True)
+    koreader = SettingsImportAccountSerializer(allow_null=True)
 
 
 class SettingsImportSourceSerializer(serializers.Serializer):
@@ -638,6 +875,12 @@ class SettingsImportSerializer(serializers.Serializer):
     trakt = SettingsImportTraktSerializer()
     lastfm_poll_interval = serializers.IntegerField()
     lastfm_recurring_every = serializers.IntegerField(allow_null=True)
+    audiobookshelf_poll_interval = serializers.IntegerField()
     accounts = SettingsImportAccountsSerializer()
+    plex = SettingsImportPlexSerializer(allow_null=True)
+    radarr = SettingsImportArrSerializer(many=True)
+    sonarr = SettingsImportArrSerializer(many=True)
+    storyteller_pending = SettingsImportStorytellerPendingSerializer(allow_null=True)
+    koreader = SettingsImportKoreaderSerializer(allow_null=True)
     activity = SettingsImportActivitySerializer(allow_null=True)
     urls = SettingsImportUrlsSerializer()

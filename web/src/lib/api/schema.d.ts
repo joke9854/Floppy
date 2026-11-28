@@ -8928,11 +8928,17 @@ export interface components {
             trakt: components["schemas"]["SettingsImportTrakt"];
             lastfm_poll_interval: number;
             lastfm_recurring_every: number | null;
+            audiobookshelf_poll_interval: number;
             accounts: components["schemas"]["SettingsImportAccounts"];
+            plex: components["schemas"]["SettingsImportPlex"] | null;
+            radarr: components["schemas"]["SettingsImportArr"][];
+            sonarr: components["schemas"]["SettingsImportArr"][];
+            storyteller_pending: components["schemas"]["SettingsImportStorytellerPending"] | null;
+            koreader: components["schemas"]["SettingsImportKoreader"] | null;
             activity: components["schemas"]["SettingsImportActivity"] | null;
             urls: components["schemas"]["SettingsImportUrls"];
         };
-        /** @description A connected account (`name`: Koito's server, the gamertag or the PSN online ID). */
+        /** @description A connected account (`name`: the server, the gamertag or the PSN online ID). */
         SettingsImportAccount: {
             connected: boolean;
             broken: boolean;
@@ -8942,7 +8948,7 @@ export interface components {
             error: string;
             history: components["schemas"]["SettingsImportHistory"] | null;
         };
-        /** @description The K2 accounts (null: not connected). */
+        /** @description The account sources (null: not connected). */
         SettingsImportAccounts: {
             lastfm: components["schemas"]["SettingsImportAccount"] | null;
             koito: components["schemas"]["SettingsImportAccount"] | null;
@@ -8950,6 +8956,10 @@ export interface components {
             psn: components["schemas"]["SettingsImportAccount"] | null;
             pocketcasts: components["schemas"]["SettingsImportAccount"] | null;
             gpodder: components["schemas"]["SettingsImportAccount"] | null;
+            stremio: components["schemas"]["SettingsImportAccount"] | null;
+            audiobookshelf: components["schemas"]["SettingsImportAccount"] | null;
+            storyteller: components["schemas"]["SettingsImportAccount"] | null;
+            koreader: components["schemas"]["SettingsImportAccount"] | null;
         };
         /** @description The Import page's activity panel (import_data_activity as JSON). */
         SettingsImportActivity: {
@@ -8958,6 +8968,16 @@ export interface components {
             runs: components["schemas"]["SettingsImportRun"][];
             source_media: components["schemas"]["SettingsImportSourceMedia"][];
             delete_schedule_url: string;
+        };
+        /** @description A Radarr or Sonarr instance. */
+        SettingsImportArr: {
+            id: number;
+            name: string;
+            base_url: string;
+            connected: boolean;
+            error: string;
+            /** Format: date-time */
+            last_sync: string | null;
         };
         /** @description An option (`hint`: its tooltip). */
         SettingsImportChoice: {
@@ -8976,6 +8996,35 @@ export interface components {
             error: string;
             can_start: boolean;
             button: string;
+        };
+        /** @description KOReader's saved settings (a blank password keeps the saved one). */
+        SettingsImportKoreader: {
+            server_url: string;
+            username: string;
+            verify_ssl: boolean;
+            create_missing: boolean;
+            skip_finished_books: boolean;
+            finished_threshold_percent: number;
+            link_count: number;
+        };
+        /** @description The connected Plex account (cached libraries; the dialog asks for live ones). */
+        SettingsImportPlex: {
+            username: string;
+            usernames: string;
+            libraries: components["schemas"]["SettingsImportPlexLibrary"][];
+            watchlist_sync_enabled: boolean;
+            /** Format: date-time */
+            watchlist_last_synced_at: string | null;
+            watchlist_last_error: string;
+            watchlist_interval: number;
+        };
+        /** @description A Plex library (`value`: machine::id; music libraries take a content kind). */
+        SettingsImportPlexLibrary: {
+            value: string;
+            label: string;
+            is_music: boolean;
+            audiobook_hint: boolean;
+            content_kind: string;
         };
         /** @description An import task from the last 7 days. */
         SettingsImportResult: {
@@ -9039,6 +9088,12 @@ export interface components {
             source: components["schemas"]["SettingsImportSource"];
             count: number;
             delete_url: string;
+        };
+        /** @description A Storyteller login waiting for approval; poll `urls.storyteller_poll`. */
+        SettingsImportStorytellerPending: {
+            user_code: string;
+            verification_uri: string;
+            interval: number;
         };
         /** @description A media-type filter. */
         SettingsImportTag: {
@@ -9110,6 +9165,33 @@ export interface components {
             gpodder_connect: string;
             gpodder_disconnect: string;
             gpodder_sync: string;
+            plex_connect: string;
+            plex_disconnect: string;
+            plex_import: string;
+            plex_disable_watchlist: string;
+            plex_status: string;
+            plex_sections: string;
+            radarr_connect: string;
+            radarr_disconnect: string;
+            radarr_sync: string;
+            sonarr_connect: string;
+            sonarr_disconnect: string;
+            sonarr_sync: string;
+            stremio_connect: string;
+            stremio_disconnect: string;
+            stremio_sync: string;
+            audiobookshelf_connect: string;
+            audiobookshelf_disconnect: string;
+            audiobookshelf_sync: string;
+            storyteller_connect: string;
+            storyteller_poll: string;
+            storyteller_cancel: string;
+            storyteller_disconnect: string;
+            storyteller_sync: string;
+            koreader_connect: string;
+            koreader_settings: string;
+            koreader_disconnect: string;
+            koreader_sync: string;
         };
         /** @description Integrations (session only: carries the legacy key and URLs built on it). */
         SettingsIntegrations: {

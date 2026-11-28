@@ -796,3 +796,35 @@
 .ct-import-history.is-active {
 	color: rgb(252 211 77);
 }
+
+/* Import dialogs (K3): Plex libraries, Arr instances, Storyteller code */
+.ct-import-check-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--color-text-secondary);
+	font-size: 14px;
+}
+
+.ct-import-libraries {
+	display: grid;
+	gap: 6px;
+	border: 0;
+	padding: 0;
+}
+
+.ct-import-instance {
+	display: grid;
+	gap: 4px;
+	padding: 10px 0;
+	border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.ct-import-code {
+	margin: 0;
+	font-family: ui-monospace, monospace;
+	font-size: 20px;
+	letter-spacing: 0.15em;
+	text-align: center;
+	color: var(--color-text);
+}

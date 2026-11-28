@@ -29122,8 +29122,30 @@ components:
         lastfm_recurring_every:
           type: integer
           nullable: true
+        audiobookshelf_poll_interval:
+          type: integer
         accounts:
           $ref: '#/components/schemas/SettingsImportAccounts'
+        plex:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportPlex'
+          nullable: true
+        radarr:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportArr'
+        sonarr:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportArr'
+        storyteller_pending:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportStorytellerPending'
+          nullable: true
+        koreader:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportKoreader'
+          nullable: true
         activity:
           allOf:
           - $ref: '#/components/schemas/SettingsImportActivity'
@@ -29133,20 +29155,26 @@ components:
       required:
       - accounts
       - activity
+      - audiobookshelf_poll_interval
       - hardcover_key_saved
       - is_demo
+      - koreader
       - lastfm_poll_interval
       - lastfm_recurring_every
       - mdblist_connected
       - media_tags
+      - plex
+      - radarr
       - settings
+      - sonarr
+      - storyteller_pending
       - tiles
       - trakt
       - urls
     SettingsImportAccount:
       type: object
-      description: 'A connected account (`name`: Koito''s server, the gamertag or
-        the PSN online ID).'
+      description: 'A connected account (`name`: the server, the gamertag or the PSN
+        online ID).'
       properties:
         connected:
           type: boolean
@@ -29173,7 +29201,7 @@ components:
       - name
     SettingsImportAccounts:
       type: object
-      description: 'The K2 accounts (null: not connected).'
+      description: 'The account sources (null: not connected).'
       properties:
         lastfm:
           allOf:
@@ -29199,12 +29227,32 @@ components:
           allOf:
           - $ref: '#/components/schemas/SettingsImportAccount'
           nullable: true
+        stremio:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        audiobookshelf:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        storyteller:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
+        koreader:
+          allOf:
+          - $ref: '#/components/schemas/SettingsImportAccount'
+          nullable: true
       required:
+      - audiobookshelf
       - gpodder
       - koito
+      - koreader
       - lastfm
       - pocketcasts
       - psn
+      - storyteller
+      - stremio
       - xbox
     SettingsImportActivity:
       type: object
@@ -29234,6 +29282,31 @@ components:
       - runs
       - schedules
       - source_media
+    SettingsImportArr:
+      type: object
+      description: A Radarr or Sonarr instance.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        base_url:
+          type: string
+        connected:
+          type: boolean
+        error:
+          type: string
+        last_sync:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - base_url
+      - connected
+      - error
+      - id
+      - last_sync
+      - name
     SettingsImportChoice:
       type: object
       description: 'An option (`hint`: its tooltip).'
@@ -29281,6 +29354,84 @@ components:
       - label
       - status
       - total_pages
+    SettingsImportKoreader:
+      type: object
+      description: KOReader's saved settings (a blank password keeps the saved one).
+      properties:
+        server_url:
+          type: string
+        username:
+          type: string
+        verify_ssl:
+          type: boolean
+        create_missing:
+          type: boolean
+        skip_finished_books:
+          type: boolean
+        finished_threshold_percent:
+          type: integer
+        link_count:
+          type: integer
+      required:
+      - create_missing
+      - finished_threshold_percent
+      - link_count
+      - server_url
+      - skip_finished_books
+      - username
+      - verify_ssl
+    SettingsImportPlex:
+      type: object
+      description: The connected Plex account (cached libraries; the dialog asks for
+        live ones).
+      properties:
+        username:
+          type: string
+        usernames:
+          type: string
+        libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsImportPlexLibrary'
+        watchlist_sync_enabled:
+          type: boolean
+        watchlist_last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        watchlist_last_error:
+          type: string
+        watchlist_interval:
+          type: integer
+      required:
+      - libraries
+      - username
+      - usernames
+      - watchlist_interval
+      - watchlist_last_error
+      - watchlist_last_synced_at
+      - watchlist_sync_enabled
+    SettingsImportPlexLibrary:
+      type: object
+      description: 'A Plex library (`value`: machine::id; music libraries take a content
+        kind).'
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        is_music:
+          type: boolean
+        audiobook_hint:
+          type: boolean
+        content_kind:
+          type: string
+      required:
+      - audiobook_hint
+      - content_kind
+      - is_music
+      - label
+      - value
     SettingsImportResult:
       type: object
       description: An import task from the last 7 days.
@@ -29445,6 +29596,20 @@ components:
       - delete_url
       - media_type
       - source
+    SettingsImportStorytellerPending:
+      type: object
+      description: A Storyteller login waiting for approval; poll `urls.storyteller_poll`.
+      properties:
+        user_code:
+          type: string
+        verification_uri:
+          type: string
+        interval:
+          type: integer
+      required:
+      - interval
+      - user_code
+      - verification_uri
     SettingsImportTag:
       type: object
       description: A media-type filter.
@@ -29598,10 +29763,67 @@ components:
           type: string
         gpodder_sync:
           type: string
+        plex_connect:
+          type: string
+        plex_disconnect:
+          type: string
+        plex_import:
+          type: string
+        plex_disable_watchlist:
+          type: string
+        plex_status:
+          type: string
+        plex_sections:
+          type: string
+        radarr_connect:
+          type: string
+        radarr_disconnect:
+          type: string
+        radarr_sync:
+          type: string
+        sonarr_connect:
+          type: string
+        sonarr_disconnect:
+          type: string
+        sonarr_sync:
+          type: string
+        stremio_connect:
+          type: string
+        stremio_disconnect:
+          type: string
+        stremio_sync:
+          type: string
+        audiobookshelf_connect:
+          type: string
+        audiobookshelf_disconnect:
+          type: string
+        audiobookshelf_sync:
+          type: string
+        storyteller_connect:
+          type: string
+        storyteller_poll:
+          type: string
+        storyteller_cancel:
+          type: string
+        storyteller_disconnect:
+          type: string
+        storyteller_sync:
+          type: string
+        koreader_connect:
+          type: string
+        koreader_settings:
+          type: string
+        koreader_disconnect:
+          type: string
+        koreader_sync:
+          type: string
       required:
       - activity
       - anilist_oauth
       - anilist_public
+      - audiobookshelf_connect
+      - audiobookshelf_disconnect
+      - audiobookshelf_sync
       - clz
       - csv_docs
       - goodreads
@@ -29618,6 +29840,10 @@ components:
       - koito_disconnect
       - koito_history
       - koito_sync
+      - koreader_connect
+      - koreader_disconnect
+      - koreader_settings
+      - koreader_sync
       - lastfm_connect
       - lastfm_disconnect
       - lastfm_history
@@ -29625,16 +29851,36 @@ components:
       - mal
       - mdblist
       - onboarding
+      - plex_connect
+      - plex_disable_watchlist
+      - plex_disconnect
+      - plex_import
+      - plex_sections
+      - plex_status
       - pocketcasts_connect
       - pocketcasts_disconnect
       - pocketcasts_sync
       - psn_connect
       - psn_disconnect
       - psn_sync
+      - radarr_connect
+      - radarr_disconnect
+      - radarr_sync
       - restart_setup
       - simkl
+      - sonarr_connect
+      - sonarr_disconnect
+      - sonarr_sync
       - steam
       - storygraph
+      - storyteller_cancel
+      - storyteller_connect
+      - storyteller_disconnect
+      - storyteller_poll
+      - storyteller_sync
+      - stremio_connect
+      - stremio_disconnect
+      - stremio_sync
       - template
       - trakt_export
       - trakt_oauth

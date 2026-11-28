@@ -10,7 +10,11 @@
 	import { IMPORT_SOURCES, PERIODIC_UPLOAD_NOTE, sharedFields, standardImportsDisabled } from './sources.ts';
 	import AccountPanel from './AccountPanel.svelte';
 	import AniListPanel from './AniListPanel.svelte';
+	import ArrPanel from './ArrPanel.svelte';
+	import KoreaderPanel from './KoreaderPanel.svelte';
 	import OAuthForm from './OAuthForm.svelte';
+	import PlexPanel from './PlexPanel.svelte';
+	import StorytellerPanel from './StorytellerPanel.svelte';
 	import TraktPanel from './TraktPanel.svelte';
 	import { postUpload } from './upload.ts';
 
@@ -158,6 +162,14 @@
 			<AniListPanel {data} {frequency} {time} {mode} {busy} run={runRemote} />
 		{:else if source.kind === 'account' && source.account}
 			<AccountPanel account={source.account} {data} {frequency} {time} {mode} {busy} run={runRemote} />
+		{:else if source.kind === 'plex'}
+			<PlexPanel {data} {frequency} {time} {mode} {busy} run={runRemote} />
+		{:else if source.kind === 'arr' && (source.key === 'radarr' || source.key === 'sonarr')}
+			<ArrPanel sourceKey={source.key} {data} {busy} run={runRemote} />
+		{:else if source.kind === 'storyteller'}
+			<StorytellerPanel {data} {busy} run={runRemote} {onsaved} />
+		{:else if source.kind === 'koreader'}
+			<KoreaderPanel {data} {frequency} {time} {mode} {busy} run={runRemote} />
 		{:else}
 			{#key nonce}
 				<form onsubmit={submit}>

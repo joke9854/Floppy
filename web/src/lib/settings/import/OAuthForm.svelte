@@ -13,10 +13,11 @@
 		button,
 		disabled = false,
 		note = '',
+		extra = {},
 		frequency,
 		time,
 		mode
-	}: { action: string; button: string; disabled?: boolean; note?: string; frequency: string; time: string; mode: string } = $props();
+	}: { action: string; button: string; disabled?: boolean; note?: string; extra?: Record<string, string>; frequency: string; time: string; mode: string } = $props();
 
 	let form = $state<HTMLFormElement>();
 	let token = $state('');
@@ -43,6 +44,9 @@
 	<input type="hidden" name="time" value={time} />
 	<input type="hidden" name="mode" value={mode} />
 	<input type="hidden" name="next" value={`${BASE}/settings/import`} />
+	{#each Object.entries(extra) as [name, value] (name)}
+		<input type="hidden" {name} {value} />
+	{/each}
 	<input type="hidden" name="csrfmiddlewaretoken" value={token} />
 	<button type="submit" class="ct-settings-button is-primary" disabled={busy || disabled}>{button}</button>
 	{#if note}<p class="ct-settings-note">{note}</p>{/if}
